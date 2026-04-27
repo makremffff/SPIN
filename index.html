@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TON Spin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:         #FFD966;
+      --gold-dark:    #C8780A;
+      --gold-light:   #FFF0A0;
+      --gold-dim:     rgba(255,200,60,0.18);
+      --glass-blur:   12px;
+      --glass-border: rgba(255,255,255,0.10);
+      --green:        #50C878;
+      --green-dim:    rgba(80,200,120,0.13);
+      --card-jackpot-glow: rgba(255,215,60,0.55);
+      --card-super-glow:   rgba(255,140,60,0.38);
+      --card-rare-glow:    rgba(140,80,255,0.38);
+      --card-common-glow:  rgba(160,185,255,0.22);
+      --card-retry-glow:   rgba(100,200,255,0.22);
+      --card-radius:       18px;
+      --card-transition:   transform 0.24s cubic-bezier(0.34,1.56,0.64,1),
+                           box-shadow 0.24s ease, border-color 0.24s ease;
+    }
+
+    body {
+      margin: 0; height: 100vh; overflow: hidden;
+      font-family: 'DynaPuff', cursive;
+      background: url('file3.png') center;
+      display: flex; flex-direction: column; align-items: center;
+      user-select: none; position: relative;
+      background-size:100% 100% ;
+    }
+    body::before {
+      content: ""; position: fied; 
+   
+      z-index: 0;
+    }
+
+    .blob { position: fixed; border-radius: 50%; filter: blur(90px); z-index: 0; pointer-events: none; }
+    .blob-1 { width:300px;height:300px;background:rgba(70,110,255,0.20);top:-80px;left:-80px;animation:blobDrift 12s ease-in-out infinite alternate; }
+    .blob-2 { width:220px;height:220px;background:rgba(255,190,40,0.13);top:28%;right:-60px;animation:blobDrift 16s ease-in-out infinite alternate-reverse; }
+    .blob-3 { width:200px;height:200px;background:rgba(110,50,255,0.16);bottom:80px;left:8%;animation:blobDrift 14s ease-in-out infinite alternate; }
+    .blob-4 { width:160px;height:160px;background:rgba(255,80,180,0.07);bottom:30%;right:5%;animation:blobDrift 18s ease-in-out infinite; }
+    @keyframes blobDrift { from{transform:translate(0,0) scale(1)} to{transform:translate(20px,15px) scale(1.08)} }
+
+    .stars { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    .star  { position:absolute; border-radius:50%; background:#fff; animation:twinkle var(--d,3s) ease-in-out var(--del,0s) infinite; }
+    @keyframes twinkle { 0%,100%{opacity:var(--lo,0.2)} 50%{opacity:var(--hi,0.7)} }
+
+    .pg-item {
+      opacity: 0; transform: translateY(-90px);
+      transition: opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1);
+    }
+    .pg-item.visible { opacity: 1; transform: translateY(0); }
+
+    /* ══════════════════════════════════════
+       ONBOARDING OVERLAY
+    ══════════════════════════════════════ */
+    #onboarding {
+      position: fixed; inset: 0; z-index: 500;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 16px;
+      background: url('file3.png') center/cover no-repeat;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      overflow: hidden;
+    }
+    /* Verifying overlay per card */
+    .ob-verifying {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; border-radius: 22px;
+      background: rgba(6,9,30,0.80);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      pointer-events: none; opacity: 0; transition: opacity 0.2s;
+    }
+    .ob-verifying.show { opacity: 1; pointer-events: all; }
+    .ob-verifying img { width: 34px; height: 34px; object-fit: contain; }
+    .ob-verifying span { font-size: 10.5px; color: rgba(255,255,255,0.55); letter-spacing: 1px; }
+
+    #onboarding > .ob-bg-tint {
+      position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background: rgba(4,6,20,0.28);
+    }
+    #onboarding.hidden {
+      animation: obHide 0.55s cubic-bezier(0.4,0,0.2,1) forwards;
+      pointer-events: none;
+    }
+    @keyframes obHide {
+      0%   { opacity:1; transform:scale(1); filter:blur(0); }
+      100% { opacity:0; transform:scale(0.96); filter:blur(4px); }
+    }
+    #onboarding::after {
+      content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 440px; height: 220px;
+      background: radial-gradient(ellipse at 50% 0%,
+        rgba(255,200,60,0.10) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Glass panel ── */
+    .ob-inner {
+      width: 100%; max-width: 400px;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+      position: relative; z-index: 1;
+    top: -80px;
+    
+      border-radius: 28px;
+      padding: 32px 22px 28px;
+     
+      animation: panelIn 0.9s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .ob-inner::before {
+      content:""; position:absolute; top:0; left:12%; right:12%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(255,215,80,0.38), rgba(255,255,255,0.20), rgba(255,215,80,0.38), transparent);
+      border-radius:4px; pointer-events:none;
+    }
+    @keyframes panelIn {
+      from { opacity:0; transform:translateY(40px) scale(0.96); }
+      to   { opacity:1; transform:translateY(0)    scale(1); }
+    }
+
+    .ob-logo     { animation: obUp 0.70s cubic-bezier(0.22,1,0.36,1) 0.18s both; }
+    .ob-channels { animation: obUp 0.65s cubic-bezier(0.22,1,0.36,1) 0.32s both; }
+    .ob-start    { animation: obUp 0.65s cubic-bezier(0.22,1,0.36,1) 0.48s both; }
+    @keyframes obUp {
+      from { opacity:0; transform:translateY(28px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ── Logo ── */
+    .ob-logo { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; }
+    .ob-logo-ring {
+      width:84px; height:84px; border-radius:50%;
+      background: radial-gradient(circle at 38% 30%,
+        rgba(255,248,180,0.18) 0%, rgba(200,120,10,0.10) 55%, rgba(60,40,10,0.07) 100%);
+      border: 1.5px solid rgba(255,215,80,0.40);
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:
+        0 0 0  7px rgba(255,200,60,0.05),
+        0 0 32px rgba(255,200,60,0.22),
+        0 0 70px rgba(255,200,60,0.09),
+        inset 0 1px 0 rgba(255,255,255,0.22);
+      animation: logoGlow 3.5s ease-in-out infinite;
+      position: relative;
+    }
+    .ob-logo-ring::after {
+      content:""; position:absolute; inset:-6px; border-radius:50%;
+      border: 1px solid transparent;
+      border-top-color: rgba(255,215,80,0.50);
+      border-right-color: rgba(255,215,80,0.20);
+      animation: ringRotate 6s linear infinite;
+    }
+    @keyframes ringRotate { to { transform:rotate(360deg); } }
+    @keyframes logoGlow {
+      0%,100% { box-shadow: 0 0 0 7px rgba(255,200,60,0.05), 0 0 32px rgba(255,200,60,0.22), 0 0 70px rgba(255,200,60,0.09), inset 0 1px 0 rgba(255,255,255,0.22); }
+      50%      { box-shadow: 0 0 0 9px rgba(255,200,60,0.10), 0 0 52px rgba(255,200,60,0.38), 0 0 96px rgba(255,200,60,0.16), inset 0 1px 0 rgba(255,255,255,0.22); }
+    }
+    .ob-logo-ring img { width:48px; height:48px; object-fit:contain; border-radius:50%; }
+    .ob-logo-icon { width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:32px; }
+    .ob-title {
+      font-size:28px; font-weight:700; letter-spacing:4px;
+      background: linear-gradient(90deg, #FFF8C0 0%, #FFD966 38%, #E8A520 66%, #FFF0A0 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter: drop-shadow(0 0 18px rgba(255,200,60,0.55));
+      margin-top:2px;
+    }
+    .ob-subtitle {
+      font-size:11.5px; color:rgba(255,255,255,0.36);
+      letter-spacing:0.7px; text-align:center; line-height:1.85; margin-top:-6px;
+    }
+
+    /* ══════════════════════════════════════
+       CHANNEL CARDS — GLASSMORPHISM ONLY
+    ══════════════════════════════════════ */
+    .ob-channels { width:100%; display:flex; flex-direction:column; gap:14px; }
+
+    /* Each channel = pure glass card, full width */
+    .ob-channel {
+      width: 100%;
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 20px;
+      border-radius: 22px;
+      background: linear-gradient(90deg,navy,transparent);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow:
+        0 8px 32px rgba(0,0,0,0.28),
+        0 0 0 1px rgba(255,255,255,0.04) inset,
+        0 1px 0 rgba(255,255,255,0.10) inset;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      cursor: pointer;
+      transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), border-color 0.22s, box-shadow 0.22s;
+      position: relative; overflow: hidden;
+      text-decoration: none;
+    }
+    /* Top shimmer */
+    .ob-channel::before {
+      content:""; position:absolute; top:0; left:10%; right:10%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+      pointer-events:none;
+    }
+    .ob-channel:hover {
+      transform: translateY(-3px);
+      border-color: rgba(255,215,80,0.22);
+      box-shadow:
+        0 14px 44px rgba(0,0,0,0.34),
+        0 0 22px rgba(255,200,60,0.07),
+        0 0 0 1px rgba(255,255,255,0.06) inset,
+        0 1px 0 rgba(255,255,255,0.12) inset;
+    }
+    .ob-channel:active { transform: scale(0.982); }
+    .ob-channel.joined {
+      border-color: rgba(80,200,120,0.32);
+      background: linear-gradient(rgba(0,0,0,0.3));
+      box-shadow:
+        0 8px 32px rgba(0,0,0,0.24),
+        0 0 16px rgba(80,200,120,0.08),
+        0 0 0 1px rgba(80,200,120,0.08) inset,
+        0 1px 0 rgba(255,255,255,0.08) inset;
+        backdrop-filter: blur(3px);
+    }
+
+    /* Telegram SVG icon — same style both channels */
+    .ob-ch-icon {
+      width: 52px; height: 52px; border-radius: 16px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(145deg, rgba(30,60,140,0.55) 0%, rgba(10,28,90,0.45) 100%);
+      border: 1px solid rgba(80,140,255,0.22);
+      box-shadow: 0 4px 18px rgba(20,50,180,0.28), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .ob-ch-icon svg { width: 28px; height: 28px; }
+
+    /* Text info */
+    .ob-ch-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .ob-ch-name {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
+      color: rgba(255,255,255,0.95);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ob-ch-desc { font-size: 10.5px; color: rgba(255,255,255,0.32); letter-spacing: 0.3px; }
+
+    /* Join button */
+    .ob-ch-action {
+      flex-shrink: 0; padding: 9px 18px; border-radius: 13px;
+      font-size: 11.5px; font-family: 'DynaPuff', cursive; font-weight: 700;
+      letter-spacing: 0.5px; cursor: pointer; border: none;
+      transition: all 0.18s; white-space: nowrap;
+    }
+    .ob-ch-action.join-btn {
+      background: linear-gradient(135deg, #FFD966 0%, #E0A018 100%);
+      color: #1a0900;
+      box-shadow: 0 2px 14px rgba(255,200,60,0.42), inset 0 1px 0 rgba(255,255,255,0.32);
+    }
+    .ob-ch-action.join-btn:hover {
+      box-shadow: 0 4px 22px rgba(255,200,60,0.62), inset 0 1px 0 rgba(255,255,255,0.32);
+      transform: translateY(-1px);
+    }
+    .ob-ch-action.join-btn:active { transform: scale(0.94); }
+    .ob-ch-action.done-btn {
+      background: rgba(80,200,120,0.13);
+      color: rgba(90,225,140,0.95);
+      border: 1px solid rgba(80,200,120,0.35);
+      pointer-events: none;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .check-svg { animation: checkPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes checkPop {
+      from { transform:scale(0) rotate(-25deg); opacity:0; }
+      to   { transform:scale(1) rotate(0deg); opacity:1; }
+    }
+
+    /* Hint text */
+    .ob-hint {
+      font-size: 10px; color: rgba(255,255,255,0.22);
+      letter-spacing: 0.6px; text-align: center;
+      transition: opacity 0.4s;
+    }
+    .ob-hint.hidden { opacity: 0; pointer-events: none; }
+
+    /* Start button */
+    .ob-start {
+      width: 50%; padding: 15px 20px; border: none; border-radius: 26px;
+      font-family: 'DynaPuff', cursive; font-size: 15px; font-weight: 700;
+      letter-spacing: 2px; cursor: pointer;
+      background: rgba(129, 4, 1, 0.7);
+      background-size: 200% 100%;
+      color: #fff;
+      box-shadow: 0 0px 8px rgba(255,200,60,0.04);
+      transition: transform 0.15s, opacity 0.25s, box-shadow 0.2s;
+      position: relative; overflow: hidden;
+      animation: gradShift 3s ease infinite;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      translate: 0 70px;
+    }
+    .ob-start:disabled {
+      opacity: 0.24; cursor: not-allowed;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.20); animation: none;
+    }
+    .ob-start:not(:disabled):hover {
+      box-shadow: 0 0px 12px rgba(200,200,200,0.2);
+      transform: translateY(-1px);
+    }
+    .ob-start:not(:disabled):active { transform: scale(0.98); }
+    .ob-start::before {
+      content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.32), transparent);
+      transform: skewX(-20deg); animation: shine 2.5s ease-in-out infinite;
+    }
+    .ob-start:disabled::before { display: none; }
+
+    /* ══════════════════════════════════════
+       PAGES
+    ══════════════════════════════════════ */
+    .page {
+      position: absolute; inset: 0; display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 5; padding-bottom: 80px; padding-top: 20px; overflow: hidden;
+    }
+    .page.active { display: flex; }
+
+    .page-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px; color: rgba(255,255,255,0.28);
+    }
+    .page-empty svg { width:62px; height:62px; opacity:0.22; }
+    .page-empty span { font-size:13px; letter-spacing:2px; }
+
+    /* ══════════════════════════════════════
+       SPIN PAGE — CENTERED LAYOUT
+    ══════════════════════════════════════ */
+    #page-spin {
+      justify-content: center;
+      gap: 18px;
+    }
+
+    /* ── GALLERY ── */
+    .gal {
+      position: relative; z-index: 10;
+      width: calc(100% - 32px); max-width: 380px;
+      border-radius: 24px;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 15px; padding: 10px 0px;
+     
+  background: linear-gradient(rgba(0,0,0,0.2),rgba(0,0,0,0.2),transparent);
+    
+   
+      box-shadow: 0 8px 40px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.07);
+      perspective: 600px;
+      grid-template-rows: repeat(3,1fr);
+    }
+
+    /* ══════════════════════════════════════
+       PREMIUM CARD SYSTEM
+    ══════════════════════════════════════ */
+    .card {
+      border-radius: var(--card-radius);
+      padding: 14px 8px 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      position: relative; overflow: hidden; cursor: pointer;
+      transition: var(--card-transition);
+      transform-style: preserve-3d; will-change: transform;
+      background: linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+      backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow:
+        0 4px 16px rgba(0,0,0,0.35),
+        0 1px  0  rgba(255,255,255,0.10) inset,
+        0 -1px 0  rgba(0,0,0,0.25) inset;
+      
+    }
+    .card::before {
+      content:""; position:absolute; top:0; left:0; right:0; height:40%;
+      border-radius: var(--card-radius) var(--card-radius) 60% 60%;
+      background: linear-gradient(180deg,rgba(255,255,255,0.10) 0%,transparent 100%);
+      pointer-events:none; z-index:1;
+    }
+    .card::after {
+      content:""; position:absolute; inset:0; border-radius:var(--card-radius);
+      background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,0.13) 50%,transparent 70%);
+      background-size:200% 100%; background-position:-100% 0;
+      pointer-events:none; z-index:2; transition:background-position 0.55s ease;
+    }
+    .card:hover::after { background-position:200% 0; }
+    .card:hover { transform:translateY(-4px) scale(1.035); }
+    .card:active { transform:translateY(0) scale(0.96); transition:transform 0.1s ease; }
+
+    .card-icon {
+      width:44px; height:44px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; overflow:hidden; position:relative; z-index:3;
+      background:radial-gradient(circle at 38% 32%,#FFF8D0 0%,#E8A520 45%,#7B4F00 100%);
+      box-shadow:
+        0 0 14px rgba(255,200,60,0.45),
+        0  2px  6px rgba(0,0,0,0.40),
+        0  1px  0  rgba(255,255,255,0.30) inset;
+      transition:box-shadow 0.24s ease,transform 0.24s ease;
+    }
+    .card:hover .card-icon { transform:scale(1.08); }
+    .card-icon img { width:26px; height:26px; object-fit:contain; }
+    .card-icon svg { width:24px; height:24px; }
+    .card-label {
+      font-size:12px; font-weight:700; letter-spacing:0.8px; line-height:1;
+      position:relative; z-index:3;
+      background:linear-gradient(90deg,#FFF8C0 0%,#FFD966 50%,#E8A520 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 6px rgba(255,200,60,0.40));
+    }
+    .card-sub {
+      font-size:9px; letter-spacing:1.2px; text-transform:uppercase;
+      color:rgba(255,255,255,0.35); position:relative; z-index:3; transition:color 0.2s;
+    }
+    .card:hover .card-sub { color:rgba(255,255,255,0.55); }
+
+    /* Rarity: COMMON (0.1 TON, weight 98) */
+    .card[data-rarity="common"] {
+      border-color: rgba(160,185,255,0.22);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 18px var(--card-common-glow), 0 1px 0 rgba(255,255,255,0.10) inset;
+    }
+    .card[data-rarity="common"]:hover {
+      border-color: rgba(160,185,255,0.42);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.40), 0 0 28px var(--card-common-glow), 0 1px 0 rgba(255,255,255,0.12) inset;
+    }
+    .card[data-rarity="common"] .card-sub { color:rgba(160,190,255,0.50); }
+
+    /* Rarity: RARE (0.5 TON) */
+    .card[data-rarity="rare"] {
+      background:linear-gradient(160deg,rgba(140,80,255,0.10) 0%,rgba(80,40,200,0.06) 100%);
+      border-color:rgba(160,100,255,0.38);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 22px var(--card-rare-glow), 0 0 8px rgba(160,100,255,0.20), 0 1px 0 rgba(255,255,255,0.10) inset;
+    }
+    .card[data-rarity="rare"]::before { background:linear-gradient(160deg,rgba(180,130,255,0.15) 0%,transparent 60%); }
+    .card[data-rarity="rare"]:hover {
+      border-color:rgba(180,120,255,0.62);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.40), 0 0 34px var(--card-rare-glow), 0 0 14px rgba(160,100,255,0.30), 0 1px 0 rgba(255,255,255,0.12) inset;
+    }
+    .card[data-rarity="rare"] .card-icon {
+      background:radial-gradient(circle at 38% 32%,#F0E0FF 0%,#9060E0 45%,#3A1070 100%);
+      box-shadow: 0 0 14px rgba(160,100,255,0.55), 0 2px 6px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.30) inset;
+    }
+    .card[data-rarity="rare"] .card-label {
+      background:linear-gradient(90deg,#E8D0FF 0%,#B880FF 50%,#9060E0 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 6px rgba(160,100,255,0.50));
+    }
+    .card[data-rarity="rare"] .card-sub { color:rgba(180,140,255,0.55); }
+
+    /* Rarity: SUPER (1 TON) */
+    .card[data-rarity="super"] {
+      background:linear-gradient(160deg,rgba(255,150,60,0.10) 0%,rgba(200,100,20,0.06) 100%);
+      border-color:rgba(255,160,70,0.38);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 22px var(--card-super-glow), 0 1px 0 rgba(255,255,255,0.10) inset;
+    }
+    .card[data-rarity="super"]:hover {
+      border-color:rgba(255,180,90,0.62);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.40), 0 0 34px var(--card-super-glow), 0 0 14px rgba(255,140,50,0.30), 0 1px 0 rgba(255,255,255,0.12) inset;
+    }
+    .card[data-rarity="super"] .card-icon {
+      background:radial-gradient(circle at 38% 32%,#FFF0D0 0%,#FF9030 45%,#7B3000 100%);
+      box-shadow: 0 0 16px rgba(255,140,50,0.55), 0 2px 6px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.30) inset;
+    }
+    .card[data-rarity="super"] .card-label {
+      background:linear-gradient(90deg,#FFECC0 0%,#FFA040 50%,#E07010 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 6px rgba(255,140,50,0.50));
+    }
+    .card[data-rarity="super"] .card-sub { color:rgba(255,190,100,0.55); }
+
+    /* Rarity: JACKPOT (3 TON) */
+    .card[data-rarity="jackpot"] {
+      background:linear-gradient(160deg,rgba(255,220,60,0.12) 0%,rgba(200,140,10,0.08) 100%);
+      border-color:rgba(255,215,60,0.55);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 28px var(--card-jackpot-glow), 0 0 10px rgba(255,215,60,0.30), 0 1px 0 rgba(255,255,255,0.18) inset;
+    }
+    .card[data-rarity="jackpot"]:hover {
+      border-color:rgba(255,230,90,0.80);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.42), 0 0 44px var(--card-jackpot-glow), 0 0 18px rgba(255,215,60,0.42), 0 1px 0 rgba(255,255,255,0.22) inset;
+    }
+    .card[data-rarity="jackpot"]::after {
+      background:linear-gradient(115deg,transparent 25%,rgba(255,255,255,0.22) 45%,rgba(255,240,160,0.18) 50%,rgba(255,255,255,0.22) 55%,transparent 75%);
+      background-size:200% 100%;
+      animation:jackpotShine 2.8s ease-in-out infinite;
+    }
+    @keyframes jackpotShine { 0%{background-position:-100% 0} 55%{background-position:220% 0} 100%{background-position:220% 0} }
+    .card[data-rarity="jackpot"] .card-icon {
+      background:radial-gradient(circle at 38% 30%,#FFFBE0 0%,#FFD030 40%,#C07800 100%);
+      box-shadow: 0 0 20px rgba(255,215,60,0.70), 0 0 8px rgba(255,255,160,0.50), 0 2px 6px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.40) inset;
+      animation:iconPulse 2.4s ease-in-out infinite;
+    }
+    @keyframes iconPulse {
+      0%,100%{ box-shadow:0 0 20px rgba(255,215,60,0.70),0 0 8px rgba(255,255,160,0.50),0 2px 6px rgba(0,0,0,0.45),0 1px 0 rgba(255,255,255,0.40) inset; }
+      50%    { box-shadow:0 0 32px rgba(255,215,60,0.95),0 0 14px rgba(255,255,160,0.70),0 2px 6px rgba(0,0,0,0.45),0 1px 0 rgba(255,255,255,0.40) inset; }
+    }
+    .card[data-rarity="jackpot"] .card-label {
+      background:linear-gradient(90deg,#FFFBE0 0%,#FFD966 40%,#E8A520 70%,#FFF0A0 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 8px rgba(255,220,60,0.65)); font-size:13px;
+    }
+    .card[data-rarity="jackpot"] .card-sub { color:rgba(255,220,80,0.65); font-size:9px; letter-spacing:1.8px; }
+    .card[data-rarity="jackpot"]::before { background:linear-gradient(160deg,rgba(255,240,120,0.18) 0%,transparent 55%); }
+
+    /* RETRY */
+    .card[data-type="retry"] {
+      background:linear-gradient(160deg,rgba(80,200,255,0.07) 0%,rgba(40,120,200,0.04) 100%);
+      border-color:rgba(80,190,255,0.22);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 18px var(--card-retry-glow), 0 1px 0 rgba(255,255,255,0.08) inset;
+    }
+    .card[data-type="retry"]:hover {
+      border-color:rgba(100,210,255,0.42);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.40), 0 0 28px var(--card-retry-glow), 0 1px 0 rgba(255,255,255,0.10) inset;
+    }
+    .card[data-type="retry"] .card-icon {
+      background:radial-gradient(circle at 38% 32%,#E0F8FF 0%,#40AADD 45%,#0A3060 100%);
+      box-shadow: 0 0 12px rgba(60,180,255,0.45), 0 2px 6px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.30) inset;
+    }
+    .card[data-type="retry"]:hover .card-icon svg { animation:retrySpin 0.65s cubic-bezier(0.4,0,0.2,1); }
+    @keyframes retrySpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    .card[data-type="retry"] .card-label {
+      background:linear-gradient(90deg,#D0F4FF 0%,#60CCFF 50%,#2080CC 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 5px rgba(60,180,255,0.40));
+    }
+    .card[data-type="retry"] .card-sub { color:rgba(100,210,255,0.45); }
+
+    /* SPINNING */
+    .card.spinning {
+      animation:cardFlip 0.48s cubic-bezier(0.4,0,0.2,1) infinite;
+      filter:brightness(0.75) blur(0.4px); pointer-events:none;
+    }
+    @keyframes cardFlip {
+      0%  { transform:rotateY(0deg); }
+      45% { transform:rotateY(90deg) scaleX(0.9); }
+      55% { transform:rotateY(-90deg) scaleX(0.9); }
+      100%{ transform:rotateX(0deg); }
+    }
+
+    /* WINNER */
+    .card.winner {
+      animation:winCardPop 0.65s cubic-bezier(0.34,1.56,0.64,1) forwards !important;
+      border-color:#FFD966 !important;
+      box-shadow: 0 0 0 2px #FFD966, 0 0 36px rgba(255,215,60,0.72), 0 0 70px rgba(255,200,60,0.30) !important;
+    }
+    @keyframes winCardPop { 0%{transform:scale(0.88)} 55%{transform:scale(1.07)} 100%{transform:scale(1)} }
+
+    /* ── SPIN BUTTON ── */
+    .spin-wrap { position:relative; z-index:10; width:calc(100% - 80px); max-width: 220px; overflow: visible; }
+    .spin {
+      width:100%; padding:11px; border:none; border-radius:14px;
+      cursor:pointer; font-family:'DynaPuff',cursive;
+      font-size:16px; font-weight:700; letter-spacing:3px; color: #222;
+      background:linear-gradient(135deg,#FFD966,#E8A520,#FFD966);
+      background-size:200% 200%;
+     
+      position:relative; overflow:hidden;
+      animation:gradShift 3s ease infinite;
+      transition:transform 0.15s,box-shadow 0.15s;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      translate: 0 -80px;
+    }
+    .spin svg { width:17px; height:17px; flex-shrink:0; }
+    @keyframes gradShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    .spin::before {
+      content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,0.32),transparent);
+      transform:skewX(-20deg); animation:shine 2.5s ease-in-out infinite;
+    }
+    @keyframes shine { 0%{left:-60%} 60%{left:120%} 100%{left:120%} }
+    .spin:active { transform:scale(0.97); }
+    .spin.spinning-btn { pointer-events:none; opacity:0.7; }
+
+    /* ── SPIN AVAILABLE BADGE (above button) ── */
+    .spin-avail-badge {
+      position: absolute;
+      top: -77px; left: 13%; transform: translateX(-50%) translateY(6px) scale(0.92);
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9;
+      background: rgba(20, 20, 40, 0.20);
+      
+      
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 1px rgba(255,200,60,0.12),
+        0 4px 8px rgba(255,200,60,0.02),
+        0 0 2px rgba(255,160,0,0.10);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1);
+    }
+    .spin-avail-badge #spinAvailNum {
+      font-size: 14px; font-weight: 700; line-height: 1;
+      color: navy;
+      font-family: 'DynaPuff', cursive;
+    }
+    .spin-avail-badge.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+    @keyframes badgePulse {
+      0%,100% { box-shadow: 0 0 0 1px rgba(255,200,60,0.12), 0 4px 18px rgba(255,200,60,0.22), 0 0 32px rgba(255,160,0,0.10); }
+      50%      { box-shadow: 0 0 0 2px rgba(255,200,60,0.22), 0 4px 28px rgba(255,200,60,0.40), 0 0 48px rgba(255,160,0,0.20); }
+    }
+    .spin-avail-badge.visible { animation: badgePulse 2.8s ease-in-out infinite; }
+
+    /* ── INVITE SPIN REWARD NOTE ── */
+    .inv-spin-note {
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255,200,60,0.08) 0%, rgba(255,150,30,0.05) 100%);
+      border: 1px solid rgba(255,200,60,0.22);
+      box-shadow: 0 4px 20px rgba(255,200,60,0.07), inset 0 1px 0 rgba(255,255,255,0.06);
+      padding: 14px 16px 12px;
+      display: flex; flex-direction: column; gap: 10px;
+      animation: invFadeUp 0.42s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .inv-spin-note-inner {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .inv-spin-note-text {
+      flex: 1; display: flex; flex-direction: column; gap: 3px;
+    }
+    .inv-spin-note-title {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+      color: rgba(255,215,80,0.95);
+    }
+    .inv-spin-note-desc {
+      font-size: 10.5px; color: rgba(255,255,255,0.50); letter-spacing: 0.3px; line-height: 1.5;
+    }
+    .inv-spin-note-desc strong { color: rgba(255,200,60,0.85); }
+
+    .inv-spin-progress-wrap {
+      width: 100%; height: 5px; border-radius: 3px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .inv-spin-progress-bar {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, #FFD966, #E8A520);
+      transition: width 0.5s cubic-bezier(0.22,1,0.36,1);
+      box-shadow: 0 0 8px rgba(255,200,60,0.50);
+    }
+    .inv-spin-progress-label {
+      font-size: 9.5px; color: rgba(255,255,255,0.28); letter-spacing: 0.5px; text-align: center;
+    }
+
+    /* ── BOTTOM NAV ── */
+    .nav {
+      position:fixed; bottom:0; left:0; width:100%; z-index:20;
+      display:flex; justify-content:space-around; align-items:center;
+      padding:10px 20px 16px;
+      background:rgba(8,11,36,0.62);
+      backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+      border-top:1px solid rgba(255,255,255,0.09);
+      box-shadow:0 -8px 32px rgba(0,0,0,0.32);
+    }
+    .nav-item {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      cursor:pointer; padding:6px 18px; border-radius:14px;
+      transition:background 0.2s; position:relative;
+    }
+    .nav-item:hover { background:rgba(255,255,255,0.05); }
+    .nav-item.active { background:rgba(255,215,80,0.10); }
+    .nav-item.active::after {
+      content:""; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%);
+      width:4px; height:4px; border-radius:50%;
+      background:var(--gold); box-shadow:0 0 6px var(--gold);
+    }
+    .nav-icon { width:26px; height:26px; display:flex; align-items:center; justify-content:center; }
+    .nav-icon svg { width:24px; height:24px; }
+    .nav-label { font-size:10px; font-weight:700; letter-spacing:1px; color:rgba(255,255,255,0.42); text-transform:uppercase; }
+    .nav-item.active .nav-label { color:var(--gold); }
+    .nav-item.active .nav-icon svg path,
+    .nav-item.active .nav-icon svg rect,
+    .nav-item.active .nav-icon svg circle { stroke:var(--gold) !important; }
+
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:84px; left:50%;
+      transform:translateX(-50%) translateY(16px);
+      z-index:300; opacity:0; pointer-events:none;
+      transition:opacity 0.22s, transform 0.22s;
+      min-width:210px; max-width:290px;
+    }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+    .toast-inner {
+      display:flex; align-items:center; gap:10px;
+      justify-content: space-evenly;
+      padding:11px 16px; border-radius:14px;
+      background:rgba(12,16,50,0.82);
+      backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+      border:1px solid rgba(255,255,255,0.11);
+      box-shadow:0 4px 22px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .toast-icon-wrap {
+      width:34px; height:34px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(255,215,80,0.14); border:1px solid rgba(255,215,80,0.22);
+    }
+    .toast-icon-wrap img { width:20px; height:20px; object-fit:contain; }
+    .toast-icon-wrap svg { width:18px; height:18px; }
+    .toast-text { display:flex; flex-direction:column; gap:1px; min-width:0; }
+    .toast-title {
+      font-size:13px; font-weight:700; letter-spacing:0.5px; white-space:nowrap;
+      background:linear-gradient(90deg,var(--gold-light),var(--gold));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .toast-title.muted { background:none; -webkit-text-fill-color:rgba(255,255,255,0.55); }
+    .toast-desc { font-size:10px; color:rgba(255,255,255,0.33); letter-spacing:0.4px; }
+    .toast.joined-toast .toast-icon-wrap {
+      background:rgba(80,200,120,0.14); border-color:rgba(80,200,120,0.28);
+    }
+    .toast.joined-toast .toast-title {
+      background:linear-gradient(90deg,#b0ffd6,#50C878);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+
+    /* ══════════════════════════════════════
+       WALLET PAGE — WITHDRAW UI
+    ══════════════════════════════════════ */
+    #page-wallet {
+      justify-content: flex-start;
+      align-items: stretch;
+      overflow: hidden !important;
+      padding: 0 !important;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 66px;
+      height: auto;
+    }
+
+    .wlt-scroll {
+      width: 100%;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      /* top padding + extra bottom so content clears nav */
+      padding: 16px 14px 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+      /* allow content to be taller than viewport */
+      min-height: 0;
+    }
+    .wlt-scroll::-webkit-scrollbar { display: none; }
+
+    /* Entrance animation */
+    @keyframes wltFadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .wlt-anim {
+      opacity: 0;
+    }
+    #page-wallet.active .wlt-anim {
+      animation: wltFadeUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards;
+      animation-delay: var(--wlt-delay, 0ms);
+    }
+
+    /* ── Header ── */
+    .wlt-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 2px 2px 0;
+    }
+    .wlt-header-icon {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(145deg, rgba(255,200,60,0.12) 0%, rgba(200,120,10,0.08) 100%);
+      border: 1px solid rgba(255,200,60,0.22);
+      box-shadow: 0 4px 16px rgba(255,200,60,0.10), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .wlt-header-icon svg { width: 20px; height: 20px; }
+    .wlt-title {
+      font-size: 18px; font-weight: 700; letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #FFF8C0 0%, #FFD966 45%, #E8A520 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .wlt-subtitle {
+      font-size: 9.5px; color: rgba(255,255,255,0.32); letter-spacing: 0.5px; margin-top: 1px;
+    }
+
+    /* ── Balance Card ── */
+    .wlt-balance-card {
+      border-radius: 50%;
+     
+ 
+
+      position: relative; 
+      display: grid;
+      justify-content: center;
+      width: 43%;
+      height: 51%;
+   
+      padding: 25px 0;
+      left: 30%;
+    }
+    .wlt-balance-card::before {
+      content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,215,80,0.35), transparent);
+    }
+    .wlt-balance-label {
+      font-size: 9.5px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: rgba(255,200,60,0.55); margin-bottom: 8px;
+      text-align: center;
+    }
+    .wlt-balance-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .wlt-balance-icon { flex-shrink: 0; }
+    .wlt-balance-amount {
+      font-size: 20px; font-weight: 700; letter-spacing: 1px;
+      color: rgba(0,0,200,0.7);
+      filter: drop-shadow(0 0 12px rgba(255,200,60,0.40));
+      text-align: center;
+      
+    }
+    .wlt-balance-usd {
+      font-size: 10px; color: rgba(255,255,255,0.50); letter-spacing: 0.5px;
+      margin-top: 4px;
+      text-align: center;
+      
+    }
+
+    /* ── Form Card ── */
+    .wlt-card {
+      border-radius: 28px;
+      padding: 20px 15px;
+      box-shadow: 0 0 7px rgba(300,300,300,0.35);
+      display: flex; flex-direction: column; gap: 25px;
+      position: relative; 
+    }
+    .wlt-card::before {
+      content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+    }
+
+    /* Fields */
+    .wlt-field-group { display: flex; flex-direction: column; gap: 6px; }
+    .wlt-label {
+      font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase;
+      color: rgba(255,255,255,0.90); display: flex; align-items: center; gap: 6px;
+    }
+    .wlt-label-note {
+      font-size: 9px; letter-spacing: 0.4px; text-transform: none;
+      color: rgba(255,200,260,0.75); font-weight: 400;
+    }
+
+    .wlt-input-wrap {
+      position: relative; display: flex; align-items: center;
+    }
+    .wlt-input-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+      pointer-events: none; z-index: 1;
+    }
+    .wlt-input-icon svg { width: 18px; height: 18px; }
+
+    .wlt-input {
+      width: 100%; padding: 11px 42px 11px 38px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      color: rgba(255,255,255,0.90);
+      text-shadow: 0 0 7px #008;
+      font-family: 'DynaPuff', cursive; font-size: 12.5px; letter-spacing: 0.3px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      -webkit-appearance: none; appearance: none;
+    }
+    .wlt-input::placeholder { color: rgba(255,255,255,0.22); }
+    .wlt-input:focus {
+      border-color: rgba(255,200,60,0.35);
+      background: rgba(255,200,60,0.05);
+      box-shadow: 0 0 0 3px rgba(255,200,60,0.08), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .wlt-input.error {
+      border-color: rgba(255,80,80,0.45);
+      box-shadow: 0 0 0 3px rgba(255,60,60,0.07);
+    }
+    /* Hide number arrows */
+    .wlt-input[type=number]::-webkit-inner-spin-button,
+    .wlt-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    .wlt-paste-btn, .wlt-max-btn {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: rgba(255,200,60,0.10); border: 1px solid rgba(255,200,60,0.20);
+      border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.18s, border-color 0.18s, transform 0.15s;
+      
+    }
+    .wlt-paste-btn {
+      width: 40px; height: 28px; padding: 0;
+    }
+    .wlt-paste-btn svg { width: 10px; height: 10px; }
+    .wlt-paste-btn:hover { background: rgba(255,200,60,0.18); border-color: rgba(255,200,60,0.38); }
+    .wlt-paste-btn:active { transform: translateY(-50%) scale(0.92); }
+
+    .wlt-max-btn {
+      padding: 8px 10px;
+      font-family: 'DynaPuff', cursive; font-size: 9.5px; font-weight: 700;
+      letter-spacing: 1px; color: rgba(255,200,60,0.80);
+    }
+    .wlt-max-btn:hover { background: rgba(255,200,60,0.18); border-color: rgba(255,200,60,0.38); color: rgba(255,200,60,1); }
+    .wlt-max-btn:active { transform: translateY(-50%) scale(0.92); }
+
+    .wlt-field-error {
+      font-size: 10px; color: rgba(255,100,100,0.85); letter-spacing: 0.4px;
+      min-height: 14px;
+      transition: opacity 0.2s;
+    }
+
+    /* Min note */
+  
+    .wlt-min-note svg { width: 13px; height: 13px; flex-shrink: 0; position: absolute;
+      left: 50%;
+    }
+    .wlt-min-note strong { color: rgba(255,200,60,0.60); }
+
+    /* Submit button */
+    .wlt-btn {
+      width: 100%; padding: 13px 20px; border: none; border-radius: 13px;
+      font-family: 'DynaPuff', cursive; font-size: 13.5px; font-weight: 700;
+      letter-spacing: 1.5px; cursor: pointer; color: #1a0a00;
+      background: linear-gradient(135deg, #FFD966 0%, #E8A520 50%, #FFD966 100%);
+      background-size: 200% 200%;
+      box-shadow: 0 4px 24px rgba(255,200,60,0.40), inset 0 1px 0 rgba(255,255,255,0.32);
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      position: relative; overflow: hidden;
+      animation: gradShift 3s ease infinite;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.22s;
+    }
+    .wlt-btn svg { width: 16px; height: 16px; stroke: #1a0a00; flex-shrink: 0; }
+    .wlt-btn::before {
+      content: ""; position: absolute; top: 0; left: -60%; width: 38%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+      transform: skewX(-20deg); animation: shine 2.5s ease-in-out infinite;
+    }
+    .wlt-btn:disabled {
+      opacity: 0.28; cursor: not-allowed; animation: none;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+    }
+    .wlt-btn:disabled::before { display: none; }
+    .wlt-btn:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 32px rgba(255,200,60,0.55), inset 0 1px 0 rgba(255,255,255,0.32);
+    }
+    .wlt-btn:not(:disabled):active { transform: scale(0.98); }
+    .wlt-btn.loading { pointer-events: none; }
+
+    /* ── History Section ── */
+    .wlt-hist-section { display: flex; flex-direction: column; gap: 8px; }
+    .wlt-hist-header {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: rgba(255,255,255,0.38);
+    }
+    .wlt-hist-header svg { width: 15px; height: 15px; }
+
+    .wlt-hist-list { display: flex; flex-direction: column; gap: 7px; }
+
+    .wlt-hist-item {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 13px; border-radius: 13px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.07);
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
+      animation: wltFadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .wlt-hist-item:hover {
+      border-color: rgba(255,255,255,0.11);
+      background: rgba(255,255,255,0.05);
+      transform: translateY(-1px);
+    }
+
+    .wlt-hist-icon {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(145deg, rgba(255,200,60,0.12) 0%, rgba(200,120,10,0.08) 100%);
+      border: 1px solid rgba(255,200,60,0.18);
+    }
+    .wlt-hist-icon svg { width: 17px; height: 17px; }
+
+    .wlt-hist-info { flex: 1; min-width: 0; }
+    .wlt-hist-amount {
+      font-size: 13.5px; font-weight: 700; letter-spacing: 0.4px;
+      background: linear-gradient(90deg, #FFF8C0, #FFD966);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .wlt-hist-addr {
+      font-size: 9.5px; color: rgba(255,255,255,0.26); letter-spacing: 0.3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 160px; margin-top: 2px;
+    }
+    .wlt-hist-meta {
+      display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;
+    }
+    .wlt-hist-date {
+      font-size: 9px; color: rgba(255,255,255,0.24); letter-spacing: 0.3px; white-space: nowrap;
+    }
+    .wlt-hist-status {
+      font-size: 9px; letter-spacing: 0.8px; font-weight: 700; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 6px;
+    }
+    .wlt-hist-status.pending {
+      background: rgba(255,160,30,0.12); border: 1px solid rgba(255,160,30,0.28);
+      color: rgba(255,180,60,0.85);
+    }
+    .wlt-hist-status.success {
+      background: rgba(80,200,120,0.12); border: 1px solid rgba(80,200,120,0.28);
+      color: rgba(80,210,130,0.90);
+    }
+
+    .wlt-hist-empty {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 20px 16px;
+      border-radius: 13px;
+      border: 1px dashed rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.22); font-size: 10.5px; letter-spacing: 0.8px;
+      text-align: center;
+    }
+    .wlt-hist-empty svg { width: 34px; height: 34px; }
+    .wlt-hist-empty.hidden { display: none; }
+
+    /* Toast: withdraw success */
+    .toast.wlt-success .toast-icon-wrap {
+      background: rgba(255,200,60,0.14); border-color: rgba(255,200,60,0.28);
+    }
+    .toast.wlt-success .toast-title {
+      background: linear-gradient(90deg, #FFF8C0, #FFD966);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    /* ══════════════════════════════════════
+       INVITE / REFERRAL PAGE
+    ══════════════════════════════════════ */
+    #page-invite {
+      justify-content: flex-start;
+      align-items: stretch;
+      overflow: hidden !important;
+      padding: 0 !important;
+      top: 0; left: 0; right: 0; bottom: 66px;
+      height: auto;
+    }
+
+    .inv-scroll {
+      width: 100%; flex: 1;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 18px 14px 100px;
+      display: flex; flex-direction: column; gap: 12px;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth; min-height: 0;
+    }
+    .inv-scroll::-webkit-scrollbar { display: none; }
+
+    @keyframes invFadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .inv-anim { opacity: 0; }
+    #page-invite.active .inv-anim {
+      animation: invFadeUp 0.50s cubic-bezier(0.22,1,0.36,1) forwards;
+      animation-delay: var(--inv-delay, 0ms);
+    }
+
+    /* ── Referral link card ── */
+    .inv-link-card {
+      border-radius: 22px;
+      padding: 18px 16px 16px;
+      box-shadow:
+        0 2px 18px rgba(0,0,0,0.28),
+        0 0 0 1px rgba(255,200,60,0.10) inset,
+        0 1px 0 rgba(255,255,255,0.07) inset;
+      display: flex; flex-direction: column; gap: 11px;
+      position: relative;
+    }
+    .inv-link-card::before {
+      content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,215,80,0.28), transparent);
+    }
+
+    .inv-link-label {
+      font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+      color: rgba(255,200,60,0.55);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .inv-link-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .inv-link-text {
+      flex: 1; min-width: 0;
+      font-size: 10.5px; color: rgba(255,255,255,0.50); letter-spacing: 0.3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      padding: 9px 12px; border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .inv-copy-btn {
+      flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+      padding: 9px 13px; border-radius: 10px; border: none; cursor: pointer;
+      font-family: 'DynaPuff', cursive; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.5px; color: rgba(255,200,60,0.90);
+      background: rgba(255,200,60,0.10);
+      box-shadow: 0 0 0 1px rgba(255,200,60,0.22);
+      transition: background 0.18s, box-shadow 0.18s, transform 0.15s;
+    }
+    .inv-copy-btn:hover { background: rgba(255,200,60,0.17); box-shadow: 0 0 0 1px rgba(255,200,60,0.38); }
+    .inv-copy-btn:active { transform: scale(0.94); }
+    .inv-copy-btn.copied { color: rgba(80,210,130,0.95); background: rgba(80,200,120,0.10); box-shadow: 0 0 0 1px rgba(80,200,120,0.28); }
+
+    .inv-share-btn {
+      width: 100%; padding: 12px 20px; border: none; border-radius: 13px;
+      font-family: 'DynaPuff', cursive; font-size: 13px; font-weight: 700;
+      letter-spacing: 1.5px; cursor: pointer; color: #1a0900;
+      background: linear-gradient(135deg, #FFD966 0%, #E8A520 50%, #FFD966 100%);
+      background-size: 200% 200%;
+      box-shadow: 0 4px 22px rgba(255,200,60,0.38), inset 0 1px 0 rgba(255,255,255,0.30);
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      position: relative; overflow: hidden;
+      animation: gradShift 3s ease infinite;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .inv-share-btn::before {
+      content: ""; position: absolute; top: 0; left: -60%; width: 38%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+      transform: skewX(-20deg); animation: shine 2.5s ease-in-out infinite;
+    }
+    .inv-share-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 30px rgba(255,200,60,0.52), inset 0 1px 0 rgba(255,255,255,0.30); }
+    .inv-share-btn:active { transform: scale(0.98); }
+
+    /* ── Stats row ── */
+    .inv-stats-row {
+      display: flex; align-items: stretch;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.24), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    }
+    .inv-stat-box {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; padding: 16px 10px;
+    }
+    .inv-stat-divider {
+      width: 1px; background: rgba(255,255,255,0.07); flex-shrink: 0;
+    }
+    .inv-stat-num {
+      font-size: 22px; font-weight: 700; letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.90);
+      filter: drop-shadow(0 0 8px rgba(255,255,255,0.15));
+    }
+    .inv-stat-num.inv-stat-gold {
+      background: linear-gradient(90deg, #FFF8C0, #FFD966, #E8A520);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(255,200,60,0.35));
+    }
+    .inv-stat-label {
+      font-size: 9.5px; letter-spacing: 0.8px; color: rgba(255,255,255,0.32);
+    }
+
+    /* ── Referral list ── */
+    .inv-list-section { display: flex; flex-direction: column; gap: 8px; }
+    .inv-list-header {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+    }
+    .inv-list { display: flex; flex-direction: column; gap: 8px; }
+
+    /* Referral card — NO background, NO backdrop, box-shadow only */
+    .inv-ref-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; border-radius: 16px;
+      box-shadow:
+        0 0 0 1.5px rgba(255,255,255,0.09),
+        0 4px 18px rgba(0,0,0,0.22),
+        0 1px 0 rgba(255,255,255,0.06) inset;
+      transition: box-shadow 0.22s, transform 0.22s;
+      animation: invFadeUp 0.42s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .inv-ref-card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 0 0 1.5px rgba(255,200,60,0.20),
+        0 8px 26px rgba(0,0,0,0.28),
+        0 1px 0 rgba(255,255,255,0.08) inset;
+    }
+
+    /* Avatar */
+    .inv-ref-avatar {
+      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+      overflow: hidden; position: relative;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.12), 0 2px 8px rgba(0,0,0,0.30);
+    }
+    .inv-ref-avatar img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .inv-ref-avatar .inv-ref-initials {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700; letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.90);
+    }
+
+    /* Info */
+    .inv-ref-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .inv-ref-name {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+      color: rgba(255,255,255,0.92);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .inv-ref-date {
+      font-size: 9.5px; color: rgba(255,255,255,0.28); letter-spacing: 0.3px;
+    }
+
+    /* Status badge */
+    .inv-ref-status {
+      flex-shrink: 0;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 8px;
+    }
+    .inv-ref-status.verified {
+      box-shadow: 0 0 0 1.5px rgba(80,200,120,0.40), 0 2px 8px rgba(80,200,120,0.12);
+      color: rgba(80,218,130,0.95);
+    }
+    .inv-ref-status.pending {
+      box-shadow: 0 0 0 1.5px rgba(255,160,30,0.38), 0 2px 8px rgba(255,160,30,0.10);
+      color: rgba(255,180,60,0.90);
+    }
+
+    /* Empty state */
+    .inv-list-empty {
+      display: flex; flex-direction: column; align-items: center; gap: 9px;
+      padding: 28px 16px; border-radius: 16px;
+      border: 1px dashed rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.22); font-size: 11px; letter-spacing: 0.8px;
+      text-align: center;
+    }
+    .inv-list-empty svg { width: 38px; height: 38px; }
+    .inv-list-empty.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+  <div class="stars" id="stars"></div>
+
+  <!-- ══════════════════════════════════════
+       ONBOARDING
+  ══════════════════════════════════════ -->
+  <div id="onboarding">
+    <div class="ob-bg-tint"></div>
+    <div class="ob-inner">
+
+      <!-- Channel cards — glass only, no extras -->
+      <div class="ob-channels">
+
+        <!-- Channel 1 -->
+        <div class="ob-channel" id="ch1-card">
+          <div class="ob-verifying" id="ch1-verifying">
+            <img src="asesst/loading.gif" alt="Loading">
+            <span>Verifying...</span>
+          </div>
+          <div class="ob-ch-icon">
+            <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5.5 13.2L22 6.5l-3.2 15-5-4-2.3 2.2V16l7-6.8-9 5.5L5.5 13.2Z"
+                    fill="rgba(140,185,255,0.95)" stroke="rgba(100,160,255,0.6)"
+                    stroke-width="0.5" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="ob-ch-info">
+            <div class="ob-ch-name">TON Spin Official</div>
+            <div class="ob-ch-desc">News, updates &amp; announcements</div>
+          </div>
+          <button class="ob-ch-action join-btn" id="ch1-btn" onclick="joinChannel(1)">Join</button>
+        </div>
+
+        <!-- Channel 2 -->
+        <div class="ob-channel" id="ch2-card">
+          <div class="ob-verifying" id="ch2-verifying">
+            <img src="asesst/loading.gif" alt="Loading">
+            <span>Verifying...</span>
+          </div>
+          <div class="ob-ch-icon">
+            <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5.5 13.2L22 6.5l-3.2 15-5-4-2.3 2.2V16l7-6.8-9 5.5L5.5 13.2Z"
+                    fill="rgba(140,185,255,0.95)" stroke="rgba(100,160,255,0.6)"
+                    stroke-width="0.5" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="ob-ch-info">
+            <div class="ob-ch-name">TON Spin Community</div>
+            <div class="ob-ch-desc">Chat, tips &amp; share your wins</div>
+          </div>
+          <button class="ob-ch-action join-btn" id="ch2-btn" onclick="joinChannel(2)">Join</button>
+        </div>
+
+      </div>
+
+      <!-- Hint -->
+      <div class="ob-hint" id="ob-hint">Join both channels to continue</div>
+
+      <!-- CTA -->
+      <button class="ob-start" id="ob-start-btn" disabled onclick="startApp()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1l1.8 5.5H15l-4.6 3.3 1.8 5.5L8 12l-4.2 3.3 1.8-5.5L1 6.5h5.2L8 1z"
+                fill="#1a0900" opacity="0.6"/>
+        </svg>
+        START
+      </button>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       MAIN APP
+  ══════════════════════════════════════ -->
+
+  <!-- SPIN PAGE -->
+  <div class="page active" id="page-spin">
+
+    <!-- Prize cards grid — CENTERED -->
+    <div class="gal pg-item">
+
+      <!-- 0.1 TON × 2 — COMMON (weight 49 each = 98 total) -->
+      <div class="card" data-prize="0.1 TON" data-type="ton" data-rarity="common" data-weight="49">
+        <div class="card-icon">
+          <img src="asesst/toncoin.png" alt="TON" onerror="this.outerHTML='<span style=font-size:20px>⬡</span>'">
+        </div>
+        <div class="card-label">0.1 TON</div>
+        <div class="card-sub">Common</div>
+      </div>
+
+      <div class="card" data-prize="0.1 TON" data-type="ton" data-rarity="common" data-weight="49">
+        <div class="card-icon">
+          <img src="asesst/toncoin.png" alt="TON" onerror="this.outerHTML='<span style=font-size:20px>⬡</span>'">
+        </div>
+        <div class="card-label">0.1 TON</div>
+        <div class="card-sub">Common</div>
+      </div>
+
+      <!-- 0.5 TON — RARE (weight 0.8) -->
+      <div class="card" data-prize="0.5 TON" data-type="ton" data-rarity="rare" data-weight="0.8">
+        <div class="card-icon">
+          <img src="asesst/toncoin.png" alt="TON" onerror="this.outerHTML='<span style=font-size:20px>⬡</span>'">
+        </div>
+        <div class="card-label">0.5 TON</div>
+        <div class="card-sub">Rare</div>
+      </div>
+
+      <!-- 1 TON — SUPER (weight 0.15) -->
+      <div class="card" data-prize="1 TON" data-type="ton" data-rarity="super" data-weight="0.15">
+        <div class="card-icon">
+          <img src="asesst/toncoin.png" alt="TON" onerror="this.outerHTML='<span style=font-size:20px>⬡</span>'">
+        </div>
+        <div class="card-label">1 TON</div>
+        <div class="card-sub">Super</div>
+      </div>
+
+      <!-- 3 TON — JACKPOT (weight 0.05) -->
+      <div class="card" data-prize="3 TON" data-type="ton" data-rarity="jackpot" data-weight="0.05">
+        <div class="card-icon">
+          <img src="asesst/toncoin.png" alt="TON" onerror="this.outerHTML='<span style=font-size:20px>⬡</span>'">
+        </div>
+        <div class="card-label">3 TON</div>
+        <div class="card-sub">Jackpot</div>
+      </div>
+
+      <!-- لم يحصل على شيء — RETRY (weight 2) -->
+      <div class="card" data-prize="nothing" data-type="retry" data-rarity="retry" data-weight="2">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#FFF0A0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+        </div>
+        <div class="card-label">Try Again</div>
+        <div class="card-sub">Retry</div>
+      </div>
+
+    </div>
+
+    <!-- SPIN BUTTON -->
+    <div class="spin-wrap pg-item">
+
+      <!-- Available Spins Badge — shows above button when spins > 0 -->
+      <div class="spin-avail-badge" id="spinAvailBadge"><span id="spinAvailNum">1</span></div>
+
+      <button class="spin" id="spinBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a0a00" stroke-width="2.2" stroke-linecap="round">
+          <path d="M21.5 2v6h-6"/>
+          <path d="M2.5 12C2.5 6.75 7 2.5 12.5 2.5c3.5 0 6.6 1.8 8.5 4.5"/>
+          <path d="M2.5 22v-6h6"/>
+          <path d="M21.5 12c0 5.25-4.5 9.5-10 9.5-3.5 0-6.6-1.8-8.5-4.5"/>
+        </svg>
+        SPIN
+      </button>
+    </div>
+  </div>
+
+  <!-- WALLET PAGE -->
+  <div class="page" id="page-wallet">
+    <div class="wlt-scroll">
+
+      <!-- ── Header ── -->
+      <!-- ── Balance Card ── -->
+      <div class="wlt-balance-card wlt-anim" style="--wlt-delay:60ms">
+        <div class="wlt-balance-label">Available Balance</div>
+        <div class="wlt-balance-row">
+          <div class="wlt-balance-icon">
+            <svg viewBox="0 0 28 28" fill="none">
+              <circle cx="14" cy="14" r="13" fill="rgba(255,200,60,0.13)" stroke="rgba(255,200,60,0.38)" stroke-width="1"/>
+              <path d="M8 10h12M8 14h8M8 18h5" stroke="rgba(255,200,60,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M19 16l2.5-2.5-2.5-2.5" stroke="rgba(255,200,60,0.6)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="wlt-balance-amount" id="wlt-balance-display">0.00 TON</div>
+        </div>
+        <div class="wlt-balance-usd" id="wlt-balance-usd">≈ $0.00 USD</div>
+      </div>
+
+      <!-- ── Withdraw Form Card ── -->
+      <div class="wlt-card wlt-anim" style="--wlt-delay:120ms">
+
+        <!-- Address field -->
+        <div class="wlt-field-group">
+          <label class="wlt-label">TON Wallet Address</label>
+          <div class="wlt-input-wrap">
+            <div class="wlt-input-icon">
+       <img src="asesst/wallet2.gif" width="20">
+            </div>
+            <input
+              type="text"
+              id="wlt-address"
+              class="wlt-input"
+              placeholder="EQ... or UQ..."
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+            >
+            <button class="wlt-paste-btn" id="wlt-paste-btn" title="Paste">
+  <img src="asesst/copy.png" width="20">
+       </button>
+          </div>
+          <div class="wlt-field-error" id="wlt-addr-error"></div>
+        </div>
+
+        <!-- Amount field -->
+        <div class="wlt-field-group">
+          <label class="wlt-label">Amount <span class="wlt-label-note">min. 0.1 TON</span></label>
+          <div class="wlt-input-wrap">
+            <div class="wlt-input-icon">
+              <svg viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="8" fill="rgba(255,200,60,0.12)" stroke="rgba(255,200,60,0.5)" stroke-width="1.2"/>
+                <path d="M7 10.5h6M7 7.5h4" stroke="rgba(255,200,60,0.8)" stroke-width="1.3" stroke-linecap="round"/>
+                <path d="M13 8.5l1.5-1-1.5-1" stroke="rgba(255,200,60,0.55)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <input
+              type="number"
+              id="wlt-amount"
+              class="wlt-input"
+              placeholder="0.00"
+              min="0.1"
+              step="0.01"
+              inputmode="decimal"
+            >
+            <button class="wlt-max-btn" id="wlt-max-btn">MAX</button>
+          </div>
+          <div class="wlt-field-error" id="wlt-amt-error"></div>
+        </div>
+
+        <!-- Min note -->
+        <div class="wlt-min-note">
+          <svg viewBox="0 0 16 16" fill="none" stroke="rgba(255,215,80,0.45)" stroke-width="1.4" stroke-linecap="round">
+            <circle cx="8" cy="8" r="6.5"/>
+            <path d="M8 7v4M8 5.5v.01"/>
+          </svg>
+           <strong></strong>
+        </div>
+
+        <!-- Withdraw Button -->
+        <button class="wlt-btn" id="wlt-submit-btn" disabled>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 3v11M5 9l5 5 5-5"/>
+            <path d="M3 17h14"/>
+          </svg>
+          Withdraw TON
+        </button>
+
+      </div>
+
+      <!-- ── Withdraw History ── -->
+      <div class="wlt-hist-section wlt-anim" style="--wlt-delay:180ms">
+        <div class="wlt-hist-header">
+          <svg viewBox="0 0 18 18" fill="none" stroke="rgba(255,215,80,0.65)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="9" r="7.5"/>
+            <path d="M9 5v4l2.5 2.5"/>
+          </svg>
+          Transaction History
+        </div>
+        <div class="wlt-hist-list" id="wlt-hist-list">
+          <!-- populated by JS -->
+        </div>
+        <div class="wlt-hist-empty" id="wlt-hist-empty">
+          <svg viewBox="0 0 40 40" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2" stroke-linecap="round">
+            <rect x="6" y="10" width="28" height="22" rx="4"/>
+            <path d="M12 18h16M12 23h10"/>
+          </svg>
+          No transactions yet
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- INVITE PAGE -->
+  <div class="page" id="page-invite">
+    <div class="inv-scroll">
+
+      <!-- ── Referral Link Box ── -->
+      <div class="inv-link-card inv-anim" style="--inv-delay:0ms">
+        <div class="inv-link-label">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M8.5 1.5L12.5 5.5L5.5 12.5L1.5 12.5L1.5 8.5L8.5 1.5Z" stroke="rgba(255,200,60,0.75)" stroke-width="1.3" stroke-linejoin="round"/>
+            <path d="M9.5 4.5L10.5 5.5" stroke="rgba(255,200,60,0.75)" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Your Referral Link
+        </div>
+        <div class="inv-link-row">
+          <div class="inv-link-text" id="inv-link-text">https://t.me/SPINN_TON_Bot/earn?startapp=ref_...</div>
+          <button class="inv-copy-btn" id="inv-copy-btn" onclick="copyInviteLink()">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <rect x="5" y="5" width="8.5" height="8.5" rx="2" stroke="rgba(255,200,60,0.85)" stroke-width="1.3"/>
+              <path d="M3 10V3a1.5 1.5 0 0 1 1.5-1.5H10" stroke="rgba(255,200,60,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            Copy
+          </button>
+        </div>
+        <button class="inv-share-btn" id="inv-share-btn" onclick="shareInviteLink()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M11 1L15 5L11 9" stroke="#1a0900" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 5H6a4 4 0 0 0-4 4v2" stroke="#1a0900" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          Share via Telegram
+        </button>
+      </div>
+
+      <!-- ── Stats Row ── -->
+      <div class="inv-stats-row inv-anim" style="--inv-delay:60ms">
+        <div class="inv-stat-box">
+          <div class="inv-stat-num" id="inv-total-count">0</div>
+          <div class="inv-stat-label">Total Referrals</div>
+        </div>
+        <div class="inv-stat-divider"></div>
+        <div class="inv-stat-box">
+          <div class="inv-stat-num inv-stat-gold" id="inv-total-earn">0.00</div>
+          <div class="inv-stat-label">TON Earned</div>
+        </div>
+      </div>
+
+      <!-- ── Spin Reward Note ── -->
+      <div class="inv-spin-note inv-anim" style="--inv-delay:80ms">
+        <div class="inv-spin-note-inner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,200,60,0.85)" stroke-width="2" stroke-linecap="round">
+            <path d="M21.5 2v6h-6"/>
+            <path d="M2.5 12C2.5 6.75 7 2.5 12.5 2.5c3.5 0 6.6 1.8 8.5 4.5"/>
+            <path d="M2.5 22v-6h6"/>
+            <path d="M21.5 12c0 5.25-4.5 9.5-10 9.5-3.5 0-6.6-1.8-8.5-4.5"/>
+          </svg>
+          <div class="inv-spin-note-text">
+            <span class="inv-spin-note-title">Free Spin Reward</span>
+            <span class="inv-spin-note-desc">Every <strong>5 referrals</strong> you invite = <strong>+1 free Spin</strong>!</span>
+          </div>
+        </div>
+        <div class="inv-spin-progress-wrap">
+          <div class="inv-spin-progress-bar" id="inv-spin-progress" style="width:0%"></div>
+        </div>
+        <div class="inv-spin-progress-label"><span id="inv-spin-progress-label">0 / 5 referrals to next spin</span></div>
+      </div>
+
+      <!-- ── Referrals List ── -->
+      <div class="inv-list-section inv-anim" style="--inv-delay:120ms">
+        <div class="inv-list-header">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <circle cx="6" cy="5" r="3" stroke="rgba(255,200,60,0.60)" stroke-width="1.3"/>
+            <path d="M1 13a5 5 0 0 1 10 0" stroke="rgba(255,200,60,0.60)" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M11.5 7l1.5 1.5L15 6" stroke="rgba(80,200,120,0.70)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Referred Users
+          <span id="inv-ref-total-badge" style="
+            margin-left:7px;
+            background:rgba(255,200,60,0.15);
+            border:1px solid rgba(255,200,60,0.35);
+            border-radius:20px;
+            padding:1px 9px;
+            font-size:11px;
+            font-weight:700;
+            color:rgba(255,215,80,0.95);
+            letter-spacing:0.5px;
+            line-height:1.6;
+          ">0</span>
+        </div>
+        <div class="inv-list" id="inv-list">
+          <!-- populated by JS -->
+        </div>
+        <div class="inv-list-empty hidden" id="inv-list-empty">
+          <svg viewBox="0 0 40 40" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" stroke-linecap="round">
+            <circle cx="20" cy="15" r="7"/>
+            <path d="M6 36a14 14 0 0 1 28 0"/>
+          </svg>
+          No referrals yet
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-item active" data-page="spin">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+          <circle cx="12" cy="12" r="3" fill="rgba(255,255,255,0.1)"/>
+        </svg>
+      </div>
+      <span class="nav-label">Spin</span>
+    </div>
+    <div class="nav-item" data-page="wallet">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/>
+          <path d="M17 12a2 2 0 0 0 0 4h4v-4h-4z"/>
+        </svg>
+      </div>
+      <span class="nav-label">Wallet</span>
+    </div>
+    <div class="nav-item" data-page="invite">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <span class="nav-label">Invite</span>
+    </div>
+  </nav>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <div class="toast-inner">
+      <div class="toast-icon-wrap" id="toastIcon"></div>
+      <div class="toast-text">
+        <div class="toast-title" id="toastTitle"></div>
+        <div class="toast-desc"  id="toastDesc"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* STARS */
+    (function() {
+      const container = document.getElementById('stars');
+      for (let i = 0; i < 28; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const size = Math.random() * 1.8 + 0.6;
+        s.style.cssText = `
+          width:${size}px; height:${size}px;
+          top:${Math.random()*100}%; left:${Math.random()*100}%;
+          --lo:${(Math.random()*0.2+0.08).toFixed(2)};
+          --hi:${(Math.random()*0.5+0.35).toFixed(2)};
+          --d:${(Math.random()*4+2).toFixed(1)}s;
+          --del:-${(Math.random()*4).toFixed(1)}s;
+          opacity:0.2;
+        `;
+        container.appendChild(s);
+      }
+    })();
+
+    /* ONBOARDING */
+    const joined = { 1: false, 2: false };
+
+    async function joinChannel(n) {
+      const btn     = document.getElementById('ch' + n + '-btn');
+      const card    = document.getElementById('ch' + n + '-card');
+      const overlay = document.getElementById('ch' + n + '-verifying');
+
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      overlay.classList.add('show');
+
+      // التحقق عبر fetchApi
+      const res = await fetchApi({ type: 'verifyChannel', data: { channelId: n } });
+
+      overlay.classList.remove('show');
+      btn.style.opacity = '';
+
+      if (res.ok && res.joined) {
+        joined[n] = true;
+        btn.innerHTML = `
+          <svg class="check-svg" width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 6.5l3.5 3.5 5.5-6" stroke="rgba(80,220,130,0.9)" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Joined
+        `;
+        btn.className = 'ob-ch-action done-btn';
+        card.classList.add('joined');
+        showChannelJoinedToast(n);
+        if (joined[1] && joined[2]) {
+          document.getElementById('ob-start-btn').disabled = false;
+          document.getElementById('ob-hint').classList.add('hidden');
+        }
+      } else {
+        btn.disabled = false;
+        btn.style.opacity = '';
+      }
+    }
+
+    function showChannelJoinedToast(n) {
+      const names = { 1: 'TON Spin Official', 2: 'TON Spin Community' };
+      const toast = document.getElementById('toast');
+      toast.className = 'toast joined-toast';
+      document.getElementById('toastIcon').innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M3 9l4.5 4.5 7.5-9" stroke="rgba(80,220,130,0.9)" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+      document.getElementById('toastTitle').className  = 'toast-title';
+      document.getElementById('toastTitle').textContent = 'Joined!';
+      document.getElementById('toastDesc').textContent  = names[n];
+      clearTimeout(window._toastTimer);
+      toast.classList.add('show');
+      window._toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    function startApp() {
+      const ob = document.getElementById('onboarding');
+      ob.classList.add('hidden');
+      ob.addEventListener('animationend', () => { ob.style.display = 'none'; }, { once: true });
+      setTimeout(triggerEntrance, 300);
+    }
+
+    /* PAGE ENTRANCE */
+    function triggerEntrance() {
+      const items = document.querySelectorAll('#page-spin .pg-item');
+      items.forEach((el, i) => {
+        setTimeout(() => el.classList.add('visible'), i * 140);
+      });
+    }
+
+    /* ══════════════════════════════════════
+       CENTRAL API — كل الأكشنات تمر من هنا
+    ══════════════════════════════════════ */
+    const APP_STATE = {
+      balance: 0,       // رصيد يبدأ من 0
+      spins: 0,         // سبين يبدأ من 0
+      history: [],
+      referrals: [],
+      tonUsd: 1.40
+    };
+
+    // Load persisted state
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('app_state') || 'null');
+      if (saved) Object.assign(APP_STATE, saved);
+    } catch(e) {}
+
+    function saveState() {
+      try { sessionStorage.setItem('app_state', JSON.stringify(APP_STATE)); } catch(e) {}
+    }
+
+    /**
+     * fetchApi({ type, data })
+     * نقطة التحكم المركزية لكل الأكشنات
+     */
+    async function fetchApi({ type, data = {} }) {
+      // ══════════════════════════════════════
+      // هنا بدل ما ترسل لـ API حقيقي، تعامل معاه محلياً
+      // لما تربط backend، استبدل كل case بـ fetch('/api/...', {...})
+      // ══════════════════════════════════════
+      switch (type) {
+
+        // ── جلب بيانات المستخدم (رصيد + سبين) ──
+        case 'getUser': {
+          // TODO: return await fetch('/api/user', { method:'GET' }).then(r=>r.json())
+          return {
+            ok: true,
+            balance: APP_STATE.balance,
+            spins:   APP_STATE.spins
+          };
+        }
+
+        // ── تنفيذ السبين ──
+        case 'doSpin': {
+          if (APP_STATE.spins <= 0) {
+            return { ok: false, reason: 'no_spins', msg: 'No spins available' };
+          }
+          // TODO: return await fetch('/api/spin', { method:'POST', body: JSON.stringify({userId: data.userId}) }).then(r=>r.json())
+          APP_STATE.spins -= 1;
+          // اختيار وزني
+          const cards = Array.from(document.querySelectorAll('.card'));
+          const total = cards.reduce((s, c) => s + parseFloat(c.dataset.weight), 0);
+          let r = Math.random() * total;
+          let winner = cards[0];
+          for (const card of cards) {
+            r -= parseFloat(card.dataset.weight);
+            if (r <= 0) { winner = card; break; }
+          }
+          const prize = winner.dataset.prize;
+          const rType = winner.dataset.type;
+          if (rType === 'ton') {
+            APP_STATE.balance = parseFloat((APP_STATE.balance + parseFloat(prize)).toFixed(4));
+          }
+          saveState();
+          return { ok: true, winner: winner, prize, type: rType };
+        }
+
+        // ── سحب رصيد ──
+        case 'withdraw': {
+          const { address, amount } = data;
+          if (!address || isNaN(amount) || amount < 0.1) {
+            return { ok: false, reason: 'invalid_input', msg: 'Invalid input' };
+          }
+          if (amount > APP_STATE.balance) {
+            return { ok: false, reason: 'insufficient', msg: 'Insufficient balance' };
+          }
+          // TODO: return await fetch('/api/withdraw', { method:'POST', body: JSON.stringify({address, amount}) }).then(r=>r.json())
+          APP_STATE.balance = parseFloat((APP_STATE.balance - amount).toFixed(4));
+          const now = new Date();
+          const dateStr = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short' })
+                        + ' ' + now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+          const tx = {
+            amount: amount.toFixed(2),
+            address: address.slice(0,8) + '…' + address.slice(-6),
+            date: dateStr,
+            status: 'pending'
+          };
+          APP_STATE.history.unshift(tx);
+          saveState();
+          // Simulate confirmation after 5s
+          setTimeout(() => {
+            tx.status = 'success';
+            saveState();
+            renderHistory();
+          }, 5000);
+          return { ok: true, tx };
+        }
+
+        // ── جلب سجل المعاملات ──
+        case 'getHistory': {
+          // TODO: return await fetch('/api/history').then(r=>r.json())
+          return { ok: true, history: APP_STATE.history };
+        }
+
+        // ── جلب الإحالات ──
+        case 'getReferrals': {
+          // TODO: return await fetch('/api/referrals').then(r=>r.json())
+          return { ok: true, referrals: APP_STATE.referrals };
+        }
+
+        // ── إضافة سبين عبر الإحالات ──
+        case 'claimSpinReward': {
+          // TODO: return await fetch('/api/claim-spin').then(r=>r.json())
+          const eligible = Math.floor(APP_STATE.referrals.length / 5);
+          APP_STATE.spins += eligible;
+          saveState();
+          return { ok: true, spins: APP_STATE.spins };
+        }
+
+        // ── التحقق من انضمام القناة ──
+        case 'verifyChannel': {
+          const { channelId } = data;
+          // TODO: return await fetch('/api/verify-channel', { method:'POST', body: JSON.stringify({channelId}) }).then(r=>r.json())
+          // نحاكي التحقق بعد 4 ثوانٍ
+          await new Promise(res => setTimeout(res, 4000));
+          return { ok: true, joined: true };
+        }
+
+        default:
+          return { ok: false, reason: 'unknown_action', msg: 'Unknown action: ' + type };
+      }
+    }
+
+    /* ══════════════════════════════════════
+       SPIN LOGIC
+    ══════════════════════════════════════ */
+    const cards   = Array.from(document.querySelectorAll('.card'));
+    const spinBtn = document.getElementById('spinBtn');
+
+    function updateSpinBadge() {
+      const badge    = document.getElementById('spinAvailBadge');
+      const badgeNum = document.getElementById('spinAvailNum');
+      if (!badge || !badgeNum) return;
+      badgeNum.textContent = APP_STATE.spins;
+      if (APP_STATE.spins > 0) {
+        badge.classList.add('visible');
+        spinBtn.disabled = false;
+        spinBtn.style.opacity = '1';
+      } else {
+        badge.classList.remove('visible');
+        spinBtn.disabled = true;
+        spinBtn.style.opacity = '0.35';
+        spinBtn.title = 'No spins available — invite friends to earn spins!';
+      }
+    }
+
+    spinBtn.addEventListener('click', async () => {
+      // حماية مزدوجة: لا سبين إذا لا يملك
+      if (APP_STATE.spins <= 0) {
+        showToast('no_spins', 'nospin');
+        return;
+      }
+      if (spinBtn.classList.contains('spinning-btn')) return;
+      spinBtn.classList.add('spinning-btn');
+      cards.forEach(c => c.classList.remove('winner'));
+
+      const res = await fetchApi({ type: 'doSpin' });
+      if (!res.ok) {
+        spinBtn.classList.remove('spinning-btn');
+        showToast(res.msg, 'nospin');
+        return;
+      }
+
+      const winner = res.winner;
+
+      cards.forEach((card, i) => {
+        setTimeout(() => card.classList.add('spinning'), i * 60);
+      });
+
+      const SPIN_DURATION = 3500;
+      const STOP_STAGGER  = 180;
+      cards.forEach((card, i) => {
+        if (card === winner) return;
+        const stopAt = SPIN_DURATION - (cards.length - i) * STOP_STAGGER;
+        setTimeout(() => card.classList.remove('spinning'), stopAt);
+      });
+
+      setTimeout(() => {
+        cards.forEach(c => c.classList.remove('spinning'));
+        winner.classList.add('winner');
+        setTimeout(() => winner.classList.remove('winner'), 2500);
+        showToast(res.prize, res.type);
+        spinBtn.classList.remove('spinning-btn');
+        updateSpinBadge();
+        refreshBalance();
+      }, SPIN_DURATION + 200);
+    });
+
+    /* TOAST */
+    const toastEl    = document.getElementById('toast');
+    const toastIcon  = document.getElementById('toastIcon');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastDesc  = document.getElementById('toastDesc');
+
+    function showToast(prize, type) {
+      clearTimeout(window._toastTimer);
+      toastEl.className = 'toast';
+      if (type === 'nospin') {
+        toastIcon.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,120,120,0.9)"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>`;
+        toastTitle.className   = 'toast-title muted';
+        toastTitle.textContent = 'No Spins Available';
+        toastDesc.textContent  = 'Invite 5 friends to earn a free spin!';
+      } else if (type === 'retry') {
+        toastIcon.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74"/>
+            <path d="M3 3v5h5"/>
+          </svg>`;
+        toastTitle.className   = 'toast-title muted';
+        toastTitle.textContent = 'Better luck next time 😔';
+        toastDesc.textContent  = 'Try again — luck is on your way';
+      } else {
+        toastIcon.innerHTML = `
+          <img src="asesst/toncoin.png" alt="TON"
+               style="width:20px;height:20px;object-fit:contain;"
+               onerror="this.outerHTML='<span style=font-size:18px>⬡</span>'">`;
+        toastTitle.className   = 'toast-title';
+        toastTitle.textContent = prize + ' won!';
+        toastDesc.textContent  = 'Credited to your wallet';
+      }
+      toastEl.classList.add('show');
+      window._toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3000);
+    }
+
+    toastEl.addEventListener('click', () => {
+      clearTimeout(window._toastTimer);
+      toastEl.classList.remove('show');
+    });
+
+    /* ══════════════════════════════════════
+       WALLET / WITHDRAW LOGIC
+    ══════════════════════════════════════ */
+    (function() {
+      const wltBalanceDisplay = document.getElementById('wlt-balance-display');
+      const wltBalanceUsd     = document.getElementById('wlt-balance-usd');
+      const wltAddrInput      = document.getElementById('wlt-address');
+      const wltAmtInput       = document.getElementById('wlt-amount');
+      const wltAddrError      = document.getElementById('wlt-addr-error');
+      const wltAmtError       = document.getElementById('wlt-amt-error');
+      const wltSubmitBtn      = document.getElementById('wlt-submit-btn');
+      const wltPasteBtn       = document.getElementById('wlt-paste-btn');
+      const wltMaxBtn         = document.getElementById('wlt-max-btn');
+      const wltHistList       = document.getElementById('wlt-hist-list');
+      const wltHistEmpty      = document.getElementById('wlt-hist-empty');
+
+      window.refreshBalance = function() {
+        const bal = APP_STATE.balance;
+        wltBalanceDisplay.textContent = bal.toFixed(2) + ' TON';
+        wltBalanceUsd.textContent = '≈ $' + (bal * APP_STATE.tonUsd).toFixed(2) + ' USD';
+      };
+
+      function validateForm() {
+        const addr   = wltAddrInput.value.trim();
+        const amount = parseFloat(wltAmtInput.value);
+        let valid = true;
+        if (addr && !/^(EQ|UQ|kQ|0:)[A-Za-z0-9_\-]{46,}$/.test(addr)) {
+          wltAddrError.textContent = 'Invalid TON address format';
+          wltAddrInput.classList.add('error');
+          valid = false;
+        } else {
+          wltAddrError.textContent = '';
+          wltAddrInput.classList.remove('error');
+        }
+        if (wltAmtInput.value !== '') {
+          if (isNaN(amount) || amount < 0.1) {
+            wltAmtError.textContent = 'Minimum withdrawal is 0.1 TON';
+            wltAmtInput.classList.add('error');
+            valid = false;
+          } else if (amount > APP_STATE.balance) {
+            wltAmtError.textContent = 'Insufficient balance';
+            wltAmtInput.classList.add('error');
+            valid = false;
+          } else {
+            wltAmtError.textContent = '';
+            wltAmtInput.classList.remove('error');
+          }
+        } else { valid = false; }
+        if (!addr) valid = false;
+        wltSubmitBtn.disabled = !valid;
+      }
+
+      wltAddrInput.addEventListener('input', validateForm);
+      wltAmtInput.addEventListener('input', validateForm);
+
+      wltPasteBtn.addEventListener('click', async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          wltAddrInput.value = text.trim();
+          validateForm();
+          wltAddrInput.focus();
+        } catch(e) { wltAddrInput.focus(); }
+      });
+
+      wltMaxBtn.addEventListener('click', () => {
+        wltAmtInput.value = APP_STATE.balance.toFixed(2);
+        validateForm();
+        wltAmtInput.focus();
+      });
+
+      window.renderHistory = function() {
+        if (APP_STATE.history.length === 0) {
+          wltHistEmpty.classList.remove('hidden');
+          wltHistList.innerHTML = '';
+          return;
+        }
+        wltHistEmpty.classList.add('hidden');
+        wltHistList.innerHTML = APP_STATE.history.map((tx, i) => `
+          <div class="wlt-hist-item" style="animation-delay:${i * 50}ms">
+            <div class="wlt-hist-icon">
+              <svg viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="8.5" fill="rgba(255,200,60,0.10)" stroke="rgba(255,200,60,0.38)" stroke-width="1"/>
+                <path d="M10 5.5v7M7 9.5l3 3.5 3-3.5" stroke="rgba(255,200,60,0.80)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="wlt-hist-info">
+              <div class="wlt-hist-amount">-${tx.amount} TON</div>
+              <div class="wlt-hist-addr">${tx.address}</div>
+            </div>
+            <div class="wlt-hist-meta">
+              <div class="wlt-hist-date">${tx.date}</div>
+              <div class="wlt-hist-status ${tx.status}">${tx.status === 'pending' ? 'Pending' : 'Success'}</div>
+            </div>
+          </div>
+        `).join('');
+      };
+
+      wltSubmitBtn.addEventListener('click', async () => {
+        const addr   = wltAddrInput.value.trim();
+        const amount = parseFloat(wltAmtInput.value);
+        if (!addr || isNaN(amount) || amount < 0.1 || amount > APP_STATE.balance) return;
+
+        wltSubmitBtn.disabled = true;
+        wltSubmitBtn.classList.add('loading');
+        wltSubmitBtn.innerHTML = `
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:wltSpin 0.9s linear infinite">
+            <path d="M10 3a7 7 0 1 1-5 2.1"/>
+          </svg>
+          Processing...
+        `;
+        if (!document.getElementById('wlt-spin-kf')) {
+          const s = document.createElement('style');
+          s.id = 'wlt-spin-kf';
+          s.textContent = '@keyframes wltSpin { to { transform: rotate(360deg); } }';
+          document.head.appendChild(s);
+        }
+
+        await new Promise(res => setTimeout(res, 1800));
+        const result = await fetchApi({ type: 'withdraw', data: { address: addr, amount } });
+
+        wltSubmitBtn.classList.remove('loading');
+        wltSubmitBtn.innerHTML = `
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 3v11M5 9l5 5 5-5"/><path d="M3 17h14"/>
+          </svg>
+          Withdraw TON
+        `;
+
+        if (!result.ok) {
+          wltAmtError.textContent = result.msg;
+          wltAmtInput.classList.add('error');
+          validateForm();
+          return;
+        }
+
+        refreshBalance();
+        renderHistory();
+        wltAddrInput.value = '';
+        wltAmtInput.value  = '';
+        wltAddrError.textContent = '';
+        wltAmtError.textContent  = '';
+        validateForm();
+
+        clearTimeout(window._toastTimer);
+        toastEl.className = 'toast wlt-success';
+        document.getElementById('toastIcon').innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M3 9l4.5 4.5 7.5-9" stroke="rgba(255,215,80,0.9)" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`;
+        document.getElementById('toastTitle').className  = 'toast-title';
+        document.getElementById('toastTitle').textContent = 'Withdrawal Submitted!';
+        document.getElementById('toastDesc').textContent  = amount.toFixed(2) + ' TON sent to wallet';
+        toastEl.classList.add('show');
+        window._toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3000);
+      });
+
+      // ── Keyboard / Viewport Fix ──
+      // When the soft keyboard opens on Android, window.innerHeight doesn't
+      // shrink but visualViewport.height does. We reposition #page-wallet
+      // to stay within the visible area above the keyboard.
+      const wltPage   = document.getElementById('page-wallet');
+      const NAV_H     = 66; // nav bar height in px
+
+      function applyViewport() {
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        const vvTop    = vv.offsetTop;   // how far down the vv is from document top
+        const vvHeight = vv.height;      // visible height (shrinks when keyboard opens)
+
+        // Position the page to fill exactly the visible area (minus nav)
+        wltPage.style.top    = vvTop + 'px';
+        wltPage.style.height = (vvHeight - NAV_H) + 'px';
+        wltPage.style.bottom = 'auto';
+
+        // Set scroll container height to match
+        const scroll = wltPage.querySelector('.wlt-scroll');
+        if (scroll) scroll.style.maxHeight = (vvHeight - NAV_H) + 'px';
+      }
+
+      function resetViewport() {
+        // Keyboard closed — restore normal layout
+        wltPage.style.top    = '';
+        wltPage.style.height = '';
+        wltPage.style.bottom = NAV_H + 'px';
+        const scroll = wltPage.querySelector('.wlt-scroll');
+        if (scroll) scroll.style.maxHeight = '';
+      }
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+          const keyboardOpen = window.visualViewport.height < window.innerHeight - 100;
+          if (keyboardOpen) {
+            applyViewport();
+          } else {
+            resetViewport();
+          }
+        });
+        window.visualViewport.addEventListener('scroll', applyViewport);
+      }
+
+      // Scroll focused input into view after keyboard settles
+      [wltAddrInput, wltAmtInput].forEach(input => {
+        input.addEventListener('focus', () => {
+          setTimeout(() => {
+            input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 350);
+        });
+        input.addEventListener('blur', () => {
+          // small delay to avoid flash before keyboard fully closes
+          setTimeout(resetViewport, 100);
+        });
+      });
+
+      // Init wallet display
+      refreshBalance();
+      renderHistory();
+      resetViewport();
+
+    })();
+
+    /* ══════════════════════════════════════
+       INVITE PAGE — REFERRAL LOGIC (via fetchApi)
+    ══════════════════════════════════════ */
+    (function() {
+      const tg = window.Telegram && window.Telegram.WebApp;
+      const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id)
+                     || '7741750541';
+
+      const BOT_LINK_BASE = 'https://t.me/SPINN_TON_Bot/earn?startapp=ref_';
+      const myLink = BOT_LINK_BASE + userId;
+
+      const linkEl = document.getElementById('inv-link-text');
+      if (linkEl) linkEl.textContent = myLink;
+
+      window.copyInviteLink = function() {
+        const btn = document.getElementById('inv-copy-btn');
+        if (!btn) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(myLink).then(() => flashCopied(btn));
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = myLink;
+          ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+          document.body.appendChild(ta);
+          ta.select(); document.execCommand('copy');
+          document.body.removeChild(ta);
+          flashCopied(btn);
+        }
+      };
+
+      function flashCopied(btn) {
+        btn.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M2 7.5l4 4 7-7" stroke="rgba(80,210,130,0.95)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>Copied!`;
+        btn.classList.add('copied');
+        clearTimeout(btn._t);
+        btn._t = setTimeout(() => {
+          btn.innerHTML = `
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <rect x="5" y="5" width="8.5" height="8.5" rx="2" stroke="rgba(255,200,60,0.85)" stroke-width="1.3"/>
+              <path d="M3 10V3a1.5 1.5 0 0 1 1.5-1.5H10" stroke="rgba(255,200,60,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>Copy`;
+          btn.classList.remove('copied');
+        }, 2200);
+      }
+
+      window.shareInviteLink = function() {
+        const text = encodeURIComponent('🎰 Play TON Spin and win real TON!\nJoin via my referral link:');
+        const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(myLink) + '&text=' + text;
+        if (tg && tg.openTelegramLink) tg.openTelegramLink(shareUrl);
+        else if (tg && tg.openLink) tg.openLink(shareUrl);
+        else window.open(shareUrl, '_blank');
+      };
+
+      const AVATAR_PALETTES = [
+        ['#4C6EF5','#748FFC'], ['#7950F2','#9775FA'],
+        ['#E64980','#F06595'], ['#0CA678','#38D9A9'],
+        ['#F59F00','#FFD43B'], ['#1C7ED6','#4DABF7'],
+        ['#E8590C','#FF922B'], ['#2F9E44','#69DB7C'],
+      ];
+      function avatarBg(id) {
+        const [c1, c2] = AVATAR_PALETTES[Math.abs(id % AVATAR_PALETTES.length)];
+        return `linear-gradient(135deg, ${c1}, ${c2})`;
+      }
+      function initials(name) {
+        const parts = name.trim().split(/\s+/);
+        return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+      }
+      function fmtDate(iso) {
+        return new Date(iso).toLocaleDateString('en-US', { day:'2-digit', month:'short', year:'numeric' });
+      }
+
+      async function renderReferrals() {
+        // جلب الإحالات عبر fetchApi
+        const res = await fetchApi({ type: 'getReferrals' });
+        const list = (res.ok ? res.referrals : APP_STATE.referrals) || [];
+
+        const listEl  = document.getElementById('inv-list');
+        const emptyEl = document.getElementById('inv-list-empty');
+        const cntEl   = document.getElementById('inv-total-count');
+        const earnEl  = document.getElementById('inv-total-earn');
+        if (!listEl) return;
+
+        const total  = list.length;
+        const earned = list.reduce((s, r) => s + (r.earn || 0), 0);
+        if (cntEl)  cntEl.textContent  = total;
+        if (earnEl) earnEl.textContent = earned.toFixed(2);
+
+        const refBadge = document.getElementById('inv-ref-total-badge');
+        if (refBadge) refBadge.textContent = total;
+
+        const remainder   = total % 5;
+        const progressPct = (remainder / 5) * 100;
+        const spinProgressEl = document.getElementById('inv-spin-progress');
+        const spinLabelEl   = document.getElementById('inv-spin-progress-label');
+        if (spinProgressEl) spinProgressEl.style.width = progressPct + '%';
+        if (spinLabelEl)    spinLabelEl.textContent = remainder + ' / 5 referrals to next spin';
+
+        // تحديث السبين المتاح من APP_STATE (مُحدَّث عبر fetchApi)
+        updateSpinBadge();
+
+        if (total === 0) {
+          emptyEl && emptyEl.classList.remove('hidden');
+          listEl.innerHTML = '';
+          return;
+        }
+        emptyEl && emptyEl.classList.add('hidden');
+
+        listEl.innerHTML = list.map((r, i) => {
+          const avatarInner = r.photo
+            ? `<img src="${r.photo}" alt="${r.name}" onerror="this.parentElement.innerHTML='<div class=inv-ref-initials style=background:${encodeURIComponent(avatarBg(r.id))}>${initials(r.name)}</div>'">`
+            : `<div class="inv-ref-initials" style="background:${avatarBg(r.id)}">${initials(r.name)}</div>`;
+          const badgeClass = r.status === 'verified' ? 'verified' : 'pending';
+          const badgeText  = r.status === 'verified' ? '✓ Verified' : '⏳ Pending';
+          return `
+            <div class="inv-ref-card" style="animation-delay:${i * 55}ms">
+              <div class="inv-ref-avatar">${avatarInner}</div>
+              <div class="inv-ref-info">
+                <div class="inv-ref-name">${r.name}</div>
+                <div class="inv-ref-date">${fmtDate(r.joined)}</div>
+              </div>
+              <div class="inv-ref-status ${badgeClass}">${badgeText}</div>
+            </div>`;
+        }).join('');
+      }
+
+      // تشغيل عند التحميل
+      renderReferrals();
+
+      // إعادة تحميل عند فتح تاب الإحالة
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (item.dataset.page === 'invite') {
+            setTimeout(renderReferrals, 80);
+          }
+        });
+      });
+    })();
+
+    /* ══════════════════════════════════════
+       APP INIT — تهيئة كل شيء من الصفر
+    ══════════════════════════════════════ */
+    async function initApp() {
+      const res = await fetchApi({ type: 'getUser' });
+      if (res.ok) {
+        APP_STATE.balance = res.balance;
+        APP_STATE.spins   = res.spins;
+      }
+      refreshBalance();
+      renderHistory();
+      updateSpinBadge();
+    }
+
+    // نشغل init بعد ما يبدأ التطبيق
+    initApp();
+
+    /* NAV */
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + item.dataset.page).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
