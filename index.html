@@ -1809,6 +1809,8 @@
           body: JSON.stringify({ action: 'create_session', data: {} }),
         });
 
+        // ✅ FIX: استقبال session_id من header أو body (يمنع session missed)
+        const newSidFromHeader = res.headers.get('X-New-Session-Id');
         const json = await res.json();
 
         if (json.is_banned) {
@@ -1817,13 +1819,13 @@
           return false;
         }
 
-        if (!json.ok || !json.session_id) {
+        if (!json.ok || (!json.session_id && !newSidFromHeader)) {
           console.error('[Session] Failed:', json.error);
           _sessionRefreshing = false;
           return false;
         }
 
-        APP_STATE.sessionId  = json.session_id;
+        APP_STATE.sessionId  = json.session_id || newSidFromHeader;
         APP_STATE.telegramId = TGU ? String(TGU.id) : null;
         _sessionRefreshing = false;
         return true;
@@ -1835,9 +1837,8 @@
     }
 
     /* ════════════════════════════════════════
-       ONBOARDING
+       ONBOARDING — SERVER-SIDE CHANNEL POLLING
     ════════════════════════════════════════ */
-    const joined = { 1: false, 2: false };
 
     // channel usernames — تطابق ما في السيرفر
     const CHANNEL_USERNAMES = {
@@ -1845,41 +1846,102 @@
       2: 'NextCryptoEarn',
     };
 
-    async function joinChannel(n) {
-      const btn     = document.getElementById('ch' + n + '-btn');
-      const card    = document.getElementById('ch' + n + '-card');
-      const overlay = document.getElementById('ch' + n + '-verifying');
+    // حالة الانضمام لكل قناة (تُحدَّث من السيرفر)
+    const joined = { 1: false, 2: false };
 
-      // فتح القناة أولاً
+    // polling interval handle
+    let _channelPollInterval = null;
+
+    /**
+     * يفتح القناة ويبدأ polling كل 3 ثوانٍ من السيرفر
+     */
+    async function joinChannel(n) {
+      const btn  = document.getElementById('ch' + n + '-btn');
+      const card = document.getElementById('ch' + n + '-card');
+
+      // فتح القناة في تليغرام
       const chUrl = 'https://t.me/' + CHANNEL_USERNAMES[n];
       if (TG && TG.openTelegramLink) TG.openTelegramLink(chUrl);
       else window.open(chUrl, '_blank');
 
+      // إظهار حالة "جارٍ التحقق..."
       btn.disabled = true;
-      btn.style.opacity = '0.4';
-      overlay.classList.add('show');
+      btn.style.opacity = '0.55';
 
-      // انتظر 4 ثوانٍ ثم تحقق
-      await new Promise(r => setTimeout(r, 4000));
+      // بدء الـ polling إذا لم يكن شغّالاً
+      startChannelPolling();
+    }
 
-      let isJoined = false;
-      if (APP_STATE.sessionId) {
-        // ✅ FIX: لا requireNonce هنا — verify_channel لا يحتاج nonce
-        const res = await fetchApi({
-          action: 'verify_channel',
-          data:   { channel_username: CHANNEL_USERNAMES[n] }
+    /**
+     * يبدأ polling كل 3 ثوانٍ — يتحقق من السيرفر من انضمام المستخدم
+     */
+    function startChannelPolling() {
+      if (_channelPollInterval) return; // لا تشغّل أكثر من مرة
+
+      _channelPollInterval = setInterval(async () => {
+        await pollChannelStatus();
+      }, 3000);
+
+      // تحقق فوري أول مرة
+      pollChannelStatus();
+    }
+
+    /**
+     * يرسل طلب للسيرفر للتحقق من حالة القنوات
+     * السيرفر يتحقق من Telegram API مباشرة
+     */
+    async function pollChannelStatus() {
+      try {
+        const res = await fetchApi({ action: 'poll_channels' });
+
+        if (!res.ok) return;
+
+        // إذا السيرفر عطّل التحقق → اعتبر الكل منضم
+        if (!res.check_channels) {
+          markAllJoined();
+          stopChannelPolling();
+          return;
+        }
+
+        // تحديث حالة كل قناة
+        const channels = res.channels || [];
+        channels.forEach((ch, i) => {
+          const n = i + 1;
+          if (ch.joined && !joined[n]) {
+            markChannelJoined(n);
+          }
         });
-        isJoined = res.ok && res.joined;
-      } else {
-        // Dev mode
-        isJoined = true;
+
+        // إذا كل القنوات تمت → أوقف الـ polling
+        if (res.channels_ok) {
+          stopChannelPolling();
+        }
+
+      } catch (e) {
+        console.warn('[pollChannelStatus]', e.message);
       }
+    }
 
-      overlay.classList.remove('show');
-      btn.style.opacity = '';
+    function stopChannelPolling() {
+      if (_channelPollInterval) {
+        clearInterval(_channelPollInterval);
+        _channelPollInterval = null;
+      }
+    }
 
-      if (isJoined) {
-        joined[n] = true;
+    /**
+     * يُحدّث UI قناة واحدة كـ "منضم"
+     */
+    function markChannelJoined(n) {
+      if (joined[n]) return; // تجنب التكرار
+      joined[n] = true;
+
+      const btn     = document.getElementById('ch' + n + '-btn');
+      const card    = document.getElementById('ch' + n + '-card');
+      const overlay = document.getElementById('ch' + n + '-verifying');
+
+      if (overlay) overlay.classList.remove('show');
+      if (btn) {
         btn.innerHTML = `
           <svg class="check-svg" width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M2 6.5l3.5 3.5 5.5-6" stroke="rgba(80,220,130,0.9)" stroke-width="1.8"
@@ -1888,17 +1950,25 @@
           Joined
         `;
         btn.className = 'ob-ch-action done-btn';
-        card.classList.add('joined');
-        showChannelJoinedToast(n);
-        if (joined[1] && joined[2]) {
-          document.getElementById('ob-start-btn').disabled = false;
-          document.getElementById('ob-hint').classList.add('hidden');
-        }
-      } else {
         btn.disabled = false;
         btn.style.opacity = '';
-        showToast('Not joined yet — please join the channel first!', 'nospin');
       }
+      if (card) card.classList.add('joined');
+
+      showChannelJoinedToast(n);
+
+      // إذا الكل انضم → فعّل زر البداية
+      if (joined[1] && joined[2]) {
+        document.getElementById('ob-start-btn').disabled = false;
+        document.getElementById('ob-hint').classList.add('hidden');
+      }
+    }
+
+    /**
+     * يُحدّث كل القنوات كـ "منضم" (عند تعطيل CHECK_CHANNELS)
+     */
+    function markAllJoined() {
+      Object.keys(joined).forEach(n => markChannelJoined(parseInt(n)));
     }
 
     function showChannelJoinedToast(n) {
@@ -1919,6 +1989,7 @@
     }
 
     function startApp() {
+      stopChannelPolling();
       const ob = document.getElementById('onboarding');
       ob.classList.add('hidden');
       ob.addEventListener('animationend', () => { ob.style.display = 'none'; }, { once: true });
@@ -2434,6 +2505,21 @@
         APP_STATE.balance = res.balance   || 0;
         APP_STATE.spins   = res.spins     || 0;
         APP_STATE.history = res.wd_history || [];
+
+        // ── تحقق من حالة القنوات ──
+        // إذا check_channels = false → تخطَّ صفحة الانضمام مباشرة
+        if (!res.check_channels || res.channels_ok) {
+          // المستخدم منضم (أو التحقق معطّل) → أخفِ onboarding مباشرة
+          const ob = document.getElementById('onboarding');
+          if (ob) {
+            ob.style.display = 'none';
+          }
+          stopChannelPolling();
+          triggerEntrance();
+        } else {
+          // لم ينضم بعد → ابدأ polling تلقائياً
+          startChannelPolling();
+        }
       }
 
       refreshBalance();
