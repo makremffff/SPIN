@@ -561,13 +561,13 @@ module.exports = async function handler(req, res) {
       if (playerRow?.shadow_banned)
         return res.status(200).json({ ok: false, is_banned: true });
 
+      // ✅ FIX 1: الحظر يُطبّق على الكل بغض النظر عن عمر الحساب
+      const isWhitelisted = MULTI_ACCT.IP_WHITELIST.has(ipHash);
       const accountAgeDays = playerRow?.created_at
         ? (Date.now() - new Date(playerRow.created_at).getTime()) / 86400000
         : 0;
-      const isNewAccount  = accountAgeDays < MULTI_ACCT.NEW_ACCOUNT_AGE_DAYS;
-      const isWhitelisted = MULTI_ACCT.IP_WHITELIST.has(ipHash);
 
-      if (!isWhitelisted && isNewAccount) {
+      if (!isWhitelisted) {
         const fpCount = await sql(
           `SELECT COUNT(DISTINCT telegram_id) AS cnt FROM device_fingerprints
            WHERE fingerprint = $1 AND telegram_id != $2`,
@@ -576,7 +576,13 @@ module.exports = async function handler(req, res) {
         const fpViolation = parseInt(fpCount[0]?.cnt || 0) >= MULTI_ACCT.MAX_ACCOUNTS_PER_FINGERPRINT;
 
         if (fpViolation) {
+          // حظر الحساب الجديد (الأصغر telegram_id هو الأقدم — نحافظ عليه)
           await sql(`UPDATE players SET is_hard_banned = TRUE, updated_at = NOW() WHERE telegram_id = $1`, [tid]);
+          await auditLog(tid, ipHash, fingerprint, 'create_session', 50, 'ban', {
+            reason: 'multi_account',
+            fp: fingerprint,
+            account_age_days: accountAgeDays,
+          });
           return res.status(200).json({ ok: false, is_banned: true, ban_type: 'hard' });
         }
       }
@@ -594,7 +600,7 @@ module.exports = async function handler(req, res) {
         [fingerprint, tid, fpData.user_agent || null, fpData.lang || null, fpData.tz_offset || 0]
       );
 
-      await auditLog(tid, ipHash, fingerprint, 'create_session', 0, 'allow', { is_new: isNewAccount });
+      await auditLog(tid, ipHash, fingerprint, 'create_session', 0, 'allow', { account_age_days: accountAgeDays });
       return res.status(200).json({ ok: true, session_id: sid });
 
     } catch (txErr) {
@@ -735,17 +741,49 @@ module.exports = async function handler(req, res) {
 
       const u = rows[0];
 
+      // ✅ FIX 2 & 3: الإحالة تُعتبر verified فقط إذا انضم المُحال للقنوات
+      // والـ spin يُعطى فقط كل 5 إحالات موثّقة (وليس عند كل إحالة)
       if (u.referral_by && !u.referral_rewarded) {
         const refExists = await sql(`SELECT telegram_id FROM players WHERE telegram_id = $1`, [u.referral_by]);
         if (refExists.length) {
-          await sql(
-            `UPDATE players SET referral_friends = referral_friends + 1, spins = spins + 1, updated_at = NOW()
-             WHERE telegram_id = $1`,
-            [u.referral_by]
-          );
+
+          // تحقق من انضمام المُحال للقنوات قبل اعتباره verified
+          let isChannelMember = true;
+          if (CHECK_CHANNELS) {
+            isChannelMember = await checkAllChannels(tid);
+          }
+
+          if (isChannelMember) {
+            // زِد عداد الإحالات للمُحيل
+            await sql(
+              `UPDATE players
+               SET referral_friends = referral_friends + 1, updated_at = NOW()
+               WHERE telegram_id = $1`,
+              [u.referral_by]
+            );
+
+            // جلب العدد الجديد
+            const refRow = await sql(
+              `SELECT referral_friends FROM players WHERE telegram_id = $1`,
+              [u.referral_by]
+            );
+            const totalFriends = parseInt(refRow[0]?.referral_friends || 0);
+
+            // spin واحد كل 5 إحالات موثّقة
+            if (totalFriends % 5 === 0) {
+              await sql(
+                `UPDATE players SET spins = spins + 1, updated_at = NOW() WHERE telegram_id = $1`,
+                [u.referral_by]
+              );
+              console.log(`[Referral] tid=${u.referral_by} earned +1 spin at ${totalFriends} referrals`);
+            }
+
+            // وضع علامة verified على المُحال
+            await sql(`UPDATE players SET referral_rewarded = TRUE WHERE telegram_id = $1`, [tid]);
+            rows = await sql(`SELECT * FROM players WHERE telegram_id = $1`, [tid]);
+          }
+          // إذا لم ينضم للقنوات بعد → referral_rewarded تبقى false → يُعيد المحاولة في المرة القادمة
         }
-        await sql(`UPDATE players SET referral_rewarded = TRUE WHERE telegram_id = $1`, [tid]);
-        rows = await sql(`SELECT * FROM players WHERE telegram_id = $1`, [tid]);
       }
 
       const realFriends = await sql(
@@ -939,12 +977,17 @@ module.exports = async function handler(req, res) {
     //  GET_REFERRALS
     // ══════════════════════════════════════════════════════════════
     if (action === 'get_referrals') {
+      // ✅ FIX 3: verified = انضم للقنوات (referral_rewarded=TRUE)
+      // pending = لم ينضم للقنوات بعد أو لم يُوثَّق
       const referrals = await sql(
         `SELECT telegram_id AS id,
                 COALESCE(first_name, username, 'User') AS name,
-                photo_url  AS photo,
-                created_at AS joined,
-                CASE WHEN referral_rewarded THEN 'verified' ELSE 'pending' END AS status,
+                photo_url   AS photo,
+                created_at  AS joined,
+                CASE
+                  WHEN referral_rewarded = TRUE THEN 'verified'
+                  ELSE 'pending'
+                END AS status,
                 0.0 AS earn
          FROM players
          WHERE referral_by = $1
