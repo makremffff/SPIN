@@ -1266,47 +1266,10 @@
     <div class="ob-bg-tint"></div>
     <div class="ob-inner">
 
-      <!-- Channel cards — glass only, no extras -->
-      <div class="ob-channels">
-
-        <!-- Channel 1 -->
-        <div class="ob-channel" id="ch1-card">
-          <div class="ob-verifying" id="ch1-verifying">
-            <img src="asesst/loading.gif" alt="Loading">
-            <span>Verifying...</span>
-          </div>
-          <div class="ob-ch-icon">
-            <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.5 13.2L22 6.5l-3.2 15-5-4-2.3 2.2V16l7-6.8-9 5.5L5.5 13.2Z"
-                    fill="rgba(140,185,255,0.95)" stroke="rgba(100,160,255,0.6)"
-                    stroke-width="0.5" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="ob-ch-info">
-            <div class="ob-ch-name">channe...</div>
-          </div>
-          <button class="ob-ch-action join-btn" id="ch1-btn" onclick="joinChannel(1)">Join</button>
-        </div>
-
-        <!-- Channel 2 -->
-        <div class="ob-channel" id="ch2-card">
-          <div class="ob-verifying" id="ch2-verifying">
-            <img src="asesst/loading.gif" alt="Loading">
-            <span>Verifying...</span>
-          </div>
-          <div class="ob-ch-icon">
-            <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.5 13.2L22 6.5l-3.2 15-5-4-2.3 2.2V16l7-6.8-9 5.5L5.5 13.2Z"
-                    fill="rgba(140,185,255,0.95)" stroke="rgba(100,160,255,0.6)"
-                    stroke-width="0.5" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="ob-ch-info">
-            <div class="ob-ch-name">channe...</div>
-          </div>
-          <button class="ob-ch-action join-btn" id="ch2-btn" onclick="joinChannel(2)">Join</button>
-        </div>
-
+      <!-- Channel cards — تُبنى ديناميكياً من جدول cha -->
+      <div class="ob-channels" id="ob-channels-list">
+        <!-- سيتم إنشاؤها بواسطة JS -->
+        <div style="text-align:center;color:rgba(255,255,255,0.35);font-size:12px;padding:20px 0;">Loading channels...</div>
       </div>
 
       <!-- Hint -->
@@ -1840,17 +1803,68 @@
        ONBOARDING — SERVER-SIDE CHANNEL POLLING
     ════════════════════════════════════════ */
 
-    // channel usernames — تطابق ما في السيرفر
-    const CHANNEL_USERNAMES = {
-      1: 'botbababab',
-      2: 'NextCryptoEarn',
-    };
+    // channel usernames — تُجلب من السيرفر (جدول cha)
+    let CHANNEL_USERNAMES = {}; // { 1: 'ch1', 2: 'ch2', ... }
+    let CHANNEL_TOTAL = 0;
 
     // حالة الانضمام لكل قناة (تُحدَّث من السيرفر)
-    const joined = { 1: false, 2: false };
+    const joined = {};
 
     // polling interval handle
     let _channelPollInterval = null;
+
+    /**
+     * يجلب القنوات من السيرفر ويبني البطاقات ديناميكياً
+     */
+    async function loadAndRenderChannels() {
+      try {
+        const res = await fetchApi({ action: 'get_channels' });
+        const channels = (res.ok && Array.isArray(res.channels)) ? res.channels : [];
+
+        CHANNEL_TOTAL = channels.length;
+        channels.forEach((ch, i) => {
+          const n = i + 1;
+          CHANNEL_USERNAMES[n] = ch;
+          joined[n] = false;
+        });
+
+        const container = document.getElementById('ob-channels-list');
+        if (!container) return;
+
+        if (channels.length === 0) {
+          container.innerHTML = '';
+          // لا قنوات → فعّل زر البداية مباشرة
+          document.getElementById('ob-start-btn').disabled = false;
+          document.getElementById('ob-hint').classList.add('hidden');
+          return;
+        }
+
+        const tgSvg = `<svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5.5 13.2L22 6.5l-3.2 15-5-4-2.3 2.2V16l7-6.8-9 5.5L5.5 13.2Z"
+                fill="rgba(140,185,255,0.95)" stroke="rgba(100,160,255,0.6)"
+                stroke-width="0.5" stroke-linejoin="round"/>
+        </svg>`;
+
+        container.innerHTML = channels.map((ch, i) => {
+          const n = i + 1;
+          return `
+            <div class="ob-channel" id="ch${n}-card">
+              <div class="ob-verifying" id="ch${n}-verifying">
+                <img src="asesst/loading.gif" alt="Loading">
+                <span>Verifying...</span>
+              </div>
+              <div class="ob-ch-icon">${tgSvg}</div>
+              <div class="ob-ch-info">
+                <div class="ob-ch-name">@${ch}</div>
+              </div>
+              <button class="ob-ch-action join-btn" id="ch${n}-btn" onclick="joinChannel(${n})">Join</button>
+            </div>`;
+        }).join('');
+
+      } catch (e) {
+        console.warn('[loadAndRenderChannels]', e.message);
+      }
+    }
 
     /**
      * يفتح القناة ويبدأ polling كل 3 ثوانٍ من السيرفر
@@ -1960,7 +1974,9 @@
       showChannelJoinedToast(n);
 
       // إذا الكل انضم → فعّل زر البداية
-      if (joined[1] && joined[2]) {
+      const allDone = CHANNEL_TOTAL > 0 && Object.keys(joined).length >= CHANNEL_TOTAL
+                      && Object.values(joined).every(v => v === true);
+      if (allDone) {
         document.getElementById('ob-start-btn').disabled = false;
         document.getElementById('ob-hint').classList.add('hidden');
       }
@@ -2485,6 +2501,9 @@
        APP INIT
     ════════════════════════════════════════ */
     async function initApp() {
+      // 0. جلب وعرض القنوات من جدول cha
+      await loadAndRenderChannels();
+
       // 1. إنشاء الجلسة مع السيرفر
       const sessionOk = await initSession();
       if (!sessionOk) return;
