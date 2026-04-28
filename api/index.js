@@ -40,8 +40,16 @@ const BOT_TOKEN    = process.env.BOT_TOKEN;
 // ═══════════════════════════════════════════════════════════════
 const CHECK_CHANNELS = true;
 
-// أسماء القنوات التي يجب الانضمام إليها
-const REQUIRED_CHANNELS = ['botbababab', 'NextCryptoEarn'];
+// أسماء القنوات تُجلب من جدول cha ديناميكياً
+async function getRequiredChannels() {
+  try {
+    const rows = await sql(`SELECT username FROM cha ORDER BY id ASC`);
+    return rows.map(r => r.username);
+  } catch (e) {
+    console.warn('[getRequiredChannels]', e.message);
+    return [];
+  }
+}
 
 async function sql(query, params = []) {
   const db = neon(DATABASE_URL);
@@ -158,6 +166,14 @@ async function bootstrap() {
     `);
     await sql(`CREATE INDEX IF NOT EXISTS idx_logs_telegram ON security_logs(telegram_id)`);
     await sql(`CREATE INDEX IF NOT EXISTS idx_logs_created  ON security_logs(created_at DESC)`);
+
+    await sql(`
+      CREATE TABLE IF NOT EXISTS cha (
+        id         SERIAL      PRIMARY KEY,
+        username   TEXT        NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
 
     await sql(`
       CREATE TABLE IF NOT EXISTS device_fingerprints (
@@ -390,8 +406,11 @@ async function checkAllChannels(telegramId) {
   // ════ مفتاح التحكم ════
   if (!CHECK_CHANNELS) return true;
 
+  const channels = await getRequiredChannels();
+  if (!channels.length) return true;
+
   const results = await Promise.all(
-    REQUIRED_CHANNELS.map(ch => verifyChannelMembership(telegramId, ch))
+    channels.map(ch => verifyChannelMembership(telegramId, ch))
   );
   return results.every(r => r === true);
 }
@@ -820,19 +839,21 @@ module.exports = async function handler(req, res) {
     //  الـ frontend يستدعي هذا بـ setInterval كل 3 ثوانٍ
     // ══════════════════════════════════════════════════════════════
     if (action === 'poll_channels') {
+      const dynamicChannels = await getRequiredChannels();
+
       // إذا CHECK_CHANNELS = false → المستخدم منضم دائماً
       if (!CHECK_CHANNELS) {
         return res.status(200).json({
           ok:          true,
           channels_ok: true,
           check_channels: false,
-          channels:    REQUIRED_CHANNELS.map(ch => ({ channel: ch, joined: true })),
+          channels:    dynamicChannels.map(ch => ({ channel: ch, joined: true })),
         });
       }
 
       // التحقق من كل قناة بشكل مفصّل
       const channelResults = await Promise.all(
-        REQUIRED_CHANNELS.map(async (ch) => ({
+        dynamicChannels.map(async (ch) => ({
           channel: ch,
           joined:  await verifyChannelMembership(tid, ch),
         }))
@@ -857,6 +878,14 @@ module.exports = async function handler(req, res) {
         check_channels: true,
         channels:    channelResults,
       });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  GET_CHANNELS — يُرجع قائمة القنوات من جدول cha
+    // ══════════════════════════════════════════════════════════════
+    if (action === 'get_channels') {
+      const channels = await getRequiredChannels();
+      return res.status(200).json({ ok: true, channels });
     }
 
     // ══════════════════════════════════════════════════════════════
