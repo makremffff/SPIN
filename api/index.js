@@ -38,7 +38,7 @@ const BOT_TOKEN    = process.env.BOT_TOKEN;
 //     true  = يتحقق من انضمام المستخدم للقنوات
 //     false = يتخطى التحقق تماماً (للاختبار أو التعطيل)
 // ═══════════════════════════════════════════════════════════════
-const CHECK_CHANNELS = false;
+const CHECK_CHANNELS = true;
 
 // أسماء القنوات التي يجب الانضمام إليها
 const REQUIRED_CHANNELS = ['botbababab', 'NextCryptoEarn'];
