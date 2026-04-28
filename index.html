@@ -1697,6 +1697,9 @@
     ════════════════════════════════════════ */
     const API_URL = '/api'; // غيّر هذا لو السيرفر على دومين ثاني
 
+    // ✅ FIX: Session retry — تجديد الجلسة تلقائياً عند 401
+    let _sessionRefreshing = false;
+
     /* ════════════════════════════════════════
        APP STATE
     ════════════════════════════════════════ */
@@ -1737,30 +1740,41 @@
     /* ════════════════════════════════════════
        CENTRAL API — يتصل بالسيرفر الحقيقي
     ════════════════════════════════════════ */
-    async function fetchApi({ action, data = {}, requireNonce = true }) {
+    // ✅ FIX: Actions التي تحتاج nonce (فقط العمليات المالية)
+    const NONCE_ACTIONS = ['do_spin', 'withdraw'];
+
+    async function fetchApi({ action, data = {}, _retry = false }) {
       const headers = {
         'Content-Type': 'application/json',
         'X-Fingerprint': JSON.stringify(buildFpData()),
       };
 
-      // أضف session إذا موجود
       if (APP_STATE.sessionId) {
         headers['X-Session-Id'] = APP_STATE.sessionId;
       }
 
-      // أضف nonce للعمليات التي تحتاجه
-      const readOnlyActions = ['get_user', 'get_history', 'get_referrals'];
-      if (requireNonce && !readOnlyActions.includes(action)) {
+      // ✅ FIX: nonce فقط للعمليات المالية
+      if (NONCE_ACTIONS.includes(action)) {
         headers['X-Nonce'] = genNonce();
       }
 
       try {
-        const res = await fetch(API_URL, {
+        const res  = await fetch(API_URL, {
           method: 'POST',
           headers,
           body: JSON.stringify({ action, data }),
         });
         const json = await res.json();
+
+        // ✅ FIX: Auto-refresh الجلسة عند 401
+        if (res.status === 401 && !_retry && !_sessionRefreshing) {
+          console.warn('[fetchApi] Session expired — refreshing...');
+          const refreshed = await initSession();
+          if (refreshed) {
+            return fetchApi({ action, data, _retry: true });
+          }
+        }
+
         return json;
       } catch (e) {
         console.error('[fetchApi]', action, e.message);
@@ -1772,39 +1786,52 @@
        SESSION INIT — أول شيء يشتغل
     ════════════════════════════════════════ */
     async function initSession() {
+      if (_sessionRefreshing) return false;
+      _sessionRefreshing = true;
+
       const initData = TG ? TG.initData : '';
 
       if (!initData) {
         console.warn('[Session] No initData — Dev mode');
         APP_STATE.telegramId = 'dev_user';
+        _sessionRefreshing = false;
         return true;
       }
 
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Init-Data': initData,
-          'X-Fingerprint': JSON.stringify(buildFpData()),
-        },
-        body: JSON.stringify({ action: 'create_session', data: {} }),
-      });
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Init-Data':   initData,
+            'X-Fingerprint': JSON.stringify(buildFpData()),
+          },
+          body: JSON.stringify({ action: 'create_session', data: {} }),
+        });
 
-      const json = await res.json();
+        const json = await res.json();
 
-      if (json.is_banned) {
-        document.body.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:DynaPuff,cursive;font-size:16px;text-align:center;padding:20px;">⛔ Account suspended.<br>Contact support.</div>';
+        if (json.is_banned) {
+          document.body.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:DynaPuff,cursive;font-size:16px;text-align:center;padding:20px;">⛔ Account suspended.<br>Contact support.</div>';
+          _sessionRefreshing = false;
+          return false;
+        }
+
+        if (!json.ok || !json.session_id) {
+          console.error('[Session] Failed:', json.error);
+          _sessionRefreshing = false;
+          return false;
+        }
+
+        APP_STATE.sessionId  = json.session_id;
+        APP_STATE.telegramId = TGU ? String(TGU.id) : null;
+        _sessionRefreshing = false;
+        return true;
+      } catch (e) {
+        console.error('[Session] Network error:', e.message);
+        _sessionRefreshing = false;
         return false;
       }
-
-      if (!json.ok || !json.session_id) {
-        console.error('[Session] Failed:', json.error);
-        return false;
-      }
-
-      APP_STATE.sessionId  = json.session_id;
-      APP_STATE.telegramId = TGU ? String(TGU.id) : null;
-      return true;
     }
 
     /* ════════════════════════════════════════
@@ -1837,14 +1864,14 @@
 
       let isJoined = false;
       if (APP_STATE.sessionId) {
+        // ✅ FIX: لا requireNonce هنا — verify_channel لا يحتاج nonce
         const res = await fetchApi({
           action: 'verify_channel',
-          data: { channel_username: CHANNEL_USERNAMES[n] },
-          requireNonce: true
+          data:   { channel_username: CHANNEL_USERNAMES[n] }
         });
         isJoined = res.ok && res.joined;
       } else {
-        // Dev mode: اعتبرها ناجحة
+        // Dev mode
         isJoined = true;
       }
 
@@ -1946,7 +1973,8 @@
       spinBtn.classList.add('spinning-btn');
       cards.forEach(c => c.classList.remove('winner'));
 
-      const res = await fetchApi({ action: 'do_spin', requireNonce: true });
+      // ✅ FIX: do_spin يُضاف له nonce تلقائياً في fetchApi
+      const res = await fetchApi({ action: 'do_spin' });
 
       if (!res.ok) {
         spinBtn.classList.remove('spinning-btn');
@@ -2155,7 +2183,6 @@
         const result = await fetchApi({
           action: 'withdraw',
           data: { address: addr, amount },
-          requireNonce: true
         });
 
         wltSubmitBtn.classList.remove('loading');
