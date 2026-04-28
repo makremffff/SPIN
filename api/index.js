@@ -1,15 +1,24 @@
 // ================================================================
-//  TON Spin — API Backend v2.1 (FIXED)
+//  TON Spin — API Backend v3.0
 //  ✅ جدول واحد: players (كل الأعمدة هنا)
 //  ✅ Telegram initData verification (HMAC-SHA256)
-//  ✅ Session management (مرن — لا يلغي عند تغيير IP/fingerprint)
+//  ✅ Session تُنشأ في السيرفر تلقائياً (حتى لو ما جاء create_session)
+//  ✅ Session management مرن — لا يلغي عند تغيير IP/fingerprint
 //  ✅ Nonce system (فقط للعمليات المالية)
-//  ✅ Rate limiting (مناسب لـ Mini App)
+//  ✅ Rate limiting مناسب لـ Mini App
 //  ✅ Shadow ban system
 //  ✅ Server-side spin logic
 //  ✅ Full audit logging
-//  ✅ Channel verification مع caching
-//  ✅ Auto session refresh
+//  ✅ Channel verification مع server-side polling كل 3 ثوانٍ
+//  ✅ Auto session refresh + session مخفية عن المستخدم
+//
+//  ═══════════════════════════════════════════════════════════════
+//  🔧 للتحكم في التحقق من القنوات — غيّر هذا المتغير:
+//
+//     const CHECK_CHANNELS = true;   // ✅ يتحقق من القنوات (افتراضي)
+//     const CHECK_CHANNELS = false;  // ⛔ يتخطى التحقق من القنوات
+//
+//  ═══════════════════════════════════════════════════════════════
 //
 //  env vars مطلوبة:
 //    DATABASE_URL  — Neon/Supabase Postgres connection string
@@ -24,19 +33,29 @@ const crypto   = require('crypto');
 const DATABASE_URL = process.env.DATABASE_URL;
 const BOT_TOKEN    = process.env.BOT_TOKEN;
 
+// ═══════════════════════════════════════════════════════════════
+//  🔧 تحكم في التحقق من القنوات
+//     true  = يتحقق من انضمام المستخدم للقنوات
+//     false = يتخطى التحقق تماماً (للاختبار أو التعطيل)
+// ═══════════════════════════════════════════════════════════════
+const CHECK_CHANNELS = false;
+
+// أسماء القنوات التي يجب الانضمام إليها
+const REQUIRED_CHANNELS = ['botbababab', 'NextCryptoEarn'];
+
 async function sql(query, params = []) {
   const db = neon(DATABASE_URL);
   return await db(query, params);
 }
 
 // ── Constants ─────────────────────────────────────────────────────
-const INIT_DATA_TTL   = 86400;  // 24 ساعة (كان 1 ساعة — سبّب انتهاء initData)
-const RATE_WINDOW     = 10000;  // 10 ثوانٍ
-const RATE_LIMIT      = 30;     // 30 طلب / 10 ثوانٍ (كان 15/5s — صارم جداً)
-const RISK_BAN        = 85;     // رفعنا العتبة (كان 71)
-const NONCE_TTL       = 300;
-const SESSION_REFRESH = 3600;   // تجديد الجلسة كل ساعة
-const CHANNEL_CACHE_TTL = 120;  // cache نتيجة القناة لمدة دقيقتين
+const INIT_DATA_TTL      = 86400;  // 24 ساعة
+const RATE_WINDOW        = 10000;  // 10 ثوانٍ
+const RATE_LIMIT         = 30;     // 30 طلب / 10 ثوانٍ
+const RISK_BAN           = 85;
+const NONCE_TTL          = 300;
+const SESSION_REFRESH    = 3600;
+const CHANNEL_CACHE_TTL  = 3;      // 3 ثوانٍ — polling كل 3 ثوانٍ
 
 // ── Spin Prizes ───────────────────────────────────────────────────
 const SPIN_PRIZES = [
@@ -49,15 +68,18 @@ const SPIN_PRIZES = [
 ];
 
 const MULTI_ACCT = {
-  // رفعنا الحد — مستخدم واحد قد يستخدم نفس الشبكة مع أفراد عائلته
-  MAX_ACCOUNTS_PER_IP:          3,
   MAX_ACCOUNTS_PER_FINGERPRINT: 2,
   IP_WHITELIST: new Set([]),
-  NEW_ACCOUNT_AGE_DAYS: 1,  // تقليل الفترة لتجنب الحظر الزائد
+  NEW_ACCOUNT_AGE_DAYS: 1,
 };
 
-// ── In-memory channel membership cache ───────────────────────────
-const channelCache = new Map(); // key: `${tid}:${channel}` → { result, ts }
+// ── In-memory channel membership cache (3 ثوانٍ) ─────────────────
+// key: `${tid}:${channel}` → { result, ts }
+const channelCache = new Map();
+
+// ── In-memory session cache (يمنع مشكلة session missed) ──────────
+// key: sessionId → { tid, expiresAt, lastUsed }
+const sessionMemCache = new Map();
 
 // ================================================================
 //  BOOTSTRAP
@@ -80,6 +102,8 @@ async function bootstrap() {
         shadow_banned     BOOLEAN       NOT NULL DEFAULT FALSE,
         is_hard_banned    BOOLEAN       NOT NULL DEFAULT FALSE,
         risk_score        INT           NOT NULL DEFAULT 0,
+        channels_ok       BOOLEAN       NOT NULL DEFAULT FALSE,
+        channels_checked_at TIMESTAMPTZ,
         created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
         updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
       )
@@ -165,6 +189,8 @@ async function bootstrap() {
     const migrations = [
       `ALTER TABLE players ADD COLUMN IF NOT EXISTS first_name TEXT`,
       `ALTER TABLE players ADD COLUMN IF NOT EXISTS is_hard_banned BOOLEAN NOT NULL DEFAULT FALSE`,
+      `ALTER TABLE players ADD COLUMN IF NOT EXISTS channels_ok BOOLEAN NOT NULL DEFAULT FALSE`,
+      `ALTER TABLE players ADD COLUMN IF NOT EXISTS channels_checked_at TIMESTAMPTZ`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
     ];
     for (const m of migrations) {
@@ -190,7 +216,6 @@ function verifyTelegramInitData(initData) {
     const authDate = parseInt(params.get('auth_date') || '0');
     if (!hash || !authDate) return null;
 
-    // ✅ FIX: رفعنا TTL لـ 24 ساعة (كان ساعة واحدة — سبّب انتهاء صلاحية initData)
     const now = Math.floor(Date.now() / 1000);
     if (now - authDate > INIT_DATA_TTL) return null;
 
@@ -215,12 +240,9 @@ function hashIP(ip) {
   return crypto.createHash('sha256').update(ip + (process.env.IP_SALT || 'spin_salt')).digest('hex').slice(0, 32);
 }
 
-// ✅ FIX: بنّاء fingerprint مبسّط — يعتمد على user_agent + lang فقط
-// (إزالة IP من المعادلة لأن الـ IP يتغير في Mobile Networks)
 function buildFingerprint(fpData) {
   const ua   = (fpData.user_agent || '').slice(0, 200);
   const lang = fpData.lang || '';
-  // نستخدم clientFp إذا موجود (أكثر دقة)
   if (fpData.fp) {
     return crypto.createHash('sha256').update(fpData.fp + '|' + lang).digest('hex').slice(0, 40);
   }
@@ -231,8 +253,6 @@ function generateSessionId() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// ✅ FIX: Nonce فقط للعمليات المالية (spin + withdraw)
-// إزالته من verify_channel و get_user
 async function checkNonce(tid, nonce) {
   if (!nonce) return false;
   try {
@@ -261,7 +281,7 @@ async function checkRateLimit(tid) {
     );
     return (rows[0]?.request_count || 0) <= RATE_LIMIT;
   } catch {
-    return true; // في حالة خطأ، نسمح بالطلب
+    return true;
   }
 }
 
@@ -322,46 +342,151 @@ async function fetchTelegramPhoto(telegramId) {
   }
 }
 
-// ✅ FIX: verifyChannelMembership مع caching لتجنب الطلبات المتكررة على Telegram API
+// ================================================================
+//  CHANNEL MEMBERSHIP — polling كل 3 ثوانٍ
+//  يُستدعى من السيرفر مباشرة بدون انتظار المستخدم
+// ================================================================
+
+/**
+ * يتحقق من عضوية مستخدم في قناة واحدة مع caching بـ 3 ثوانٍ
+ */
 async function verifyChannelMembership(telegramId, channelUsername) {
   if (!BOT_TOKEN || !channelUsername) return false;
 
-  // فحص الـ cache أولاً
   const cacheKey = `${telegramId}:${channelUsername}`;
   const cached   = channelCache.get(cacheKey);
+  // cache لمدة 3 ثوانٍ فقط — polling كل 3 ثوانٍ
   if (cached && Date.now() - cached.ts < CHANNEL_CACHE_TTL * 1000) {
     return cached.result;
   }
 
   try {
-    // ✅ FIX: إزالة @ من البداية إذا كانت موجودة لتجنب مشكلة @@ مزدوجة
     const cleanUsername = channelUsername.replace(/^@/, '');
     const url  = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${cleanUsername}&user_id=${telegramId}`;
     const r    = await fetch(url);
     const data = await r.json();
 
     if (!data.ok) {
-      // ✅ FIX: تفصيل رسالة الخطأ لتشخيص مشاكل البوت
       console.warn(`[verifyChannel] Telegram API error for @${cleanUsername}:`, data.description);
-      // لو كان الخطأ "bot is not a member" → false
-      // لو كان "user not found" → false
-      // لا نعتبره success في أي حالة خطأ
       channelCache.set(cacheKey, { result: false, ts: Date.now() });
       return false;
     }
 
     const status   = data.result?.status;
     const isMember = ['member', 'administrator', 'creator'].includes(status);
-
-    // حفظ النتيجة في الـ cache
     channelCache.set(cacheKey, { result: isMember, ts: Date.now() });
-
     return isMember;
   } catch (e) {
     console.warn('[verifyChannel]', e.message);
     return false;
   }
 }
+
+/**
+ * يتحقق من انضمام المستخدم لجميع القنوات المطلوبة
+ * إذا CHECK_CHANNELS = false → يرجع true مباشرة
+ */
+async function checkAllChannels(telegramId) {
+  // ════ مفتاح التحكم ════
+  if (!CHECK_CHANNELS) return true;
+
+  const results = await Promise.all(
+    REQUIRED_CHANNELS.map(ch => verifyChannelMembership(telegramId, ch))
+  );
+  return results.every(r => r === true);
+}
+
+/**
+ * يُحدّث حالة القنوات في قاعدة البيانات للمستخدم
+ * يُستدعى كل 3 ثوانٍ من action=poll_channels في الـ frontend
+ */
+async function refreshChannelStatus(telegramId) {
+  const allJoined = await checkAllChannels(telegramId);
+  try {
+    await sql(
+      `UPDATE players SET channels_ok = $2, channels_checked_at = NOW(), updated_at = NOW()
+       WHERE telegram_id = $1`,
+      [telegramId, allJoined]
+    );
+  } catch (e) {
+    console.error('[refreshChannelStatus]', e.message);
+  }
+  return allJoined;
+}
+
+// ================================================================
+//  SESSION HELPER — يُنشئ أو يُجدّد الجلسة من السيرفر مباشرة
+//  هذا يمنع مشكلة "session missed" لأن الجلسة تُنشأ حتى لو
+//  فشل create_session في الـ frontend
+// ================================================================
+
+async function getOrCreateSession(tid, ipHash, fingerprint) {
+  // فحص الـ memory cache أولاً (سريع)
+  for (const [sid, info] of sessionMemCache.entries()) {
+    if (info.tid === tid && info.expiresAt > Date.now()) {
+      // تحديث last used
+      info.lastUsed = Date.now();
+      return sid;
+    }
+  }
+
+  // فحص قاعدة البيانات
+  try {
+    const existing = await sql(
+      `SELECT session_id, expires_at FROM sessions
+       WHERE telegram_id = $1 AND is_valid = TRUE AND expires_at > NOW()
+       ORDER BY last_used_at DESC LIMIT 1`,
+      [tid]
+    );
+
+    if (existing.length) {
+      const sid = existing[0].session_id;
+      // تحديث بيانات الجلسة
+      await sql(
+        `UPDATE sessions SET
+           ip_hash      = $2,
+           fingerprint  = $3,
+           last_used_at = NOW(),
+           expires_at   = NOW() + INTERVAL '7 days'
+         WHERE session_id = $1`,
+        [sid, ipHash, fingerprint]
+      );
+      // حفظ في memory cache
+      sessionMemCache.set(sid, {
+        tid,
+        expiresAt: Date.now() + 7 * 86400 * 1000,
+        lastUsed:  Date.now()
+      });
+      return sid;
+    }
+
+    // إنشاء جلسة جديدة
+    const sid = generateSessionId();
+    await sql(
+      `INSERT INTO sessions (session_id, telegram_id, ip_hash, fingerprint)
+       VALUES ($1, $2, $3, $4)`,
+      [sid, tid, ipHash, fingerprint]
+    );
+    sessionMemCache.set(sid, {
+      tid,
+      expiresAt: Date.now() + 7 * 86400 * 1000,
+      lastUsed:  Date.now()
+    });
+    console.log(`[Session] Auto-created session for tid=${tid}`);
+    return sid;
+  } catch (e) {
+    console.error('[getOrCreateSession]', e.message);
+    return null;
+  }
+}
+
+// تنظيف memory cache كل 10 دقائق
+setInterval(() => {
+  const now = Date.now();
+  for (const [sid, info] of sessionMemCache.entries()) {
+    if (info.expiresAt < now) sessionMemCache.delete(sid);
+  }
+}, 600000);
 
 // ================================================================
 //  MAIN HANDLER
@@ -388,12 +513,11 @@ module.exports = async function handler(req, res) {
   const ipHash     = hashIP(rawIP);
   let fpData = {};
   try { fpData = JSON.parse(fpHeader); } catch (_) {}
-
-  // ✅ FIX: fingerprint لا يعتمد على IP (يتغير في شبكات الموبايل)
   const fingerprint = buildFingerprint(fpData);
 
   // ════════════════════════════════════════════════════════════════
   //  CREATE_SESSION
+  //  الجلسة تُنشأ هنا أو تلقائياً في getOrCreateSession
   // ════════════════════════════════════════════════════════════════
   if (action === 'create_session') {
     const tgUser = verifyTelegramInitData(initData);
@@ -415,7 +539,7 @@ module.exports = async function handler(req, res) {
       [tid, tgUser.username || null, tgUser.first_name || null, tgUser.photo_url || null]
     );
 
-    // جلب صورة البروفايل (في الخلفية — لا تعطّل إنشاء الجلسة)
+    // جلب صورة البروفايل في الخلفية
     (async () => {
       try {
         const existing = await sql(`SELECT photo_url FROM players WHERE telegram_id = $1`, [tid]);
@@ -437,7 +561,6 @@ module.exports = async function handler(req, res) {
       if (playerRow?.shadow_banned)
         return res.status(200).json({ ok: false, is_banned: true });
 
-      // ✅ FIX: Multi-account — فقط حظر إذا تطابق fingerprint مع حساب آخر (IP وحده لا يكفي)
       const accountAgeDays = playerRow?.created_at
         ? (Date.now() - new Date(playerRow.created_at).getTime()) / 86400000
         : 0;
@@ -445,7 +568,6 @@ module.exports = async function handler(req, res) {
       const isWhitelisted = MULTI_ACCT.IP_WHITELIST.has(ipHash);
 
       if (!isWhitelisted && isNewAccount) {
-        // ✅ FIX: يحظر فقط إذا تطابق الـ fingerprint (وليس IP فقط)
         const fpCount = await sql(
           `SELECT COUNT(DISTINCT telegram_id) AS cnt FROM device_fingerprints
            WHERE fingerprint = $1 AND telegram_id != $2`,
@@ -459,35 +581,10 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // ✅ FIX: لا نلغي الجلسات القديمة — نتركها تنتهي تلقائياً
-      // هذا يسمح باستخدام التطبيق على عدة أجهزة
-      const existingSession = await sql(
-        `SELECT session_id, expires_at FROM sessions
-         WHERE telegram_id = $1 AND is_valid = TRUE AND expires_at > NOW()
-         ORDER BY last_used_at DESC LIMIT 1`,
-        [tid]
-      );
-
-      let sid;
-      if (existingSession.length) {
-        // ✅ جدّد الجلسة الموجودة بدل إنشاء جديدة
-        sid = existingSession[0].session_id;
-        await sql(
-          `UPDATE sessions SET
-             ip_hash      = $2,
-             fingerprint  = $3,
-             last_used_at = NOW(),
-             expires_at   = NOW() + INTERVAL '7 days'
-           WHERE session_id = $1`,
-          [sid, ipHash, fingerprint]
-        );
-      } else {
-        // إنشاء جلسة جديدة
-        sid = generateSessionId();
-        await sql(
-          `INSERT INTO sessions (session_id, telegram_id, ip_hash, fingerprint) VALUES ($1, $2, $3, $4)`,
-          [sid, tid, ipHash, fingerprint]
-        );
+      // استخدام getOrCreateSession لضمان إنشاء الجلسة حتى لو حدث خطأ سابق
+      const sid = await getOrCreateSession(tid, ipHash, fingerprint);
+      if (!sid) {
+        return res.status(500).json({ ok: false, error: 'Session creation failed' });
       }
 
       await sql(
@@ -506,40 +603,84 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // ── Session validation ──
-  if (!sessionId) return res.status(401).json({ ok: false, error: 'Missing session' });
+  // ── Session validation ──────────────────────────────────────────
+  // إذا لم يكن هناك session_id → نحاول استخراج المستخدم من initData
+  // ومن ثم نُنشئ جلسة تلقائياً (يمنع session missed)
+  let tid;
+  let sessionValid = false;
 
-  const sessionRows = await sql(
-    `SELECT * FROM sessions WHERE session_id = $1 AND is_valid = TRUE AND expires_at > NOW()`,
-    [sessionId]
-  );
-  if (!sessionRows.length)
-    return res.status(401).json({ ok: false, error: 'Invalid or expired session' });
+  if (sessionId) {
+    // فحص memory cache أولاً
+    const memCached = sessionMemCache.get(sessionId);
+    if (memCached && memCached.expiresAt > Date.now()) {
+      tid = memCached.tid;
+      sessionValid = true;
+      memCached.lastUsed = Date.now();
+    } else {
+      // فحص قاعدة البيانات
+      const sessionRows = await sql(
+        `SELECT * FROM sessions WHERE session_id = $1 AND is_valid = TRUE AND expires_at > NOW()`,
+        [sessionId]
+      );
+      if (sessionRows.length) {
+        const session = sessionRows[0];
+        tid = parseInt(session.telegram_id);
+        sessionValid = true;
 
-  const session = sessionRows[0];
-  const tid     = parseInt(session.telegram_id);
+        // حفظ في memory cache
+        sessionMemCache.set(sessionId, {
+          tid,
+          expiresAt: new Date(session.expires_at).getTime(),
+          lastUsed:  Date.now()
+        });
 
-  // ✅ FIX: لا نلغي الجلسة عند تغيير الـ fingerprint أو IP
-  // فقط نحدّث البيانات وننبّه في الـ logs
-  const fpChanged = session.fingerprint !== fingerprint;
-  const ipChanged = session.ip_hash     !== ipHash;
-
-  if (fpChanged || ipChanged) {
-    // تحديث بدون إلغاء
-    await sql(
-      `UPDATE sessions SET
-         fingerprint  = $2,
-         ip_hash      = $3,
-         last_used_at = NOW()
-       WHERE session_id = $1`,
-      [sessionId, fingerprint, ipHash]
-    );
-    if (fpChanged) {
-      console.log(`[Session] FP changed for tid=${tid} — updated (not revoked)`);
+        // تحديث last_used_at
+        const fpChanged = session.fingerprint !== fingerprint;
+        const ipChanged = session.ip_hash     !== ipHash;
+        if (fpChanged || ipChanged) {
+          await sql(
+            `UPDATE sessions SET fingerprint = $2, ip_hash = $3, last_used_at = NOW()
+             WHERE session_id = $1`,
+            [sessionId, fingerprint, ipHash]
+          );
+        } else {
+          await sql(`UPDATE sessions SET last_used_at = NOW() WHERE session_id = $1`, [sessionId]);
+        }
+      }
     }
-  } else {
-    // ✅ Auto-refresh: تجديد last_used_at لكل طلب
-    await sql(`UPDATE sessions SET last_used_at = NOW() WHERE session_id = $1`, [sessionId]);
+  }
+
+  // إذا لم تكن الجلسة صالحة وكان هناك initData → أنشئ جلسة تلقائياً
+  if (!sessionValid && initData) {
+    const tgUser = verifyTelegramInitData(initData);
+    if (tgUser) {
+      const autoTid = parseInt(tgUser.id);
+      if (!isNaN(autoTid)) {
+        // upsert player
+        try {
+          await sql(
+            `INSERT INTO players (telegram_id, username, first_name)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (telegram_id) DO UPDATE SET updated_at = NOW()`,
+            [autoTid, tgUser.username || null, tgUser.first_name || null]
+          );
+          const autoSid = await getOrCreateSession(autoTid, ipHash, fingerprint);
+          if (autoSid) {
+            tid = autoTid;
+            sessionValid = true;
+            // أعد الـ session_id للـ client
+            res.setHeader('X-New-Session-Id', autoSid);
+            console.log(`[Session] Auto-session created from initData for tid=${autoTid}`);
+          }
+        } catch (e) {
+          console.error('[AutoSession]', e.message);
+        }
+      }
+    }
+  }
+
+  if (!sessionValid) {
+    return res.status(401).json({ ok: false, error: 'Invalid or expired session' });
   }
 
   const withinLimit = await checkRateLimit(tid);
@@ -548,19 +689,17 @@ module.exports = async function handler(req, res) {
     return res.status(429).json({ ok: false, error: 'Too many requests' });
   }
 
-  // ✅ FIX: Nonce فقط للعمليات المالية (spin + withdraw)
-  // إزالته من: verify_channel, get_user, get_history, get_referrals
+  // Nonce فقط للعمليات المالية
   const nonceRequiredActions = ['do_spin', 'withdraw'];
   if (nonceRequiredActions.includes(action)) {
     const nonceValid = await checkNonce(tid, nonce);
     if (!nonceValid) {
-      await updateUserRisk(tid, 5); // تقليل الـ risk penalty
+      await updateUserRisk(tid, 5);
       await auditLog(tid, ipHash, fingerprint, action, 5, 'deny', { reason: 'nonce_replay' });
       return res.status(400).json({ ok: false, error: 'Nonce already used or missing' });
     }
   }
 
-  // فحص الحظر
   const playerRiskRows = await sql(`SELECT risk_score, shadow_banned FROM players WHERE telegram_id = $1`, [tid]);
   const isShadowBanned = playerRiskRows[0]?.shadow_banned || false;
 
@@ -614,6 +753,14 @@ module.exports = async function handler(req, res) {
         [tid]
       );
 
+      // ── فحص حالة القنوات ──
+      // إذا CHECK_CHANNELS = false → channels_ok = true دائماً
+      let channelsOk = true;
+      if (CHECK_CHANNELS) {
+        // نُحدّث حالة القنوات في الخلفية
+        channelsOk = await refreshChannelStatus(tid);
+      }
+
       const player = rows[0];
       return res.status(200).json({
         ok: true,
@@ -625,13 +772,87 @@ module.exports = async function handler(req, res) {
         username:         player.username,
         first_name:       player.first_name,
         photo_url:        player.photo_url,
+        channels_ok:      channelsOk,
+        check_channels:   CHECK_CHANNELS,
       });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  POLL_CHANNELS — يتحقق كل 3 ثوانٍ من انضمام المستخدم
+    //  الـ frontend يستدعي هذا بـ setInterval كل 3 ثوانٍ
+    // ══════════════════════════════════════════════════════════════
+    if (action === 'poll_channels') {
+      // إذا CHECK_CHANNELS = false → المستخدم منضم دائماً
+      if (!CHECK_CHANNELS) {
+        return res.status(200).json({
+          ok:          true,
+          channels_ok: true,
+          check_channels: false,
+          channels:    REQUIRED_CHANNELS.map(ch => ({ channel: ch, joined: true })),
+        });
+      }
+
+      // التحقق من كل قناة بشكل مفصّل
+      const channelResults = await Promise.all(
+        REQUIRED_CHANNELS.map(async (ch) => ({
+          channel: ch,
+          joined:  await verifyChannelMembership(tid, ch),
+        }))
+      );
+
+      const allJoined = channelResults.every(r => r.joined);
+
+      // تحديث قاعدة البيانات
+      try {
+        await sql(
+          `UPDATE players SET channels_ok = $2, channels_checked_at = NOW(), updated_at = NOW()
+           WHERE telegram_id = $1`,
+          [tid, allJoined]
+        );
+      } catch (e) {
+        console.error('[poll_channels] DB update failed:', e.message);
+      }
+
+      return res.status(200).json({
+        ok:          true,
+        channels_ok: allJoined,
+        check_channels: true,
+        channels:    channelResults,
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  VERIFY_CHANNEL — التحقق من قناة واحدة بعينها
+    // ══════════════════════════════════════════════════════════════
+    if (action === 'verify_channel') {
+      const { channel_username } = data;
+      if (!channel_username)
+        return res.status(400).json({ ok: false, error: 'Missing channel_username' });
+
+      if (!CHECK_CHANNELS) {
+        return res.status(200).json({ ok: true, joined: true });
+      }
+
+      const isMember = await verifyChannelMembership(tid, channel_username);
+      return res.status(200).json({ ok: true, joined: isMember });
     }
 
     // ══════════════════════════════════════════════════════════════
     //  DO_SPIN
     // ══════════════════════════════════════════════════════════════
     if (action === 'do_spin') {
+      // ── التحقق من القنوات قبل السماح بالسبين ──
+      if (CHECK_CHANNELS) {
+        const channelsOk = await checkAllChannels(tid);
+        if (!channelsOk) {
+          return res.status(403).json({
+            ok: false,
+            error: 'channels_required',
+            message: 'يجب الانضمام للقنوات المطلوبة أولاً',
+          });
+        }
+      }
+
       const rows = await sql(`SELECT balance, spins, shadow_banned FROM players WHERE telegram_id = $1`, [tid]);
       if (!rows.length) return res.status(404).json({ ok: false, error: 'Player not found' });
 
@@ -639,7 +860,6 @@ module.exports = async function handler(req, res) {
       if (parseInt(player.spins) <= 0)
         return res.status(400).json({ ok: false, error: 'no_spins', message: 'No spins available' });
 
-      // ✅ النتيجة دائماً من السيرفر
       const prize = serverWeightedSpin();
 
       if (isShadowBanned) {
@@ -733,19 +953,6 @@ module.exports = async function handler(req, res) {
         [tid]
       );
       return res.status(200).json({ ok: true, referrals });
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    //  VERIFY_CHANNEL
-    // ══════════════════════════════════════════════════════════════
-    if (action === 'verify_channel') {
-      const { channel_username } = data;
-      if (!channel_username)
-        return res.status(400).json({ ok: false, error: 'Missing channel_username' });
-
-      // ✅ FIX: لا nonce مطلوب هنا — عملية قراءة فقط
-      const isMember = await verifyChannelMembership(tid, channel_username);
-      return res.status(200).json({ ok: true, joined: isMember });
     }
 
     // ══════════════════════════════════════════════════════════════
