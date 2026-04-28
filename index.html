@@ -1856,17 +1856,19 @@
      * يفتح القناة ويبدأ polling كل 3 ثوانٍ من السيرفر
      */
     async function joinChannel(n) {
-      const btn  = document.getElementById('ch' + n + '-btn');
-      const card = document.getElementById('ch' + n + '-card');
+      const btn     = document.getElementById('ch' + n + '-btn');
+      const card    = document.getElementById('ch' + n + '-card');
+      const overlay = document.getElementById('ch' + n + '-verifying');
 
       // فتح القناة في تليغرام
       const chUrl = 'https://t.me/' + CHANNEL_USERNAMES[n];
       if (TG && TG.openTelegramLink) TG.openTelegramLink(chUrl);
       else window.open(chUrl, '_blank');
 
-      // إظهار حالة "جارٍ التحقق..."
+      // إظهار loading.gif و"جارٍ التحقق..."
       btn.disabled = true;
-      btn.style.opacity = '0.55';
+      btn.style.opacity = '0.4';
+      if (overlay) overlay.classList.add('show');
 
       // بدء الـ polling إذا لم يكن شغّالاً
       startChannelPolling();
