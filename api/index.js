@@ -379,13 +379,27 @@ async function verifyChannelMembership(telegramId, channelUsername) {
   try {
     const cleanUsername = channelUsername.replace(/^@/, '');
     const url  = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${cleanUsername}&user_id=${telegramId}`;
-    const r    = await fetch(url);
-    const data = await r.json();
+
+    // ✅ FIX: timeout 6 ثوانٍ — يمنع التعليق اللانهائي
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 6000);
+
+    let r, data;
+    try {
+      r    = await fetch(url, { signal: controller.signal });
+      data = await r.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!data.ok) {
       console.warn(`[verifyChannel] Telegram API error for @${cleanUsername}:`, data.description);
-      channelCache.set(cacheKey, { result: false, ts: Date.now() });
-      return false;
+      // ✅ FIX: عند خطأ API (مثلاً البوت مش admin) → استخدم آخر cached نتيجة أو fail-open
+      const lastCached = channelCache.get(cacheKey);
+      if (lastCached) return lastCached.result;
+      // إذا ما عندنا cached → fail-open (true) لتجنب تعليق المستخدم
+      console.warn(`[verifyChannel] No cache for @${cleanUsername} — failing open`);
+      return true;
     }
 
     const status   = data.result?.status;
@@ -393,6 +407,12 @@ async function verifyChannelMembership(telegramId, channelUsername) {
     channelCache.set(cacheKey, { result: isMember, ts: Date.now() });
     return isMember;
   } catch (e) {
+    if (e.name === 'AbortError') {
+      console.warn(`[verifyChannel] Timeout for @${channelUsername} — failing open`);
+      // ✅ FIX: timeout → fail-open لتجنب تعليق المستخدم
+      const lastCached = channelCache.get(cacheKey);
+      return lastCached ? lastCached.result : true;
+    }
     console.warn('[verifyChannel]', e.message);
     return false;
   }
@@ -773,15 +793,23 @@ module.exports = async function handler(req, res) {
           }
 
           if (isChannelMember) {
-            // ✅ atomic UPDATE+RETURNING — يمنع race condition عند تزامن طلبين
-            const refRow = await sql(
-              `UPDATE players
-               SET referral_friends = referral_friends + 1, updated_at = NOW()
-               WHERE telegram_id = $1
-               RETURNING referral_friends`,
+            // ✅ FIX: احسب العدد الفعلي قبل التحديث لمنع race condition
+            const beforeCount = await sql(
+              `SELECT COUNT(*) AS cnt FROM players WHERE referral_by = $1 AND referral_rewarded = TRUE`,
               [u.referral_by]
             );
-            const totalFriends = parseInt(refRow[0]?.referral_friends || 0);
+            const countBefore = parseInt(beforeCount[0]?.cnt || 0);
+
+            // ✅ atomic UPDATE+RETURNING — يمنع race condition عند تزامن طلبين
+            await sql(
+              `UPDATE players
+               SET referral_friends = referral_friends + 1, updated_at = NOW()
+               WHERE telegram_id = $1`,
+              [u.referral_by]
+            );
+
+            // ✅ FIX: استخدم العداد الفعلي (قبل+1) بدلاً من referral_friends المتراكم
+            const totalFriends = countBefore + 1;
 
             // ✅ spin واحد فقط عند كل مضاعف 5 من الإحالات الموثّقة
             if (totalFriends > 0 && totalFriends % 5 === 0) {
@@ -1015,15 +1043,21 @@ module.exports = async function handler(req, res) {
       if (u.referral_by && !u.referral_rewarded && channelsOk) {
         const refExists = await sql(`SELECT telegram_id FROM players WHERE telegram_id = $1`, [u.referral_by]);
         if (refExists.length) {
-          // ✅ atomic UPDATE+RETURNING — يمنع race condition
-          const refRow = await sql(
-            `UPDATE players
-             SET referral_friends = referral_friends + 1, updated_at = NOW()
-             WHERE telegram_id = $1
-             RETURNING referral_friends`,
+          // ✅ FIX: احسب العدد الفعلي قبل التحديث
+          const beforeCount = await sql(
+            `SELECT COUNT(*) AS cnt FROM players WHERE referral_by = $1 AND referral_rewarded = TRUE`,
             [u.referral_by]
           );
-          const totalFriends = parseInt(refRow[0]?.referral_friends || 0);
+          const countBefore = parseInt(beforeCount[0]?.cnt || 0);
+
+          await sql(
+            `UPDATE players
+             SET referral_friends = referral_friends + 1, updated_at = NOW()
+             WHERE telegram_id = $1`,
+            [u.referral_by]
+          );
+          // ✅ FIX: استخدم العداد الفعلي بدلاً من referral_friends المتراكم
+          const totalFriends = countBefore + 1;
           // ✅ spin فقط عند مضاعفات 5 من الإحالات الموثّقة (وليس عند الصفر)
           if (totalFriends > 0 && totalFriends % 5 === 0) {
             await sql(
