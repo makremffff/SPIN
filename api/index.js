@@ -773,28 +773,23 @@ module.exports = async function handler(req, res) {
           }
 
           if (isChannelMember) {
-            // زِد عداد الإحالات للمُحيل
-            await sql(
+            // ✅ atomic UPDATE+RETURNING — يمنع race condition عند تزامن طلبين
+            const refRow = await sql(
               `UPDATE players
                SET referral_friends = referral_friends + 1, updated_at = NOW()
-               WHERE telegram_id = $1`,
-              [u.referral_by]
-            );
-
-            // جلب العدد الجديد
-            const refRow = await sql(
-              `SELECT referral_friends FROM players WHERE telegram_id = $1`,
+               WHERE telegram_id = $1
+               RETURNING referral_friends`,
               [u.referral_by]
             );
             const totalFriends = parseInt(refRow[0]?.referral_friends || 0);
 
-            // spin واحد كل 5 إحالات موثّقة
-            if (totalFriends % 5 === 0) {
+            // ✅ spin واحد فقط عند كل مضاعف 5 من الإحالات الموثّقة
+            if (totalFriends > 0 && totalFriends % 5 === 0) {
               await sql(
                 `UPDATE players SET spins = spins + 1, updated_at = NOW() WHERE telegram_id = $1`,
                 [u.referral_by]
               );
-              console.log(`[Referral] tid=${u.referral_by} earned +1 spin at ${totalFriends} referrals`);
+              console.log(`[Referral] tid=${u.referral_by} earned +1 spin at ${totalFriends} verified referrals`);
             }
 
             // وضع علامة verified على المُحال
@@ -1020,21 +1015,22 @@ module.exports = async function handler(req, res) {
       if (u.referral_by && !u.referral_rewarded && channelsOk) {
         const refExists = await sql(`SELECT telegram_id FROM players WHERE telegram_id = $1`, [u.referral_by]);
         if (refExists.length) {
-          await sql(
-            `UPDATE players SET referral_friends = referral_friends + 1, updated_at = NOW()
-             WHERE telegram_id = $1`,
-            [u.referral_by]
-          );
+          // ✅ atomic UPDATE+RETURNING — يمنع race condition
           const refRow = await sql(
-            `SELECT referral_friends FROM players WHERE telegram_id = $1`,
+            `UPDATE players
+             SET referral_friends = referral_friends + 1, updated_at = NOW()
+             WHERE telegram_id = $1
+             RETURNING referral_friends`,
             [u.referral_by]
           );
           const totalFriends = parseInt(refRow[0]?.referral_friends || 0);
-          if (totalFriends % 5 === 0) {
+          // ✅ spin فقط عند مضاعفات 5 من الإحالات الموثّقة (وليس عند الصفر)
+          if (totalFriends > 0 && totalFriends % 5 === 0) {
             await sql(
               `UPDATE players SET spins = spins + 1, updated_at = NOW() WHERE telegram_id = $1`,
               [u.referral_by]
             );
+            console.log(`[update_user Referral] tid=${u.referral_by} earned +1 spin at ${totalFriends} verified referrals`);
           }
           await sql(`UPDATE players SET referral_rewarded = TRUE WHERE telegram_id = $1`, [tid]);
         }
