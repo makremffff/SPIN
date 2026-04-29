@@ -1716,6 +1716,12 @@
         headers['X-Session-Id'] = APP_STATE.sessionId;
       }
 
+      // إرسال initData دائماً لدعم auto-session في السيرفر
+      const initData = TG ? TG.initData : '';
+      if (initData) {
+        headers['X-Init-Data'] = initData;
+      }
+
       // ✅ FIX: nonce فقط للعمليات المالية
       if (NONCE_ACTIONS.includes(action)) {
         headers['X-Nonce'] = genNonce();
@@ -2446,18 +2452,22 @@
 
         if (!listEl) return;
 
-        const total  = list.length;
-        const earned = list.reduce((s, r) => s + (parseFloat(r.earn) || 0), 0);
+        const total    = list.length;
+        const verified = list.filter(r => r.status === 'verified').length;
+        const earned   = list.reduce((s, r) => s + (parseFloat(r.earn) || 0), 0);
+        // إجمالي = كل الإحالات (pending + verified)
         if (cntEl)    cntEl.textContent    = total;
         if (earnEl)   earnEl.textContent   = earned.toFixed(2);
-        if (refBadge) refBadge.textContent = total;
+        // البادج = verified فقط (الإحالات الفعلية التي تحتسب)
+        if (refBadge) refBadge.textContent = verified;
 
-        const remainder   = total % 5;
+        // البروغريس يحتسب verified فقط (pending لا تزيد العداد)
+        const remainder   = verified % 5;
         const progressPct = (remainder / 5) * 100;
         const spinProgressEl = document.getElementById('inv-spin-progress');
         const spinLabelEl    = document.getElementById('inv-spin-progress-label');
         if (spinProgressEl) spinProgressEl.style.width = progressPct + '%';
-        if (spinLabelEl)    spinLabelEl.textContent = remainder + ' / 5 referrals to next spin';
+        if (spinLabelEl)    spinLabelEl.textContent = remainder + ' / 5 verified referrals to next spin';
 
         updateSpinBadge();
 
@@ -2501,44 +2511,50 @@
        APP INIT
     ════════════════════════════════════════ */
     async function initApp() {
-      // 0. جلب وعرض القنوات من جدول cha
-      await loadAndRenderChannels();
-
-      // 1. إنشاء الجلسة مع السيرفر
+      // 1. إنشاء الجلسة مع السيرفر أولاً (قبل أي طلب آخر)
       const sessionOk = await initSession();
       if (!sessionOk) return;
 
-      // 2. جلب بيانات اللاعب
-      const startParam = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param
-                          ? TG.initDataUnsafe.start_param : null;
-      const refBy = startParam ? startParam.replace('ref_', '') : null;
+      // 2. جلب وعرض القنوات من جدول cha (بعد الجلسة لأن fetchApi يحتاج session)
+      await loadAndRenderChannels();
 
+      // 3. قراءة referral_by من startParam — من initData مباشرة (أدق من initDataUnsafe)
+      let refBy = null;
+      try {
+        const initData = TG ? TG.initData : '';
+        if (initData) {
+          const params = new URLSearchParams(initData);
+          const sp = params.get('start_param') || '';
+          if (sp.startsWith('ref_')) refBy = sp.replace('ref_', '');
+        }
+        // fallback: initDataUnsafe
+        if (!refBy && TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param) {
+          const sp2 = TG.initDataUnsafe.start_param;
+          if (sp2 && sp2.startsWith('ref_')) refBy = sp2.replace('ref_', '');
+        }
+      } catch (_) {}
+
+      // 4. جلب بيانات اللاعب
       const res = await fetchApi({
         action: 'get_user',
         data: {
           referral_by: refBy,
-          username:    APP_STATE.username   || null,
-          first_name:  APP_STATE.firstName  || null,
+          username:    APP_STATE.username  || null,
+          first_name:  APP_STATE.firstName || null,
         }
       });
 
       if (res.ok) {
-        APP_STATE.balance = res.balance   || 0;
-        APP_STATE.spins   = res.spins     || 0;
+        APP_STATE.balance = res.balance    || 0;
+        APP_STATE.spins   = res.spins      || 0;
         APP_STATE.history = res.wd_history || [];
 
-        // ── تحقق من حالة القنوات ──
-        // إذا check_channels = false → تخطَّ صفحة الانضمام مباشرة
         if (!res.check_channels || res.channels_ok) {
-          // المستخدم منضم (أو التحقق معطّل) → أخفِ onboarding مباشرة
           const ob = document.getElementById('onboarding');
-          if (ob) {
-            ob.style.display = 'none';
-          }
+          if (ob) ob.style.display = 'none';
           stopChannelPolling();
           triggerEntrance();
         } else {
-          // لم ينضم بعد → ابدأ polling تلقائياً
           startChannelPolling();
         }
       }
@@ -2546,6 +2562,32 @@
       refreshBalance();
       renderHistory();
       updateSpinBadge();
+
+      // 5. polling update_user كل 4 ثوانٍ — يحدّث القنوات والبيانات
+      startUserPolling();
+    }
+
+    let _userPollInterval = null;
+    function startUserPolling() {
+      if (_userPollInterval) return;
+      _userPollInterval = setInterval(async () => {
+        try {
+          const r = await fetchApi({ action: 'update_user' });
+          if (!r.ok) return;
+          APP_STATE.balance = r.balance ?? APP_STATE.balance;
+          APP_STATE.spins   = r.spins   ?? APP_STATE.spins;
+          refreshBalance();
+          updateSpinBadge();
+          // إذا انضم للقنوات خلال الـ polling → أخفِ الـ onboarding
+          if (r.check_channels && r.channels_ok) {
+            const ob = document.getElementById('onboarding');
+            if (ob && ob.style.display !== 'none' && !ob.classList.contains('hidden')) {
+              stopChannelPolling();
+              startApp();
+            }
+          }
+        } catch (_) {}
+      }, 4000);
     }
 
     initApp();
