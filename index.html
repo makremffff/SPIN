@@ -1900,7 +1900,20 @@
     function startChannelPolling() {
       if (_channelPollInterval) return; // لا تشغّل أكثر من مرة
 
+      let _pollAttempts = 0;
+      const MAX_POLL_ATTEMPTS = 40; // 40 × 3s = 2 دقيقة حد أقصى
+
       _channelPollInterval = setInterval(async () => {
+        _pollAttempts++;
+        if (_pollAttempts > MAX_POLL_ATTEMPTS) {
+          stopChannelPolling();
+          const hint = document.getElementById('ob-hint');
+          if (hint) {
+            hint.textContent = 'Taking too long? Close and reopen the app.';
+            hint.classList.remove('hidden');
+          }
+          return;
+        }
         await pollChannelStatus();
       }, 3000);
 
