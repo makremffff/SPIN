@@ -1728,12 +1728,22 @@
       }
 
       try {
-        const res  = await fetch(API_URL, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ action, data }),
-        });
-        const json = await res.json();
+        // ✅ FIX: timeout 10 ثوانٍ على كل طلب — يمنع تعليق الصفحة
+        const controller = new AbortController();
+        const timeoutId  = setTimeout(() => controller.abort(), 10000);
+
+        let res, json;
+        try {
+          res  = await fetch(API_URL, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action, data }),
+            signal: controller.signal,
+          });
+          json = await res.json();
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         // ✅ FIX: Auto-refresh الجلسة عند 401
         if (res.status === 401 && !_retry && !_sessionRefreshing) {
@@ -1746,6 +1756,10 @@
 
         return json;
       } catch (e) {
+        if (e.name === 'AbortError') {
+          console.warn('[fetchApi] Timeout:', action);
+          return { ok: false, error: 'timeout', message: 'Request timed out' };
+        }
         console.error('[fetchApi]', action, e.message);
         return { ok: false, error: 'network_error', message: e.message };
       }
@@ -1900,8 +1914,10 @@
     function startChannelPolling() {
       if (_channelPollInterval) return; // لا تشغّل أكثر من مرة
 
-      let _pollAttempts = 0;
-      const MAX_POLL_ATTEMPTS = 40; // 40 × 3s = 2 دقيقة حد أقصى
+      let _pollAttempts   = 0;
+      let _failedAttempts = 0;
+      const MAX_POLL_ATTEMPTS  = 40;  // 40 × 3s = 2 دقيقة حد أقصى
+      const MAX_FAIL_ATTEMPTS  = 5;   // 5 فشل متتالي → نقدر نتجاهل ونكمل
 
       _channelPollInterval = setInterval(async () => {
         _pollAttempts++;
@@ -1914,28 +1930,48 @@
           }
           return;
         }
-        await pollChannelStatus();
+
+        const success = await pollChannelStatus();
+
+        // ✅ FIX: إذا فشل السيرفر 5 مرات متتالية → أظهر زر تخطي
+        if (success === false) {
+          _failedAttempts++;
+          if (_failedAttempts >= MAX_FAIL_ATTEMPTS) {
+            stopChannelPolling();
+            _showSkipButton();
+          }
+        } else {
+          _failedAttempts = 0; // reset عند أي نجاح
+        }
       }, 3000);
 
       // تحقق فوري أول مرة
       pollChannelStatus();
     }
 
+    function _showSkipButton() {
+      const hint = document.getElementById('ob-hint');
+      if (hint) {
+        hint.innerHTML = `Unable to verify channels. <span onclick="startApp()" style="color:#FFD966;text-decoration:underline;cursor:pointer;">Skip for now →</span>`;
+        hint.classList.remove('hidden');
+      }
+    }
+
     /**
      * يرسل طلب للسيرفر للتحقق من حالة القنوات
-     * السيرفر يتحقق من Telegram API مباشرة
+     * يرجع true عند نجاح الطلب، false عند فشله
      */
     async function pollChannelStatus() {
       try {
         const res = await fetchApi({ action: 'poll_channels' });
 
-        if (!res.ok) return;
+        if (!res.ok) return false;
 
         // إذا السيرفر عطّل التحقق → اعتبر الكل منضم
         if (!res.check_channels) {
           markAllJoined();
           stopChannelPolling();
-          return;
+          return true;
         }
 
         // تحديث حالة كل قناة
@@ -1952,8 +1988,11 @@
           stopChannelPolling();
         }
 
+        return true; // الطلب نجح
+
       } catch (e) {
         console.warn('[pollChannelStatus]', e.message);
+        return false; // ✅ FIX: أرجع false عند أي خطأ
       }
     }
 
