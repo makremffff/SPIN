@@ -63,7 +63,7 @@ const RATE_LIMIT         = 30;     // 30 طلب / 10 ثوانٍ
 const RISK_BAN           = 85;
 const NONCE_TTL          = 300;
 const SESSION_REFRESH    = 3600;
-const CHANNEL_CACHE_TTL  = 3;      // 3 ثوانٍ — polling كل 3 ثوانٍ
+const CHANNEL_CACHE_TTL  = 3;      // 3 ثوانٍ (fallback — actual TTL handled per-result in verifyChannelMembership)
 
 // ── Spin Prizes ───────────────────────────────────────────────────
 const SPIN_PRIZES = [
@@ -366,24 +366,39 @@ async function fetchTelegramPhoto(telegramId) {
 /**
  * يتحقق من عضوية مستخدم في قناة واحدة مع caching بـ 3 ثوانٍ
  */
+// ── Channel membership result cache (per user per channel) ──────
+// Stores { result, ts, errorCount } — errorCount للـ fail-open logic
+// Cache TTL = CHANNEL_CACHE_TTL seconds (3s default)
+const CHANNEL_CACHE_POSITIVE_TTL = 30;  // ✅ نتيجة "منضم" تُخزن 30 ثانية
+const CHANNEL_CACHE_NEGATIVE_TTL = 3;   // ✅ نتيجة "غير منضم" تُخزن 3 ثوانٍ فقط
+
 async function verifyChannelMembership(telegramId, channelUsername) {
   if (!BOT_TOKEN || !channelUsername) return false;
 
-  const cacheKey = `${telegramId}:${channelUsername}`;
-  const cached   = channelCache.get(cacheKey);
-  // cache لمدة 3 ثوانٍ فقط — polling كل 3 ثوانٍ
-  if (cached && Date.now() - cached.ts < CHANNEL_CACHE_TTL * 1000) {
+  const cacheKey    = `${telegramId}:${channelUsername}`;
+  const cached      = channelCache.get(cacheKey);
+  const now         = Date.now();
+
+  // ✅ FIX: TTL مختلف للـ positive و negative results
+  const cacheTtl = cached?.result
+    ? CHANNEL_CACHE_POSITIVE_TTL * 1000
+    : CHANNEL_CACHE_NEGATIVE_TTL * 1000;
+
+  if (cached && (now - cached.ts) < cacheTtl) {
     return cached.result;
   }
 
+  // ✅ FIX: إذا الـ cache قديم لكن نتيجته إيجابية — لا نمسحه فوراً
+  const stalePositive = cached?.result && (now - cached.ts) < 300000; // 5 دقائق
+
+  const cleanUsername = channelUsername.replace(/^@/, '');
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${cleanUsername}&user_id=${telegramId}`;
+
+  // ✅ FIX: timeout مضمون 5 ثوانٍ (أقل من poll interval 3s × 2 = 6s)
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), 5000);
+
   try {
-    const cleanUsername = channelUsername.replace(/^@/, '');
-    const url  = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${cleanUsername}&user_id=${telegramId}`;
-
-    // ✅ FIX: timeout 6 ثوانٍ — يمنع التعليق اللانهائي
-    const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 6000);
-
     let r, data;
     try {
       r    = await fetch(url, { signal: controller.signal });
@@ -393,28 +408,53 @@ async function verifyChannelMembership(telegramId, channelUsername) {
     }
 
     if (!data.ok) {
-      console.warn(`[verifyChannel] Telegram API error for @${cleanUsername}:`, data.description);
-      // ✅ FIX: عند خطأ API (مثلاً البوت مش admin) → استخدم آخر cached نتيجة أو fail-open
-      const lastCached = channelCache.get(cacheKey);
-      if (lastCached) return lastCached.result;
-      // إذا ما عندنا cached → fail-open (true) لتجنب تعليق المستخدم
-      console.warn(`[verifyChannel] No cache for @${cleanUsername} — failing open`);
-      return true;
+      // أخطاء Telegram API المعروفة
+      const desc = data.description || '';
+
+      // "user not found" أو "chat not found" → المستخدم مؤكد غير منضم
+      if (desc.includes('user not found') || desc.includes('PARTICIPANT_ID_INVALID')) {
+        channelCache.set(cacheKey, { result: false, ts: now, errorCount: 0 });
+        return false;
+      }
+
+      // "chat not found" أو "bot is not a member" → مشكلة في إعداد البوت → fail-open
+      if (desc.includes('chat not found') || desc.includes('not a member') || desc.includes('not enough rights')) {
+        console.warn(`[verifyChannel] Bot config error for @${cleanUsername}: ${desc}`);
+        // ✅ FIX: مشكلة في البوت → لا نعاقب المستخدم → fail-open
+        channelCache.set(cacheKey, { result: true, ts: now, errorCount: (cached?.errorCount || 0) + 1 });
+        return true;
+      }
+
+      // أخطاء أخرى → استخدم آخر cached أو fail-open
+      console.warn(`[verifyChannel] API error for @${cleanUsername}: ${desc}`);
+      if (stalePositive) return true;
+      if (cached) return cached.result;
+      return true; // fail-open — لا نعاقب المستخدم على أخطاء السيرفر
     }
 
     const status   = data.result?.status;
     const isMember = ['member', 'administrator', 'creator'].includes(status);
-    channelCache.set(cacheKey, { result: isMember, ts: Date.now() });
+    channelCache.set(cacheKey, { result: isMember, ts: now, errorCount: 0 });
     return isMember;
+
   } catch (e) {
+    clearTimeout(timeoutId);
+
     if (e.name === 'AbortError') {
-      console.warn(`[verifyChannel] Timeout for @${channelUsername} — failing open`);
-      // ✅ FIX: timeout → fail-open لتجنب تعليق المستخدم
-      const lastCached = channelCache.get(cacheKey);
-      return lastCached ? lastCached.result : true;
+      console.warn(`[verifyChannel] Timeout (5s) for @${channelUsername}`);
+    } else {
+      console.warn(`[verifyChannel] Network error for @${channelUsername}:`, e.message);
     }
-    console.warn('[verifyChannel]', e.message);
-    return false;
+
+    // ✅ FIX: عند أي خطأ شبكة / timeout:
+    // - إذا عندنا cached result (حتى لو قديم) → استخدمه
+    // - إذا ما عندنا cache → fail-open (true) لتجنب تعليق المستخدم
+    if (cached) {
+      console.warn(`[verifyChannel] Using stale cache for @${channelUsername}: ${cached.result}`);
+      return cached.result;
+    }
+    console.warn(`[verifyChannel] No cache available — failing open for @${channelUsername}`);
+    return true;
   }
 }
 
@@ -423,35 +463,65 @@ async function verifyChannelMembership(telegramId, channelUsername) {
  * إذا CHECK_CHANNELS = false → يرجع true مباشرة
  */
 async function checkAllChannels(telegramId) {
-  // ════ مفتاح التحكم ════
   if (!CHECK_CHANNELS) return true;
 
   const channels = await getRequiredChannels();
   if (!channels.length) return true;
 
-  const results = await Promise.all(
-    channels.map(ch => verifyChannelMembership(telegramId, ch))
-  );
-  return results.every(r => r === true);
+  // ✅ FIX: allSettled + overall timeout — لا يتعلق أبداً
+  try {
+    const settled = await Promise.race([
+      Promise.allSettled(channels.map(ch => verifyChannelMembership(telegramId, ch))),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 9000))
+    ]);
+    // إذا قناة واحدة فشلت في allSettled → تُعتبر منضماً (fail-open)
+    return settled.every(r => r.status === 'fulfilled' ? r.value === true : true);
+  } catch {
+    // timeout على العملية كلها → fail-open
+    console.warn('[checkAllChannels] Timeout — failing open');
+    return true;
+  }
 }
 
 /**
  * يُحدّث حالة القنوات في قاعدة البيانات للمستخدم
  * يُستدعى كل 3 ثوانٍ من action=poll_channels في الـ frontend
  */
+// ✅ FIX: per-user cache لـ refreshChannelStatus — يمنع استدعاء Telegram API في كل طلب
+const channelStatusCache = new Map(); // tid → { result, ts }
+const CHANNEL_STATUS_CACHE_TTL = 4000; // 4 ثوانٍ — أطول من polling interval
+
 async function refreshChannelStatus(telegramId) {
-  const allJoined = await checkAllChannels(telegramId);
-  try {
-    await sql(
-      `UPDATE players SET channels_ok = $2, channels_checked_at = NOW(), updated_at = NOW()
-       WHERE telegram_id = $1`,
-      [telegramId, allJoined]
-    );
-  } catch (e) {
-    console.error('[refreshChannelStatus]', e.message);
+  const now    = Date.now();
+  const cached = channelStatusCache.get(telegramId);
+
+  // ✅ إذا عندنا نتيجة حديثة (أقل من 4 ثوانٍ) → استخدمها
+  if (cached && (now - cached.ts) < CHANNEL_STATUS_CACHE_TTL) {
+    return cached.result;
   }
+
+  const allJoined = await checkAllChannels(telegramId);
+
+  // ✅ خزّن في cache
+  channelStatusCache.set(telegramId, { result: allJoined, ts: now });
+
+  // ✅ حدّث DB بشكل async — لا نمنع الرد
+  sql(
+    `UPDATE players SET channels_ok = $2, channels_checked_at = NOW(), updated_at = NOW()
+     WHERE telegram_id = $1`,
+    [telegramId, allJoined]
+  ).catch(e => console.error('[refreshChannelStatus] DB error:', e.message));
+
   return allJoined;
 }
+
+// تنظيف cache كل 10 دقائق
+setInterval(() => {
+  const now = Date.now();
+  for (const [tid, info] of channelStatusCache.entries()) {
+    if (now - info.ts > 600000) channelStatusCache.delete(tid);
+  }
+}, 600000);
 
 // ================================================================
 //  SESSION HELPER — يُنشئ أو يُجدّد الجلسة من السيرفر مباشرة
@@ -866,40 +936,65 @@ module.exports = async function handler(req, res) {
 
       // إذا CHECK_CHANNELS = false → المستخدم منضم دائماً
       if (!CHECK_CHANNELS) {
+        // ✅ حدّث قاعدة البيانات أيضاً
+        sql(`UPDATE players SET channels_ok = TRUE, channels_checked_at = NOW(), updated_at = NOW() WHERE telegram_id = $1`, [tid]).catch(() => {});
         return res.status(200).json({
-          ok:          true,
-          channels_ok: true,
+          ok:             true,
+          channels_ok:    true,
           check_channels: false,
-          channels:    dynamicChannels.map(ch => ({ channel: ch, joined: true })),
+          channels:       dynamicChannels.map(ch => ({ channel: ch, joined: true })),
         });
       }
 
-      // التحقق من كل قناة بشكل مفصّل
-      const channelResults = await Promise.all(
-        dynamicChannels.map(async (ch) => ({
-          channel: ch,
-          joined:  await verifyChannelMembership(tid, ch),
-        }))
-      );
+      if (!dynamicChannels.length) {
+        // لا قنوات مطلوبة → منضم دائماً
+        sql(`UPDATE players SET channels_ok = TRUE, channels_checked_at = NOW(), updated_at = NOW() WHERE telegram_id = $1`, [tid]).catch(() => {});
+        return res.status(200).json({
+          ok: true, channels_ok: true, check_channels: true, channels: [],
+        });
+      }
+
+      // ✅ FIX: Promise.allSettled بدل Promise.all — لا يفشل إذا قناة واحدة فشلت
+      // وكل قناة لها timeout مستقل داخل verifyChannelMembership (5 ثوانٍ)
+      const POLL_OVERALL_TIMEOUT = 8000; // 8 ثوانٍ timeout للعملية كلها
+
+      let channelResults;
+      try {
+        const results = await Promise.race([
+          Promise.allSettled(
+            dynamicChannels.map(async (ch) => ({
+              channel: ch,
+              joined:  await verifyChannelMembership(tid, ch),
+            }))
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('poll_overall_timeout')), POLL_OVERALL_TIMEOUT)
+          )
+        ]);
+
+        channelResults = results.map(r =>
+          r.status === 'fulfilled' ? r.value : { channel: '?', joined: true } // fail-open
+        );
+      } catch (timeoutErr) {
+        // ✅ FIX: إذا انتهت مهلة العملية كلها → fail-open لجميع القنوات
+        console.warn('[poll_channels] Overall timeout — failing open for all channels');
+        channelResults = dynamicChannels.map(ch => ({ channel: ch, joined: true }));
+      }
 
       const allJoined = channelResults.every(r => r.joined);
 
-      // تحديث قاعدة البيانات
-      try {
-        await sql(
-          `UPDATE players SET channels_ok = $2, channels_checked_at = NOW(), updated_at = NOW()
-           WHERE telegram_id = $1`,
-          [tid, allJoined]
-        );
-      } catch (e) {
-        console.error('[poll_channels] DB update failed:', e.message);
-      }
+      // ✅ تحديث قاعدة البيانات — لا نمنع الرد حتى لو فشل الـ DB
+      sql(
+        `UPDATE players SET channels_ok = $2, channels_checked_at = NOW(), updated_at = NOW()
+         WHERE telegram_id = $1`,
+        [tid, allJoined]
+      ).catch(e => console.error('[poll_channels] DB update failed:', e.message));
 
       return res.status(200).json({
-        ok:          true,
-        channels_ok: allJoined,
+        ok:             true,
+        channels_ok:    allJoined,
         check_channels: true,
-        channels:    channelResults,
+        channels:       channelResults,
       });
     }
 
