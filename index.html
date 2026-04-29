@@ -620,6 +620,7 @@
       padding: 14px 16px 12px;
       display: flex; flex-direction: column; gap: 10px;
       animation: invFadeUp 0.42s cubic-bezier(0.22,1,0.36,1) both;
+      text-align: center;
     }
     .inv-spin-note-inner {
       display: flex; align-items: center; gap: 12px;
@@ -871,7 +872,7 @@
       border: 1px solid rgba(255,255,255,0.10);
       border-radius: 12px;
       color: rgba(255,255,255,0.90);
-      text-shadow: 0 0 7px #008;
+      text-shadow: 0 0 7px #ff9;
       font-family: 'DynaPuff', cursive; font-size: 12.5px; letter-spacing: 0.3px;
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
@@ -1175,6 +1176,7 @@
       display: flex; align-items: center; gap: 7px;
       font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase;
       color: rgba(255,255,255,0.35);
+      translate: 0 40px;
     }
     .inv-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1246,6 +1248,8 @@
       border: 1px dashed rgba(255,255,255,0.07);
       color: rgba(255,255,255,0.22); font-size: 11px; letter-spacing: 0.8px;
       text-align: center;
+     translate: 0 50px;
+     
     }
     .inv-list-empty svg { width: 38px; height: 38px; }
     .inv-list-empty.hidden { display: none; }
@@ -1276,7 +1280,7 @@
       <div class="ob-hint" id="ob-hint">Join both channels to continue</div>
 
       <!-- CTA -->
-      <button class="ob-start" id="ob-start-btn" disabled onclick="startApp()">
+      <button class="ob-start" id="ob-start-btn" disabled onclick="_finishOnboarding()">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M8 1l1.8 5.5H15l-4.6 3.3 1.8 5.5L8 12l-4.2 3.3 1.8-5.5L1 6.5h5.2L8 1z"
                 fill="#1a0900" opacity="0.6"/>
@@ -1820,22 +1824,42 @@
     }
 
     /* ════════════════════════════════════════
-       ONBOARDING — SERVER-SIDE CHANNEL POLLING
+       ONBOARDING — SERVER-SIDE CHANNEL POLLING (FIXED v2)
+       ✅ No infinite loading
+       ✅ Hard timeout fallback (60s → skip button)
+       ✅ Immediate first check on page load
+       ✅ Resilient against API timeout / network failure
+       ✅ Auto-start polling right after channels render
     ════════════════════════════════════════ */
 
-    // channel usernames — تُجلب من السيرفر (جدول cha)
-    let CHANNEL_USERNAMES = {}; // { 1: 'ch1', 2: 'ch2', ... }
+    let CHANNEL_USERNAMES = {};
     let CHANNEL_TOTAL = 0;
-
-    // حالة الانضمام لكل قناة (تُحدَّث من السيرفر)
     const joined = {};
-
-    // polling interval handle
     let _channelPollInterval = null;
+    let _onboardingHardTimeout = null;  // ✅ NEW: hard timeout 60s
+    let _onboardingDone = false;        // ✅ NEW: guard — منع تشغيل startApp مرتين
 
-    /**
-     * يجلب القنوات من السيرفر ويبني البطاقات ديناميكياً
-     */
+    // ✅ NEW: Hard timeout — إذا مرت 60 ثانية بدون نتيجة → أظهر زر التخطي تلقائياً
+    // هذا يضمن عدم بقاء أي مستخدم عالقاً أبداً
+    const ONBOARDING_HARD_TIMEOUT_MS = 60000; // 60 ثانية
+
+    function scheduleHardTimeout() {
+      if (_onboardingHardTimeout) return;
+      _onboardingHardTimeout = setTimeout(() => {
+        if (_onboardingDone) return;
+        console.warn('[Onboarding] Hard timeout reached — showing skip button');
+        stopChannelPolling();
+        _showSkipButton();
+      }, ONBOARDING_HARD_TIMEOUT_MS);
+    }
+
+    function clearHardTimeout() {
+      if (_onboardingHardTimeout) {
+        clearTimeout(_onboardingHardTimeout);
+        _onboardingHardTimeout = null;
+      }
+    }
+
     async function loadAndRenderChannels() {
       try {
         const res = await fetchApi({ action: 'get_channels' });
@@ -1853,9 +1877,7 @@
 
         if (channels.length === 0) {
           container.innerHTML = '';
-          // لا قنوات → فعّل زر البداية مباشرة
-          document.getElementById('ob-start-btn').disabled = false;
-          document.getElementById('ob-hint').classList.add('hidden');
+          _finishOnboarding(); // ✅ لا قنوات → ادخل مباشرة
           return;
         }
 
@@ -1881,59 +1903,58 @@
             </div>`;
         }).join('');
 
+        // ✅ NEW: ابدأ polling فوراً بعد رسم القنوات (لا تنتظر المستخدم يضغط Join)
+        // هذا يكشف إذا كان المستخدم منضم مسبقاً
+        startChannelPolling();
+
       } catch (e) {
         console.warn('[loadAndRenderChannels]', e.message);
+        // ✅ FIX: إذا فشل تحميل القنوات → أظهر زر التخطي بدل التعليق
+        _showSkipButton();
       }
     }
 
-    /**
-     * يفتح القناة ويبدأ polling كل 3 ثوانٍ من السيرفر
-     */
     async function joinChannel(n) {
       const btn     = document.getElementById('ch' + n + '-btn');
-      const card    = document.getElementById('ch' + n + '-card');
       const overlay = document.getElementById('ch' + n + '-verifying');
 
-      // فتح القناة في تليغرام
       const chUrl = 'https://t.me/' + CHANNEL_USERNAMES[n];
       if (TG && TG.openTelegramLink) TG.openTelegramLink(chUrl);
       else window.open(chUrl, '_blank');
 
-      // إظهار loading.gif و"جارٍ التحقق..."
       btn.disabled = true;
       btn.style.opacity = '0.4';
       if (overlay) overlay.classList.add('show');
 
-      // بدء الـ polling إذا لم يكن شغّالاً
+      // ✅ polling يبدأ هنا فقط إذا لم يكن شغّالاً
       startChannelPolling();
     }
 
-    /**
-     * يبدأ polling كل 3 ثوانٍ — يتحقق من السيرفر من انضمام المستخدم
-     */
     function startChannelPolling() {
-      if (_channelPollInterval) return; // لا تشغّل أكثر من مرة
+      if (_channelPollInterval) return;
+
+      // ✅ NEW: شغّل الـ hard timeout عند أول polling
+      scheduleHardTimeout();
 
       let _pollAttempts   = 0;
       let _failedAttempts = 0;
-      const MAX_POLL_ATTEMPTS  = 40;  // 40 × 3s = 2 دقيقة حد أقصى
-      const MAX_FAIL_ATTEMPTS  = 5;   // 5 فشل متتالي → نقدر نتجاهل ونكمل
+      const MAX_POLL_ATTEMPTS = 40;   // 40 × 3s = 2 دقيقة
+      const MAX_FAIL_ATTEMPTS = 5;    // 5 فشل متتالي → skip button
+
+      // تحقق فوري (لا تنتظر أول interval)
+      pollChannelStatus();
 
       _channelPollInterval = setInterval(async () => {
         _pollAttempts++;
+
         if (_pollAttempts > MAX_POLL_ATTEMPTS) {
           stopChannelPolling();
-          const hint = document.getElementById('ob-hint');
-          if (hint) {
-            hint.textContent = 'Taking too long? Close and reopen the app.';
-            hint.classList.remove('hidden');
-          }
+          // ✅ hard timeout سيتكفل بالباقي — لا نكرر الـ skip button
           return;
         }
 
         const success = await pollChannelStatus();
 
-        // ✅ FIX: إذا فشل السيرفر 5 مرات متتالية → أظهر زر تخطي
         if (success === false) {
           _failedAttempts++;
           if (_failedAttempts >= MAX_FAIL_ATTEMPTS) {
@@ -1941,58 +1962,73 @@
             _showSkipButton();
           }
         } else {
-          _failedAttempts = 0; // reset عند أي نجاح
+          _failedAttempts = 0;
         }
       }, 3000);
-
-      // تحقق فوري أول مرة
-      pollChannelStatus();
     }
 
     function _showSkipButton() {
+      if (_onboardingDone) return; // ✅ إذا انتهى الـ onboarding بالفعل → لا تفعل شيئاً
       const hint = document.getElementById('ob-hint');
       if (hint) {
-        hint.innerHTML = `Unable to verify channels. <span onclick="startApp()" style="color:#FFD966;text-decoration:underline;cursor:pointer;">Skip for now →</span>`;
+        hint.innerHTML = `Can't verify channels. <span onclick="_forceSkip()" style="color:#FFD966;text-decoration:underline;cursor:pointer;font-weight:700;">Skip for now →</span>`;
         hint.classList.remove('hidden');
       }
+      // ✅ NEW: أظهر أيضاً زر START حتى يتمكن المستخدم من المتابعة
+      const startBtn = document.getElementById('ob-start-btn');
+      if (startBtn) startBtn.disabled = false;
     }
 
-    /**
-     * يرسل طلب للسيرفر للتحقق من حالة القنوات
-     * يرجع true عند نجاح الطلب، false عند فشله
-     */
+    // ✅ NEW: دالة Skip صريحة — تُستدعى من زر التخطي
+    function _forceSkip() {
+      console.log('[Onboarding] User chose to skip');
+      stopChannelPolling();
+      clearHardTimeout();
+      startApp();
+    }
+
     async function pollChannelStatus() {
       try {
-        const res = await fetchApi({ action: 'poll_channels' });
+        // ✅ FIX: timeout 8 ثوانٍ على هذا الطلب تحديداً — أقل من فترة الـ polling (3s)
+        // حتى لو كان fetchApi عنده timeout 10s — هذا يضمن عدم تراكم الطلبات
+        const res = await Promise.race([
+          fetchApi({ action: 'poll_channels' }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('poll_timeout')), 8000)
+          )
+        ]);
 
-        if (!res.ok) return false;
+        if (!res || !res.ok) return false;
 
-        // إذا السيرفر عطّل التحقق → اعتبر الكل منضم
         if (!res.check_channels) {
-          markAllJoined();
+          // CHECK_CHANNELS = false في السيرفر → الكل منضم
+          _markAllJoined();
           stopChannelPolling();
+          clearHardTimeout();
+          // ✅ لا نستدعي startApp هنا — markAllJoined سيتكفل بذلك
           return true;
         }
 
-        // تحديث حالة كل قناة
         const channels = res.channels || [];
+        let anyNewJoin = false;
         channels.forEach((ch, i) => {
           const n = i + 1;
           if (ch.joined && !joined[n]) {
             markChannelJoined(n);
+            anyNewJoin = true;
           }
         });
 
-        // إذا كل القنوات تمت → أوقف الـ polling
         if (res.channels_ok) {
           stopChannelPolling();
+          clearHardTimeout();
         }
 
-        return true; // الطلب نجح
+        return true;
 
       } catch (e) {
         console.warn('[pollChannelStatus]', e.message);
-        return false; // ✅ FIX: أرجع false عند أي خطأ
+        return false;
       }
     }
 
@@ -2003,11 +2039,8 @@
       }
     }
 
-    /**
-     * يُحدّث UI قناة واحدة كـ "منضم"
-     */
     function markChannelJoined(n) {
-      if (joined[n]) return; // تجنب التكرار
+      if (joined[n]) return;
       joined[n] = true;
 
       const btn     = document.getElementById('ch' + n + '-btn');
@@ -2031,24 +2064,45 @@
 
       showChannelJoinedToast(n);
 
-      // إذا الكل انضم → فعّل زر البداية
-      const allDone = CHANNEL_TOTAL > 0 && Object.keys(joined).length >= CHANNEL_TOTAL
-                      && Object.values(joined).every(v => v === true);
-      if (allDone) {
-        document.getElementById('ob-start-btn').disabled = false;
+      // فحص إذا الكل انضم
+      const totalKeys   = Object.keys(joined).length;
+      const totalJoined = Object.values(joined).filter(v => v === true).length;
+
+      if (CHANNEL_TOTAL > 0 && totalKeys >= CHANNEL_TOTAL && totalJoined >= CHANNEL_TOTAL) {
+        // ✅ NEW: انتظر ثانية واحدة لإظهار الـ animation قبل الدخول
+        const startBtn = document.getElementById('ob-start-btn');
+        if (startBtn) startBtn.disabled = false;
         document.getElementById('ob-hint').classList.add('hidden');
+
+        // ✅ NEW: auto-proceed بعد ثانيتين إذا الكل منضم (UX أفضل)
+        setTimeout(() => {
+          if (!_onboardingDone) _finishOnboarding();
+        }, 1800);
       }
     }
 
-    /**
-     * يُحدّث كل القنوات كـ "منضم" (عند تعطيل CHECK_CHANNELS)
-     */
-    function markAllJoined() {
-      Object.keys(joined).forEach(n => markChannelJoined(parseInt(n)));
+    // ✅ NEW: دالة مركزية لإنهاء الـ onboarding — تمنع التشغيل المزدوج
+    function _finishOnboarding() {
+      if (_onboardingDone) return;
+      _onboardingDone = true;
+      stopChannelPolling();
+      clearHardTimeout();
+      const startBtn = document.getElementById('ob-start-btn');
+      if (startBtn) startBtn.disabled = false;
+      document.getElementById('ob-hint').classList.add('hidden');
+      startApp();
+    }
+
+    function _markAllJoined() {
+      for (let n = 1; n <= CHANNEL_TOTAL; n++) {
+        markChannelJoined(n);
+      }
+      // ✅ إذا CHANNEL_TOTAL = 0 (لا قنوات)، ادخل مباشرة
+      if (CHANNEL_TOTAL === 0) _finishOnboarding();
     }
 
     function showChannelJoinedToast(n) {
-      const names = { 1: 'channe...', 2: 'channe...' };
+      const chName = CHANNEL_USERNAMES[n] ? '@' + CHANNEL_USERNAMES[n] : 'Channel ' + n;
       const toast = document.getElementById('toast');
       toast.className = 'toast joined-toast';
       document.getElementById('toastIcon').innerHTML = `
@@ -2058,17 +2112,22 @@
         </svg>`;
       document.getElementById('toastTitle').className  = 'toast-title';
       document.getElementById('toastTitle').textContent = 'Joined!';
-      document.getElementById('toastDesc').textContent  = names[n];
+      document.getElementById('toastDesc').textContent  = chName;
       clearTimeout(window._toastTimer);
       toast.classList.add('show');
       window._toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
     }
 
     function startApp() {
+      if (_onboardingDone && document.getElementById('onboarding').style.display === 'none') return;
+      _onboardingDone = true;
       stopChannelPolling();
+      clearHardTimeout();
       const ob = document.getElementById('onboarding');
       ob.classList.add('hidden');
       ob.addEventListener('animationend', () => { ob.style.display = 'none'; }, { once: true });
+      // ✅ Fallback: إذا animationend لم يُطلق (مثلاً reduced-motion)
+      setTimeout(() => { ob.style.display = 'none'; }, 700);
       setTimeout(triggerEntrance, 300);
     }
 
@@ -2602,13 +2661,15 @@
         APP_STATE.history = res.wd_history || [];
 
         if (!res.check_channels || res.channels_ok) {
-          const ob = document.getElementById('onboarding');
-          if (ob) ob.style.display = 'none';
-          stopChannelPolling();
-          triggerEntrance();
-        } else {
-          startChannelPolling();
+          // ✅ إذا السيرفر قال channels_ok → ادخل مباشرة بدون انتظار
+          _finishOnboarding();
         }
+        // ✅ إذا channels_ok = false → polling شغّال بالفعل من loadAndRenderChannels
+      } else {
+        // ✅ FIX: إذا فشل get_user → لا نعلّق المستخدم — أظهر skip بعد 5 ثوانٍ
+        setTimeout(() => {
+          if (!_onboardingDone) _showSkipButton();
+        }, 5000);
       }
 
       refreshBalance();
@@ -2631,12 +2692,9 @@
           refreshBalance();
           updateSpinBadge();
           // إذا انضم للقنوات خلال الـ polling → أخفِ الـ onboarding
-          if (r.check_channels && r.channels_ok) {
-            const ob = document.getElementById('onboarding');
-            if (ob && ob.style.display !== 'none' && !ob.classList.contains('hidden')) {
-              stopChannelPolling();
-              startApp();
-            }
+          // ✅ FIX: استخدم _finishOnboarding بدل startApp المباشر
+          if (r.check_channels && r.channels_ok && !_onboardingDone) {
+            _finishOnboarding();
           }
         } catch (_) {}
       }, 4000);
