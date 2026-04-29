@@ -1003,11 +1003,61 @@ module.exports = async function handler(req, res) {
     }
 
     // ══════════════════════════════════════════════════════════════
+    //  UPDATE_USER — polling كل 4 ثوانٍ من الـ frontend
+    //  يُحدّث حالة القنوات ويرجع بيانات المستخدم المحدّثة
+    // ══════════════════════════════════════════════════════════════
+    if (action === 'update_user') {
+      let channelsOk = true;
+      if (CHECK_CHANNELS) {
+        channelsOk = await refreshChannelStatus(tid);
+      }
+
+      const rows = await sql(`SELECT * FROM players WHERE telegram_id = $1`, [tid]);
+      if (!rows.length) return res.status(404).json({ ok: false, error: 'Player not found' });
+      const u = rows[0];
+
+      // ── تحقق إذا المُحال لم يُوثَّق بعد — حاول توثيقه الآن ──
+      if (u.referral_by && !u.referral_rewarded && channelsOk) {
+        const refExists = await sql(`SELECT telegram_id FROM players WHERE telegram_id = $1`, [u.referral_by]);
+        if (refExists.length) {
+          await sql(
+            `UPDATE players SET referral_friends = referral_friends + 1, updated_at = NOW()
+             WHERE telegram_id = $1`,
+            [u.referral_by]
+          );
+          const refRow = await sql(
+            `SELECT referral_friends FROM players WHERE telegram_id = $1`,
+            [u.referral_by]
+          );
+          const totalFriends = parseInt(refRow[0]?.referral_friends || 0);
+          if (totalFriends % 5 === 0) {
+            await sql(
+              `UPDATE players SET spins = spins + 1, updated_at = NOW() WHERE telegram_id = $1`,
+              [u.referral_by]
+            );
+          }
+          await sql(`UPDATE players SET referral_rewarded = TRUE WHERE telegram_id = $1`, [tid]);
+        }
+      }
+
+      const updatedRows = await sql(`SELECT * FROM players WHERE telegram_id = $1`, [tid]);
+      const player = updatedRows[0];
+
+      return res.status(200).json({
+        ok:           true,
+        balance:      parseFloat(player.balance      || 0),
+        spins:        parseInt(player.spins          || 0),
+        channels_ok:  channelsOk,
+        check_channels: CHECK_CHANNELS,
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════
     //  GET_REFERRALS
     // ══════════════════════════════════════════════════════════════
     if (action === 'get_referrals') {
-      // ✅ FIX 3: verified = انضم للقنوات (referral_rewarded=TRUE)
-      // pending = لم ينضم للقنوات بعد أو لم يُوثَّق
+      // verified = انضم للقنوات (referral_rewarded=TRUE)
+      // pending = لم ينضم للقنوات بعد — يظهر في القائمة لكن لا يُحتسب
       const referrals = await sql(
         `SELECT telegram_id AS id,
                 COALESCE(first_name, username, 'User') AS name,
