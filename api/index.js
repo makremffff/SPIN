@@ -932,11 +932,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'Unknown action', action });
 
   } catch (err) {
-    console.error('[API Error]', action, err.message);
+    // 🔴 تفاصيل الخطأ الكاملة في اللوق دائماً
+    console.error('[API Error]', action, err.message, err.stack);
     return res.status(500).json({
       ok: false,
       error: 'internal_server_error',
-      ...(process.env.NODE_ENV !== 'production' && { detail: err.message })
+      detail: err.message,   // ✅ مؤقتاً — اقرأ الخطأ ثم ارجع لـ production mode
+      action,
     });
   }
 };
