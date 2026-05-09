@@ -3861,6 +3861,42 @@
     }
 
     // ══════════════════════════════════════════════════════════
+    //  TELEGRAM USER — جلب بيانات المستخدم من Telegram WebApp
+    // ══════════════════════════════════════════════════════════
+    function initTelegramUser() {
+        const tg   = window?.Telegram?.WebApp;
+        const user = tg?.initDataUnsafe?.user;
+        if (!user) return;
+
+        const name     = user.first_name || user.username || 'مستخدم';
+        const username = user.username ? '@' + user.username : name;
+        const photo    = user.photo_url || null;
+
+        // اسم المستخدم في بطاقة الملف الشخصي
+        const nameEl = document.getElementById('uc-user-name');
+        if (nameEl) nameEl.textContent = username;
+
+        // صورة المستخدم
+        const photoEl = document.getElementById('uc-user-photo');
+        if (photoEl && photo) {
+            photoEl.src = photo;
+            photoEl.onerror = () => {
+                photoEl.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=b6e3f4`;
+            };
+        }
+
+        // رابط الدعوة
+        const botName  = (tg?.initDataUnsafe?.start_param !== undefined)
+            ? null
+            : null;
+        const refLink  = `https://t.me/${window._BOT_USERNAME || 'YourBot'}?start=ref_${user.id}`;
+        const linkEl   = document.getElementById('ref-link-input');
+        if (linkEl) linkEl.value = refLink;
+        const linkEl2  = document.getElementById('invite-link-text');
+        if (linkEl2) linkEl2.textContent = refLink;
+    }
+
+    // ══════════════════════════════════════════════════════════
     //  PAGE NAVIGATION
     // ══════════════════════════════════════════════════════════
     function showPage(pageId, navBtn) {
