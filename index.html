@@ -2537,7 +2537,7 @@
                             <div style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.45);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;" data-i18n="balance_label">الرصيد الكلي</div>
                             <div style="display:flex;align-items:center;gap:7px;">
                                 <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(251,191,36,0.9));">
-                                <span class="uc-balance-num balance-number counter" data-target="12450" style="font-size:26px;">0</span>
+                                <span class="uc-balance-num balance-number counter" data-target="75000" style="font-size:26px;">0</span>
                             </div>
                             <span style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.35);font-weight:500;" data-i18n="pts">نقطة</span>
                         </div>
@@ -3176,7 +3176,7 @@
                 <div class="balance-hero-label"><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.6));vertical-align:middle;margin-left:4px;"><span data-i18n="balance_available">رصيدك المتاح للسحب</span></div>
                 <div class="balance-hero-amount">
                     <img src="asesst/coins.png" alt="" class="coin-img-lg pulse-gold">
-                    <span class="balance-hero-number counter" data-target="12450">0</span>
+                    <span class="balance-hero-number counter" data-target="75000">0</span>
                 </div>
                 <div class="balance-hero-unit" data-i18n="pts">نقطة</div>
             </div>
@@ -3382,20 +3382,23 @@
 
         function updateAdUI() {
             const r = AD_STATE.remaining;
-            document.getElementById('ads-remaining').textContent = r;
-            document.getElementById('ads-watched').textContent = AD_STATE.watchedToday;
-            document.getElementById('earned-today').textContent = AD_STATE.earnedToday.toLocaleString('ar-EG');
+            const elRem = document.getElementById('ads-remaining');
+            const elWatched = document.getElementById('ads-watched');
+            const elEarned = document.getElementById('earned-today');
+            const elProgress = document.getElementById('ads-progress');
+            const elBtn = document.getElementById('ad-watch-btn');
+            const elDone = document.getElementById('ad-done-state');
 
-            const pct = (r / AD_STATE.total) * 100;
-            document.getElementById('ads-progress').style.width = pct + '%';
+            if (elRem) elRem.textContent = r;
+            if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
+            if (elEarned) elEarned.textContent = AD_STATE.earnedToday.toLocaleString('ar-EG');
+            if (elProgress) elProgress.style.width = ((r / AD_STATE.total) * 100) + '%';
 
             if (r === 0) {
-                document.getElementById('ad-watch-btn').style.display = 'none';
-                const done = document.getElementById('ad-done-state');
-                done.style.display = 'flex';
+                if (elBtn) elBtn.style.display = 'none';
+                if (elDone) elDone.style.display = 'flex';
             }
 
-            // Sync daily task progress
             syncDailyTasksFromAds();
         }
 
@@ -3505,32 +3508,39 @@
             const day = DAILY_GIFT_STATE.dayNumber;
             const data = GIFT_DAYS[Math.min(day - 1, GIFT_DAYS.length - 1)];
 
-            // Update content
-            document.getElementById('gift-day-text').textContent = data.day;
-            document.getElementById('gift-desc-text').textContent = data.desc;
-            document.getElementById('gift-amount').textContent = data.amount;
+            const dayTextEl  = document.getElementById('gift-day-text');
+            const descTextEl = document.getElementById('gift-desc-text');
+            const amountEl   = document.getElementById('gift-amount');
+            const dotsEl     = document.getElementById('gift-streak-dots');
+            const btn        = document.getElementById('gift-claim-btn');
+            const label      = document.getElementById('gift-loading-label');
+            const ringIcon   = document.getElementById('gift-ring-icon');
+            const overlay    = document.getElementById('daily-gift-overlay');
+
+            if (!overlay) { DAILY_GIFT_STATE.isOpening = false; return; }
+
+            if (dayTextEl)  dayTextEl.textContent  = data.day;
+            if (descTextEl) descTextEl.textContent = data.desc;
+            if (amountEl)   amountEl.textContent   = data.amount;
 
             // Build streak dots
-            const dotsEl = document.getElementById('gift-streak-dots');
-            dotsEl.innerHTML = '';
-            for (let i = 1; i <= 7; i++) {
-                const dot = document.createElement('div');
-                dot.style.cssText = `
-                    width:${i === day ? '22px' : '8px'};height:8px;border-radius:4px;
-                    background:${i < day ? 'rgba(251,191,36,0.75)' : i === day ? '#fbbf24' : 'rgba(255,255,255,0.1)'};
-                    box-shadow:${i <= day ? '0 0 6px rgba(251,191,36,0.4)' : 'none'};
-                `;
-                dotsEl.appendChild(dot);
+            if (dotsEl) {
+                dotsEl.innerHTML = '';
+                for (let i = 1; i <= 7; i++) {
+                    const dot = document.createElement('div');
+                    dot.style.cssText = `
+                        width:${i === day ? '22px' : '8px'};height:8px;border-radius:4px;
+                        background:${i < day ? 'rgba(251,191,36,0.75)' : i === day ? '#fbbf24' : 'rgba(255,255,255,0.1)'};
+                        box-shadow:${i <= day ? '0 0 6px rgba(251,191,36,0.4)' : 'none'};
+                    `;
+                    dotsEl.appendChild(dot);
+                }
             }
 
-            // Reset btn & label
-            const btn = document.getElementById('gift-claim-btn');
-            const label = document.getElementById('gift-loading-label');
-            btn.style.display = 'none';
-            label.style.display = 'block';
+            if (btn)   btn.style.display   = 'none';
+            if (label) label.style.display = 'block';
 
-            // Reset ring icon
-            document.getElementById('gift-ring-icon').innerHTML = `
+            if (ringIcon) ringIcon.innerHTML = `
                 <path d="M20 12v10H4V12" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M22 7H2v5h20V7z" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M12 22V7" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -3538,20 +3548,18 @@
                 <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             `;
 
-            // Show overlay
-            const overlay = document.getElementById('daily-gift-overlay');
             overlay.style.opacity = '1';
             overlay.style.pointerEvents = 'all';
 
             if (DAILY_GIFT_STATE.claimed) {
-                // Already claimed today
                 const t2 = TRANSLATIONS[currentLang];
-                label.textContent = t2.gift_already_claimed || 'تم استلام هديتك اليوم ✓';
-                label.style.color = '#34d399';
-                label.style.fontSize = '14px';
-                label.style.fontWeight = '700';
+                if (label) {
+                    label.textContent   = t2.gift_already_claimed || 'تم استلام هديتك اليوم ✓';
+                    label.style.color      = '#34d399';
+                    label.style.fontSize   = '14px';
+                    label.style.fontWeight = '700';
+                }
                 DAILY_GIFT_STATE.isOpening = false;
-                // Auto close after 2s
                 setTimeout(() => closeDailyGiftOverlay(), 2200);
                 return;
             }
@@ -3559,26 +3567,27 @@
             // Countdown 3 seconds like ad overlay
             let sec = 3;
             const tg = TRANSLATIONS[currentLang];
-            label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
+            if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
 
             const timer = setInterval(() => {
                 sec--;
                 if (sec > 0) {
-                    label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
+                    if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
                 } else {
                     clearInterval(timer);
-                    label.style.display = 'none';
-                    btn.style.display = 'block';
-                    // Animate btn in
-                    btn.style.transform = 'scale(0.8)';
-                    btn.style.opacity = '0';
-                    requestAnimationFrame(() => {
+                    if (label) label.style.display = 'none';
+                    if (btn) {
+                        btn.style.display = 'block';
+                        btn.style.transform = 'scale(0.8)';
+                        btn.style.opacity = '0';
                         requestAnimationFrame(() => {
-                            btn.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-                            btn.style.transform = 'scale(1)';
-                            btn.style.opacity = '1';
+                            requestAnimationFrame(() => {
+                                btn.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+                                btn.style.transform = 'scale(1)';
+                                btn.style.opacity = '1';
+                            });
                         });
-                    });
+                    }
                     DAILY_GIFT_STATE.isOpening = false;
                 }
             }, 1000);
@@ -3586,8 +3595,7 @@
 
         function closeDailyGiftOverlay() {
             const overlay = document.getElementById('daily-gift-overlay');
-            overlay.style.opacity = '0';
-            overlay.style.pointerEvents = 'none';
+            if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
             DAILY_GIFT_STATE.isOpening = false;
         }
 
@@ -3599,22 +3607,23 @@
             if (DAILY_GIFT_STATE.claimed) return;
             DAILY_GIFT_STATE.claimed = true;
 
-            // Swap ring icon to checkmark
-            document.getElementById('gift-ring-icon').innerHTML = `
+            const ringIcon = document.getElementById('gift-ring-icon');
+            if (ringIcon) ringIcon.innerHTML = `
                 <path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             `;
 
-            // Change btn
             const btn = document.getElementById('gift-claim-btn');
             const tc = TRANSLATIONS[currentLang];
-            btn.textContent = tc.gift_claimed || 'تم الاستلام ✓';
-            btn.style.background = 'rgba(52,211,153,0.15)';
-            btn.style.color = '#34d399';
-            btn.style.border = '1px solid rgba(52,211,153,0.28)';
-            btn.style.cursor = 'default';
-            btn.onclick = null;
-            btn.onmouseenter = null;
-            btn.onmouseleave = null;
+            if (btn) {
+                btn.textContent = tc.gift_claimed || 'تم الاستلام ✓';
+                btn.style.background = 'rgba(52,211,153,0.15)';
+                btn.style.color = '#34d399';
+                btn.style.border = '1px solid rgba(52,211,153,0.28)';
+                btn.style.cursor = 'default';
+                btn.onclick = null;
+                btn.onmouseenter = null;
+                btn.onmouseleave = null;
+            }
 
             const data = GIFT_DAYS[Math.min(DAILY_GIFT_STATE.dayNumber - 1, GIFT_DAYS.length - 1)];
             showToast('trophy', tc.toast_gift_title || 'تم استلام هديتك!', `${data.pts} ${tc.pts || 'نقطة'}`, 'green', data.amount);
@@ -3623,14 +3632,16 @@
         }
 
 
-        const REFERRAL_LINK = 'https://t.me/RebhApp_bot?start=ref_AHK7291';
+        // REFERRAL_LINK يُبنى ديناميكياً في buildReferralLink() — نضع قيمة أولية fallback
+        window.REFERRAL_LINK = 'https://t.me/RebhApp_bot?start=ref_guest';
 
         function copyReferralLink() {
+            const link = window.REFERRAL_LINK;
             const btn = document.getElementById('copy-btn');
-            navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {
+            navigator.clipboard.writeText(link).catch(() => {
                 // fallback
                 const ta = document.createElement('textarea');
-                ta.value = REFERRAL_LINK;
+                ta.value = link;
                 document.body.appendChild(ta);
                 ta.select();
                 document.execCommand('copy');
@@ -3661,12 +3672,14 @@
         }
 
         function shareTelegram() {
-            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
-            window.open('https://t.me/share/url?url=' + encodeURIComponent(REFERRAL_LINK) + '&text=' + text, '_blank');
+            const link = window.REFERRAL_LINK;
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + link);
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + text, '_blank');
         }
 
         function shareWhatsApp() {
-            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
+            const link = window.REFERRAL_LINK;
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + link);
             window.open('https://wa.me/?text=' + text, '_blank');
         }
 
@@ -3863,29 +3876,61 @@
         /* ══════════════════════════════════════════
            TELEGRAM USER DATA
         ══════════════════════════════════════════ */
+        // Global user ID — used for referral link
+        let TG_USER_ID = null;
+
         function initTelegramUser() {
             const tg = window.Telegram && window.Telegram.WebApp;
             let name = '@مستخدم';
-            let photoUrl = null;
+            let userId = null;
+            let avatarSeed = 'default';
 
             if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 const u = tg.initDataUnsafe.user;
+
+                // الاسم: username أولاً ثم الاسم الكامل
                 if (u.username) name = '@' + u.username;
                 else if (u.first_name) name = u.first_name + (u.last_name ? ' ' + u.last_name : '');
-                if (u.photo_url) photoUrl = u.photo_url;
+
+                // User ID لرابط الإحالة
+                if (u.id) {
+                    userId = String(u.id);
+                    TG_USER_ID = userId;
+                    avatarSeed = userId; // seed فريد لكل مستخدم
+                }
             }
 
+            // ── اسم المستخدم ──
             const nameEl = document.getElementById('uc-user-name');
-            const photoEl = document.getElementById('uc-user-photo');
-
             if (nameEl) nameEl.textContent = name;
 
-            if (photoEl && photoUrl) {
-                photoEl.src = photoUrl;
+            // ── الصورة الشخصية ──
+            // تلغرام لا يُرسل photo_url في Mini Apps (privacy policy)
+            // نستخدم DiceBear بـ seed من user ID لتوليد avatar مميز لكل مستخدم
+            const photoEl = document.getElementById('uc-user-photo');
+            if (photoEl) {
+                photoEl.src = 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(name) + '&backgroundColor=0d1b2a,1a2744,0f2337&textColor=fbbf24&radius=50&fontSize=38';
                 photoEl.onerror = function() {
-                    this.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default&backgroundColor=b6e3f4';
+                    this.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + avatarSeed + '&backgroundColor=0d0a1a';
                 };
             }
+
+            // ── رابط الإحالة الديناميكي ──
+            buildReferralLink(userId);
+        }
+
+        function buildReferralLink(userId) {
+            // استخدم user ID الحقيقي — وإن لم يكن متاحاً استخدم fallback
+            const botUsername = 'RebhApp_bot'; // ← غيّر هذا لاسم البوت الصحيح
+            const refParam = userId ? 'ref_' + userId : 'ref_guest';
+            const link = 'https://t.me/' + botUsername + '?start=' + refParam;
+
+            // تحديث المتغير العام
+            window.REFERRAL_LINK = link;
+
+            // تحديث العنصر المرئي في صفحة الدعوة
+            const linkTextEl = document.getElementById('referral-link-text');
+            if (linkTextEl) linkTextEl.textContent = link;
         }
 
         /* ══════════════════════════════════════════
@@ -4033,7 +4078,7 @@
 
         // Simulated user state — in production pull from your backend
         const USER_STATE = {
-            points: 12450,
+            points: 75000,
             level: 7,
         };
 
@@ -4397,14 +4442,16 @@
        SETTINGS DRAWER
     ══════════════════════════════════════════ */
     function openSettings() {
-        document.getElementById('settings-backdrop').style.opacity = '1';
-        document.getElementById('settings-backdrop').style.pointerEvents = 'all';
-        document.getElementById('settings-drawer').style.transform = 'translateY(0)';
+        const bd = document.getElementById('settings-backdrop');
+        const dr = document.getElementById('settings-drawer');
+        if (bd) { bd.style.opacity = '1'; bd.style.pointerEvents = 'all'; }
+        if (dr) dr.style.transform = 'translateY(0)';
     }
     function closeSettings() {
-        document.getElementById('settings-backdrop').style.opacity = '0';
-        document.getElementById('settings-backdrop').style.pointerEvents = 'none';
-        document.getElementById('settings-drawer').style.transform = 'translateY(110%)';
+        const bd = document.getElementById('settings-backdrop');
+        const dr = document.getElementById('settings-drawer');
+        if (bd) { bd.style.opacity = '0'; bd.style.pointerEvents = 'none'; }
+        if (dr) dr.style.transform = 'translateY(110%)';
     }
 
     /* ══════════════════════════════════════════
