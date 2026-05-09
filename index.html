@@ -3362,6 +3362,191 @@
          JAVASCRIPT
     ══════════════════════════════════════════ -->
     <script>
+        /* ══════════════════════════════════════════════════════════
+           ZERO TRUST SECURITY LAYER — TON Spin
+           ✅ Session management (IP + fingerprint bound)
+           ✅ Nonce system (replay attack prevention)
+           ✅ Fingerprint generation (device identity)
+           ✅ Auto session creation on startup
+           ✅ Auto session refresh on expiry
+        ══════════════════════════════════════════════════════════ */
+
+        const API_BASE = '/api'; // عنوان الـ backend
+
+        // ── Session state ──
+        let _sessionId   = null;
+        let _sessionBusy = false; // منع طلبات session متوازية
+
+        // ── توليد Fingerprint من بيانات الجهاز ──
+        async function _buildFingerprint() {
+            const nav    = window.navigator;
+            const screen = window.screen;
+
+            // Canvas fingerprint
+            let canvasSig = '';
+            try {
+                const cv  = document.createElement('canvas');
+                const ctx = cv.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font         = '14px Arial';
+                ctx.fillStyle    = '#f60';
+                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle    = '#069';
+                ctx.fillText('TonSpin🎰', 2, 15);
+                ctx.fillStyle    = 'rgba(102,204,0,0.7)';
+                ctx.fillText('TonSpin🎰', 4, 17);
+                canvasSig = cv.toDataURL().slice(-50);
+            } catch (_) {}
+
+            // WebGL fingerprint
+            let webglSig = '';
+            try {
+                const gl       = document.createElement('canvas').getContext('webgl');
+                const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
+                webglSig = debugInfo
+                    ? (gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '') + '|' +
+                      (gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '')
+                    : '';
+            } catch (_) {}
+
+            return {
+                user_agent : nav.userAgent   || '',
+                lang       : nav.language    || '',
+                screen     : `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                tz_offset  : new Date().getTimezoneOffset(),
+                tz_name    : Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                hw_cores   : nav.hardwareConcurrency || 0,
+                hw_mem     : nav.deviceMemory        || 0,
+                touch_pts  : nav.maxTouchPoints       || 0,
+                canvas_sig : canvasSig,
+                webgl_sig  : webglSig,
+                color_depth: screen.colorDepth || 0,
+                dpr        : window.devicePixelRatio  || 1,
+            };
+        }
+
+        // ── توليد Nonce عشوائي ──
+        function _generateNonce() {
+            const arr = new Uint8Array(16);
+            crypto.getRandomValues(arr);
+            return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // ── إنشاء جلسة جديدة ──
+        async function _createSession() {
+            if (_sessionBusy) {
+                // انتظر حتى تنتهي الجلسة الحالية
+                await new Promise(r => setTimeout(r, 800));
+                return _sessionId;
+            }
+            _sessionBusy = true;
+
+            try {
+                const tg       = window?.Telegram?.WebApp;
+                const initData = tg?.initData || '';
+                const fpData   = await _buildFingerprint();
+
+                const res = await fetch(API_BASE, {
+                    method : 'POST',
+                    headers: {
+                        'Content-Type' : 'application/json',
+                        'X-Init-Data'  : initData,
+                        'X-Fingerprint': JSON.stringify(fpData),
+                    },
+                    body: JSON.stringify({ action: 'create_session', data: {} }),
+                });
+
+                const json = await res.json();
+                if (json.ok && json.session_id) {
+                    _sessionId = json.session_id;
+                    console.log('[SEC] ✅ Session created:', _sessionId.slice(0, 8) + '...');
+                } else if (json.is_banned) {
+                    console.error('[SEC] 🚫 Account banned');
+                    document.body.innerHTML = `
+                        <div style="display:flex;align-items:center;justify-content:center;
+                             height:100vh;flex-direction:column;gap:16px;
+                             background:#0d0a1a;color:#f87171;font-family:'Tajawal',sans-serif;text-align:center;">
+                            <div style="font-size:48px">🚫</div>
+                            <div style="font-size:20px;font-weight:900">تم تعليق الحساب</div>
+                            <div style="font-size:13px;color:rgba(255,255,255,0.4);max-width:280px">
+                                تم اكتشاف نشاط مشبوه. تواصل مع الدعم إذا كنت تعتقد أن هذا خطأ.
+                            </div>
+                        </div>`;
+                } else {
+                    console.warn('[SEC] Session creation failed:', json.error);
+                }
+            } catch (e) {
+                console.error('[SEC] Session creation error:', e);
+            } finally {
+                _sessionBusy = false;
+            }
+            return _sessionId;
+        }
+
+        /* ══════════════════════════════════════════
+           FETCHAPI — UNIFIED API GATEWAY (Zero Trust)
+           الاستخدام: fetchApi({ type: 'actionName', data: {...} })
+        ══════════════════════════════════════════ */
+        async function fetchApi({ type, data = {} }) {
+            const tg       = window?.Telegram?.WebApp;
+            const initData = tg?.initData || '';
+
+            // تأكد من وجود session قبل أي طلب
+            if (!_sessionId && type !== 'create_session') {
+                await _createSession();
+                if (!_sessionId) {
+                    console.error(`[API] ❌ ${type} — no session available`);
+                    return { ok: false, error: 'no_session' };
+                }
+            }
+
+            const fpData  = await _buildFingerprint();
+            const nonce   = _generateNonce();
+
+            try {
+                const res = await fetch(API_BASE, {
+                    method : 'POST',
+                    headers: {
+                        'Content-Type' : 'application/json',
+                        'X-Init-Data'  : initData,
+                        'X-Session-Id' : _sessionId || '',
+                        'X-Nonce'      : nonce,
+                        'X-Fingerprint': JSON.stringify(fpData),
+                    },
+                    body: JSON.stringify({ action: type, data }),
+                });
+
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => ({}));
+                    const msg     = errBody?.error || `HTTP ${res.status}`;
+                    console.error(`[API] ❌ ${type} → ${msg}`);
+
+                    // Session منتهية → نجدد تلقائياً
+                    if (res.status === 401) {
+                        console.warn('[SEC] Session expired — refreshing...');
+                        _sessionId = null;
+                        await _createSession();
+                    }
+                    return { ok: false, error: msg };
+                }
+
+                const json = await res.json();
+                console.log(`[API] ✅ ${type}`, json);
+                return json;
+
+            } catch (err) {
+                console.error(`[API] 🔴 ${type} → Network error:`, err);
+                return { ok: false, error: 'network_error' };
+            }
+        }
+
+        // ── إنشاء Session فور تحميل الصفحة (قبل أي fetchApi) ──
+        document.addEventListener('DOMContentLoaded', () => {
+            _createSession().then(() => {
+                console.log('[SEC] 🔐 Zero Trust session ready');
+            });
+        });
+
         /* ─── Ad System ─── */
         /* ─── Deposit via Telegram Support ─── */
         function openDepositSupport() {
@@ -3404,8 +3589,17 @@
             syncDailyTasksFromAds();
         }
 
-        function watchAd() {
+        async function watchAd() {
             if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
+
+            // ✅ STEP 1: طلب nonce من السيرفر قبل عرض الإعلان
+            const startRes = await fetchApi({ type: 'start_ad', data: {} });
+            if (!startRes?.ok || !startRes?.ad_nonce) {
+                showToast('coin', 'تعذّر تشغيل الإعلان', 'حاول مجدداً', 'gold', '!');
+                return;
+            }
+            const adNonce = startRes.ad_nonce;
+
             AD_STATE.isWatching = true;
 
             const overlay = document.getElementById('ad-watch-overlay');
@@ -3415,19 +3609,31 @@
             let sec = 5;
             countEl.textContent = sec;
 
-            const timer = setInterval(() => {
+            const timer = setInterval(async () => {
                 sec--;
                 countEl.textContent = sec;
                 if (sec <= 0) {
                     clearInterval(timer);
                     overlay.classList.remove('visible');
                     AD_STATE.isWatching = false;
-                    AD_STATE.remaining--;
-                    AD_STATE.watchedToday++;
-                    AD_STATE.earnedToday += 50;
+
+                    // ✅ STEP 2: إرسال nonce مع الطلب — السيرفر يتحقق ويحتسب
+                    const result = await fetchApi({
+                        type: 'watch_ad',
+                        data: { ad_nonce: adNonce }
+                    });
+
+                    if (result.ok) {
+                        // السيرفر هو المرجع الوحيد للأرقام
+                        AD_STATE.remaining    = result.remaining    ?? Math.max(0, AD_STATE.remaining - 1);
+                        AD_STATE.watchedToday = result.watchedToday ?? (AD_STATE.watchedToday + 1);
+                        AD_STATE.earnedToday  = result.earnedToday  ?? (AD_STATE.earnedToday + 50);
+                    } else {
+                        showToast('coin', 'فشل التحقق من الإعلان', result.error || 'حاول مجدداً', 'gold', '!');
+                    }
+
                     updateAdUI();
 
-                    // Pick toast type
                     const t = TRANSLATIONS[currentLang];
                     if (AD_STATE.remaining === 0) {
                         showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
@@ -3605,9 +3811,24 @@
         function openDailyGift() { openDailyGiftOverlay(); }
         function closeDailyGift() { closeDailyGiftOverlay(); }
 
-        function claimGift() {
+        async function claimGift() {
             if (DAILY_GIFT_STATE.claimed) return;
             DAILY_GIFT_STATE.claimed = true;
+
+            const data = GIFT_DAYS[Math.min(DAILY_GIFT_STATE.dayNumber - 1, GIFT_DAYS.length - 1)];
+
+            // ─── إرسال الأكشن للـ backend ───
+            const result = await fetchApi({
+                type: 'claim_gift',
+                data: { userId: CURRENT_USER_ID, day: DAILY_GIFT_STATE.dayNumber, pts: data.pts }
+            });
+
+            if (!result.ok) {
+                // Rollback على فشل الـ backend (لمنع double-claim)
+                console.warn('[Gift] Backend رفض الطلب — rollback');
+                DAILY_GIFT_STATE.claimed = false;
+                return;
+            }
 
             const ringIcon = document.getElementById('gift-ring-icon');
             if (ringIcon) ringIcon.innerHTML = `
@@ -3627,7 +3848,6 @@
                 btn.onmouseleave = null;
             }
 
-            const data = GIFT_DAYS[Math.min(DAILY_GIFT_STATE.dayNumber - 1, GIFT_DAYS.length - 1)];
             showToast('trophy', tc.toast_gift_title || 'تم استلام هديتك!', `${data.pts} ${tc.pts || 'نقطة'}`, 'green', data.amount);
 
             setTimeout(() => closeDailyGiftOverlay(), 1600);
@@ -3647,6 +3867,9 @@
                 document.execCommand('copy');
                 document.body.removeChild(ta);
             });
+
+            // ─── تتبع النسخ في الـ backend (fire-and-forget) ───
+            fetchApi({ type: 'track_copy_link', data: { userId: CURRENT_USER_ID } });
 
             // Feedback
             btn.classList.add('copied');
@@ -3717,11 +3940,28 @@
             if (verifyHint) { verifyHint.style.display = 'block'; }
         }
 
-        function verifyTelegramTask() {
+        async function verifyTelegramTask() {
             if (TASKS_STATE.tgVerified) return;
-            TASKS_STATE.tgVerified = true;
 
             const verifyBtn  = document.getElementById('tg-verify-btn-compact');
+            // ─── Loading state أثناء التحقق ───
+            if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
+
+            // ─── إرسال الأكشن للـ backend ───
+            const result = await fetchApi({
+                type: 'verify_tg_membership',
+                data: { userId: CURRENT_USER_ID }
+            });
+
+            if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
+
+            if (!result.ok) {
+                showToast('coin', 'لم يتم التحقق بعد', 'تأكد من انضمامك للقناة ثم حاول مجدداً', 'gold', '!');
+                return;
+            }
+
+            TASKS_STATE.tgVerified = true;
+
             const verifyHint = document.getElementById('tg-verify-hint');
             const actionWrap = document.getElementById('tg-action-wrap');
             const doneState  = document.getElementById('tg-done-state');
@@ -3866,6 +4106,8 @@
         }
 
         /* ─── Init ─── */
+        // ملاحظة: _createSession() + initTelegramUser() يُستدعيان من DOMContentLoaded في كتلة Zero Trust أعلاه
+        // هذا المستمع يُشغّل فقط counters إضافية
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => runCounters(document), 350);
             initTelegramUser();
@@ -4214,14 +4456,41 @@
             return (addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:')) && addr.length >= 48;
         }
 
-        function submitTonWithdraw() {
+        async function submitTonWithdraw() {
             const input = document.getElementById('ton-address-input');
             const addr  = input.value.trim();
             const errEl = document.getElementById('ton-error-msg');
+            const submitBtn = document.getElementById('ton-submit-btn');
 
             if (!isValidTonAddress(addr)) {
                 errEl.style.display = 'block';
                 input.style.borderColor = 'rgba(248,113,113,0.5)';
+                return;
+            }
+
+            // ─── Loading state ───
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ جاري الإرسال...';
+
+            // ─── إرسال الأكشن للـ backend ───
+            const result = await fetchApi({
+                type: 'submit_withdraw',
+                data: {
+                    userId:  CURRENT_USER_ID,
+                    address: addr,
+                    pts:     USER_STATE.points,
+                }
+            });
+
+            // Restore button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'إرسال طلب السحب';
+
+            if (!result.ok) {
+                errEl.textContent = result.error === 'insufficient_balance'
+                    ? 'رصيدك غير كافٍ'
+                    : 'حدث خطأ، حاول مجدداً';
+                errEl.style.display = 'block';
                 return;
             }
 
