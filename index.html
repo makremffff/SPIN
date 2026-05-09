@@ -2539,7 +2539,7 @@
                             <div style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.45);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;" data-i18n="balance_label">الرصيد الكلي</div>
                             <div style="display:flex;align-items:center;gap:7px;">
                                 <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(251,191,36,0.9));">
-                                <span class="uc-balance-num balance-number counter" data-target="0" style="font-size:26px;">0</span>
+                                <span class="uc-balance-num balance-number counter" data-target="75000" style="font-size:26px;">0</span>
                             </div>
                             <span style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.35);font-weight:500;" data-i18n="pts">نقطة</span>
                         </div>
@@ -2576,7 +2576,7 @@
                                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="#34d399"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val green counter" data-target="0">0</div>
+                        <div class="uc-stat-val green counter" data-target="48">0</div>
                         <div class="uc-stat-label" data-i18n="friends_label">صديق مدعو</div>
                     </div>
                     <div class="uc-stat">
@@ -2586,7 +2586,7 @@
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z" fill="#60a5fa"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val blue counter" data-target="0">0</div>
+                        <div class="uc-stat-val blue counter" data-target="156">0</div>
                         <div class="uc-stat-label" data-i18n="tasks_done_label">مهمة منجزة</div>
                     </div>
                     <div class="uc-stat">
@@ -2596,7 +2596,7 @@
                                 <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#fbbf24"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val gold counter" data-target="0">0</div>
+                        <div class="uc-stat-val gold counter" data-target="24000">0</div>
                         <div class="uc-stat-label">إجمالي المكتسب</div>
                     </div>
                 </div>
@@ -3045,14 +3045,14 @@
             <div class="invite-stats">
                 <div class="invite-stat-card glass">
                     <div class="invite-stat-val" style="color:var(--purple);">
-                        <span class="counter" data-target="0">0</span>
+                        <span class="counter" data-target="48">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="total_referrals">إجمالي الإحالات</div>
                 </div>
                 <div class="invite-stat-card glass">
                     <div class="invite-stat-val" style="display:flex;align-items:center;justify-content:center;gap:6px;">
                         <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(251,191,36,0.7));">
-                        <span style="color:var(--gold);" class="counter" data-target="0">0</span>
+                        <span style="color:var(--gold);" class="counter" data-target="24000">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="earned_from_refs">مكتسب من الإحالات</div>
                 </div>
@@ -3178,7 +3178,7 @@
                 <div class="balance-hero-label"><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.6));vertical-align:middle;margin-left:4px;"><span data-i18n="balance_available">رصيدك المتاح للسحب</span></div>
                 <div class="balance-hero-amount">
                     <img src="asesst/coins.png" alt="" class="coin-img-lg pulse-gold">
-                    <span class="balance-hero-number counter" data-target="0">0</span>
+                    <span class="balance-hero-number counter" data-target="75000">0</span>
                 </div>
                 <div class="balance-hero-unit" data-i18n="pts">نقطة</div>
             </div>
@@ -3361,1306 +3361,1206 @@
     <!-- ══════════════════════════════════════════
          JAVASCRIPT
     ══════════════════════════════════════════ -->
-<script>
-    /* ══════════════════════════════════════════════════════════
-       ZERO TRUST SECURITY LAYER v3.0
-       ✅ HMAC-SHA256 Telegram initData (server-side)
-       ✅ Session-based auth (fingerprint + IP bound)
-       ✅ Nonce مخفي كلياً — يُصدَّر من السيرفر فقط عبر start_ad
-       ✅ Rate limiting server-side
-       ✅ Shadow ban + Hard ban
-       ✅ Multi-account detection
-       ✅ Replay attack prevention
-    ══════════════════════════════════════════════════════════ */
+        <script>
+        /* ══════════════════════════════════════════
+           BACKEND CONFIG
+        ══════════════════════════════════════════ */
+        const API_BASE = '/api';
 
-    const API_BASE = 'https://arabi-earn.vercel.app'; // ← غيّر لعنوان مشروعك
+        // ── Global State ──────────────────────────
+        let SESSION_ID      = null;   // session من السيرفر
+        let CURRENT_USER_ID = null;
+        let REFERRAL_LINK   = '';
+        const BOT_USERNAME  = 'RebhApp_bot';
 
-    // ── Session state (in memory only — never localStorage) ──
-    let _sessionId = null;
-    let _cachedFingerprint = null;
+        // بيانات المستخدم المحلية — تُحدَّث من الـ backend
+        const USER_STATE = {
+            coins         : 0,
+            ads_today     : 0,
+            today_date    : '',
+            referral_friends : 0,
+            referral_coins   : 0,
+            gift_day      : 1,
+            gift_streak   : 0,
+            gift_last_claimed : null,
+            wd_history    : [],
+        };
 
-    // ── Security Wall ──
-    function _genIncidentId() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let id = 'INC-';
-        for (let i = 0; i < 12; i++) {
-            if (i === 4 || i === 8) id += '-';
-            id += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return id;
-    }
+        const AD_STATE = {
+            total        : 10,
+            remaining    : 10,
+            watchedToday : 0,
+            earnedToday  : 0,
+            isWatching   : false,
+        };
 
-    function showSecurityWall() {
-        document.body.style.pointerEvents = 'none';
-        let wall = document.getElementById('zt-security-wall');
-        if (!wall) {
-            wall = document.createElement('div');
-            wall.id = 'zt-security-wall';
-            wall.style.cssText = `
-                position:fixed;inset:0;z-index:99999;
-                background:rgba(0,0,0,0.97);
-                backdrop-filter:blur(20px);
-                display:flex;flex-direction:column;
-                align-items:center;justify-content:center;gap:18px;
-                font-family:'Tajawal',sans-serif;text-align:center;padding:32px;
-                pointer-events:all;
-            `;
-            wall.innerHTML = `
-                <div style="width:72px;height:72px;border-radius:20px;background:rgba(248,113,113,0.12);border:1.5px solid rgba(248,113,113,0.35);display:flex;align-items:center;justify-content:center;">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                        <line x1="12" y1="8" x2="12" y2="12" stroke-linecap="round"/>
-                        <circle cx="12" cy="16" r="0.5" fill="#f87171"/>
-                    </svg>
-                </div>
-                <div style="font-size:20px;font-weight:900;color:#fff;">تم تقييد الوصول</div>
-                <div style="font-size:13px;color:rgba(255,255,255,0.45);line-height:1.7;max-width:280px;">
-                    تم اكتشاف نشاط مخالف للقواعد.<br>تم تعليق حسابك مؤقتاً.
-                </div>
-                <div id="zt-incident-id" style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;margin-top:4px;"></div>
-            `;
-            document.body.appendChild(wall);
-        }
-        const iid = document.getElementById('zt-incident-id');
-        if (iid) iid.textContent = _genIncidentId();
-        wall.style.display = 'flex';
-    }
-
-    // ── Device Fingerprint — 9 Signals ──
-    async function _buildFingerprint() {
-        if (_cachedFingerprint) return _cachedFingerprint;
-
-        // Signal 1: Canvas
-        let canvasHash = '';
-        try {
-            const c = document.createElement('canvas');
-            const ctx = c.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillStyle = '#f60';
-            ctx.fillRect(125, 1, 62, 20);
-            ctx.fillStyle = '#069';
-            ctx.fillText('Cwm fjordbank glyphs vext quiz', 2, 15);
-            ctx.fillStyle = 'rgba(102,204,0,0.7)';
-            ctx.fillText('Cwm fjordbank glyphs vext quiz', 4, 17);
-            canvasHash = c.toDataURL().slice(-40);
-        } catch (_) { canvasHash = 'canvas_blocked'; }
-
-        // Signal 2: WebGL
-        let webglInfo = '';
-        try {
-            const gl = document.createElement('canvas').getContext('webgl');
-            if (gl) {
-                const ext = gl.getExtension('WEBGL_debug_renderer_info');
-                webglInfo = ext
-                    ? (gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL))
-                    : gl.getParameter(gl.RENDERER);
-            }
-        } catch (_) { webglInfo = 'webgl_blocked'; }
-
-        // Signal 3: Audio
-        let audioHash = '';
-        try {
-            const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
-            const osc = ac.createOscillator();
-            const an = ac.createAnalyser();
-            const gain = ac.createGain();
-            gain.gain.value = 0;
-            osc.connect(an); an.connect(gain); gain.connect(ac.destination);
-            osc.start(0);
-            const buf = new Float32Array(an.frequencyBinCount);
-            an.getFloatFrequencyData(buf);
-            osc.stop();
-            await ac.close();
-            audioHash = buf.slice(0, 8).reduce((s, v) => s + Math.abs(v).toFixed(2), '');
-        } catch (_) { audioHash = 'audio_blocked'; }
-
-        // Signals 4-9: Platform
-        const hw       = [navigator.hardwareConcurrency || 0, navigator.deviceMemory || 0].join('x');
-        const touch    = [navigator.maxTouchPoints || 0, 'ontouchstart' in window ? 1 : 0].join('');
-        const platform = [navigator.userAgent || '', navigator.language || '',
-                          `${screen.width}x${screen.height}x${screen.colorDepth}`,
-                          new Date().getTimezoneOffset(),
-                          (Intl.DateTimeFormat().resolvedOptions().timeZone || '')].join('|');
-
-        const raw = [canvasHash, webglInfo, audioHash, hw, touch, platform].join('§');
-
-        // djb2 double hash
-        let h1 = 5381, h2 = 52711;
-        for (let i = 0; i < raw.length; i++) {
-            const c = raw.charCodeAt(i);
-            h1 = (Math.imul(h1, 31) ^ c) >>> 0;
-            h2 = (Math.imul(h2, 33) ^ c) >>> 0;
-        }
-        const fpHash = ((h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0'));
-
-        _cachedFingerprint = JSON.stringify({
-            fp:          fpHash,
-            user_agent:  navigator.userAgent        || '',
-            lang:        navigator.language         || '',
-            screen:      `${screen.width}x${screen.height}`,
-            tz_offset:   new Date().getTimezoneOffset(),
-            hw_cores:    navigator.hardwareConcurrency || 0,
-            hw_mem:      navigator.deviceMemory        || 0,
-            touch_pts:   navigator.maxTouchPoints      || 0,
-            tz_name:     Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            canvas_sig:  canvasHash,
-            webgl_sig:   webglInfo.slice(0, 60),
-            audio_sig:   audioHash,
-            dpr:         (window.devicePixelRatio || 1).toFixed(2),
-            color_depth: screen.colorDepth || 0,
-        });
-
-        return _cachedFingerprint;
-    }
-
-    // ── Create Session (يُرسل initData للسيرفر للتحقق HMAC) ──
-    async function _createSession() {
-        const tg = window?.Telegram?.WebApp;
-        const initData = tg?.initData || '';
-        if (!initData) {
-            console.warn('[ZT] No initData — dev mode');
-            return false;
-        }
-        try {
-            const fpStr = await _buildFingerprint();
-            const res = await fetch(API_BASE + '/api', {
-                method: 'POST',
-                headers: {
-                    'Content-Type':  'application/json',
-                    'X-Init-Data':   initData,
-                    'X-Fingerprint': fpStr,
-                },
-                body: JSON.stringify({ action: 'create_session', data: {} })
-            });
-            const result = await res.json();
-
-            if (result.is_banned || result.shadow_banned) {
-                showSecurityWall();
-                return false;
-            }
-            if (result.ok && result.session_id) {
-                _sessionId = result.session_id;
-                console.log('[ZT] Session created ✅');
-                return true;
-            }
-            console.warn('[ZT] Session failed:', result.error);
-            return false;
-        } catch (e) {
-            console.warn('[ZT] Session error:', e.message);
-            return false;
-        }
-    }
-
-    // ── Central DB call (Zero Trust) ──
-    // ✅ nonce للإعلانات يأتي من السيرفر فقط عبر start_ad
-    // ✅ لا يُولَّد nonce هنا للعمليات الحساسة
-    async function _dbCall(action, data = {}) {
-        // تأكد من وجود جلسة
-        if (!_sessionId) {
-            const ok = await _createSession();
-            if (!ok) {
-                console.warn('[ZT] No session for:', action);
-                return { ok: false, error: 'no_session' };
-            }
-        }
-
-        try {
-            const fpStr    = await _buildFingerprint();
+        /* ══════════════════════════════════════════
+           FETCHAPI — كل الطلبات تمر من هنا
+           يُرسل session_id + fingerprint تلقائياً
+        ══════════════════════════════════════════ */
+        async function fetchApi({ type, data = {}, nonce = null } = {}) {
             const tg       = window?.Telegram?.WebApp;
             const initData = tg?.initData || '';
 
             const headers = {
-                'Content-Type':  'application/json',
-                'X-Fingerprint': fpStr,
+                'Content-Type'          : 'application/json',
+                'X-Telegram-Init-Data'  : initData,
             };
-            if (initData)   headers['X-Init-Data']   = initData;
-            if (_sessionId) headers['X-Session-Id']  = _sessionId;
 
-            // Nonce عام لكل request (منع replay attacks)
-            // ملاحظة: nonce الإعلانات منفصل — يأتي من start_ad
-            const useNonce = !['get_state', 'load_state'].includes(action);
-            if (useNonce) {
-                const nonce = crypto?.randomUUID
-                    ? crypto.randomUUID()
-                    : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('') + '_' + Date.now();
-                headers['X-Nonce'] = nonce;
+            if (SESSION_ID)   headers['X-Session-Id']  = SESSION_ID;
+            if (nonce)        headers['X-Nonce']        = nonce;
+
+            // إرسال fingerprint خفيف مع كل طلب
+            const fp = _buildFpHeader();
+            if (fp) headers['X-Fingerprint'] = fp;
+
+            try {
+                const res = await fetch(API_BASE, {
+                    method  : 'POST',
+                    headers,
+                    body    : JSON.stringify({ type, data }),
+                });
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => ({}));
+                    const msg = errBody?.error || `HTTP ${res.status}`;
+                    console.error(`[API] ❌ ${type} →`, msg);
+                    return { ok: false, error: msg };
+                }
+                const json = await res.json();
+                console.log(`[API] ✅ ${type}`, json);
+                return json;
+            } catch (err) {
+                console.error(`[API] 🔴 ${type} → Network error:`, err);
+                return { ok: false, error: 'network_error' };
+            }
+        }
+
+        // ── بناء fingerprint خفيف ──────────────────
+        function _buildFpHeader() {
+            try {
+                return JSON.stringify({
+                    user_agent : navigator.userAgent,
+                    lang       : navigator.language,
+                    screen     : `${screen.width}x${screen.height}`,
+                    tz_offset  : new Date().getTimezoneOffset(),
+                    tz_name    : Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    hw_cores   : navigator.hardwareConcurrency || 0,
+                    touch_pts  : navigator.maxTouchPoints || 0,
+                });
+            } catch (_) { return '{}'; }
+        }
+
+        /* ══════════════════════════════════════════
+           SESSION INIT — أول خطوة عند تحميل الصفحة
+           يُنشئ جلسة مع السيرفر ويجلب بيانات المستخدم
+        ══════════════════════════════════════════ */
+        async function initSession() {
+            const tg = window?.Telegram?.WebApp;
+            if (!tg) {
+                console.warn('[SESSION] لا يوجد Telegram WebApp SDK');
+                _applyFallbackUser();
+                _loadFallbackUI();
+                return;
+            }
+            tg.ready();
+            tg.expand();
+
+            const user     = tg.initDataUnsafe?.user;
+            const userId   = user?.id ?? null;
+            const firstName= user?.first_name ?? '';
+            const lastName = user?.last_name  ?? '';
+            const username = user?.username   ?? '';
+            const photoUrl = user?.photo_url  ?? '';
+
+            // بناء اسم العرض
+            let displayName = '@مستخدم';
+            if (username)               displayName = '@' + username;
+            else if (firstName || lastName) displayName = [firstName, lastName].filter(Boolean).join(' ');
+
+            if (userId) {
+                CURRENT_USER_ID = userId;
+                REFERRAL_LINK   = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + userId;
             }
 
-            const res = await fetch(API_BASE + '/api', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ action, data })
-            });
+            // تطبيق بيانات الواجهة فوراً (بدون انتظار الـ backend)
+            _applyUserToUI(displayName, photoUrl, userId);
+            _updateReferralLinkUI();
 
-            // 401 → جدّد الجلسة وأعد المحاولة
-            if (res.status === 401) {
-                console.warn('[ZT] 401 — renewing session for:', action);
-                _sessionId = null;
-                const renewed = await _createSession();
-                if (renewed) return _dbCall(action, data);
-                return { ok: false, error: 'auth_failed' };
+            // استخراج referral_by من startParam
+            const startParam  = tg.initDataUnsafe?.start_param || '';
+            const referralBy  = startParam.startsWith('ref_') ? startParam.slice(4) : null;
+
+            // إنشاء الجلسة مع السيرفر
+            try {
+                const sessRes = await fetchApi({
+                    type : 'create_session',
+                    data : { initData: tg.initData || '' }
+                });
+
+                if (sessRes?.is_banned) {
+                    _showBannedScreen(sessRes.ban_type);
+                    return;
+                }
+
+                if (sessRes?.ok && sessRes.session_id) {
+                    SESSION_ID = sessRes.session_id;
+                    console.log('[SESSION] ✅ Created:', SESSION_ID.slice(0, 8) + '...');
+                } else {
+                    console.warn('[SESSION] ⚠️ Failed to create session — offline mode');
+                }
+            } catch (e) {
+                console.warn('[SESSION] Network error — offline mode:', e.message);
             }
 
-            const json = await res.json();
+            // تحميل بيانات المستخدم من الـ backend
+            await loadUserData(referralBy);
 
-            // تحقق من Ban في أي رد
-            if (json.is_banned === true || json.shadow_banned === true) {
-                showSecurityWall();
+            // تسجيل الـ console log
+            console.group('[TG] ✅ بيانات المستخدم');
+            console.log('🆔 User ID  :', userId);
+            console.log('👤 Name     :', displayName);
+            console.log('🔗 Referral :', REFERRAL_LINK);
+            console.groupEnd();
+        }
+
+        /* ══════════════════════════════════════════
+           LOAD USER DATA — جلب كل بيانات المستخدم
+        ══════════════════════════════════════════ */
+        async function loadUserData(referralBy = null) {
+            if (!SESSION_ID) { _loadFallbackUI(); return; }
+
+            try {
+                const nonce  = _generateNonce();
+                const result = await fetchApi({
+                    type  : 'load',
+                    data  : {
+                        username   : CURRENT_USER_ID ? null : null,
+                        referral_by: referralBy,
+                    },
+                    nonce
+                });
+
+                if (!result?.ok) { _loadFallbackUI(); return; }
+
+                const u = result.user;
+
+                // حفظ البيانات محلياً
+                USER_STATE.coins           = parseInt(u.coins          || 0);
+                USER_STATE.ads_today       = parseInt(u.ads_today      || 0);
+                USER_STATE.today_date      = u.today_date || '';
+                USER_STATE.referral_friends= parseInt(u.referral_friends || 0);
+                USER_STATE.referral_coins  = parseInt(u.referral_coins  || 0);
+                USER_STATE.gift_day        = parseInt(u.gift_day        || 1);
+                USER_STATE.gift_streak     = parseInt(u.gift_streak     || 0);
+                USER_STATE.gift_last_claimed = u.gift_last_claimed || null;
+                USER_STATE.wd_history      = Array.isArray(u.wd_history) ? u.wd_history : [];
+
+                // حساب الإعلانات المتبقية
+                const config = result.config || {};
+                const adDailyMax = config.ad_daily_max || 10;
+                const todayStr   = new Date().toISOString().slice(0, 10);
+                const adsToday   = (u.today_date === todayStr) ? parseInt(u.ads_today || 0) : 0;
+
+                AD_STATE.watchedToday = adsToday;
+                AD_STATE.earnedToday  = adsToday * 50;
+                AD_STATE.remaining    = Math.max(0, adDailyMax - adsToday);
+                AD_STATE.total        = adDailyMax;
+
+                // تحديث الواجهة
+                _applyBalanceToUI();
+                _applyStatsToUI();
+                updateAdUI();
+                renderWithdrawHistory();
+                _checkGiftAvailable();
+
+                console.log('[LOAD] ✅ بيانات جُلبت — coins:', USER_STATE.coins);
+            } catch (e) {
+                console.warn('[LOAD] error:', e.message);
+                _loadFallbackUI();
+            }
+        }
+
+        // ── Nonce بسيط للعمليات العامة ──────────────
+        function _generateNonce() {
+            return crypto.getRandomValues(new Uint8Array(16))
+                .reduce((s, b) => s + b.toString(16).padStart(2, '0'), '');
+        }
+
+        /* ══════════════════════════════════════════
+           تحديث الواجهة من USER_STATE
+        ══════════════════════════════════════════ */
+        function _applyBalanceToUI() {
+            const coins = USER_STATE.coins;
+
+            // بطاقة الرصيد الرئيسية
+            const balanceEl = document.querySelector('.balance-number');
+            if (balanceEl) {
+                balanceEl.setAttribute('data-target', coins);
+                _animateCounter(balanceEl, 0, coins, 1200);
             }
 
-            return json;
-        } catch (e) {
-            console.warn('[ZT]', action, 'error:', e.message);
-            return { ok: false, error: 'network_error' };
-        }
-    }
+            // صفحة السحب
+            const heroNum = document.querySelector('.balance-hero-number');
+            if (heroNum) {
+                heroNum.setAttribute('data-target', coins);
+                _animateCounter(heroNum, 0, coins, 1200);
+            }
 
-    // ══════════════════════════════════════════════════════════
-    //  AD SYSTEM — Zero Trust v3.0
-    //  ✅ nonce يُصدَّر من السيرفر عبر start_ad فقط
-    //  ✅ المستخدم لا يرى الـ nonce ولا يقدر يولّده
-    //  ✅ العميل يُرسله مع reward_ad — السيرفر يتحقق ويحذفه (one-time)
-    // ══════════════════════════════════════════════════════════
-
-    const AD_STATE = {
-        total:        10,
-        remaining:    10,
-        watchedToday: 0,
-        earnedToday:  0,
-        isWatching:   false,
-        _adNonce:     null,   // مخفي داخل closure — لا يُعرَّض للـ DOM
-    };
-
-    // طلب nonce من السيرفر قبل بدء الإعلان
-    async function _requestAdNonce() {
-        const res = await _dbCall('start_ad', {});
-        if (!res.ok || !res.ad_nonce) {
-            console.warn('[AD] start_ad failed:', res.error);
-            return false;
-        }
-        // ✅ نونس مخفي — يُخزَّن فقط في memory ولا يُعرَّض أبداً في DOM أو console
-        AD_STATE._adNonce = res.ad_nonce;
-        return true;
-    }
-
-    // مطالبة السيرفر بالمكافأة بعد مشاهدة الإعلان
-    async function _claimAdReward(ad_type) {
-        if (!AD_STATE._adNonce) {
-            console.warn('[AD] No nonce — cannot claim reward');
-            return { ok: false, error: 'no_nonce' };
-        }
-        const nonce = AD_STATE._adNonce;
-        AD_STATE._adNonce = null; // امسح فوراً (one-time use)
-
-        const result = await _dbCall('reward_ad', { ad_type, ad_nonce: nonce });
-        return result;
-    }
-
-    function updateAdUI() {
-        const r = AD_STATE.remaining;
-        const elRem      = document.getElementById('ads-remaining');
-        const elWatched  = document.getElementById('ads-watched');
-        const elEarned   = document.getElementById('earned-today');
-        const elProgress = document.getElementById('ads-progress');
-        const elBtn      = document.getElementById('ad-watch-btn');
-        const elDone     = document.getElementById('ad-done-state');
-
-        if (elRem)      elRem.textContent     = r;
-        if (elWatched)  elWatched.textContent  = AD_STATE.watchedToday;
-        if (elEarned)   elEarned.textContent   = AD_STATE.earnedToday.toLocaleString('ar-EG');
-        if (elProgress) elProgress.style.width = ((AD_STATE.total - r) / AD_STATE.total * 100) + '%';
-
-        if (r <= 0) {
-            if (elBtn)  elBtn.style.display  = 'none';
-            if (elDone) elDone.style.display = 'flex';
+            // USDT تقديري (coins / 100000 = TON ، 1 TON ≈ $5)
+            const usdtEl = document.getElementById('uc-usdt-val');
+            if (usdtEl) {
+                const usdtVal = ((coins / 100000) * 5).toFixed(2);
+                usdtEl.textContent = usdtVal;
+            }
         }
 
-        syncDailyTasksFromAds();
+        function _applyStatsToUI() {
+            // إحصاءات بطاقة المستخدم
+            const friendsStat = document.querySelector('.uc-stat-val.green');
+            if (friendsStat) {
+                friendsStat.setAttribute('data-target', USER_STATE.referral_friends);
+                _animateCounter(friendsStat, 0, USER_STATE.referral_friends, 900);
+            }
 
-        // حدّث رصيد البطاقة العلوية
-        _syncBalanceUI();
-    }
+            // صفحة الدعوة
+            const refTotalEl = document.querySelector('.invite-stat-card:first-child .counter');
+            if (refTotalEl) {
+                refTotalEl.setAttribute('data-target', USER_STATE.referral_friends);
+                _animateCounter(refTotalEl, 0, USER_STATE.referral_friends, 900);
+            }
+            const refCoinsEl = document.querySelector('.invite-stat-card:last-child .counter');
+            if (refCoinsEl) {
+                refCoinsEl.setAttribute('data-target', USER_STATE.referral_coins);
+                _animateCounter(refCoinsEl, 0, USER_STATE.referral_coins, 900);
+            }
 
-    function _syncBalanceUI() {
-        const balEl = document.querySelector('.balance-number');
-        if (balEl) balEl.textContent = USER_STATE.points.toLocaleString();
-        const heroEl = document.querySelector('.balance-hero-number');
-        if (heroEl) heroEl.textContent = USER_STATE.points.toLocaleString();
-    }
-
-    async function watchAd() {
-        if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
-        AD_STATE.isWatching = true;
-
-        const overlay = document.getElementById('ad-watch-overlay');
-        const countEl = document.getElementById('overlay-count');
-        overlay.classList.add('visible');
-
-        // ── طلب nonce من السيرفر قبل العد التنازلي ──
-        const nonceOk = await _requestAdNonce();
-        if (!nonceOk) {
-            AD_STATE.isWatching = false;
-            overlay.classList.remove('visible');
-            _showSimpleToast('⚠️ تعذّر تحميل الإعلان، حاول مجدداً');
-            return;
+            // XP bar حسب الرصيد (كل 50000 = مستوى 1)
+            const level = Math.max(1, Math.floor(USER_STATE.coins / 50000) + 1);
+            const xpPct = Math.min(99, ((USER_STATE.coins % 50000) / 50000) * 100);
+            const xpLevelEl = document.querySelector('.uc-xp-level');
+            const xpPctEl   = document.querySelector('.uc-xp-pct');
+            const xpFillEl  = document.querySelector('.uc-xp-fill');
+            if (xpLevelEl) xpLevelEl.textContent = 'المستوى ' + level;
+            if (xpPctEl)   xpPctEl.textContent   = Math.round(xpPct) + '%';
+            if (xpFillEl)  xpFillEl.style.width  = xpPct + '%';
         }
 
-        let sec = 5;
-        countEl.textContent = sec;
+        function _animateCounter(el, from, to, duration) {
+            const start = performance.now();
+            function step(now) {
+                const p = Math.min((now - start) / duration, 1);
+                const v = Math.floor(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+                el.textContent = v.toLocaleString();
+                if (p < 1) requestAnimationFrame(step);
+                else el.textContent = to.toLocaleString();
+            }
+            requestAnimationFrame(step);
+        }
 
-        const timer = setInterval(async () => {
-            sec--;
-            countEl.textContent = sec;
-            if (sec <= 0) {
-                clearInterval(timer);
+        // ── Fallback عند غياب البيانات ──────────────
+        function _loadFallbackUI() {
+            _applyBalanceToUI();
+            _applyStatsToUI();
+            updateAdUI();
+        }
+
+        /* ══════════════════════════════════════════
+           AD SYSTEM — نظام الإعلانات مع nonce حقيقي
+        ══════════════════════════════════════════ */
+        function updateAdUI() {
+            const r       = AD_STATE.remaining;
+            const elRem   = document.getElementById('ads-remaining');
+            const elWatched= document.getElementById('ads-watched');
+            const elEarned = document.getElementById('earned-today');
+            const elProgress= document.getElementById('ads-progress');
+            const elBtn   = document.getElementById('ad-watch-btn');
+            const elDone  = document.getElementById('ad-done-state');
+
+            if (elRem)     elRem.textContent = r;
+            if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
+            if (elEarned)  elEarned.textContent = AD_STATE.earnedToday.toLocaleString('ar-EG');
+            if (elProgress) elProgress.style.width = ((AD_STATE.total > 0 ? r / AD_STATE.total : 0) * 100) + '%';
+
+            if (r <= 0) {
+                if (elBtn)  elBtn.style.display  = 'none';
+                if (elDone) elDone.style.display = 'flex';
+            } else {
+                if (elBtn)  elBtn.style.display  = '';
+                if (elDone) elDone.style.display = 'none';
+            }
+
+            syncDailyTasksFromAds();
+        }
+
+        async function watchAd() {
+            if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
+            AD_STATE.isWatching = true;
+
+            const overlay = document.getElementById('ad-watch-overlay');
+            const countEl = document.getElementById('overlay-count');
+            overlay.classList.add('visible');
+
+            // ─── STEP 1: طلب nonce من السيرفر (Zero-Trust) ───
+            let adNonce = null;
+            try {
+                const startRes = await fetchApi({ type: 'start_ad', data: {} });
+                if (!startRes?.ok || !startRes?.ad_nonce) {
+                    overlay.classList.remove('visible');
+                    AD_STATE.isWatching = false;
+                    const t = TRANSLATIONS[currentLang];
+                    showToast('coin', 'تعذّر بدء الإعلان', 'حاول مجدداً', 'gold', '!');
+                    return;
+                }
+                adNonce = startRes.ad_nonce;
+                console.log('[AD] nonce received ✅');
+            } catch (e) {
                 overlay.classList.remove('visible');
                 AD_STATE.isWatching = false;
+                return;
+            }
 
-                // ── مطالبة بالمكافأة بعد انتهاء العد ──
-                const result = await _claimAdReward('watch_ad');
+            // ─── STEP 2: عرض countdown (5 ثوانٍ) ───
+            let sec = 5;
+            countEl.textContent = sec;
 
-                if (result.ok) {
-                    AD_STATE.remaining    = result.remaining    ?? Math.max(0, AD_STATE.remaining - 1);
-                    AD_STATE.watchedToday = result.watchedToday ?? (AD_STATE.watchedToday + 1);
-                    AD_STATE.earnedToday  = result.earnedToday  ?? (AD_STATE.earnedToday + 50);
-                    if (result.points !== undefined) USER_STATE.points = result.points;
-                } else {
-                    // Fallback فقط للـ UI (السيرفر لم يحدّث الرصيد)
-                    if (result.error !== 'nonce_invalid' && result.error !== 'no_nonce') {
-                        AD_STATE.remaining = Math.max(0, AD_STATE.remaining - 1);
+            const timer = setInterval(async () => {
+                sec--;
+                countEl.textContent = sec;
+
+                if (sec <= 0) {
+                    clearInterval(timer);
+                    overlay.classList.remove('visible');
+                    AD_STATE.isWatching = false;
+
+                    // ─── STEP 3: إرسال reward_ad مع nonce المُصدَر من السيرفر ───
+                    const result = await fetchApi({
+                        type : 'watch_ad',
+                        data : { ad_nonce: adNonce }
+                    });
+
+                    if (result?.ok) {
+                        // تحديث من الـ backend
+                        AD_STATE.remaining    = result.remaining    ?? Math.max(0, AD_STATE.remaining - 1);
+                        AD_STATE.watchedToday = result.watchedToday ?? (AD_STATE.watchedToday + 1);
+                        AD_STATE.earnedToday  = result.earnedToday  ?? (AD_STATE.earnedToday + 50);
+
+                        // تحديث الرصيد العام
+                        if (result.coins !== undefined) {
+                            USER_STATE.coins = parseInt(result.coins);
+                            _applyBalanceToUI();
+                        }
+                    } else {
+                        // Fallback محلي
+                        AD_STATE.remaining    = Math.max(0, AD_STATE.remaining - 1);
                         AD_STATE.watchedToday++;
                         AD_STATE.earnedToday += 50;
                     }
+
+                    updateAdUI();
+
+                    const t = TRANSLATIONS[currentLang];
+                    if (AD_STATE.remaining === 0) {
+                        showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
+                    } else if (AD_STATE.remaining <= 3) {
+                        showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} ${t.ads_watched || 'إعلانات متبقية فقط'}`, 'gold', '+50');
+                    } else {
+                        showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+                    }
                 }
+            }, 1000);
+        }
 
-                updateAdUI();
+        /* Toast icons */
+        const TOAST_ICONS = {
+            coin: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#fbbf24" stroke-width="1.8"/>
+                <path d="M12 7v10M9.5 9.5C9.5 8.67 10.67 8 12 8s2.5.67 2.5 1.5S13.33 11 12 11s-2.5.67-2.5 1.5S10.67 14 12 14s2.5-.67 2.5-1.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>`,
+            fire: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C12 2 7 8 7 13a5 5 0 0010 0c0-2-.7-3.8-2-5.5.5 1.5.5 2.5.5 2.5S12 8 12 2z" fill="rgba(251,191,36,0.9)"/>
+                <path d="M12 15c0 1.1-.9 2-2 2" stroke="rgba(251,191,36,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>`,
+            trophy: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M6 2h12v8a6 6 0 01-12 0V2z" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M6 5H3a2 2 0 000 4h3M18 5h3a2 2 0 010 4h-3" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M12 16v4M9 20h6" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>`
+        };
 
-                const t = TRANSLATIONS[currentLang];
-                if (AD_STATE.remaining <= 0) {
-                    showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
-                } else if (AD_STATE.remaining <= 3) {
-                    showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} إعلانات متبقية فقط`, 'gold', '+50');
-                } else {
-                    showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
-                }
-            }
-        }, 1000);
-    }
-
-    // ── Simple toast (no icon) ──
-    function _showSimpleToast(msg) {
-        let t = document.getElementById('_zt_toast');
-        if (!t) {
-            t = document.createElement('div');
-            t.id = '_zt_toast';
-            t.style.cssText = `
-                position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-                background:rgba(20,14,40,0.95);border:1px solid rgba(255,255,255,0.1);
-                border-radius:50px;padding:10px 20px;font-size:13px;
-                color:rgba(255,255,255,0.85);font-family:'Tajawal',sans-serif;
-                z-index:9999;transition:opacity 0.3s ease;white-space:nowrap;
+        function showToast(iconKey, title, desc, color, badge) {
+            const container = document.getElementById('ad-toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'ad-toast';
+            toast.innerHTML = `
+                <div class="toast-icon-wrap ${color}">${TOAST_ICONS[iconKey]}</div>
+                <div class="toast-body">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-desc">${desc}</div>
+                </div>
+                <div class="toast-badge ${color}">${badge}</div>
             `;
-            document.body.appendChild(t);
-        }
-        t.textContent = msg;
-        t.style.opacity = '1';
-        clearTimeout(t._timer);
-        t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2800);
-    }
-
-    // ══════════════════════════════════════════════════════════
-    //  USER STATE — يُصفَّر ثم يُملأ من السيرفر
-    // ══════════════════════════════════════════════════════════
-    const USER_STATE = {
-        points: 0,
-        level:  1,
-        referralFriends: 0,
-        tasksDone: 0,
-    };
-
-    function _applyServerState(data) {
-        if (!data) return;
-        if (data.points           !== undefined) USER_STATE.points          = data.points;
-        if (data.level            !== undefined) USER_STATE.level           = data.level;
-        if (data.referralFriends  !== undefined) USER_STATE.referralFriends = data.referralFriends;
-        if (data.tasksDone        !== undefined) USER_STATE.tasksDone       = data.tasksDone;
-        if (data.adsRemaining     !== undefined) AD_STATE.remaining          = data.adsRemaining;
-        if (data.adsWatchedToday  !== undefined) AD_STATE.watchedToday       = data.adsWatchedToday;
-        if (data.earnedToday      !== undefined) AD_STATE.earnedToday        = data.earnedToday;
-        if (data.giftDay          !== undefined) DAILY_GIFT_STATE.dayNumber  = data.giftDay;
-        if (data.giftClaimed      !== undefined) DAILY_GIFT_STATE.claimed    = data.giftClaimed;
-        if (data.withdrawHistory  !== undefined) {
-            WITHDRAW_HISTORY.length = 0;
-            WITHDRAW_HISTORY.push(...data.withdrawHistory);
+            container.appendChild(toast);
+            requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
+            setTimeout(() => {
+                toast.classList.add('hide'); toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3200);
         }
 
-        // حدّث الـ UI
-        _syncBalanceUI();
-        updateAdUI();
-        _syncStatsUI();
-        renderWithdrawHistory();
-    }
+        /* ══════════════════════════════════════════
+           DAILY GIFT SYSTEM — متصل بالـ backend
+        ══════════════════════════════════════════ */
+        const DAILY_GIFT_STATE = {
+            dayNumber  : 1,
+            claimed    : false,
+            isOpening  : false,
+        };
 
-    function _syncStatsUI() {
-        // بطاقة المستخدم — الإحصاءات الثلاث
-        const statFriends = document.querySelector('.uc-stat-val.green');
-        const statTasks   = document.querySelector('.uc-stat-val.blue');
-        const statPts     = document.querySelector('.uc-stat-val.gold');
-        if (statFriends) statFriends.textContent = USER_STATE.referralFriends;
-        if (statTasks)   statTasks.textContent   = USER_STATE.tasksDone;
-        if (statPts)     statPts.textContent     = USER_STATE.points.toLocaleString();
+        const GIFT_DAYS = [
+            { day: 'اليوم الأول',   desc: 'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!', amount: '+100',  pts: 100 },
+            { day: 'اليوم الثاني',  desc: 'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.',               amount: '+150',  pts: 150 },
+            { day: 'اليوم الثالث',  desc: 'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.',               amount: '+200',  pts: 200 },
+            { day: 'اليوم الرابع',  desc: 'أسبوعك يقترب!\nاستمر في التحدي.',                           amount: '+250',  pts: 250 },
+            { day: 'اليوم الخامس', desc: 'خمسة أيام!\nأنت من الملتزمين الحقيقيين.',                   amount: '+300',  pts: 300 },
+            { day: 'اليوم السادس', desc: 'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.',                        amount: '+400',  pts: 400 },
+            { day: 'اليوم السابع',  desc: 'أسبوع كامل!\nمكافأة ضخمة بانتظارك.',                       amount: '+750',  pts: 750 },
+        ];
 
-        // Stats grid في صفحة الدعوة
-        const refCountEls = document.querySelectorAll('.uc-stat-val.green');
-        refCountEls.forEach(el => { el.textContent = USER_STATE.referralFriends; });
-        const ptsEls = document.querySelectorAll('.uc-stat-val.gold');
-        ptsEls.forEach(el => { el.textContent = USER_STATE.points.toLocaleString(); });
+        // ── فحص هل الهدية متاحة اليوم ──────────────
+        function _checkGiftAvailable() {
+            const today       = new Date().toISOString().slice(0, 10);
+            const lastClaimed = USER_STATE.gift_last_claimed
+                ? String(USER_STATE.gift_last_claimed).slice(0, 10)
+                : null;
 
-        // TON withdraw sheet
-        if (typeof openTonWithdraw === 'function') {
-            const ptsEl = document.getElementById('ton-sheet-pts');
-            if (ptsEl) ptsEl.textContent = USER_STATE.points.toLocaleString();
+            DAILY_GIFT_STATE.dayNumber = parseInt(USER_STATE.gift_day) || 1;
+            DAILY_GIFT_STATE.claimed   = (lastClaimed === today);
+
+            console.log('[GIFT] day:', DAILY_GIFT_STATE.dayNumber, 'claimed today:', DAILY_GIFT_STATE.claimed);
         }
-    }
 
-    // ══════════════════════════════════════════════════════════
-    //  FETCH API — يستبدل fetchApi القديم
-    //  كل الأكشنات تمر من _dbCall الآمن
-    // ══════════════════════════════════════════════════════════
-    async function fetchApi({ type, data = {} }) {
-        try {
-            // ترجم أسماء الأكشنات القديمة للجديدة
-            const actionMap = {
-                'watch_ad':            'reward_ad',
-                'verify_tg_membership':'task',
-                'claim_gift':          'claim_gift',
-                'submit_withdraw':     'withdraw',
-                'track_copy_link':     'track_event',
-            };
-            const action = actionMap[type] || type;
+        function openDailyGiftOverlay() {
+            if (DAILY_GIFT_STATE.isOpening) return;
+            DAILY_GIFT_STATE.isOpening = true;
 
-            // أكشن الإعلان: يحتاج nonce من start_ad — معالجة خاصة
-            if (type === 'watch_ad') {
-                // المنطق الكامل في watchAd() — لا يُستدعى من هنا
-                return { ok: false, error: 'use_watchAd_function' };
+            const day  = DAILY_GIFT_STATE.dayNumber;
+            const data = GIFT_DAYS[Math.min(day - 1, GIFT_DAYS.length - 1)];
+
+            const dayTextEl  = document.getElementById('gift-day-text');
+            const descTextEl = document.getElementById('gift-desc-text');
+            const amountEl   = document.getElementById('gift-amount');
+            const dotsEl     = document.getElementById('gift-streak-dots');
+            const btn        = document.getElementById('gift-claim-btn');
+            const label      = document.getElementById('gift-loading-label');
+            const ringIcon   = document.getElementById('gift-ring-icon');
+            const overlay    = document.getElementById('daily-gift-overlay');
+
+            if (!overlay) { DAILY_GIFT_STATE.isOpening = false; return; }
+
+            if (dayTextEl)  dayTextEl.textContent  = data.day;
+            if (descTextEl) descTextEl.textContent = data.desc;
+            if (amountEl)   amountEl.textContent   = data.amount;
+
+            if (dotsEl) {
+                dotsEl.innerHTML = '';
+                for (let i = 1; i <= 7; i++) {
+                    const dot = document.createElement('div');
+                    dot.style.cssText = `
+                        width:${i === day ? '22px' : '8px'};height:8px;border-radius:4px;
+                        background:${i < day ? 'rgba(251,191,36,0.75)' : i === day ? '#fbbf24' : 'rgba(255,255,255,0.1)'};
+                        box-shadow:${i <= day ? '0 0 6px rgba(251,191,36,0.4)' : 'none'};
+                    `;
+                    dotsEl.appendChild(dot);
+                }
             }
 
-            // أكشن التحقق من القناة
-            if (type === 'verify_tg_membership') {
-                return await _dbCall('task', { task_id: 'mainChannel', step: 'verify', ...data });
-            }
-
-            // كل الأكشنات الأخرى
-            return await _dbCall(action, data);
-
-        } catch (err) {
-            console.error('[API] error:', type, err);
-            return { ok: false, error: err.message };
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════
-    //  TELEGRAM USER — جلب بيانات المستخدم من Telegram WebApp
-    // ══════════════════════════════════════════════════════════
-    function initTelegramUser() {
-        const tg   = window?.Telegram?.WebApp;
-        const user = tg?.initDataUnsafe?.user;
-        if (!user) return;
-
-        const name     = user.first_name || user.username || 'مستخدم';
-        const username = user.username ? '@' + user.username : name;
-        const photo    = user.photo_url || null;
-
-        // اسم المستخدم في بطاقة الملف الشخصي
-        const nameEl = document.getElementById('uc-user-name');
-        if (nameEl) nameEl.textContent = username;
-
-        // صورة المستخدم
-        const photoEl = document.getElementById('uc-user-photo');
-        if (photoEl && photo) {
-            photoEl.src = photo;
-            photoEl.onerror = () => {
-                photoEl.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=b6e3f4`;
-            };
-        }
-
-        // رابط الدعوة
-        const botName  = (tg?.initDataUnsafe?.start_param !== undefined)
-            ? null
-            : null;
-        const refLink  = `https://t.me/${window._BOT_USERNAME || 'YourBot'}?start=ref_${user.id}`;
-        const linkEl   = document.getElementById('ref-link-input');
-        if (linkEl) linkEl.value = refLink;
-        const linkEl2  = document.getElementById('invite-link-text');
-        if (linkEl2) linkEl2.textContent = refLink;
-    }
-
-    // ══════════════════════════════════════════════════════════
-    //  PAGE NAVIGATION
-    // ══════════════════════════════════════════════════════════
-    function showPage(pageId, navBtn) {
-        // Hide all pages
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        // Show target page
-        const target = document.getElementById('page-' + pageId);
-        if (target) target.classList.add('active');
-
-        // Update nav buttons
-        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-        // Find the correct nav button by data-page (navBtn might be the element itself or from inline onclick)
-        if (navBtn && navBtn.classList && navBtn.classList.contains('nav-item')) {
-            navBtn.classList.add('active');
-        } else {
-            const navEl = document.querySelector(`.nav-item[data-page="${pageId}"]`);
-            if (navEl) navEl.classList.add('active');
-        }
-
-        // Scroll to top
-        if (target) target.scrollTop = 0;
-    }
-
-
-    (async function initZeroTrust() {
-        const tg = window?.Telegram?.WebApp;
-        if (tg) { tg.ready(); tg.expand(); }
-
-        // إنشاء الجلسة
-        const ok = await _createSession();
-        if (!ok) {
-            console.warn('[ZT] Session failed — running offline');
-            return;
-        }
-
-        // تحميل حالة المستخدم
-        const stateRes = await _dbCall('load_state', {
-            username:    tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || null,
-            referral_by: (new URLSearchParams(window.location.search)).get('start')?.replace('ref_', '') || null,
-        });
-
-        if (stateRes.ok && stateRes.user) {
-            _applyServerState(stateRes.user);
-            // تحديث UI Telegram بعد تحميل السيرفر
-            initTelegramUser();
-        }
-    })();
-</script>
-
-
-
-    <!-- ══════════════════════════════════════════
-         DAILY GIFT OVERLAY (ad-style)
-    ══════════════════════════════════════════ -->
-    <div id="daily-gift-overlay" style="
-        position:fixed;inset:0;z-index:300;
-        background:rgba(0,0,0,0.88);
-        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-        display:flex;align-items:center;justify-content:center;flex-direction:column;gap:22px;
-        opacity:0;pointer-events:none;transition:opacity 0.3s ease;
-    ">
-        <!-- Static gift icon -->
-        <div style="width:100px;height:100px;border-radius:28px;background:rgba(251,191,36,0.13);border:1.5px solid rgba(251,191,36,0.35);display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(251,191,36,0.18),0 8px 32px rgba(0,0,0,0.3);">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" id="gift-ring-icon">
+            if (ringIcon) ringIcon.innerHTML = `
                 <path d="M20 12v10H4V12" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M22 7H2v5h20V7z" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M12 22V7" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </div>
+            `;
 
-        <!-- Day label -->
-        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
-            <div id="gift-day-text" style="
-                font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;
-                color:#fff;letter-spacing:0.3px;
-            ">اليوم الأول</div>
-            <div id="gift-desc-text" style="
-                font-size:12px;font-weight:600;
-                color:rgba(255,255,255,0.45);
-                line-height:1.65;text-align:center;max-width:240px;
-            ">مبروك! بداية رائعة في مسيرتك معنا</div>
-        </div>
+            overlay.style.opacity     = '1';
+            overlay.style.pointerEvents = 'all';
 
-        <!-- Reward badge -->
-        <div style="display:flex;align-items:center;gap:10px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:50px;padding:10px 24px;">
-            <img src="asesst/coins.png" alt="" style="width:22px;height:22px;object-fit:contain;filter:drop-shadow(0 0 6px rgba(251,191,36,0.8));">
-            <span id="gift-amount" style="font-family:'Tajawal',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;">+100</span>
-            <span style="font-size:12px;color:rgba(251,191,36,0.6);font-weight:600;" data-i18n="pts">نقطة</span>
-        </div>
-
-        <!-- Streak dots -->
-        <div id="gift-streak-dots" style="display:flex;justify-content:center;gap:7px;"></div>
-
-        <!-- Countdown / Claim button -->
-        <div id="gift-countdown-wrap" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
-            <div style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;" id="gift-loading-label" data-i18n="gift_preparing">جاري تحضير هديتك...</div>
-            <button id="gift-claim-btn" onclick="claimGift()" style="
-                display:none;
-                padding:14px 48px;border-radius:50px;border:none;cursor:pointer;
-                background:linear-gradient(135deg,#f59e0b 0%,#fbbf24 50%,#fcd34d 100%);
-                font-family:'Cairo',sans-serif;font-size:14px;font-weight:900;
-                color:#0d0a1a;letter-spacing:0.3px;
-                box-shadow:0 6px 24px rgba(251,191,36,0.35);
-                transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);
-            "
-            onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 32px rgba(251,191,36,0.48)'"
-            onmouseleave="this.style.transform='';this.style.boxShadow='0 6px 24px rgba(251,191,36,0.35)'"
-            onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform=''">
-                <span data-i18n="gift_claim_btn">استلم هديتك</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         TON WITHDRAW OVERLAY
-    ══════════════════════════════════════════ -->
-    <div id="ton-withdraw-overlay" onclick="handleTonOverlayClick(event)">
-        <div class="ton-sheet">
-            <div class="ton-sheet-handle"><div class="ton-sheet-handle-bar"></div></div>
-            <div class="ton-sheet-header">
-                <button class="ton-sheet-close" onclick="closeTonWithdraw()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-                <div class="ton-sheet-title">سحب TON</div>
-                <img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:34px;height:34px;border-radius:10px;object-fit:cover;">
-            </div>
-            <div class="ton-sheet-divider"></div>
-            <div class="ton-sheet-body">
-
-                <!-- Balance row -->
-                <div class="ton-balance-row">
-                    <div class="ton-balance-label">رصيدك المتاح</div>
-                    <div class="ton-balance-amount">
-                        <img src="asesst/coins.png" alt="" style="width:16px;height:16px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(251,191,36,0.7));">
-                        <span class="ton-balance-pts" id="ton-sheet-pts">12,450</span>
-                        <span class="ton-balance-equiv" id="ton-sheet-equiv">≈ 0.12 TON</span>
-                    </div>
-                </div>
-
-                <!-- Info chips -->
-                <div class="ton-info-row">
-                    <div class="ton-info-chip">
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                            <span class="ton-info-chip-label">الحد الأدنى</span>
-                            <span class="ton-info-chip-val gold">50,000 نقطة</span>
-                        </div>
-                    </div>
-                    <div class="ton-info-chip">
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                            <span class="ton-info-chip-label">معدل التحويل</span>
-                            <span class="ton-info-chip-val blue">100,000 = 1 TON</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Level requirement notice -->
-                <div id="ton-level-warn" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:var(--radius-md);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.22);text-align:right;">
-                    <div style="font-size:12px;font-weight:700;color:rgba(248,113,113,0.9);">
-                        🔒 يتطلب المستوى 5 لفتح السحب
-                    </div>
-                    <div style="font-size:10px;color:rgba(248,113,113,0.55);margin-top:3px;font-weight:500;">
-                        مستواك الحالي: <span id="ton-current-level">7</span> — يمكنك السحب!
-                    </div>
-                </div>
-
-                <!-- Points requirement notice -->
-                <div id="ton-pts-warn" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:var(--radius-md);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.22);text-align:right;">
-                    <div style="font-size:12px;font-weight:700;color:rgba(248,113,113,0.9);">
-                        ⚠️ رصيدك أقل من الحد الأدنى للسحب
-                    </div>
-                    <div style="font-size:10px;color:rgba(248,113,113,0.55);margin-top:3px;font-weight:500;">
-                        تحتاج على الأقل 50,000 نقطة للسحب
-                    </div>
-                </div>
-
-                <!-- Wallet address input -->
-                <div class="ton-input-label">عنوان محفظة TON</div>
-                <input
-                    type="text"
-                    class="ton-address-input"
-                    id="ton-address-input"
-                    placeholder="EQ... أو UQ..."
-                    autocomplete="off"
-                    autocorrect="off"
-                    spellcheck="false"
-                    oninput="clearTonError()"
-                >
-                <div class="ton-error-msg" id="ton-error-msg">الرجاء إدخال عنوان محفظة TON صحيح</div>
-
-                <div style="height:18px;"></div>
-
-                <!-- Submit button -->
-                <button class="ton-submit-btn" id="ton-submit-btn" onclick="submitTonWithdraw()">
-                    إرسال طلب السحب
-                </button>
-
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         NOTIFICATIONS PANEL
-    ══════════════════════════════════════════ -->
-    <div id="notif-backdrop" onclick="closeNotifPanel()"></div>
-    <div id="notif-panel">
-        <div class="notif-panel-inner">
-            <div class="notif-panel-header">
-                <button class="notif-close-btn" onclick="closeNotifPanel()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-                <div class="notif-panel-title">الإشعارات</div>
-                <div style="width:34px;"></div>
-            </div>
-            <div class="notif-list" id="notif-list">
-                <div class="notif-empty" id="notif-empty-msg">لا توجد إشعارات بعد</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════
-         SETTINGS BACKDROP
-    <div id="settings-backdrop" onclick="closeSettings()" style="
-        position:fixed;inset:0;z-index:400;
-        background:rgba(0,0,0,0.6);
-        backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
-        opacity:0;pointer-events:none;
-        transition:opacity 0.3s ease;
-    "></div>
-
-    <!-- Drawer -->
-    <div id="settings-drawer" style="
-        position:fixed;bottom:0;left:0;right:0;z-index:401;
-        background:linear-gradient(180deg,rgba(12,8,28,0.98) 0%,rgba(8,5,18,1) 100%);
-        border-top:1px solid rgba(255,255,255,0.1);
-        border-radius:28px 28px 0 0;
-        padding:0 0 36px;
-        transform:translateY(110%);
-        transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
-        box-shadow:0 -12px 60px rgba(0,0,0,0.6);
-        max-width:520px;margin:0 auto;
-    ">
-        <!-- Handle -->
-        <div style="display:flex;justify-content:center;padding:14px 0 10px;">
-            <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;"></div>
-        </div>
-
-        <!-- Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 18px;">
-            <button onclick="closeSettings()" style="width:34px;height:34px;border-radius:10px;border:none;cursor:pointer;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.6);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-            <div style="font-family:'Tajawal',sans-serif;font-size:18px;font-weight:900;color:#fff;" id="settings-title">الإعدادات</div>
-            <div style="width:34px;"></div>
-        </div>
-
-        <!-- Divider -->
-        <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);margin:0 20px 22px;"></div>
-
-        <!-- Language Section -->
-        <div style="padding:0 20px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.3);text-transform:uppercase;margin-bottom:14px;" id="settings-lang-label">اللغة</div>
-
-            <!-- Arabic -->
-            <div onclick="setLang('ar')" id="lang-ar" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;margin-bottom:10px;cursor:pointer;border:1.5px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.08);transition:all 0.2s ease;">
-                <div style="width:40px;height:40px;border-radius:12px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🇸🇦</div>
-                <div style="flex:1;text-align:right;">
-                    <div style="font-size:15px;font-weight:800;color:#fff;line-height:1.2;">العربية</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:500;margin-top:2px;">Arabic</div>
-                </div>
-                <div id="check-ar" style="width:22px;height:22px;border-radius:50%;background:#fbbf24;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d0a1a" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                </div>
-            </div>
-
-            <!-- English -->
-            <div onclick="setLang('en')" id="lang-en" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;margin-bottom:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);transition:all 0.2s ease;">
-                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🇬🇧</div>
-                <div style="flex:1;text-align:right;">
-                    <div style="font-size:15px;font-weight:800;color:rgba(255,255,255,0.7);line-height:1.2;">English</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:500;margin-top:2px;">الإنجليزية</div>
-                </div>
-                <div id="check-en" style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                </div>
-            </div>
-
-            <!-- Russian -->
-            <div onclick="setLang('ru')" id="lang-ru" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;cursor:pointer;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);transition:all 0.2s ease;">
-                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🇷🇺</div>
-                <div style="flex:1;text-align:right;">
-                    <div style="font-size:15px;font-weight:800;color:rgba(255,255,255,0.7);line-height:1.2;">Русский</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:500;margin-top:2px;">الروسية</div>
-                </div>
-                <div id="check-ru" style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-    /* ══════════════════════════════════════════
-       SETTINGS DRAWER
-    ══════════════════════════════════════════ */
-    function openSettings() {
-        const bd = document.getElementById('settings-backdrop');
-        const dr = document.getElementById('settings-drawer');
-        if (bd) { bd.style.opacity = '1'; bd.style.pointerEvents = 'all'; }
-        if (dr) dr.style.transform = 'translateY(0)';
-    }
-    function closeSettings() {
-        const bd = document.getElementById('settings-backdrop');
-        const dr = document.getElementById('settings-drawer');
-        if (bd) { bd.style.opacity = '0'; bd.style.pointerEvents = 'none'; }
-        if (dr) dr.style.transform = 'translateY(110%)';
-    }
-
-    /* ══════════════════════════════════════════
-       i18n TRANSLATIONS
-    ══════════════════════════════════════════ */
-    const TRANSLATIONS = {
-        ar: {
-            dir: 'rtl',
-            font: "'Cairo', sans-serif",
-            app_name: 'الربح عربي',
-            earn_title: 'الربح',
-            tasks_title: 'المهام',
-            withdraw_title: 'السحب',
-            invite_title: 'دعوة الأصدقاء',
-            settings_title: 'الإعدادات',
-            settings_lang_label: 'اللغة',
-            // nav
-            nav_home: 'الرئيسية',
-            nav_tasks: 'المهام',
-            nav_earn: 'الربح',
-            nav_withdraw: 'السحب',
-            // home
-            balance: 'الرصيد',
-            friends: 'صديق مدعو',
-            tasks_done: 'مهمة منجزة',
-            charge: 'شحن رصيد',
-            withdraw: 'سحب رصيد',
-            daily_tasks: 'مهام اليوم',
-            // earn
-            daily_ads: 'الإعلانات اليومية',
-            watch_ad: 'شاهد إعلاناً',
-            get_balance: 'واحصل على رصيد فوري',
-            pts: 'نقطة',
-            earned_today: 'مكتسب اليوم',
-            ads_watched: 'إعلان شوهد',
-            daily_limit: 'الحد اليومي',
-            all_done_title: 'أحسنت! انتهيت من كل الإعلانات',
-            all_done_sub: 'عد غداً للحصول على 10 إعلانات جديدة',
-            invite_btn_title: 'دعوة الأصدقاء',
-            invite_btn_sub: 'ادعُ أصدقاءك واربح معاً',
-            coming_soon: 'قريباً',
-            soon: 'قريباً',
-            achievements: 'الإنجازات',
-            achievements_sub: 'اكسب شارات وكافئ نفسك',
-            contests: 'المسابقات',
-            contests_sub: 'تنافس واربح جوائز كبرى',
-            gift_title: 'مكافأة يومية',
-            gift_sub: 'استلم هديتك اليومية الآن',
-            // tasks page
-            no_tasks: 'لا توجد مهام حالياً',
-            no_tasks_sub: 'سيتم إضافة مهام جديدة قريباً.\nتابعنا للحصول على المزيد من النقاط!',
-            upcoming_tasks: 'المهام القادمة',
-            // home stats
-            balance_label: 'الرصيد',
-            friends_label: 'صديق مدعو',
-            tasks_done_label: 'مهمة منجزة',
-            charge_label: 'شحن رصيد',
-            withdraw_label: 'سحب رصيد',
-            daily_tasks_section: 'مهام اليوم',
-            // tasks page
-            task_watch_ad: 'مشاهدة إعلان',
-            task_share: 'مشاركة التطبيق',
-            task_invite: 'دعوة صديق',
-            upcoming_task_video: 'مشاهدة فيديو',
-            upcoming_task_review: 'تقييم التطبيق',
-            // withdraw page
-            withdraw_page_balance: 'إجمالي الرصيد',
-            withdraw_methods_title: 'طرق السحب',
-            withdraw_history_title: 'سجل المعاملات',
-            no_transactions: 'لا توجد معاملات بعد',
-            no_transactions_sub: 'ستظهر هنا سجلات السحب والإيداع',
-            // invite page
-            invite_hero_title: 'ادعُ أصدقاءك واربح',
-            invite_hero_sub: 'شارك رابطك الخاص واحصل على مكافأة\nفورية لكل صديق ينضم عبرك',
-            invite_pts_per_ref: 'نقطة لكل إحالة',
-            total_referrals: 'إجمالي الإحالات',
-            earned_from_refs: 'مكتسب من الإحالات',
-            your_ref_link: 'رابط الإحالة الخاص بك',
-            copy_link: 'نسخ الرابط',
-            friends_list: 'الأصدقاء المدعوون',
-            // withdraw page
-            balance_available: 'رصيدك المتاح للسحب',
-            withdraw_history_title: 'سجل السحوبات',
-            no_transactions: 'لا توجد سحوبات سابقة',
-            min_label: 'الحد الأدنى',
-            ton_wallet: 'محفظة TON',
-            paypal_name: 'باي بال',
-            fawry_name: 'فوري باي',
-            available_badge: 'متاح',
-            // ad overlay
-            ad_loading: 'جاري تحميل الإعلان...',
-            // gift overlay
-            gift_preparing: 'جاري تحضير هديتك...',
-            gift_claim_btn: 'استلم هديتك',
-            gift_claimed: 'تم الاستلام ✓',
-            gift_already_claimed: 'تم استلام هديتك اليوم ✓',
-            // toast messages
-            toast_copy_title: 'تم نسخ الرابط ✓',
-            toast_copy_desc: 'شارك رابطك مع أصدقائك',
-            toast_ad_done_title: 'أكملت جميع الإعلانات! 🏆',
-            toast_ad_done_sub: 'حصلت على 500 نقطة اليوم',
-            toast_ad_fire: 'رائع! استمر! 🔥',
-            toast_ad_watch: 'تمت المشاهدة ✓',
-            toast_ad_pts: 'أضفنا 50 نقطة إلى رصيدك',
-            toast_gift_title: 'تم استلام هديتك!',
-            // invite copy button
-            copy_btn_done: 'تم النسخ!',
-            copy_btn_default: 'نسخ الرابط',
-            // rank label
-            rank_label: 'الترتيب',
-            // user greeting
-            user_greeting: 'مرحباً بعودتك 👋',
-            // invite page title heading
-            invite_page_title: 'دعوة الأصدقاء',
-            // tasks page title
-            tasks_page_title: 'المهام',
-            // tasks empty
-            tasks_empty_title: 'لا توجد مهام حالياً',
-            tasks_empty_desc: 'سيتم إضافة مهام جديدة قريباً.\nتابعنا للحصول على المزيد من النقاط!',
-            // see more referrals
-            more_friends: '+44 صديق آخر',
-        },
-        en: {
-            dir: 'ltr',
-            font: "'Cairo', sans-serif",
-            app_name: 'Arabi Earn',
-            earn_title: 'Earn',
-            tasks_title: 'Tasks',
-            withdraw_title: 'Withdraw',
-            invite_title: 'Invite Friends',
-            settings_title: 'Settings',
-            settings_lang_label: 'Language',
-            nav_home: 'Home',
-            nav_tasks: 'Tasks',
-            nav_earn: 'Earn',
-            nav_withdraw: 'Wallet',
-            balance: 'Balance',
-            friends: 'Friends',
-            tasks_done: 'Tasks Done',
-            charge: 'Deposit',
-            withdraw: 'Withdraw',
-            daily_tasks: "Today's Tasks",
-            daily_ads: 'Daily Ads',
-            watch_ad: 'Watch an Ad',
-            get_balance: 'Get instant rewards',
-            pts: 'pts',
-            earned_today: 'Earned Today',
-            ads_watched: 'Ads Watched',
-            daily_limit: 'Daily Limit',
-            all_done_title: 'Great! All ads completed',
-            all_done_sub: 'Come back tomorrow for 10 new ads',
-            invite_btn_title: 'Invite Friends',
-            invite_btn_sub: 'Invite friends and earn together',
-            coming_soon: 'Coming Soon',
-            soon: 'Soon',
-            achievements: 'Achievements',
-            achievements_sub: 'Earn badges and reward yourself',
-            contests: 'Contests',
-            contests_sub: 'Compete and win big prizes',
-            gift_title: 'Daily Reward',
-            gift_sub: 'Claim your daily gift now',
-            no_tasks: 'No tasks available',
-            no_tasks_sub: 'New tasks will be added soon.\nFollow us for more points!',
-            upcoming_tasks: 'Upcoming Tasks',
-            // home stats
-            balance_label: 'Balance',
-            friends_label: 'Invited Friends',
-            tasks_done_label: 'Tasks Done',
-            charge_label: 'Deposit',
-            withdraw_label: 'Withdraw',
-            daily_tasks_section: "Today's Tasks",
-            // tasks page
-            task_watch_ad: 'Watch Ad',
-            task_share: 'Share App',
-            task_invite: 'Invite Friend',
-            upcoming_task_video: 'Watch Video',
-            upcoming_task_review: 'Rate App',
-            // withdraw page
-            withdraw_page_balance: 'Total Balance',
-            withdraw_methods_title: 'Withdrawal Methods',
-            withdraw_history_title: 'Transaction History',
-            no_transactions: 'No transactions yet',
-            no_transactions_sub: 'Withdrawal and deposit records will appear here',
-            // invite page
-            invite_hero_title: 'Invite Friends & Earn',
-            invite_hero_sub: 'Share your unique link and get an instant\nreward for every friend who joins through you',
-            invite_pts_per_ref: 'points per referral',
-            total_referrals: 'Total Referrals',
-            earned_from_refs: 'Earned from Referrals',
-            your_ref_link: 'Your Referral Link',
-            copy_link: 'Copy Link',
-            friends_list: 'Invited Friends',
-            // withdraw page
-            balance_available: 'Your available balance',
-            withdraw_history_title: 'Withdrawal History',
-            no_transactions: 'No withdrawals yet',
-            min_label: 'Minimum',
-            ton_wallet: 'TON Wallet',
-            paypal_name: 'PayPal',
-            fawry_name: 'Fawry Pay',
-            available_badge: 'Active',
-            // ad overlay
-            ad_loading: 'Loading ad...',
-            // gift overlay
-            gift_preparing: 'Preparing your gift...',
-            gift_claim_btn: 'Claim Gift',
-            gift_claimed: 'Claimed ✓',
-            gift_already_claimed: 'Already claimed today ✓',
-            // toast messages
-            toast_copy_title: 'Link copied ✓',
-            toast_copy_desc: 'Share your link with friends',
-            toast_ad_done_title: 'All ads done! 🏆',
-            toast_ad_done_sub: 'You earned 500 points today',
-            toast_ad_fire: 'Great! Keep going! 🔥',
-            toast_ad_watch: 'Ad watched ✓',
-            toast_ad_pts: 'We added 50 points to your balance',
-            toast_gift_title: 'Gift claimed!',
-            // invite copy button
-            copy_btn_done: 'Copied!',
-            copy_btn_default: 'Copy Link',
-            // rank label
-            rank_label: 'Rank',
-            // user greeting
-            user_greeting: 'Welcome back 👋',
-            // invite page title heading
-            invite_page_title: 'Invite Friends',
-            // tasks page title
-            tasks_page_title: 'Tasks',
-            // tasks empty
-            tasks_empty_title: 'No tasks available',
-            tasks_empty_desc: 'New tasks will be added soon.\nFollow us for more points!',
-            // see more referrals
-            more_friends: '+44 more friends',
-        },
-        ru: {
-            dir: 'ltr',
-            font: "'Cairo', sans-serif",
-            app_name: 'Arabi Заработок',
-            earn_title: 'Заработок',
-            tasks_title: 'Задания',
-            withdraw_title: 'Вывод',
-            invite_title: 'Пригласить друзей',
-            settings_title: 'Настройки',
-            settings_lang_label: 'Язык',
-            nav_home: 'Главная',
-            nav_tasks: 'Задания',
-            nav_earn: 'Заработок',
-            nav_withdraw: 'Кошелёк',
-            balance: 'Баланс',
-            friends: 'Друзей',
-            tasks_done: 'Задач',
-            charge: 'Пополнить',
-            withdraw: 'Вывести',
-            daily_tasks: 'Задания дня',
-            daily_ads: 'Ежедневная реклама',
-            watch_ad: 'Смотреть рекламу',
-            get_balance: 'Получай мгновенное вознаграждение',
-            pts: 'очк.',
-            earned_today: 'Заработано сегодня',
-            ads_watched: 'Рекламы просмотрено',
-            daily_limit: 'Дневной лимит',
-            all_done_title: 'Отлично! Вся реклама просмотрена',
-            all_done_sub: 'Возвращайся завтра за новыми 10 рекламами',
-            invite_btn_title: 'Пригласить друзей',
-            invite_btn_sub: 'Приглашай друзей и зарабатывай вместе',
-            coming_soon: 'Скоро',
-            soon: 'Скоро',
-            achievements: 'Достижения',
-            achievements_sub: 'Зарабатывай значки и награды',
-            contests: 'Конкурсы',
-            contests_sub: 'Участвуй и выигрывай призы',
-            gift_title: 'Ежедневная награда',
-            gift_sub: 'Получи свой ежедневный подарок',
-            no_tasks: 'Нет доступных заданий',
-            no_tasks_sub: 'Новые задания появятся скоро.\nСледите за обновлениями!',
-            upcoming_tasks: 'Предстоящие задания',
-            // home stats
-            balance_label: 'Баланс',
-            friends_label: 'Приглашённых',
-            tasks_done_label: 'Задач',
-            charge_label: 'Пополнить',
-            withdraw_label: 'Вывести',
-            daily_tasks_section: 'Задания дня',
-            // tasks page
-            task_watch_ad: 'Смотреть рекламу',
-            task_share: 'Поделиться',
-            task_invite: 'Пригласить друга',
-            upcoming_task_video: 'Смотреть видео',
-            upcoming_task_review: 'Оценить приложение',
-            // withdraw page
-            withdraw_page_balance: 'Общий баланс',
-            withdraw_methods_title: 'Методы вывода',
-            withdraw_history_title: 'История транзакций',
-            no_transactions: 'Транзакций пока нет',
-            no_transactions_sub: 'Здесь будут записи о выводе и пополнении',
-            // invite page
-            invite_hero_title: 'Приглашай и зарабатывай',
-            invite_hero_sub: 'Поделись своей ссылкой и получай\nмгновенное вознаграждение за каждого друга',
-            invite_pts_per_ref: 'очков за реферала',
-            total_referrals: 'Всего рефералов',
-            earned_from_refs: 'Заработано с рефералов',
-            your_ref_link: 'Ваша реферальная ссылка',
-            copy_link: 'Копировать ссылку',
-            friends_list: 'Приглашённые друзья',
-            // withdraw page
-            balance_available: 'Доступный баланс',
-            withdraw_history_title: 'История выводов',
-            no_transactions: 'Выводов пока нет',
-            min_label: 'Минимум',
-            ton_wallet: 'TON Кошелёк',
-            paypal_name: 'PayPal',
-            fawry_name: 'Fawry Pay',
-            available_badge: 'Доступно',
-            // ad overlay
-            ad_loading: 'Загрузка рекламы...',
-            // gift overlay
-            gift_preparing: 'Подготовка подарка...',
-            gift_claim_btn: 'Получить подарок',
-            gift_claimed: 'Получено ✓',
-            gift_already_claimed: 'Сегодня уже получено ✓',
-            // toast messages
-            toast_copy_title: 'Ссылка скопирована ✓',
-            toast_copy_desc: 'Поделитесь ссылкой с друзьями',
-            toast_ad_done_title: 'Вся реклама просмотрена! 🏆',
-            toast_ad_done_sub: 'Вы заработали 500 очков сегодня',
-            toast_ad_fire: 'Отлично! Продолжай! 🔥',
-            toast_ad_watch: 'Реклама просмотрена ✓',
-            toast_ad_pts: 'Мы добавили 50 очков на ваш баланс',
-            toast_gift_title: 'Подарок получен!',
-            // invite copy button
-            copy_btn_done: 'Скопировано!',
-            copy_btn_default: 'Скопировать',
-            // rank label
-            rank_label: 'Место',
-            // user greeting
-            user_greeting: 'С возвращением 👋',
-            // invite page title heading
-            invite_page_title: 'Пригласить друзей',
-            // tasks page title
-            tasks_page_title: 'Задания',
-            // tasks empty
-            tasks_empty_title: 'Нет доступных заданий',
-            tasks_empty_desc: 'Новые задания появятся скоро.\nСледите за обновлениями!',
-            // see more referrals
-            more_friends: '+44 других друзей',
-        }
-    };
-
-    let currentLang = 'ar';
-
-    function setLang(lang) {
-        currentLang = lang;
-        const t = TRANSLATIONS[lang];
-
-        // Document direction & lang
-        document.documentElement.lang = lang;
-        document.documentElement.dir = t.dir;
-        document.body.style.fontFamily = t.font;
-
-        // text-align for RTL/LTR elements that use text-align:right
-        const rtl = lang === 'ar';
-
-        // Apply all data-i18n elements
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-            const key = el.getAttribute('data-i18n');
-            if (t[key] !== undefined) el.textContent = t[key];
-        });
-
-        // Nav labels (by data-nav-label)
-        document.querySelectorAll('[data-nav-label]').forEach(el => {
-            const key = el.getAttribute('data-nav-label');
-            if (t[key] !== undefined) el.textContent = t[key];
-        });
-
-        // Settings drawer
-        document.getElementById('settings-title').textContent = t.settings_title;
-        document.getElementById('settings-lang-label').textContent = t.settings_lang_label;
-
-        // Update lang selector UI
-        ['ar','en','ru'].forEach(l => {
-            const row = document.getElementById('lang-' + l);
-            const chk = document.getElementById('check-' + l);
-            if (l === lang) {
-                row.style.border = '1.5px solid rgba(251,191,36,0.4)';
-                row.style.background = 'rgba(251,191,36,0.08)';
-                chk.style.opacity = '1';
-                chk.style.background = '#fbbf24';
-            } else {
-                row.style.border = '1px solid rgba(255,255,255,0.08)';
-                row.style.background = 'rgba(255,255,255,0.04)';
-                chk.style.opacity = '0';
-                chk.style.background = 'rgba(255,255,255,0.08)';
+            if (DAILY_GIFT_STATE.claimed) {
+                const t2 = TRANSLATIONS[currentLang];
+                if (label) {
+                    label.textContent   = t2.gift_already_claimed || 'تم استلام هديتك اليوم ✓';
+                    label.style.color   = '#34d399';
+                    label.style.fontSize= '14px';
+                    label.style.fontWeight = '700';
+                }
+                DAILY_GIFT_STATE.isOpening = false;
+                setTimeout(() => closeDailyGiftOverlay(), 2200);
+                return;
             }
-        });
 
-        // Flip text-align on info blocks that should follow dir
-        document.querySelectorAll('.user-info, .ad-btn-text, .toast-body').forEach(el => {
-            el.style.textAlign = rtl ? 'right' : 'left';
-        });
+            let sec = 3;
+            const tg = TRANSLATIONS[currentLang];
+            if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
+            if (btn)   btn.style.display = 'none';
+            if (label) label.style.display = 'block';
 
-        // method-info text-align follows dir
-        document.querySelectorAll('.method-info').forEach(el => {
-            el.style.textAlign = rtl ? 'right' : 'left';
-        });
-
-        // Nav pills direction
-        document.querySelectorAll('.method-item').forEach(el => {
-            el.style.direction = t.dir;
-        });
-
-        // invite hero sub uses <br> — re-inject to support line breaks
-        const heroSub = document.querySelector('.invite-hero-sub');
-        if (heroSub && t.invite_hero_sub) {
-            heroSub.innerHTML = t.invite_hero_sub.replace(/\n/g, '<br>');
+            const timer = setInterval(() => {
+                sec--;
+                if (sec > 0) {
+                    if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
+                } else {
+                    clearInterval(timer);
+                    if (label) label.style.display = 'none';
+                    if (btn) {
+                        btn.style.display = 'block';
+                        btn.style.transform = 'scale(0.8)';
+                        btn.style.opacity   = '0';
+                        requestAnimationFrame(() => requestAnimationFrame(() => {
+                            btn.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+                            btn.style.transform  = 'scale(1)';
+                            btn.style.opacity    = '1';
+                        }));
+                    }
+                    DAILY_GIFT_STATE.isOpening = false;
+                }
+            }, 1000);
         }
 
-        // tasks empty desc — re-inject for line breaks
-        const emptyDesc = document.querySelector('.empty-desc[data-i18n="no_tasks_sub"]');
-        if (emptyDesc && t.no_tasks_sub) {
-            emptyDesc.innerHTML = t.no_tasks_sub.replace(/\n/g, '<br>');
+        function closeDailyGiftOverlay() {
+            const overlay = document.getElementById('daily-gift-overlay');
+            if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
+            DAILY_GIFT_STATE.isOpening = false;
         }
 
-        // Copy btn reset label (in case it wasn't mid-copy)
-        const copyBtn = document.getElementById('copy-btn');
-        if (copyBtn && !copyBtn.classList.contains('copied')) {
-            copyBtn.innerHTML = `
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+        function openDailyGift()  { openDailyGiftOverlay(); }
+        function closeDailyGift() { closeDailyGiftOverlay(); }
+
+        async function claimGift() {
+            if (DAILY_GIFT_STATE.claimed) return;
+            DAILY_GIFT_STATE.claimed = true;
+
+            const nonce  = _generateNonce();
+            const result = await fetchApi({
+                type : 'claim_gift',
+                data : { day: DAILY_GIFT_STATE.dayNumber },
+                nonce
+            });
+
+            if (!result?.ok) {
+                DAILY_GIFT_STATE.claimed = false;
+                const errMsg = result?.error === 'already_claimed'
+                    ? 'تم استلام هديتك اليوم بالفعل ✓'
+                    : 'حدث خطأ، حاول مجدداً';
+                showToast('coin', errMsg, '', 'gold', '!');
+                return;
+            }
+
+            // تحديث الرصيد
+            if (result.coins !== undefined) {
+                USER_STATE.coins = parseInt(result.coins);
+                _applyBalanceToUI();
+            }
+            USER_STATE.gift_day    = result.day    || DAILY_GIFT_STATE.dayNumber;
+            USER_STATE.gift_streak = result.streak || DAILY_GIFT_STATE.dayNumber;
+
+            const ringIcon = document.getElementById('gift-ring-icon');
+            if (ringIcon) ringIcon.innerHTML = `
+                <path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            `;
+
+            const btn = document.getElementById('gift-claim-btn');
+            const tc  = TRANSLATIONS[currentLang];
+            if (btn) {
+                btn.textContent = tc.gift_claimed || 'تم الاستلام ✓';
+                btn.style.background  = 'rgba(52,211,153,0.15)';
+                btn.style.color       = '#34d399';
+                btn.style.border      = '1px solid rgba(52,211,153,0.28)';
+                btn.style.cursor      = 'default';
+                btn.onclick = null;
+            }
+
+            const data = GIFT_DAYS[Math.min(DAILY_GIFT_STATE.dayNumber - 1, GIFT_DAYS.length - 1)];
+            showToast('trophy', tc.toast_gift_title || 'تم استلام هديتك!', `${data.pts} ${tc.pts || 'نقطة'}`, 'green', data.amount);
+            setTimeout(() => closeDailyGiftOverlay(), 1600);
+        }
+
+        /* ══════════════════════════════════════════
+           INVITE / REFERRAL
+        ══════════════════════════════════════════ */
+        function copyReferralLink() {
+            const btn = document.getElementById('copy-btn');
+            navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = REFERRAL_LINK;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            });
+
+            fetchApi({ type: 'track_copy_link', data: {} });
+
+            btn.classList.add('copied');
+            const t = TRANSLATIONS[currentLang];
+            btn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                 </svg>
-                ${t.copy_btn_default || t.copy_link}
+                ${t.copy_btn_done || 'تم النسخ!'}
+            `;
+
+            showToast('trophy', t.toast_copy_title || 'تم نسخ الرابط ✓', t.toast_copy_desc || 'شارك رابطك مع أصدقائك', 'green', '🔗');
+
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+                    </svg>
+                    ${t.copy_btn_default || t.copy_link}
+                `;
+            }, 2500);
+        }
+
+        function shareTelegram() {
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(REFERRAL_LINK) + '&text=' + text, '_blank');
+        }
+
+        function shareWhatsApp() {
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
+            window.open('https://wa.me/?text=' + text, '_blank');
+        }
+
+        /* ══════════════════════════════════════════
+           TASKS PAGE
+        ══════════════════════════════════════════ */
+        const TASKS_STATE = {
+            tgJoined  : false,
+            tgVerified: false,
+            ads10Done : false,
+            ads25Done : false,
+            invite3Done: false,
+        };
+
+        function handleTelegramTask() {
+            if (TASKS_STATE.tgVerified) return;
+
+            const joinBtn   = document.getElementById('tg-join-btn');
+            const verifyBtn = document.getElementById('tg-verify-btn-compact');
+            const hintEl    = document.getElementById('tg-verify-hint');
+
+            // فتح القناة
+            const channelUrl = 'https://t.me/RebhApp_channel';
+            if (window.Telegram?.WebApp?.openTelegramLink) {
+                window.Telegram.WebApp.openTelegramLink(channelUrl);
+            } else {
+                window.open(channelUrl, '_blank');
+            }
+
+            TASKS_STATE.tgJoined = true;
+            if (joinBtn)   joinBtn.style.display   = 'none';
+            if (verifyBtn) verifyBtn.style.display = 'inline-flex';
+            if (hintEl)    hintEl.style.display    = '';
+        }
+
+        async function verifyTelegramTask() {
+            if (TASKS_STATE.tgVerified) return;
+
+            const verifyBtn = document.getElementById('tg-verify-btn-compact');
+            if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
+
+            const nonce  = _generateNonce();
+            const result = await fetchApi({
+                type : 'verify_tg_membership',
+                data : { task_id: 'tg_channel' },
+                nonce
+            });
+
+            if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
+
+            if (!result?.ok) {
+                if (result?.error === 'already_completed') {
+                    _markTgTaskDone();
+                    return;
+                }
+                showToast('coin', 'لم يتم التحقق بعد', 'تأكد من انضمامك للقناة ثم حاول مجدداً', 'gold', '!');
+                return;
+            }
+
+            TASKS_STATE.tgVerified = true;
+            _markTgTaskDone();
+
+            if (result.coins !== undefined) {
+                USER_STATE.coins = parseInt(result.coins);
+                _applyBalanceToUI();
+            }
+
+            showToast('trophy', 'انضممت للقناة! 🎉', '+2,500 نقطة أضيفت لرصيدك', 'gold', '+2,500');
+        }
+
+        function _markTgTaskDone() {
+            const verifyBtn  = document.getElementById('tg-verify-btn-compact');
+            const hintEl     = document.getElementById('tg-verify-hint');
+            const actionWrap = document.getElementById('tg-action-wrap');
+            const doneState  = document.getElementById('tg-done-state');
+            const doneOverlay= document.getElementById('tg-done-overlay');
+            const card       = document.getElementById('tg-task-card');
+
+            if (verifyBtn)  verifyBtn.style.display  = 'none';
+            if (hintEl)     hintEl.style.display     = 'none';
+            if (actionWrap) actionWrap.style.display = 'none';
+            if (doneState)  { doneState.style.display = 'block'; doneState.style.animation = 'pageIn 0.4s cubic-bezier(0.22,1,0.36,1) both'; }
+            if (doneOverlay) doneOverlay.style.display = 'block';
+            if (card)        card.classList.add('completed');
+        }
+
+        function syncDailyTasksFromAds() {
+            const watched = AD_STATE.watchedToday;
+
+            const pct10  = Math.min(watched / 10,  1) * 100;
+            const fill10 = document.getElementById('ads10-fill');
+            const prog10 = document.getElementById('ads10-prog');
+            if (fill10) fill10.style.width = pct10 + '%';
+            if (prog10) prog10.textContent = Math.min(watched, 10) + ' / 10';
+            if (watched >= 10 && !TASKS_STATE.ads10Done) {
+                TASKS_STATE.ads10Done = true;
+                markDailyTaskDone('dtask-ads10');
+            }
+
+            const pct25  = Math.min(watched / 25,  1) * 100;
+            const fill25 = document.getElementById('ads25-fill');
+            const prog25 = document.getElementById('ads25-prog');
+            if (fill25) fill25.style.width = pct25 + '%';
+            if (prog25) prog25.textContent = Math.min(watched, 25) + ' / 25';
+            if (watched >= 25 && !TASKS_STATE.ads25Done) {
+                TASKS_STATE.ads25Done = true;
+                markDailyTaskDone('dtask-ads25');
+            }
+
+            // invite3 من بيانات الـ backend
+            const friends = USER_STATE.referral_friends;
+            const pct3    = Math.min(friends / 3, 1) * 100;
+            const fill3   = document.getElementById('invite3-fill');
+            const prog3   = document.getElementById('invite3-prog');
+            if (fill3) fill3.style.width = pct3 + '%';
+            if (prog3) prog3.textContent = Math.min(friends, 3) + ' / 3';
+            if (friends >= 3 && !TASKS_STATE.invite3Done) {
+                TASKS_STATE.invite3Done = true;
+                markDailyTaskDone('dtask-invite3');
+            }
+
+            updateDailyBadge();
+        }
+
+        function markDailyTaskDone(cardId) {
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            card.classList.add('completed');
+            const icon = card.querySelector('.dtask-icon');
+            if (icon) {
+                icon.style.background = 'rgba(52,211,153,0.12)';
+                icon.style.border     = '1px solid rgba(52,211,153,0.22)';
+                icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+            }
+        }
+
+        function updateDailyBadge() {
+            const done  = [TASKS_STATE.ads10Done, TASKS_STATE.ads25Done, TASKS_STATE.invite3Done].filter(Boolean).length;
+            const badge = document.getElementById('daily-tasks-badge');
+            if (badge) badge.textContent = done + ' / 3';
+        }
+
+        function handleDailyTask(type) {
+            if (type === 'ads10' || type === 'ads25') {
+                showPage('earn', null);
+            } else if (type === 'invite3') {
+                showPage('invite', null);
+            }
+        }
+
+        /* ══════════════════════════════════════════
+           PAGE NAVIGATION
+        ══════════════════════════════════════════ */
+        function showPage(pageName, btn) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const target = document.getElementById('page-' + pageName);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                const navBtn = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+                if (navBtn) navBtn.classList.add('active');
+            }
+            setTimeout(() => {
+                const scope = target || document;
+                runCounters(scope);
+            }, 80);
+        }
+
+        function runCounters(scope) {
+            scope = scope || document;
+            scope.querySelectorAll('.counter').forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                if (!target) return;
+                const duration = 1800;
+                const startTime = performance.now();
+                function update(now) {
+                    const elapsed  = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease     = 1 - Math.pow(1 - progress, 3);
+                    counter.textContent = Math.floor(ease * target).toLocaleString('en-US');
+                    if (progress < 1) requestAnimationFrame(update);
+                    else counter.textContent = target.toLocaleString('en-US');
+                }
+                requestAnimationFrame(update);
+            });
+        }
+
+        /* ══════════════════════════════════════════
+           WITHDRAW HISTORY
+        ══════════════════════════════════════════ */
+        const WITHDRAW_HISTORY = [];
+        const NOTIF_LIST_DATA  = [];
+
+        function formatTimeAgo(ts) {
+            const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+            if (diff < 60)     return 'الآن';
+            if (diff < 3600)   return `منذ ${Math.floor(diff/60)} دقيقة`;
+            if (diff < 86400)  return `منذ ${Math.floor(diff/3600)} ساعة`;
+            return `منذ ${Math.floor(diff/86400)} يوم`;
+        }
+
+        function renderWithdrawHistory() {
+            const list  = document.getElementById('withdraw-history-list');
+            const empty = document.getElementById('withdraw-empty');
+            const badge = document.getElementById('withdraw-count-badge');
+
+            // ادمج history من الـ backend مع المحلي
+            const allHistory = [
+                ...USER_STATE.wd_history.slice(-20).reverse(),
+                ...WITHDRAW_HISTORY.slice().reverse()
+            ];
+
+            if (allHistory.length === 0) {
+                if (empty) empty.style.display = '';
+                if (badge) badge.style.display = 'none';
+                return;
+            }
+
+            if (empty) empty.style.display = 'none';
+            if (badge) { badge.style.display = ''; badge.textContent = allHistory.length + ' طلب'; }
+
+            const statusMap = {
+                pending   : '<span style="color:#fbbf24;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.25);">قيد المعالجة</span>',
+                completed : '<span style="color:#34d399;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.25);">مكتمل ✓</span>',
+                approved  : '<span style="color:#34d399;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.25);">موافق عليه ✓</span>',
+                rejected  : '<span style="color:#f87171;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.25);">مرفوض ✗</span>',
+            };
+
+            let html = '';
+            allHistory.forEach(item => {
+                const pts      = item.pts || 0;
+                const tonAmt   = (pts / 100000).toFixed(3);
+                const addr     = item.address || item.addr || '';
+                const addrShort= addr.length > 14 ? addr.slice(0, 6) + '...' + addr.slice(-6) : addr;
+                const ts       = item.created_at || item.date || item.ts || '';
+                const status   = item.status || 'pending';
+                const statusHtml = statusMap[status] || statusMap.pending;
+
+                html += `
+                <div class="withdraw-hist-item">
+                    <div class="withdraw-hist-icon">
+                        <img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;">
+                    </div>
+                    <div class="withdraw-hist-info">
+                        <div class="withdraw-hist-name">سحب TON</div>
+                        <div class="withdraw-hist-addr">${addrShort}</div>
+                        <div class="withdraw-hist-time">${formatTimeAgo(ts)}</div>
+                    </div>
+                    <div class="withdraw-hist-right">
+                        <div class="withdraw-hist-pts">${pts.toLocaleString()}</div>
+                        <div class="withdraw-hist-ton">${tonAmt} TON</div>
+                        ${statusHtml}
+                    </div>
+                </div>`;
+            });
+            if (list) list.innerHTML = html;
+        }
+
+        /* ══════════════════════════════════════════
+           NOTIFICATIONS
+        ══════════════════════════════════════════ */
+        let unreadNotifCount = 0;
+
+        function addNotification(type, title, sub, ts) {
+            NOTIF_LIST_DATA.unshift({ type, title, sub, ts: ts || Date.now(), read: false });
+            unreadNotifCount++;
+            updateNotifBadge();
+            renderNotifList();
+        }
+
+        function updateNotifBadge() {
+            const badge = document.getElementById('notif-badge');
+            if (!badge) return;
+            if (unreadNotifCount > 0) {
+                badge.classList.add('visible');
+                badge.textContent = unreadNotifCount > 9 ? '9+' : unreadNotifCount;
+            } else {
+                badge.classList.remove('visible');
+                badge.textContent = '';
+            }
+        }
+
+        function renderNotifList() {
+            const list     = document.getElementById('notif-list');
+            const emptyMsg = document.getElementById('notif-empty-msg');
+            if (!list) return;
+            if (NOTIF_LIST_DATA.length === 0) { if (emptyMsg) emptyMsg.style.display = ''; return; }
+            if (emptyMsg) emptyMsg.style.display = 'none';
+
+            const tonIcon  = `<img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:22px;height:22px;border-radius:7px;object-fit:cover;">`;
+            const coinIcon = `<img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.7));">`;
+
+            list.innerHTML = NOTIF_LIST_DATA.map((n, i) => {
+                const icon      = n.type === 'ton' ? tonIcon : coinIcon;
+                const iconClass = n.type === 'ton' ? 'ton' : 'gold';
+                return `
+                <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${i})">
+                    ${!n.read ? '<div class="notif-unread-dot"></div>' : ''}
+                    <div class="notif-item-icon ${iconClass}">${icon}</div>
+                    <div class="notif-item-body">
+                        <div class="notif-item-title">${n.title}</div>
+                        <div class="notif-item-sub">${n.sub}</div>
+                    </div>
+                    <div class="notif-item-time">${formatTimeAgo(n.ts)}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function markNotifRead(idx) {
+            if (!NOTIF_LIST_DATA[idx].read) {
+                NOTIF_LIST_DATA[idx].read = true;
+                unreadNotifCount = Math.max(0, unreadNotifCount - 1);
+                updateNotifBadge();
+                renderNotifList();
+            }
+        }
+
+        function openNotifPanel() {
+            document.getElementById('notif-panel').classList.add('open');
+            document.getElementById('notif-backdrop').classList.add('visible');
+            NOTIF_LIST_DATA.forEach(n => { n.read = true; });
+            unreadNotifCount = 0;
+            updateNotifBadge();
+            renderNotifList();
+        }
+
+        function closeNotifPanel() {
+            document.getElementById('notif-panel').classList.remove('open');
+            document.getElementById('notif-backdrop').classList.remove('visible');
+        }
+
+        /* ══════════════════════════════════════════
+           TON WITHDRAW — متصل بالـ backend
+        ══════════════════════════════════════════ */
+        const TON_CONFIG = {
+            minPts   : 50000,
+            ptsPerTon: 100000,
+        };
+
+        function openTonWithdraw() {
+            const overlay   = document.getElementById('ton-withdraw-overlay');
+            const ptsEl     = document.getElementById('ton-sheet-pts');
+            const equivEl   = document.getElementById('ton-sheet-equiv');
+            const ptsWarn   = document.getElementById('ton-pts-warn');
+            const levelWarn = document.getElementById('ton-level-warn');
+            const submitBtn = document.getElementById('ton-submit-btn');
+            const input     = document.getElementById('ton-address-input');
+
+            if (input)  input.value = '';
+            const errEl = document.getElementById('ton-error-msg');
+            if (errEl)  errEl.style.display = 'none';
+
+            const coins   = USER_STATE.coins;
+            const hasPts  = coins >= TON_CONFIG.minPts;
+            const tonEquiv= (coins / TON_CONFIG.ptsPerTon).toFixed(3);
+
+            if (ptsEl)   ptsEl.textContent  = coins.toLocaleString();
+            if (equivEl) equivEl.textContent = '≈ ' + tonEquiv + ' TON';
+
+            if (levelWarn) levelWarn.style.display = 'none';
+            if (ptsWarn)   ptsWarn.style.display   = hasPts ? 'none' : '';
+            if (submitBtn) submitBtn.disabled       = !hasPts;
+
+            if (overlay) overlay.classList.add('visible');
+        }
+
+        function closeTonWithdraw() {
+            const overlay = document.getElementById('ton-withdraw-overlay');
+            if (overlay) overlay.classList.remove('visible');
+        }
+
+        function handleTonOverlayClick(e) {
+            if (e.target === document.getElementById('ton-withdraw-overlay')) closeTonWithdraw();
+        }
+
+        function clearTonError() {
+            const errEl = document.getElementById('ton-error-msg');
+            const input = document.getElementById('ton-address-input');
+            if (errEl) errEl.style.display = 'none';
+            if (input) input.style.borderColor = 'rgba(83,147,255,0.3)';
+        }
+
+        function isValidTonAddress(addr) {
+            addr = addr.trim();
+            return (addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:')) && addr.length >= 48;
+        }
+
+        async function submitTonWithdraw() {
+            const input     = document.getElementById('ton-address-input');
+            const addr      = input.value.trim();
+            const errEl     = document.getElementById('ton-error-msg');
+            const submitBtn = document.getElementById('ton-submit-btn');
+
+            if (!isValidTonAddress(addr)) {
+                if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'الرجاء إدخال عنوان محفظة TON صحيح'; }
+                if (input) input.style.borderColor = 'rgba(248,113,113,0.5)';
+                return;
+            }
+
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ جاري الإرسال...'; }
+
+            const nonce  = _generateNonce();
+            const result = await fetchApi({
+                type  : 'submit_withdraw',
+                data  : { address: addr, pts: USER_STATE.coins },
+                nonce
+            });
+
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'إرسال طلب السحب'; }
+
+            if (!result?.ok) {
+                const msg = result?.error === 'insufficient_balance'
+                    ? 'رصيدك غير كافٍ للسحب'
+                    : (result?.message || 'حدث خطأ، حاول مجدداً');
+                if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+                return;
+            }
+
+            // تحديث الرصيد (يُصفَّر بعد السحب)
+            USER_STATE.coins = 0;
+            _applyBalanceToUI();
+
+            const histItem = {
+                address   : addr,
+                pts       : result.pts || 0,
+                ton       : result.ton || 0,
+                created_at: result.date || new Date().toISOString(),
+                status    : 'pending',
+            };
+            USER_STATE.wd_history.push(histItem);
+            renderWithdrawHistory();
+
+            addNotification('ton', 'تم استلام طلب السحب', `${histItem.pts.toLocaleString()} نقطة ≈ ${histItem.ton} TON`, Date.now());
+
+            closeTonWithdraw();
+            showToast('trophy', 'تم إرسال طلب السحب! 🎉', 'سيتم معالجة طلبك قريباً', 'green', '✓');
+        }
+
+        /* ══════════════════════════════════════════
+           BANNED SCREEN
+        ══════════════════════════════════════════ */
+        function _showBannedScreen(type) {
+            document.body.innerHTML = `
+                <div style="
+                    display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    min-height:100vh;padding:40px 20px;text-align:center;
+                    background:linear-gradient(135deg,#0d0a1a 0%,#1a0505 100%);
+                    color:#fff;font-family:'Tajawal',sans-serif;
+                ">
+                    <div style="font-size:60px;margin-bottom:16px;">🚫</div>
+                    <div style="font-size:22px;font-weight:900;color:#f87171;margin-bottom:10px;">
+                        ${type === 'hard' ? 'تم حظر حسابك' : 'تعذّر الوصول'}
+                    </div>
+                    <div style="font-size:14px;color:rgba(255,255,255,0.5);max-width:280px;line-height:1.7;">
+                        ${type === 'hard'
+                            ? 'تم اكتشاف نشاط مخالف. إذا تعتقد أن هذا خطأ تواصل مع الدعم.'
+                            : 'حدث خطأ في التحقق. أعد تشغيل التطبيق.'}
+                    </div>
+                </div>
             `;
         }
 
-        closeSettings();
-    }
+        /* ══════════════════════════════════════════
+           UI HELPERS
+        ══════════════════════════════════════════ */
+        function _applyUserToUI(displayName, photoUrl, userId) {
+            const nameEl  = document.getElementById('uc-user-name');
+            const photoEl = document.getElementById('uc-user-photo');
+            if (nameEl) nameEl.textContent = displayName || '@مستخدم';
+            if (photoEl) {
+                if (photoUrl) {
+                    photoEl.src    = photoUrl;
+                    photoEl.onerror= function() {
+                        this.onerror = null;
+                        this.src = _generateFallbackAvatar(displayName, userId);
+                    };
+                } else {
+                    photoEl.src = _generateFallbackAvatar(displayName, userId);
+                }
+            }
+        }
 
-    // Init — mark nav labels with data-nav-label
-    document.addEventListener('DOMContentLoaded', () => {
-        // Already set to Arabic by default
-    });
+        function _generateFallbackAvatar(name, userId) {
+            const seed = userId ? String(userId) : (name || 'user');
+            return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(seed)
+                 + '&backgroundColor=1a1a2e,16213e,0f3460&textColor=fbbf24&fontSize=38&fontWeight=700';
+        }
+
+        function _applyFallbackUser() {
+            const nameEl  = document.getElementById('uc-user-name');
+            const photoEl = document.getElementById('uc-user-photo');
+            if (nameEl)  nameEl.textContent = '@مستخدم';
+            if (photoEl) photoEl.src = _generateFallbackAvatar('user', null);
+        }
+
+        function _updateReferralLinkUI() {
+            const linkEl = document.getElementById('referral-link-text');
+            if (linkEl && REFERRAL_LINK) linkEl.textContent = REFERRAL_LINK;
+        }
+
+        function openSettings() {
+            const backdrop = document.getElementById('settings-backdrop');
+            const drawer   = document.getElementById('settings-drawer');
+            if (backdrop) { backdrop.style.opacity = '1'; backdrop.style.pointerEvents = 'all'; }
+            if (drawer)   drawer.style.transform = 'translateY(0)';
+        }
+
+        function closeSettings() {
+            const backdrop = document.getElementById('settings-backdrop');
+            const drawer   = document.getElementById('settings-drawer');
+            if (backdrop) { backdrop.style.opacity = '0'; backdrop.style.pointerEvents = 'none'; }
+            if (drawer)   drawer.style.transform = 'translateY(110%)';
+        }
+
+        function openDepositSupport() {
+            const msg = encodeURIComponent('مرحبا أريد إيداع داخل البوت');
+            const url = 'https://t.me/YourSupportUsername?text=' + msg;
+            if (window.Telegram?.WebApp?.openTelegramLink) {
+                window.Telegram.WebApp.openTelegramLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
+        /* ── Init ─────────────────────────────────── */
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => runCounters(document), 350);
+            initSession();
+        });
+
     </script>
-
-</body>
+    </body>
 </html>
