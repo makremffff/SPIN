@@ -152,6 +152,44 @@ async function bootstrap() {
       )
     `);
 
+    // ── Migrations — إضافة الأعمدة الجديدة إذا لم تكن موجودة ──
+    // ضروري إذا كان جدول users موجوداً مسبقاً من مشروع قديم
+    const migrations = [
+      // أعمدة النقاط والإعلانات
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS points              BIGINT        NOT NULL DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS ads_watched_today   INT           NOT NULL DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ad_date        TEXT          NOT NULL DEFAULT ''`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS ad_last_reward      TIMESTAMPTZ`,
+      // أعمدة الهدية اليومية
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_gift_day      INT           NOT NULL DEFAULT 1`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_gift_claimed  BOOLEAN       NOT NULL DEFAULT FALSE`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_gift_date      TEXT          NOT NULL DEFAULT ''`,
+      // أعمدة المهام
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS tg_task_done        BOOLEAN       NOT NULL DEFAULT FALSE`,
+      // أعمدة الإحالة (قد تكون موجودة)
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_by         BIGINT`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_friends    INT           NOT NULL DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_rewarded   BOOLEAN       NOT NULL DEFAULT FALSE`,
+      // أعمدة الحماية (قد تكون موجودة)
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_banned       BOOLEAN       NOT NULL DEFAULT FALSE`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_hard_banned      BOOLEAN       NOT NULL DEFAULT FALSE`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_score          INT           NOT NULL DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url           TEXT`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS wd_history          JSONB         NOT NULL DEFAULT '[]'`,
+    ];
+    for (const m of migrations) {
+      try { await sql(m); } catch (_) {}
+    }
+
+    // ── Migrations للجداول الأمان (nonce column في sessions) ──
+    const sessionMigrations = [
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce     TEXT`,
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_exp TIMESTAMPTZ`,
+    ];
+    for (const m of sessionMigrations) {
+      try { await sql(m); } catch (_) {}
+    }
+
     console.log('[DB] Bootstrap OK — Zero Trust v1.0 (TON Spin)');
   } catch (e) {
     console.error('[DB] Bootstrap failed:', e.message);
