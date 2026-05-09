@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>الربح عربي</title>
+    <!-- ✅ Telegram WebApp SDK — يجب تحميله أول شيء قبل أي سكريبت آخر -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;500;600;700;800;900&family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -350,7 +352,7 @@
             content: '';
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.75);
                
             pointer-events: none;
             z-index: 0;
@@ -3632,16 +3634,14 @@
         }
 
 
-        // REFERRAL_LINK يُبنى ديناميكياً في buildReferralLink() — نضع قيمة أولية fallback
-        window.REFERRAL_LINK = 'https://t.me/RebhApp_bot?start=ref_guest';
+        // ملاحظة: REFERRAL_LINK و BOT_USERNAME معرّفان أعلاه داخل initTelegramUser block
 
         function copyReferralLink() {
-            const link = window.REFERRAL_LINK;
             const btn = document.getElementById('copy-btn');
-            navigator.clipboard.writeText(link).catch(() => {
+            navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {
                 // fallback
                 const ta = document.createElement('textarea');
-                ta.value = link;
+                ta.value = REFERRAL_LINK;
                 document.body.appendChild(ta);
                 ta.select();
                 document.execCommand('copy');
@@ -3672,14 +3672,12 @@
         }
 
         function shareTelegram() {
-            const link = window.REFERRAL_LINK;
-            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + link);
-            window.open('https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + text, '_blank');
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(REFERRAL_LINK) + '&text=' + text, '_blank');
         }
 
         function shareWhatsApp() {
-            const link = window.REFERRAL_LINK;
-            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + link);
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
             window.open('https://wa.me/?text=' + text, '_blank');
         }
 
@@ -3874,63 +3872,137 @@
         });
 
         /* ══════════════════════════════════════════
-           TELEGRAM USER DATA
+           TELEGRAM USER DATA — PROFESSIONAL v2
         ══════════════════════════════════════════ */
-        // Global user ID — used for referral link
-        let TG_USER_ID = null;
+
+        // اسم بوت الإحالة — غيّر هذا باسم بوتك الحقيقي
+        const BOT_USERNAME = 'RebhApp_bot';
+
+        // متغير عالمي للرابط — يُحدَّث من initTelegramUser()
+        let REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_0000000000';
+
+        // معرّف المستخدم العالمي — يُحدَّث عند التهيئة
+        let CURRENT_USER_ID = null;
 
         function initTelegramUser() {
-            const tg = window.Telegram && window.Telegram.WebApp;
-            let name = '@مستخدم';
-            let userId = null;
-            let avatarSeed = 'default';
+            // ─── 1. التحقق من وجود Telegram WebApp SDK ───
+            const tg = window?.Telegram?.WebApp;
 
-            if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                const u = tg.initDataUnsafe.user;
-
-                // الاسم: username أولاً ثم الاسم الكامل
-                if (u.username) name = '@' + u.username;
-                else if (u.first_name) name = u.first_name + (u.last_name ? ' ' + u.last_name : '');
-
-                // User ID لرابط الإحالة
-                if (u.id) {
-                    userId = String(u.id);
-                    TG_USER_ID = userId;
-                    avatarSeed = userId; // seed فريد لكل مستخدم
-                }
+            if (!tg) {
+                console.warn('[TG] ⚠️ لم يتم تشغيل التطبيق داخل Telegram WebApp — SDK غير محمّل أو البيئة خارجية');
+                _applyFallbackUser();
+                return;
             }
 
-            // ── اسم المستخدم ──
-            const nameEl = document.getElementById('uc-user-name');
-            if (nameEl) nameEl.textContent = name;
+            // ─── 2. إخبار تيليغرام أن التطبيق جاهز ───
+            tg.ready();
 
-            // ── الصورة الشخصية ──
-            // تلغرام لا يُرسل photo_url في Mini Apps (privacy policy)
-            // نستخدم DiceBear بـ seed من user ID لتوليد avatar مميز لكل مستخدم
-            const photoEl = document.getElementById('uc-user-photo');
-            if (photoEl) {
-                photoEl.src = 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(name) + '&backgroundColor=0d1b2a,1a2744,0f2337&textColor=fbbf24&radius=50&fontSize=38';
-                photoEl.onerror = function() {
-                    this.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + avatarSeed + '&backgroundColor=0d0a1a';
-                };
+            // ─── 3. توسيع التطبيق ليملأ الشاشة ───
+            tg.expand();
+
+            // ─── 4. قراءة بيانات المستخدم بأمان ───
+            const user = tg?.initDataUnsafe?.user;
+
+            if (!user) {
+                console.warn('[TG] ⚠️ initDataUnsafe.user غير متوفر — ربما البيئة dev أو Bot لا يمرر البيانات');
+                _applyFallbackUser();
+                return;
             }
 
-            // ── رابط الإحالة الديناميكي ──
-            buildReferralLink(userId);
+            // ─── 5. استخراج البيانات بـ optional chaining ───
+            const userId    = user?.id          ?? null;
+            const firstName = user?.first_name  ?? '';
+            const lastName  = user?.last_name   ?? '';
+            const username  = user?.username    ?? '';
+            const photoUrl  = user?.photo_url   ?? '';
+            const langCode  = user?.language_code ?? 'ar';
+            const isPremium = user?.is_premium  ?? false;
+
+            // ─── 6. بناء اسم العرض (بدون undefined/null/فارغ) ───
+            let displayName = '@مستخدم'; // fallback آمن
+            if (username) {
+                displayName = '@' + username;
+            } else if (firstName || lastName) {
+                displayName = [firstName, lastName].filter(Boolean).join(' ');
+            }
+
+            // ─── 7. حفظ ID عالمياً وبناء رابط الإحالة الديناميكي ───
+            if (userId) {
+                CURRENT_USER_ID = userId;
+                REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + userId;
+            }
+
+            // ─── 8. تحديث واجهة المستخدم ───
+            _applyUserToUI(displayName, photoUrl, userId);
+
+            // ─── 9. تحديث نص رابط الإحالة في صفحة الدعوة ───
+            _updateReferralLinkUI();
+
+            // ─── 10. طباعة كل البيانات في Console للتأكد ───
+            console.group('[TG] ✅ بيانات المستخدم — Telegram WebApp');
+            console.log('🆔 User ID       :', userId   ?? '—');
+            console.log('👤 First Name    :', firstName || '—');
+            console.log('👤 Last Name     :', lastName  || '—');
+            console.log('🔗 Username      :', username  ? '@' + username : '—');
+            console.log('🌐 Language      :', langCode  || '—');
+            console.log('⭐ Premium       :', isPremium);
+            console.log('🖼️  Photo URL     :', photoUrl  || '(لا توجد صورة)');
+            console.log('🔗 Referral Link :', REFERRAL_LINK);
+            console.log('📦 Raw initData  :', tg.initDataUnsafe);
+            console.groupEnd();
         }
 
-        function buildReferralLink(userId) {
-            // استخدم user ID الحقيقي — وإن لم يكن متاحاً استخدم fallback
-            const botUsername = 'RebhApp_bot'; // ← غيّر هذا لاسم البوت الصحيح
-            const refParam = userId ? 'ref_' + userId : 'ref_guest';
-            const link = 'https://t.me/' + botUsername + '?start=' + refParam;
+        // ─── تطبيق البيانات على الـ UI ───
+        function _applyUserToUI(displayName, photoUrl, userId) {
+            const nameEl  = document.getElementById('uc-user-name');
+            const photoEl = document.getElementById('uc-user-photo');
 
-            // تحديث المتغير العام
-            window.REFERRAL_LINK = link;
+            // اسم المستخدم — مضمون بدون undefined/null
+            if (nameEl) {
+                nameEl.textContent = displayName || '@مستخدم';
+            }
 
-            // تحديث العنصر المرئي في صفحة الدعوة
-            const linkTextEl = document.getElementById('referral-link-text');
-            if (linkTextEl) linkTextEl.textContent = link;
+            // صورة المستخدم — مع fallback تلقائي
+            if (photoEl) {
+                if (photoUrl) {
+                    photoEl.src = photoUrl;
+                    photoEl.onerror = function () {
+                        console.warn('[TG] 🖼️ فشل تحميل الصورة — تطبيق avatar بديل');
+                        this.onerror = null; // منع حلقة لا نهائية
+                        this.src = _generateFallbackAvatar(displayName, userId);
+                    };
+                } else {
+                    // لا توجد صورة أصلاً — استخدم avatar مولّد من الاسم/ID
+                    photoEl.src = _generateFallbackAvatar(displayName, userId);
+                }
+            }
+        }
+
+        // ─── توليد avatar بديل ذكي ───
+        function _generateFallbackAvatar(name, userId) {
+            // استخدم seed من userId لضمان ثبات الصورة لكل مستخدم
+            const seed = userId ? String(userId) : (name || 'user');
+            return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(seed)
+                 + '&backgroundColor=1a1a2e,16213e,0f3460&textColor=fbbf24&fontSize=38&fontWeight=700';
+        }
+
+        // ─── fallback عند غياب بيانات Telegram ───
+        function _applyFallbackUser() {
+            const nameEl  = document.getElementById('uc-user-name');
+            const photoEl = document.getElementById('uc-user-photo');
+
+            if (nameEl)  nameEl.textContent = '@مستخدم';
+            if (photoEl) photoEl.src = _generateFallbackAvatar('user', null);
+
+            console.info('[TG] ℹ️ تم تطبيق بيانات افتراضية — لا بيانات Telegram متاحة');
+        }
+
+        // ─── تحديث نص الرابط في صفحة الدعوة ───
+        function _updateReferralLinkUI() {
+            const linkEl = document.getElementById('referral-link-text');
+            if (linkEl) {
+                linkEl.textContent = REFERRAL_LINK;
+            }
         }
 
         /* ══════════════════════════════════════════
