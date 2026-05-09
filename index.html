@@ -3376,9 +3376,11 @@
         // ── Session state ──
         let _sessionId   = null;
         let _sessionBusy = false; // منع طلبات session متوازية
+        let _cachedFp    = null;  // fingerprint يُحسب مرة واحدة فقط
 
-        // ── توليد Fingerprint من بيانات الجهاز ──
+        // ── توليد Fingerprint من بيانات الجهاز (مع cache) ──
         async function _buildFingerprint() {
+            if (_cachedFp) return _cachedFp; // نفس القيمة في كل طلب
             const nav    = window.navigator;
             const screen = window.screen;
 
@@ -3409,7 +3411,7 @@
                     : '';
             } catch (_) {}
 
-            return {
+            _cachedFp = {
                 user_agent : nav.userAgent   || '',
                 lang       : nav.language    || '',
                 screen     : `${screen.width}x${screen.height}x${screen.colorDepth}`,
@@ -3423,6 +3425,7 @@
                 color_depth: screen.colorDepth || 0,
                 dpr        : window.devicePixelRatio  || 1,
             };
+            return _cachedFp;
         }
 
         // ── توليد Nonce عشوائي ──
@@ -3525,6 +3528,7 @@
                     if (res.status === 401) {
                         console.warn('[SEC] Session expired — refreshing...');
                         _sessionId = null;
+                        _cachedFp  = null; // إعادة حساب الـ fingerprint عند تجديد الجلسة
                         await _createSession();
                     }
                     return { ok: false, error: msg };
