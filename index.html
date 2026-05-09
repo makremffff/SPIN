@@ -2539,7 +2539,7 @@
                             <div style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.45);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;" data-i18n="balance_label">الرصيد الكلي</div>
                             <div style="display:flex;align-items:center;gap:7px;">
                                 <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(251,191,36,0.9));">
-                                <span class="uc-balance-num balance-number counter" data-target="75000" style="font-size:26px;">0</span>
+                                <span class="uc-balance-num balance-number counter" data-target="0" style="font-size:26px;">0</span>
                             </div>
                             <span style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.35);font-weight:500;" data-i18n="pts">نقطة</span>
                         </div>
@@ -2576,7 +2576,7 @@
                                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="#34d399"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val green counter" data-target="48">0</div>
+                        <div class="uc-stat-val green counter" data-target="0">0</div>
                         <div class="uc-stat-label" data-i18n="friends_label">صديق مدعو</div>
                     </div>
                     <div class="uc-stat">
@@ -2586,7 +2586,7 @@
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z" fill="#60a5fa"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val blue counter" data-target="156">0</div>
+                        <div class="uc-stat-val blue counter" data-target="0">0</div>
                         <div class="uc-stat-label" data-i18n="tasks_done_label">مهمة منجزة</div>
                     </div>
                     <div class="uc-stat">
@@ -2596,7 +2596,7 @@
                                 <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#fbbf24"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val gold counter" data-target="24000">0</div>
+                        <div class="uc-stat-val gold counter" data-target="0">0</div>
                         <div class="uc-stat-label">إجمالي المكتسب</div>
                     </div>
                 </div>
@@ -3045,14 +3045,14 @@
             <div class="invite-stats">
                 <div class="invite-stat-card glass">
                     <div class="invite-stat-val" style="color:var(--purple);">
-                        <span class="counter" data-target="48">0</span>
+                        <span class="counter" data-target="0">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="total_referrals">إجمالي الإحالات</div>
                 </div>
                 <div class="invite-stat-card glass">
                     <div class="invite-stat-val" style="display:flex;align-items:center;justify-content:center;gap:6px;">
                         <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(251,191,36,0.7));">
-                        <span style="color:var(--gold);" class="counter" data-target="24000">0</span>
+                        <span style="color:var(--gold);" class="counter" data-target="0">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="earned_from_refs">مكتسب من الإحالات</div>
                 </div>
@@ -3178,7 +3178,7 @@
                 <div class="balance-hero-label"><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.6));vertical-align:middle;margin-left:4px;"><span data-i18n="balance_available">رصيدك المتاح للسحب</span></div>
                 <div class="balance-hero-amount">
                     <img src="asesst/coins.png" alt="" class="coin-img-lg pulse-gold">
-                    <span class="balance-hero-number counter" data-target="75000">0</span>
+                    <span class="balance-hero-number counter" data-target="0">0</span>
                 </div>
                 <div class="balance-hero-unit" data-i18n="pts">نقطة</div>
             </div>
@@ -3361,1169 +3361,556 @@
     <!-- ══════════════════════════════════════════
          JAVASCRIPT
     ══════════════════════════════════════════ -->
-    <script>
-        /* ══════════════════════════════════════════════════════════
-           ZERO TRUST SECURITY LAYER — TON Spin
-           ✅ Session management (IP + fingerprint bound)
-           ✅ Nonce system (replay attack prevention)
-           ✅ Fingerprint generation (device identity)
-           ✅ Auto session creation on startup
-           ✅ Auto session refresh on expiry
-        ══════════════════════════════════════════════════════════ */
+<script>
+    /* ══════════════════════════════════════════════════════════
+       ZERO TRUST SECURITY LAYER v3.0
+       ✅ HMAC-SHA256 Telegram initData (server-side)
+       ✅ Session-based auth (fingerprint + IP bound)
+       ✅ Nonce مخفي كلياً — يُصدَّر من السيرفر فقط عبر start_ad
+       ✅ Rate limiting server-side
+       ✅ Shadow ban + Hard ban
+       ✅ Multi-account detection
+       ✅ Replay attack prevention
+    ══════════════════════════════════════════════════════════ */
 
-        const API_BASE = '/api'; // عنوان الـ backend
+    const API_BASE = 'https://arabi-earn.vercel.app'; // ← غيّر لعنوان مشروعك
 
-        // ── Session state ──
-        let _sessionId   = null;
-        let _sessionBusy = false; // منع طلبات session متوازية
-        let _cachedFp    = null;  // fingerprint يُحسب مرة واحدة فقط
+    // ── Session state (in memory only — never localStorage) ──
+    let _sessionId = null;
+    let _cachedFingerprint = null;
 
-        // ── توليد Fingerprint من بيانات الجهاز (مع cache) ──
-        async function _buildFingerprint() {
-            if (_cachedFp) return _cachedFp; // نفس القيمة في كل طلب
-            const nav    = window.navigator;
-            const screen = window.screen;
-
-            // Canvas fingerprint
-            let canvasSig = '';
-            try {
-                const cv  = document.createElement('canvas');
-                const ctx = cv.getContext('2d');
-                ctx.textBaseline = 'top';
-                ctx.font         = '14px Arial';
-                ctx.fillStyle    = '#f60';
-                ctx.fillRect(125, 1, 62, 20);
-                ctx.fillStyle    = '#069';
-                ctx.fillText('TonSpin🎰', 2, 15);
-                ctx.fillStyle    = 'rgba(102,204,0,0.7)';
-                ctx.fillText('TonSpin🎰', 4, 17);
-                canvasSig = cv.toDataURL().slice(-50);
-            } catch (_) {}
-
-            // WebGL fingerprint
-            let webglSig = '';
-            try {
-                const gl       = document.createElement('canvas').getContext('webgl');
-                const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
-                webglSig = debugInfo
-                    ? (gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '') + '|' +
-                      (gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '')
-                    : '';
-            } catch (_) {}
-
-            _cachedFp = {
-                user_agent : nav.userAgent   || '',
-                lang       : nav.language    || '',
-                screen     : `${screen.width}x${screen.height}x${screen.colorDepth}`,
-                tz_offset  : new Date().getTimezoneOffset(),
-                tz_name    : Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-                hw_cores   : nav.hardwareConcurrency || 0,
-                hw_mem     : nav.deviceMemory        || 0,
-                touch_pts  : nav.maxTouchPoints       || 0,
-                canvas_sig : canvasSig,
-                webgl_sig  : webglSig,
-                color_depth: screen.colorDepth || 0,
-                dpr        : window.devicePixelRatio  || 1,
-            };
-            return _cachedFp;
+    // ── Security Wall ──
+    function _genIncidentId() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let id = 'INC-';
+        for (let i = 0; i < 12; i++) {
+            if (i === 4 || i === 8) id += '-';
+            id += chars[Math.floor(Math.random() * chars.length)];
         }
+        return id;
+    }
 
-        // ── توليد Nonce عشوائي ──
-        function _generateNonce() {
-            const arr = new Uint8Array(16);
-            crypto.getRandomValues(arr);
-            return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+    function showSecurityWall() {
+        document.body.style.pointerEvents = 'none';
+        let wall = document.getElementById('zt-security-wall');
+        if (!wall) {
+            wall = document.createElement('div');
+            wall.id = 'zt-security-wall';
+            wall.style.cssText = `
+                position:fixed;inset:0;z-index:99999;
+                background:rgba(0,0,0,0.97);
+                backdrop-filter:blur(20px);
+                display:flex;flex-direction:column;
+                align-items:center;justify-content:center;gap:18px;
+                font-family:'Tajawal',sans-serif;text-align:center;padding:32px;
+                pointer-events:all;
+            `;
+            wall.innerHTML = `
+                <div style="width:72px;height:72px;border-radius:20px;background:rgba(248,113,113,0.12);border:1.5px solid rgba(248,113,113,0.35);display:flex;align-items:center;justify-content:center;">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <line x1="12" y1="8" x2="12" y2="12" stroke-linecap="round"/>
+                        <circle cx="12" cy="16" r="0.5" fill="#f87171"/>
+                    </svg>
+                </div>
+                <div style="font-size:20px;font-weight:900;color:#fff;">تم تقييد الوصول</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);line-height:1.7;max-width:280px;">
+                    تم اكتشاف نشاط مخالف للقواعد.<br>تم تعليق حسابك مؤقتاً.
+                </div>
+                <div id="zt-incident-id" style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;margin-top:4px;"></div>
+            `;
+            document.body.appendChild(wall);
         }
+        const iid = document.getElementById('zt-incident-id');
+        if (iid) iid.textContent = _genIncidentId();
+        wall.style.display = 'flex';
+    }
 
-        // ── إنشاء جلسة جديدة ──
-        async function _createSession() {
-            if (_sessionBusy) {
-                // انتظر حتى تنتهي الجلسة الحالية
-                await new Promise(r => setTimeout(r, 800));
-                return _sessionId;
+    // ── Device Fingerprint — 9 Signals ──
+    async function _buildFingerprint() {
+        if (_cachedFingerprint) return _cachedFingerprint;
+
+        // Signal 1: Canvas
+        let canvasHash = '';
+        try {
+            const c = document.createElement('canvas');
+            const ctx = c.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Cwm fjordbank glyphs vext quiz', 2, 15);
+            ctx.fillStyle = 'rgba(102,204,0,0.7)';
+            ctx.fillText('Cwm fjordbank glyphs vext quiz', 4, 17);
+            canvasHash = c.toDataURL().slice(-40);
+        } catch (_) { canvasHash = 'canvas_blocked'; }
+
+        // Signal 2: WebGL
+        let webglInfo = '';
+        try {
+            const gl = document.createElement('canvas').getContext('webgl');
+            if (gl) {
+                const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                webglInfo = ext
+                    ? (gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL))
+                    : gl.getParameter(gl.RENDERER);
             }
-            _sessionBusy = true;
+        } catch (_) { webglInfo = 'webgl_blocked'; }
 
-            try {
-                const tg       = window?.Telegram?.WebApp;
-                const initData = tg?.initData || '';
-                const fpData   = await _buildFingerprint();
+        // Signal 3: Audio
+        let audioHash = '';
+        try {
+            const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+            const osc = ac.createOscillator();
+            const an = ac.createAnalyser();
+            const gain = ac.createGain();
+            gain.gain.value = 0;
+            osc.connect(an); an.connect(gain); gain.connect(ac.destination);
+            osc.start(0);
+            const buf = new Float32Array(an.frequencyBinCount);
+            an.getFloatFrequencyData(buf);
+            osc.stop();
+            await ac.close();
+            audioHash = buf.slice(0, 8).reduce((s, v) => s + Math.abs(v).toFixed(2), '');
+        } catch (_) { audioHash = 'audio_blocked'; }
 
-                const res = await fetch(API_BASE, {
-                    method : 'POST',
-                    headers: {
-                        'Content-Type' : 'application/json',
-                        'X-Init-Data'  : initData,
-                        'X-Fingerprint': JSON.stringify(fpData),
-                    },
-                    body: JSON.stringify({ action: 'create_session', data: {} }),
-                });
+        // Signals 4-9: Platform
+        const hw       = [navigator.hardwareConcurrency || 0, navigator.deviceMemory || 0].join('x');
+        const touch    = [navigator.maxTouchPoints || 0, 'ontouchstart' in window ? 1 : 0].join('');
+        const platform = [navigator.userAgent || '', navigator.language || '',
+                          `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                          new Date().getTimezoneOffset(),
+                          (Intl.DateTimeFormat().resolvedOptions().timeZone || '')].join('|');
 
-                const json = await res.json();
-                if (json.ok && json.session_id) {
-                    _sessionId = json.session_id;
-                    console.log('[SEC] ✅ Session created:', _sessionId.slice(0, 8) + '...');
-                } else if (json.is_banned) {
-                    console.error('[SEC] 🚫 Account banned');
-                    document.body.innerHTML = `
-                        <div style="display:flex;align-items:center;justify-content:center;
-                             height:100vh;flex-direction:column;gap:16px;
-                             background:#0d0a1a;color:#f87171;font-family:'Tajawal',sans-serif;text-align:center;">
-                            <div style="font-size:48px">🚫</div>
-                            <div style="font-size:20px;font-weight:900">تم تعليق الحساب</div>
-                            <div style="font-size:13px;color:rgba(255,255,255,0.4);max-width:280px">
-                                تم اكتشاف نشاط مشبوه. تواصل مع الدعم إذا كنت تعتقد أن هذا خطأ.
-                            </div>
-                        </div>`;
-                } else {
-                    console.warn('[SEC] Session creation failed:', json.error);
-                }
-            } catch (e) {
-                console.error('[SEC] Session creation error:', e);
-            } finally {
-                _sessionBusy = false;
+        const raw = [canvasHash, webglInfo, audioHash, hw, touch, platform].join('§');
+
+        // djb2 double hash
+        let h1 = 5381, h2 = 52711;
+        for (let i = 0; i < raw.length; i++) {
+            const c = raw.charCodeAt(i);
+            h1 = (Math.imul(h1, 31) ^ c) >>> 0;
+            h2 = (Math.imul(h2, 33) ^ c) >>> 0;
+        }
+        const fpHash = ((h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0'));
+
+        _cachedFingerprint = JSON.stringify({
+            fp:          fpHash,
+            user_agent:  navigator.userAgent        || '',
+            lang:        navigator.language         || '',
+            screen:      `${screen.width}x${screen.height}`,
+            tz_offset:   new Date().getTimezoneOffset(),
+            hw_cores:    navigator.hardwareConcurrency || 0,
+            hw_mem:      navigator.deviceMemory        || 0,
+            touch_pts:   navigator.maxTouchPoints      || 0,
+            tz_name:     Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+            canvas_sig:  canvasHash,
+            webgl_sig:   webglInfo.slice(0, 60),
+            audio_sig:   audioHash,
+            dpr:         (window.devicePixelRatio || 1).toFixed(2),
+            color_depth: screen.colorDepth || 0,
+        });
+
+        return _cachedFingerprint;
+    }
+
+    // ── Create Session (يُرسل initData للسيرفر للتحقق HMAC) ──
+    async function _createSession() {
+        const tg = window?.Telegram?.WebApp;
+        const initData = tg?.initData || '';
+        if (!initData) {
+            console.warn('[ZT] No initData — dev mode');
+            return false;
+        }
+        try {
+            const fpStr = await _buildFingerprint();
+            const res = await fetch(API_BASE + '/api', {
+                method: 'POST',
+                headers: {
+                    'Content-Type':  'application/json',
+                    'X-Init-Data':   initData,
+                    'X-Fingerprint': fpStr,
+                },
+                body: JSON.stringify({ action: 'create_session', data: {} })
+            });
+            const result = await res.json();
+
+            if (result.is_banned || result.shadow_banned) {
+                showSecurityWall();
+                return false;
             }
-            return _sessionId;
+            if (result.ok && result.session_id) {
+                _sessionId = result.session_id;
+                console.log('[ZT] Session created ✅');
+                return true;
+            }
+            console.warn('[ZT] Session failed:', result.error);
+            return false;
+        } catch (e) {
+            console.warn('[ZT] Session error:', e.message);
+            return false;
+        }
+    }
+
+    // ── Central DB call (Zero Trust) ──
+    // ✅ nonce للإعلانات يأتي من السيرفر فقط عبر start_ad
+    // ✅ لا يُولَّد nonce هنا للعمليات الحساسة
+    async function _dbCall(action, data = {}) {
+        // تأكد من وجود جلسة
+        if (!_sessionId) {
+            const ok = await _createSession();
+            if (!ok) {
+                console.warn('[ZT] No session for:', action);
+                return { ok: false, error: 'no_session' };
+            }
         }
 
-        /* ══════════════════════════════════════════
-           FETCHAPI — UNIFIED API GATEWAY (Zero Trust)
-           الاستخدام: fetchApi({ type: 'actionName', data: {...} })
-        ══════════════════════════════════════════ */
-        async function fetchApi({ type, data = {} }) {
+        try {
+            const fpStr    = await _buildFingerprint();
             const tg       = window?.Telegram?.WebApp;
             const initData = tg?.initData || '';
 
-            // تأكد من وجود session قبل أي طلب
-            if (!_sessionId && type !== 'create_session') {
-                await _createSession();
-                if (!_sessionId) {
-                    console.error(`[API] ❌ ${type} — no session available`);
-                    return { ok: false, error: 'no_session' };
-                }
-            }
-
-            const fpData  = await _buildFingerprint();
-            const nonce   = _generateNonce();
-
-            try {
-                const res = await fetch(API_BASE, {
-                    method : 'POST',
-                    headers: {
-                        'Content-Type' : 'application/json',
-                        'X-Init-Data'  : initData,
-                        'X-Session-Id' : _sessionId || '',
-                        'X-Nonce'      : nonce,
-                        'X-Fingerprint': JSON.stringify(fpData),
-                    },
-                    body: JSON.stringify({ action: type, data }),
-                });
-
-                if (!res.ok) {
-                    const errBody = await res.json().catch(() => ({}));
-                    const msg     = errBody?.error || `HTTP ${res.status}`;
-                    console.error(`[API] ❌ ${type} → ${msg}`);
-
-                    // Session منتهية → نجدد تلقائياً
-                    if (res.status === 401) {
-                        console.warn('[SEC] Session expired — refreshing...');
-                        _sessionId = null;
-                        _cachedFp  = null; // إعادة حساب الـ fingerprint عند تجديد الجلسة
-                        await _createSession();
-                    }
-                    return { ok: false, error: msg };
-                }
-
-                const json = await res.json();
-                console.log(`[API] ✅ ${type}`, json);
-                return json;
-
-            } catch (err) {
-                console.error(`[API] 🔴 ${type} → Network error:`, err);
-                return { ok: false, error: 'network_error' };
-            }
-        }
-
-        // ── إنشاء Session فور تحميل الصفحة (قبل أي fetchApi) ──
-        document.addEventListener('DOMContentLoaded', () => {
-            _createSession().then(() => {
-                console.log('[SEC] 🔐 Zero Trust session ready');
-            });
-        });
-
-        /* ─── Ad System ─── */
-        /* ─── Deposit via Telegram Support ─── */
-        function openDepositSupport() {
-            const msg = encodeURIComponent('مرحبا أريد إيداع داخل البوت');
-            const url = 'https://t.me/YourSupportUsername?text=' + msg;
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.openTelegramLink(url);
-            } else {
-                window.open(url, '_blank');
-            }
-        }
-
-        const AD_STATE = {
-            total: 10,
-            remaining: 10,
-            watchedToday: 0,
-            earnedToday: 0,
-            isWatching: false
-        };
-
-        function updateAdUI() {
-            const r = AD_STATE.remaining;
-            const elRem = document.getElementById('ads-remaining');
-            const elWatched = document.getElementById('ads-watched');
-            const elEarned = document.getElementById('earned-today');
-            const elProgress = document.getElementById('ads-progress');
-            const elBtn = document.getElementById('ad-watch-btn');
-            const elDone = document.getElementById('ad-done-state');
-
-            if (elRem) elRem.textContent = r;
-            if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
-            if (elEarned) elEarned.textContent = AD_STATE.earnedToday.toLocaleString('ar-EG');
-            if (elProgress) elProgress.style.width = ((r / AD_STATE.total) * 100) + '%';
-
-            if (r === 0) {
-                if (elBtn) elBtn.style.display = 'none';
-                if (elDone) elDone.style.display = 'flex';
-            }
-
-            syncDailyTasksFromAds();
-        }
-
-        async function watchAd() {
-            if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
-
-            // ✅ STEP 1: طلب nonce من السيرفر قبل عرض الإعلان
-            const startRes = await fetchApi({ type: 'start_ad', data: {} });
-            if (!startRes?.ok || !startRes?.ad_nonce) {
-                showToast('coin', 'تعذّر تشغيل الإعلان', 'حاول مجدداً', 'gold', '!');
-                return;
-            }
-            const adNonce = startRes.ad_nonce;
-
-            AD_STATE.isWatching = true;
-
-            const overlay = document.getElementById('ad-watch-overlay');
-            const countEl = document.getElementById('overlay-count');
-            overlay.classList.add('visible');
-
-            let sec = 5;
-            countEl.textContent = sec;
-
-            const timer = setInterval(async () => {
-                sec--;
-                countEl.textContent = sec;
-                if (sec <= 0) {
-                    clearInterval(timer);
-                    overlay.classList.remove('visible');
-                    AD_STATE.isWatching = false;
-
-                    // ✅ STEP 2: إرسال nonce مع الطلب — السيرفر يتحقق ويحتسب
-                    const result = await fetchApi({
-                        type: 'watch_ad',
-                        data: { ad_nonce: adNonce }
-                    });
-
-                    if (result.ok) {
-                        // السيرفر هو المرجع الوحيد للأرقام
-                        AD_STATE.remaining    = result.remaining    ?? Math.max(0, AD_STATE.remaining - 1);
-                        AD_STATE.watchedToday = result.watchedToday ?? (AD_STATE.watchedToday + 1);
-                        AD_STATE.earnedToday  = result.earnedToday  ?? (AD_STATE.earnedToday + 50);
-                    } else {
-                        showToast('coin', 'فشل التحقق من الإعلان', result.error || 'حاول مجدداً', 'gold', '!');
-                    }
-
-                    updateAdUI();
-
-                    const t = TRANSLATIONS[currentLang];
-                    if (AD_STATE.remaining === 0) {
-                        showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
-                    } else if (AD_STATE.remaining <= 3) {
-                        showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} ${t.ads_watched || 'إعلانات متبقية فقط'}`, 'gold', '+50');
-                    } else {
-                        showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
-                    }
-                }
-            }, 1000);
-        }
-
-        /* Toast icons */
-        const TOAST_ICONS = {
-            coin: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#fbbf24" stroke-width="1.8"/>
-                <path d="M12 7v10M9.5 9.5C9.5 8.67 10.67 8 12 8s2.5.67 2.5 1.5S13.33 11 12 11s-2.5.67-2.5 1.5S10.67 14 12 14s2.5-.67 2.5-1.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/>
-            </svg>`,
-            fire: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2C12 2 7 8 7 13a5 5 0 0010 0c0-2-.7-3.8-2-5.5.5 1.5.5 2.5.5 2.5S12 8 12 2z" fill="rgba(251,191,36,0.9)"/>
-                <path d="M12 15c0 1.1-.9 2-2 2" stroke="rgba(251,191,36,0.5)" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>`,
-            trophy: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M6 2h12v8a6 6 0 01-12 0V2z" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/>
-                <path d="M6 5H3a2 2 0 000 4h3M18 5h3a2 2 0 010 4h-3" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/>
-                <path d="M12 16v4M9 20h6" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>`
-        };
-
-        function showToast(iconKey, title, desc, color, badge) {
-            const container = document.getElementById('ad-toast-container');
-
-            const toast = document.createElement('div');
-            toast.className = 'ad-toast';
-            toast.innerHTML = `
-                <div class="toast-icon-wrap ${color}">${TOAST_ICONS[iconKey]}</div>
-                <div class="toast-body">
-                    <div class="toast-title">${title}</div>
-                    <div class="toast-desc">${desc}</div>
-                </div>
-                <div class="toast-badge ${color}">${badge}</div>
-            `;
-
-            container.appendChild(toast);
-
-            // Animate in
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => toast.classList.add('show'));
-            });
-
-            // Auto dismiss after 3.2s
-            setTimeout(() => {
-                toast.classList.add('hide');
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 400);
-            }, 3200);
-        }
-
-        /* ─── Daily Gift System ─── */
-        const DAILY_GIFT_STATE = {
-            dayNumber: 1,   // اليوم الحالي للمستخدم (1–7+)
-            claimed: false,
-            isOpening: false
-        };
-
-        const GIFT_DAYS = [
-            { day: 'اليوم الأول',   desc: 'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!', amount: '+100', pts: 100 },
-            { day: 'اليوم الثاني',  desc: 'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.', amount: '+150', pts: 150 },
-            { day: 'اليوم الثالث',  desc: 'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.', amount: '+200', pts: 200 },
-            { day: 'اليوم الرابع',  desc: 'أسبوعك يقترب!\nاستمر في التحدي.', amount: '+250', pts: 250 },
-            { day: 'اليوم الخامس', desc: 'خمسة أيام!\nأنت من الملتزمين الحقيقيين.', amount: '+300', pts: 300 },
-            { day: 'اليوم السادس', desc: 'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.', amount: '+400', pts: 400 },
-            { day: 'اليوم السابع',  desc: 'أسبوع كامل!\nمكافأة ضخمة بانتظارك.', amount: '+750', pts: 750 },
-        ];
-
-        function openDailyGiftOverlay() {
-            if (DAILY_GIFT_STATE.isOpening) return;
-            DAILY_GIFT_STATE.isOpening = true;
-
-            const day = DAILY_GIFT_STATE.dayNumber;
-            const data = GIFT_DAYS[Math.min(day - 1, GIFT_DAYS.length - 1)];
-
-            const dayTextEl  = document.getElementById('gift-day-text');
-            const descTextEl = document.getElementById('gift-desc-text');
-            const amountEl   = document.getElementById('gift-amount');
-            const dotsEl     = document.getElementById('gift-streak-dots');
-            const btn        = document.getElementById('gift-claim-btn');
-            const label      = document.getElementById('gift-loading-label');
-            const ringIcon   = document.getElementById('gift-ring-icon');
-            const overlay    = document.getElementById('daily-gift-overlay');
-
-            if (!overlay) { DAILY_GIFT_STATE.isOpening = false; return; }
-
-            if (dayTextEl)  dayTextEl.textContent  = data.day;
-            if (descTextEl) descTextEl.textContent = data.desc;
-            if (amountEl)   amountEl.textContent   = data.amount;
-
-            // Build streak dots
-            if (dotsEl) {
-                dotsEl.innerHTML = '';
-                for (let i = 1; i <= 7; i++) {
-                    const dot = document.createElement('div');
-                    dot.style.cssText = `
-                        width:${i === day ? '22px' : '8px'};height:8px;border-radius:4px;
-                        background:${i < day ? 'rgba(251,191,36,0.75)' : i === day ? '#fbbf24' : 'rgba(255,255,255,0.1)'};
-                        box-shadow:${i <= day ? '0 0 6px rgba(251,191,36,0.4)' : 'none'};
-                    `;
-                    dotsEl.appendChild(dot);
-                }
-            }
-
-            if (btn)   btn.style.display   = 'none';
-            if (label) label.style.display = 'block';
-
-            if (ringIcon) ringIcon.innerHTML = `
-                <path d="M20 12v10H4V12" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M22 7H2v5h20V7z" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 22V7" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            `;
-
-            overlay.style.opacity = '1';
-            overlay.style.pointerEvents = 'all';
-
-            if (DAILY_GIFT_STATE.claimed) {
-                const t2 = TRANSLATIONS[currentLang];
-                if (label) {
-                    label.textContent   = t2.gift_already_claimed || 'تم استلام هديتك اليوم ✓';
-                    label.style.color      = '#34d399';
-                    label.style.fontSize   = '14px';
-                    label.style.fontWeight = '700';
-                }
-                DAILY_GIFT_STATE.isOpening = false;
-                setTimeout(() => closeDailyGiftOverlay(), 2200);
-                return;
-            }
-
-            // Countdown 3 seconds like ad overlay
-            let sec = 3;
-            const tg = TRANSLATIONS[currentLang];
-            if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
-
-            const timer = setInterval(() => {
-                sec--;
-                if (sec > 0) {
-                    if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
-                } else {
-                    clearInterval(timer);
-                    if (label) label.style.display = 'none';
-                    if (btn) {
-                        btn.style.display = 'block';
-                        btn.style.transform = 'scale(0.8)';
-                        btn.style.opacity = '0';
-                        requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                                btn.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-                                btn.style.transform = 'scale(1)';
-                                btn.style.opacity = '1';
-                            });
-                        });
-                    }
-                    DAILY_GIFT_STATE.isOpening = false;
-                }
-            }, 1000);
-        }
-
-        function closeDailyGiftOverlay() {
-            const overlay = document.getElementById('daily-gift-overlay');
-            if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
-            DAILY_GIFT_STATE.isOpening = false;
-        }
-
-        // Legacy alias (for home button compatibility)
-        function openDailyGift() { openDailyGiftOverlay(); }
-        function closeDailyGift() { closeDailyGiftOverlay(); }
-
-        async function claimGift() {
-            if (DAILY_GIFT_STATE.claimed) return;
-            DAILY_GIFT_STATE.claimed = true;
-
-            const data = GIFT_DAYS[Math.min(DAILY_GIFT_STATE.dayNumber - 1, GIFT_DAYS.length - 1)];
-
-            // ─── إرسال الأكشن للـ backend ───
-            const result = await fetchApi({
-                type: 'claim_gift',
-                data: { userId: CURRENT_USER_ID, day: DAILY_GIFT_STATE.dayNumber, pts: data.pts }
-            });
-
-            if (!result.ok) {
-                // Rollback على فشل الـ backend (لمنع double-claim)
-                console.warn('[Gift] Backend رفض الطلب — rollback');
-                DAILY_GIFT_STATE.claimed = false;
-                return;
-            }
-
-            const ringIcon = document.getElementById('gift-ring-icon');
-            if (ringIcon) ringIcon.innerHTML = `
-                <path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            `;
-
-            const btn = document.getElementById('gift-claim-btn');
-            const tc = TRANSLATIONS[currentLang];
-            if (btn) {
-                btn.textContent = tc.gift_claimed || 'تم الاستلام ✓';
-                btn.style.background = 'rgba(52,211,153,0.15)';
-                btn.style.color = '#34d399';
-                btn.style.border = '1px solid rgba(52,211,153,0.28)';
-                btn.style.cursor = 'default';
-                btn.onclick = null;
-                btn.onmouseenter = null;
-                btn.onmouseleave = null;
-            }
-
-            showToast('trophy', tc.toast_gift_title || 'تم استلام هديتك!', `${data.pts} ${tc.pts || 'نقطة'}`, 'green', data.amount);
-
-            setTimeout(() => closeDailyGiftOverlay(), 1600);
-        }
-
-
-        // ملاحظة: REFERRAL_LINK و BOT_USERNAME معرّفان أعلاه داخل initTelegramUser block
-
-        function copyReferralLink() {
-            const btn = document.getElementById('copy-btn');
-            navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {
-                // fallback
-                const ta = document.createElement('textarea');
-                ta.value = REFERRAL_LINK;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-            });
-
-            // ─── تتبع النسخ في الـ backend (fire-and-forget) ───
-            fetchApi({ type: 'track_copy_link', data: { userId: CURRENT_USER_ID } });
-
-            // Feedback
-            btn.classList.add('copied');
-            const t = TRANSLATIONS[currentLang];
-            btn.innerHTML = `
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                </svg>
-                ${t.copy_btn_done || 'تم النسخ!'}
-            `;
-
-            showToast('trophy', t.toast_copy_title || 'تم نسخ الرابط ✓', t.toast_copy_desc || 'شارك رابطك مع أصدقائك', 'green', '🔗');
-
-            setTimeout(() => {
-                btn.classList.remove('copied');
-                btn.innerHTML = `
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
-                    </svg>
-                    ${t.copy_btn_default || t.copy_link}
-                `;
-            }, 2500);
-        }
-
-        function shareTelegram() {
-            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
-            window.open('https://t.me/share/url?url=' + encodeURIComponent(REFERRAL_LINK) + '&text=' + text, '_blank');
-        }
-
-        function shareWhatsApp() {
-            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
-            window.open('https://wa.me/?text=' + text, '_blank');
-        }
-
-        /* ═══════════════════════════════════════
-           TASKS PAGE — LOGIC
-        ═══════════════════════════════════════ */
-
-        const TASKS_STATE = {
-            tgJoined: false,
-            tgVerified: false,
-            // daily counts (sync with AD_STATE)
-            ads10Done: false,
-            ads25Done: false,
-            invite3Done: false,
-        };
-
-        // Called when "انضم للقناة" pressed
-        function handleTelegramTask() {
-            if (TASKS_STATE.tgVerified) return;
-
-            // Open channel — BACKEND: replace with real channel username
-            const channelUrl = 'https://t.me/YourChannelUsername';
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.openTelegramLink(channelUrl);
-            } else {
-                window.open(channelUrl, '_blank');
-            }
-
-            TASKS_STATE.tgJoined = true;
-
-            const joinBtn    = document.getElementById('tg-join-btn');
-            const verifyBtn  = document.getElementById('tg-verify-btn-compact');
-            const verifyHint = document.getElementById('tg-verify-hint');
-
-            if (joinBtn)    { joinBtn.style.display = 'none'; }
-            if (verifyBtn)  { verifyBtn.style.display = 'inline-flex'; verifyBtn.style.animation = 'pageIn 0.3s ease both'; }
-            if (verifyHint) { verifyHint.style.display = 'block'; }
-        }
-
-        async function verifyTelegramTask() {
-            if (TASKS_STATE.tgVerified) return;
-
-            const verifyBtn  = document.getElementById('tg-verify-btn-compact');
-            // ─── Loading state أثناء التحقق ───
-            if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
-
-            // ─── إرسال الأكشن للـ backend ───
-            const result = await fetchApi({
-                type: 'verify_tg_membership',
-                data: { userId: CURRENT_USER_ID }
-            });
-
-            if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
-
-            if (!result.ok) {
-                showToast('coin', 'لم يتم التحقق بعد', 'تأكد من انضمامك للقناة ثم حاول مجدداً', 'gold', '!');
-                return;
-            }
-
-            TASKS_STATE.tgVerified = true;
-
-            const verifyHint = document.getElementById('tg-verify-hint');
-            const actionWrap = document.getElementById('tg-action-wrap');
-            const doneState  = document.getElementById('tg-done-state');
-            const doneOverlay= document.getElementById('tg-done-overlay');
-            const card       = document.getElementById('tg-task-card');
-
-            if (verifyBtn)  verifyBtn.style.display  = 'none';
-            if (verifyHint) verifyHint.style.display = 'none';
-            if (actionWrap) actionWrap.style.display = 'none';
-
-            if (doneState)   { doneState.style.display = 'block'; doneState.style.animation = 'pageIn 0.4s cubic-bezier(0.22,1,0.36,1) both'; }
-            if (doneOverlay) doneOverlay.style.display = 'block';
-            if (card)        card.classList.add('completed');
-
-            showToast('trophy', 'انضممت للقناة! 🎉', '+2,500 نقطة أضيفت لرصيدك', 'gold', '+2,500');
-        }
-
-        /* Daily tasks — update from AD_STATE */
-        function syncDailyTasksFromAds() {
-            const watched = AD_STATE.watchedToday;
-
-            // Task: 10 ads
-            const pct10 = Math.min(watched / 10, 1) * 100;
-            const fill10 = document.getElementById('ads10-fill');
-            const prog10 = document.getElementById('ads10-prog');
-            if (fill10) fill10.style.width = pct10 + '%';
-            if (prog10) prog10.textContent = Math.min(watched, 10) + ' / 10';
-            if (watched >= 10 && !TASKS_STATE.ads10Done) {
-                TASKS_STATE.ads10Done = true;
-                markDailyTaskDone('dtask-ads10');
-            }
-
-            // Task: 25 ads
-            const pct25 = Math.min(watched / 25, 1) * 100;
-            const fill25 = document.getElementById('ads25-fill');
-            const prog25 = document.getElementById('ads25-prog');
-            if (fill25) fill25.style.width = pct25 + '%';
-            if (prog25) prog25.textContent = Math.min(watched, 25) + ' / 25';
-            if (watched >= 25 && !TASKS_STATE.ads25Done) {
-                TASKS_STATE.ads25Done = true;
-                markDailyTaskDone('dtask-ads25');
-            }
-
-            updateDailyBadge();
-        }
-
-        function markDailyTaskDone(cardId) {
-            const card = document.getElementById(cardId);
-            if (!card) return;
-            card.classList.add('completed');
-            // Replace icon with green check
-            const icon = card.querySelector('.dtask-icon');
-            if (icon) {
-                icon.style.background = 'rgba(52,211,153,0.12)';
-                icon.style.border = '1px solid rgba(52,211,153,0.22)';
-                icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
-            }
-        }
-
-        function updateDailyBadge() {
-            const done = [TASKS_STATE.ads10Done, TASKS_STATE.ads25Done, TASKS_STATE.invite3Done].filter(Boolean).length;
-            const badge = document.getElementById('daily-tasks-badge');
-            if (badge) badge.textContent = done + ' / 3';
-        }
-
-        function handleDailyTask(type, el) {
-            if (type === 'ads10' || type === 'ads25') {
-                showPage('earn', null);
-                const navEarn = document.querySelector('.nav-item[data-page="earn"]');
-                if (navEarn) {
-                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                    navEarn.classList.add('active');
-                }
-            } else if (type === 'invite3') {
-                showPage('invite', null);
-                const navInvite = document.querySelector('.nav-item[data-page="invite"]');
-                if (navInvite) {
-                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                    navInvite.classList.add('active');
-                }
-            }
-        }
-
-        /* ─── Page Navigation ─── */
-        function showPage(pageName, btn) {
-            // Hide all pages
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-
-            // Show target page
-            const target = document.getElementById('page-' + pageName);
-            if (target) target.classList.add('active');
-
-            // Update nav items
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-            });
-
-            // Mark active nav
-            if (btn) {
-                btn.classList.add('active');
-            } else {
-                // Find by data-page
-                const navBtn = document.querySelector(`.nav-item[data-page="${pageName}"]`);
-                if (navBtn) navBtn.classList.add('active');
-            }
-
-            // Run counters - reset then animate
-            setTimeout(() => {
-                const scope = target || document;
-                scope.querySelectorAll('.counter').forEach(c => { c.textContent = '0'; });
-                runCounters(scope);
-            }, 80);
-        }
-
-        /* ─── Number Counter ─── */
-        function runCounters(scope) {
-            scope = scope || document;
-            scope.querySelectorAll('.counter').forEach(counter => {
-                const target = parseInt(counter.getAttribute('data-target'));
-                if (!target) return;
-
-                const duration = 1800;
-                const startTime = performance.now();
-
-                function update(now) {
-                    const elapsed = now - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    // Cubic ease-out
-                    const ease = 1 - Math.pow(1 - progress, 3);
-                    const current = Math.floor(ease * target);
-                    counter.textContent = current.toLocaleString('en-US');
-
-                    if (progress < 1) {
-                        requestAnimationFrame(update);
-                    } else {
-                        counter.textContent = target.toLocaleString('en-US');
-                    }
-                }
-
-                requestAnimationFrame(update);
-            });
-        }
-
-        /* ─── Init ─── */
-        // ملاحظة: _createSession() + initTelegramUser() يُستدعيان من DOMContentLoaded في كتلة Zero Trust أعلاه
-        // هذا المستمع يُشغّل فقط counters إضافية
-        window.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => runCounters(document), 350);
-            initTelegramUser();
-        });
-
-        /* ══════════════════════════════════════════
-           TELEGRAM USER DATA — PROFESSIONAL v2
-        ══════════════════════════════════════════ */
-
-        // اسم بوت الإحالة — غيّر هذا باسم بوتك الحقيقي
-        const BOT_USERNAME = 'RebhApp_bot';
-
-        // متغير عالمي للرابط — يُحدَّث من initTelegramUser()
-        let REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_0000000000';
-
-        // معرّف المستخدم العالمي — يُحدَّث عند التهيئة
-        let CURRENT_USER_ID = null;
-
-        function initTelegramUser() {
-            // ─── 1. التحقق من وجود Telegram WebApp SDK ───
-            const tg = window?.Telegram?.WebApp;
-
-            if (!tg) {
-                console.warn('[TG] ⚠️ لم يتم تشغيل التطبيق داخل Telegram WebApp — SDK غير محمّل أو البيئة خارجية');
-                _applyFallbackUser();
-                return;
-            }
-
-            // ─── 2. إخبار تيليغرام أن التطبيق جاهز ───
-            tg.ready();
-
-            // ─── 3. توسيع التطبيق ليملأ الشاشة ───
-            tg.expand();
-
-            // ─── 4. قراءة بيانات المستخدم بأمان ───
-            const user = tg?.initDataUnsafe?.user;
-
-            if (!user) {
-                console.warn('[TG] ⚠️ initDataUnsafe.user غير متوفر — ربما البيئة dev أو Bot لا يمرر البيانات');
-                _applyFallbackUser();
-                return;
-            }
-
-            // ─── 5. استخراج البيانات بـ optional chaining ───
-            const userId    = user?.id          ?? null;
-            const firstName = user?.first_name  ?? '';
-            const lastName  = user?.last_name   ?? '';
-            const username  = user?.username    ?? '';
-            const photoUrl  = user?.photo_url   ?? '';
-            const langCode  = user?.language_code ?? 'ar';
-            const isPremium = user?.is_premium  ?? false;
-
-            // ─── 6. بناء اسم العرض (بدون undefined/null/فارغ) ───
-            let displayName = '@مستخدم'; // fallback آمن
-            if (username) {
-                displayName = '@' + username;
-            } else if (firstName || lastName) {
-                displayName = [firstName, lastName].filter(Boolean).join(' ');
-            }
-
-            // ─── 7. حفظ ID عالمياً وبناء رابط الإحالة الديناميكي ───
-            if (userId) {
-                CURRENT_USER_ID = userId;
-                REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + userId;
-            }
-
-            // ─── 8. تحديث واجهة المستخدم ───
-            _applyUserToUI(displayName, photoUrl, userId);
-
-            // ─── 9. تحديث نص رابط الإحالة في صفحة الدعوة ───
-            _updateReferralLinkUI();
-
-            // ─── 10. طباعة كل البيانات في Console للتأكد ───
-            console.group('[TG] ✅ بيانات المستخدم — Telegram WebApp');
-            console.log('🆔 User ID       :', userId   ?? '—');
-            console.log('👤 First Name    :', firstName || '—');
-            console.log('👤 Last Name     :', lastName  || '—');
-            console.log('🔗 Username      :', username  ? '@' + username : '—');
-            console.log('🌐 Language      :', langCode  || '—');
-            console.log('⭐ Premium       :', isPremium);
-            console.log('🖼️  Photo URL     :', photoUrl  || '(لا توجد صورة)');
-            console.log('🔗 Referral Link :', REFERRAL_LINK);
-            console.log('📦 Raw initData  :', tg.initDataUnsafe);
-            console.groupEnd();
-        }
-
-        // ─── تطبيق البيانات على الـ UI ───
-        function _applyUserToUI(displayName, photoUrl, userId) {
-            const nameEl  = document.getElementById('uc-user-name');
-            const photoEl = document.getElementById('uc-user-photo');
-
-            // اسم المستخدم — مضمون بدون undefined/null
-            if (nameEl) {
-                nameEl.textContent = displayName || '@مستخدم';
-            }
-
-            // صورة المستخدم — مع fallback تلقائي
-            if (photoEl) {
-                if (photoUrl) {
-                    photoEl.src = photoUrl;
-                    photoEl.onerror = function () {
-                        console.warn('[TG] 🖼️ فشل تحميل الصورة — تطبيق avatar بديل');
-                        this.onerror = null; // منع حلقة لا نهائية
-                        this.src = _generateFallbackAvatar(displayName, userId);
-                    };
-                } else {
-                    // لا توجد صورة أصلاً — استخدم avatar مولّد من الاسم/ID
-                    photoEl.src = _generateFallbackAvatar(displayName, userId);
-                }
-            }
-        }
-
-        // ─── توليد avatar بديل ذكي ───
-        function _generateFallbackAvatar(name, userId) {
-            // استخدم seed من userId لضمان ثبات الصورة لكل مستخدم
-            const seed = userId ? String(userId) : (name || 'user');
-            return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(seed)
-                 + '&backgroundColor=1a1a2e,16213e,0f3460&textColor=fbbf24&fontSize=38&fontWeight=700';
-        }
-
-        // ─── fallback عند غياب بيانات Telegram ───
-        function _applyFallbackUser() {
-            const nameEl  = document.getElementById('uc-user-name');
-            const photoEl = document.getElementById('uc-user-photo');
-
-            if (nameEl)  nameEl.textContent = '@مستخدم';
-            if (photoEl) photoEl.src = _generateFallbackAvatar('user', null);
-
-            console.info('[TG] ℹ️ تم تطبيق بيانات افتراضية — لا بيانات Telegram متاحة');
-        }
-
-        // ─── تحديث نص الرابط في صفحة الدعوة ───
-        function _updateReferralLinkUI() {
-            const linkEl = document.getElementById('referral-link-text');
-            if (linkEl) {
-                linkEl.textContent = REFERRAL_LINK;
-            }
-        }
-
-        /* ══════════════════════════════════════════
-           WITHDRAW HISTORY STATE
-        ══════════════════════════════════════════ */
-        const WITHDRAW_HISTORY = [];
-        const NOTIF_LIST_DATA = [];
-
-        function formatTimeAgo(ts) {
-            const diff = Math.floor((Date.now() - ts) / 1000);
-            if (diff < 60) return 'الآن';
-            if (diff < 3600) return `منذ ${Math.floor(diff/60)} دقيقة`;
-            if (diff < 86400) return `منذ ${Math.floor(diff/3600)} ساعة`;
-            return `منذ ${Math.floor(diff/86400)} يوم`;
-        }
-
-        function renderWithdrawHistory() {
-            const list = document.getElementById('withdraw-history-list');
-            const empty = document.getElementById('withdraw-empty');
-            const badge = document.getElementById('withdraw-count-badge');
-
-            if (WITHDRAW_HISTORY.length === 0) {
-                if (empty) empty.style.display = '';
-                if (badge) badge.style.display = 'none';
-                return;
-            }
-
-            if (empty) empty.style.display = 'none';
-            if (badge) { badge.style.display = ''; badge.textContent = WITHDRAW_HISTORY.length + ' طلب'; }
-
-            let html = '';
-            WITHDRAW_HISTORY.slice().reverse().forEach(item => {
-                const tonAmt = (item.pts / 100000).toFixed(3);
-                const addrShort = item.address.length > 14
-                    ? item.address.substring(0, 6) + '...' + item.address.slice(-6)
-                    : item.address;
-                html += `
-                <div class="withdraw-hist-item">
-                    <div class="withdraw-hist-icon">
-                        <img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;">
-                    </div>
-                    <div class="withdraw-hist-info">
-                        <div class="withdraw-hist-name">سحب TON</div>
-                        <div class="withdraw-hist-addr">${addrShort}</div>
-                        <div class="withdraw-hist-time">${formatTimeAgo(item.ts)}</div>
-                    </div>
-                    <div class="withdraw-hist-right">
-                        <div class="withdraw-hist-pts">${item.pts.toLocaleString()}</div>
-                        <div class="withdraw-hist-ton">${tonAmt} TON</div>
-                        <div class="withdraw-hist-badge pending">قيد المعالجة</div>
-                    </div>
-                </div>`;
-            });
-            list.innerHTML = html;
-        }
-
-        /* ══════════════════════════════════════════
-           NOTIFICATIONS
-        ══════════════════════════════════════════ */
-        let unreadNotifCount = 0;
-
-        function addNotification(type, title, sub, ts) {
-            NOTIF_LIST_DATA.unshift({ type, title, sub, ts: ts || Date.now(), read: false });
-            unreadNotifCount++;
-            updateNotifBadge();
-            renderNotifList();
-        }
-
-        function updateNotifBadge() {
-            const badge = document.getElementById('notif-badge');
-            if (!badge) return;
-            if (unreadNotifCount > 0) {
-                badge.classList.add('visible');
-                badge.textContent = unreadNotifCount > 9 ? '9+' : unreadNotifCount;
-            } else {
-                badge.classList.remove('visible');
-                badge.textContent = '';
-            }
-        }
-
-        function renderNotifList() {
-            const list = document.getElementById('notif-list');
-            const emptyMsg = document.getElementById('notif-empty-msg');
-            if (!list) return;
-
-            if (NOTIF_LIST_DATA.length === 0) {
-                if (emptyMsg) emptyMsg.style.display = '';
-                return;
-            }
-            if (emptyMsg) emptyMsg.style.display = 'none';
-
-            const tonIcon = `<img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:22px;height:22px;border-radius:7px;object-fit:cover;">`;
-            const coinIcon = `<img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.7));">`;
-
-            let html = '';
-            NOTIF_LIST_DATA.forEach((n, i) => {
-                const icon = n.type === 'ton' ? tonIcon : coinIcon;
-                const iconClass = n.type === 'ton' ? 'ton' : 'gold';
-                html += `
-                <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${i})">
-                    ${!n.read ? '<div class="notif-unread-dot"></div>' : ''}
-                    <div class="notif-item-icon ${iconClass}">${icon}</div>
-                    <div class="notif-item-body">
-                        <div class="notif-item-title">${n.title}</div>
-                        <div class="notif-item-sub">${n.sub}</div>
-                    </div>
-                    <div class="notif-item-time">${formatTimeAgo(n.ts)}</div>
-                </div>`;
-            });
-            list.innerHTML = html;
-        }
-
-        function markNotifRead(idx) {
-            if (!NOTIF_LIST_DATA[idx].read) {
-                NOTIF_LIST_DATA[idx].read = true;
-                unreadNotifCount = Math.max(0, unreadNotifCount - 1);
-                updateNotifBadge();
-                renderNotifList();
-            }
-        }
-
-        function openNotifPanel() {
-            document.getElementById('notif-panel').classList.add('open');
-            document.getElementById('notif-backdrop').classList.add('visible');
-            // mark all read when panel opens
-            NOTIF_LIST_DATA.forEach(n => { n.read = true; });
-            unreadNotifCount = 0;
-            updateNotifBadge();
-            renderNotifList();
-        }
-
-        function closeNotifPanel() {
-            document.getElementById('notif-panel').classList.remove('open');
-            document.getElementById('notif-backdrop').classList.remove('visible');
-        }
-
-        /* ══════════════════════════════════════════
-           TON WITHDRAW LOGIC
-        ══════════════════════════════════════════ */
-        const TON_CONFIG = {
-            minPts: 50000,
-            minLevel: 5,
-            ptsPerTon: 100000,
-        };
-
-        // Simulated user state — in production pull from your backend
-        const USER_STATE = {
-            points: 75000,
-            level: 7,
-        };
-
-        function openTonWithdraw() {
-            const overlay = document.getElementById('ton-withdraw-overlay');
-            const ptsEl   = document.getElementById('ton-sheet-pts');
-            const equivEl = document.getElementById('ton-sheet-equiv');
-            const levelWarn = document.getElementById('ton-level-warn');
-            const ptsWarn   = document.getElementById('ton-pts-warn');
-            const currentLevelEl = document.getElementById('ton-current-level');
-            const submitBtn = document.getElementById('ton-submit-btn');
-            const input = document.getElementById('ton-address-input');
-
-            // Reset input
-            input.value = '';
-            document.getElementById('ton-error-msg').style.display = 'none';
-
-            // Fill balance
-            ptsEl.textContent = USER_STATE.points.toLocaleString();
-            const tonEquiv = (USER_STATE.points / TON_CONFIG.ptsPerTon).toFixed(3);
-            equivEl.textContent = '≈ ' + tonEquiv + ' TON';
-
-            // Check level
-            const hasLevel = USER_STATE.level >= TON_CONFIG.minLevel;
-            const hasPts   = USER_STATE.points >= TON_CONFIG.minPts;
-
-            levelWarn.style.display = 'none';
-            ptsWarn.style.display   = 'none';
-
-            if (!hasLevel) {
-                levelWarn.style.display = '';
-                if (currentLevelEl) currentLevelEl.textContent = USER_STATE.level;
-                submitBtn.disabled = true;
-            } else if (!hasPts) {
-                ptsWarn.style.display = '';
-                submitBtn.disabled = true;
-            } else {
-                submitBtn.disabled = false;
-            }
-
-            overlay.classList.add('visible');
-        }
-
-        function closeTonWithdraw() {
-            document.getElementById('ton-withdraw-overlay').classList.remove('visible');
-        }
-
-        function handleTonOverlayClick(e) {
-            if (e.target === document.getElementById('ton-withdraw-overlay')) {
-                closeTonWithdraw();
-            }
-        }
-
-        function clearTonError() {
-            document.getElementById('ton-error-msg').style.display = 'none';
-            document.getElementById('ton-address-input').style.borderColor = 'rgba(83,147,255,0.3)';
-        }
-
-        function isValidTonAddress(addr) {
-            addr = addr.trim();
-            return (addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:')) && addr.length >= 48;
-        }
-
-        async function submitTonWithdraw() {
-            const input = document.getElementById('ton-address-input');
-            const addr  = input.value.trim();
-            const errEl = document.getElementById('ton-error-msg');
-            const submitBtn = document.getElementById('ton-submit-btn');
-
-            if (!isValidTonAddress(addr)) {
-                errEl.style.display = 'block';
-                input.style.borderColor = 'rgba(248,113,113,0.5)';
-                return;
-            }
-
-            // ─── Loading state ───
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ جاري الإرسال...';
-
-            // ─── إرسال الأكشن للـ backend ───
-            const result = await fetchApi({
-                type: 'submit_withdraw',
-                data: {
-                    userId:  CURRENT_USER_ID,
-                    address: addr,
-                    pts:     USER_STATE.points,
-                }
-            });
-
-            // Restore button
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'إرسال طلب السحب';
-
-            if (!result.ok) {
-                errEl.textContent = result.error === 'insufficient_balance'
-                    ? 'رصيدك غير كافٍ'
-                    : 'حدث خطأ، حاول مجدداً';
-                errEl.style.display = 'block';
-                return;
-            }
-
-            // Build history item
-            const item = {
-                pts: USER_STATE.points,
-                address: addr,
-                ts: Date.now(),
+            const headers = {
+                'Content-Type':  'application/json',
+                'X-Fingerprint': fpStr,
             };
-            WITHDRAW_HISTORY.push(item);
+            if (initData)   headers['X-Init-Data']   = initData;
+            if (_sessionId) headers['X-Session-Id']  = _sessionId;
 
-            // Add notification
-            addNotification(
-                'ton',
-                'تم استلام طلب السحب',
-                `${item.pts.toLocaleString()} نقطة ≈ ${(item.pts / TON_CONFIG.ptsPerTon).toFixed(3)} TON`,
-                item.ts
-            );
+            // Nonce عام لكل request (منع replay attacks)
+            // ملاحظة: nonce الإعلانات منفصل — يأتي من start_ad
+            const useNonce = !['get_state', 'load_state'].includes(action);
+            if (useNonce) {
+                const nonce = crypto?.randomUUID
+                    ? crypto.randomUUID()
+                    : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('') + '_' + Date.now();
+                headers['X-Nonce'] = nonce;
+            }
 
-            // Render history
-            renderWithdrawHistory();
+            const res = await fetch(API_BASE + '/api', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ action, data })
+            });
 
-            // Close overlay
-            closeTonWithdraw();
+            // 401 → جدّد الجلسة وأعد المحاولة
+            if (res.status === 401) {
+                console.warn('[ZT] 401 — renewing session for:', action);
+                _sessionId = null;
+                const renewed = await _createSession();
+                if (renewed) return _dbCall(action, data);
+                return { ok: false, error: 'auth_failed' };
+            }
 
-            // Toast
-            showToast('trophy', 'تم إرسال طلب السحب! 🎉', 'سيتم معالجة طلبك قريباً', 'green', '✓');
+            const json = await res.json();
+
+            // تحقق من Ban في أي رد
+            if (json.is_banned === true || json.shadow_banned === true) {
+                showSecurityWall();
+            }
+
+            return json;
+        } catch (e) {
+            console.warn('[ZT]', action, 'error:', e.message);
+            return { ok: false, error: 'network_error' };
         }
-    </script>
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  AD SYSTEM — Zero Trust v3.0
+    //  ✅ nonce يُصدَّر من السيرفر عبر start_ad فقط
+    //  ✅ المستخدم لا يرى الـ nonce ولا يقدر يولّده
+    //  ✅ العميل يُرسله مع reward_ad — السيرفر يتحقق ويحذفه (one-time)
+    // ══════════════════════════════════════════════════════════
+
+    const AD_STATE = {
+        total:        10,
+        remaining:    10,
+        watchedToday: 0,
+        earnedToday:  0,
+        isWatching:   false,
+        _adNonce:     null,   // مخفي داخل closure — لا يُعرَّض للـ DOM
+    };
+
+    // طلب nonce من السيرفر قبل بدء الإعلان
+    async function _requestAdNonce() {
+        const res = await _dbCall('start_ad', {});
+        if (!res.ok || !res.ad_nonce) {
+            console.warn('[AD] start_ad failed:', res.error);
+            return false;
+        }
+        // ✅ نونس مخفي — يُخزَّن فقط في memory ولا يُعرَّض أبداً في DOM أو console
+        AD_STATE._adNonce = res.ad_nonce;
+        return true;
+    }
+
+    // مطالبة السيرفر بالمكافأة بعد مشاهدة الإعلان
+    async function _claimAdReward(ad_type) {
+        if (!AD_STATE._adNonce) {
+            console.warn('[AD] No nonce — cannot claim reward');
+            return { ok: false, error: 'no_nonce' };
+        }
+        const nonce = AD_STATE._adNonce;
+        AD_STATE._adNonce = null; // امسح فوراً (one-time use)
+
+        const result = await _dbCall('reward_ad', { ad_type, ad_nonce: nonce });
+        return result;
+    }
+
+    function updateAdUI() {
+        const r = AD_STATE.remaining;
+        const elRem      = document.getElementById('ads-remaining');
+        const elWatched  = document.getElementById('ads-watched');
+        const elEarned   = document.getElementById('earned-today');
+        const elProgress = document.getElementById('ads-progress');
+        const elBtn      = document.getElementById('ad-watch-btn');
+        const elDone     = document.getElementById('ad-done-state');
+
+        if (elRem)      elRem.textContent     = r;
+        if (elWatched)  elWatched.textContent  = AD_STATE.watchedToday;
+        if (elEarned)   elEarned.textContent   = AD_STATE.earnedToday.toLocaleString('ar-EG');
+        if (elProgress) elProgress.style.width = ((AD_STATE.total - r) / AD_STATE.total * 100) + '%';
+
+        if (r <= 0) {
+            if (elBtn)  elBtn.style.display  = 'none';
+            if (elDone) elDone.style.display = 'flex';
+        }
+
+        syncDailyTasksFromAds();
+
+        // حدّث رصيد البطاقة العلوية
+        _syncBalanceUI();
+    }
+
+    function _syncBalanceUI() {
+        const balEl = document.querySelector('.balance-number');
+        if (balEl) balEl.textContent = USER_STATE.points.toLocaleString();
+        const heroEl = document.querySelector('.balance-hero-number');
+        if (heroEl) heroEl.textContent = USER_STATE.points.toLocaleString();
+    }
+
+    async function watchAd() {
+        if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
+        AD_STATE.isWatching = true;
+
+        const overlay = document.getElementById('ad-watch-overlay');
+        const countEl = document.getElementById('overlay-count');
+        overlay.classList.add('visible');
+
+        // ── طلب nonce من السيرفر قبل العد التنازلي ──
+        const nonceOk = await _requestAdNonce();
+        if (!nonceOk) {
+            AD_STATE.isWatching = false;
+            overlay.classList.remove('visible');
+            _showSimpleToast('⚠️ تعذّر تحميل الإعلان، حاول مجدداً');
+            return;
+        }
+
+        let sec = 5;
+        countEl.textContent = sec;
+
+        const timer = setInterval(async () => {
+            sec--;
+            countEl.textContent = sec;
+            if (sec <= 0) {
+                clearInterval(timer);
+                overlay.classList.remove('visible');
+                AD_STATE.isWatching = false;
+
+                // ── مطالبة بالمكافأة بعد انتهاء العد ──
+                const result = await _claimAdReward('watch_ad');
+
+                if (result.ok) {
+                    AD_STATE.remaining    = result.remaining    ?? Math.max(0, AD_STATE.remaining - 1);
+                    AD_STATE.watchedToday = result.watchedToday ?? (AD_STATE.watchedToday + 1);
+                    AD_STATE.earnedToday  = result.earnedToday  ?? (AD_STATE.earnedToday + 50);
+                    if (result.points !== undefined) USER_STATE.points = result.points;
+                } else {
+                    // Fallback فقط للـ UI (السيرفر لم يحدّث الرصيد)
+                    if (result.error !== 'nonce_invalid' && result.error !== 'no_nonce') {
+                        AD_STATE.remaining = Math.max(0, AD_STATE.remaining - 1);
+                        AD_STATE.watchedToday++;
+                        AD_STATE.earnedToday += 50;
+                    }
+                }
+
+                updateAdUI();
+
+                const t = TRANSLATIONS[currentLang];
+                if (AD_STATE.remaining <= 0) {
+                    showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
+                } else if (AD_STATE.remaining <= 3) {
+                    showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} إعلانات متبقية فقط`, 'gold', '+50');
+                } else {
+                    showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+                }
+            }
+        }, 1000);
+    }
+
+    // ── Simple toast (no icon) ──
+    function _showSimpleToast(msg) {
+        let t = document.getElementById('_zt_toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_zt_toast';
+            t.style.cssText = `
+                position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+                background:rgba(20,14,40,0.95);border:1px solid rgba(255,255,255,0.1);
+                border-radius:50px;padding:10px 20px;font-size:13px;
+                color:rgba(255,255,255,0.85);font-family:'Tajawal',sans-serif;
+                z-index:9999;transition:opacity 0.3s ease;white-space:nowrap;
+            `;
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2800);
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  USER STATE — يُصفَّر ثم يُملأ من السيرفر
+    // ══════════════════════════════════════════════════════════
+    const USER_STATE = {
+        points: 0,
+        level:  1,
+        referralFriends: 0,
+        tasksDone: 0,
+    };
+
+    function _applyServerState(data) {
+        if (!data) return;
+        if (data.points           !== undefined) USER_STATE.points          = data.points;
+        if (data.level            !== undefined) USER_STATE.level           = data.level;
+        if (data.referralFriends  !== undefined) USER_STATE.referralFriends = data.referralFriends;
+        if (data.tasksDone        !== undefined) USER_STATE.tasksDone       = data.tasksDone;
+        if (data.adsRemaining     !== undefined) AD_STATE.remaining          = data.adsRemaining;
+        if (data.adsWatchedToday  !== undefined) AD_STATE.watchedToday       = data.adsWatchedToday;
+        if (data.earnedToday      !== undefined) AD_STATE.earnedToday        = data.earnedToday;
+        if (data.giftDay          !== undefined) DAILY_GIFT_STATE.dayNumber  = data.giftDay;
+        if (data.giftClaimed      !== undefined) DAILY_GIFT_STATE.claimed    = data.giftClaimed;
+        if (data.withdrawHistory  !== undefined) {
+            WITHDRAW_HISTORY.length = 0;
+            WITHDRAW_HISTORY.push(...data.withdrawHistory);
+        }
+
+        // حدّث الـ UI
+        _syncBalanceUI();
+        updateAdUI();
+        _syncStatsUI();
+        renderWithdrawHistory();
+    }
+
+    function _syncStatsUI() {
+        // بطاقة المستخدم — الإحصاءات الثلاث
+        const statFriends = document.querySelector('.uc-stat-val.green');
+        const statTasks   = document.querySelector('.uc-stat-val.blue');
+        const statPts     = document.querySelector('.uc-stat-val.gold');
+        if (statFriends) statFriends.textContent = USER_STATE.referralFriends;
+        if (statTasks)   statTasks.textContent   = USER_STATE.tasksDone;
+        if (statPts)     statPts.textContent     = USER_STATE.points.toLocaleString();
+
+        // Stats grid في صفحة الدعوة
+        const refCountEls = document.querySelectorAll('.uc-stat-val.green');
+        refCountEls.forEach(el => { el.textContent = USER_STATE.referralFriends; });
+        const ptsEls = document.querySelectorAll('.uc-stat-val.gold');
+        ptsEls.forEach(el => { el.textContent = USER_STATE.points.toLocaleString(); });
+
+        // TON withdraw sheet
+        if (typeof openTonWithdraw === 'function') {
+            const ptsEl = document.getElementById('ton-sheet-pts');
+            if (ptsEl) ptsEl.textContent = USER_STATE.points.toLocaleString();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  FETCH API — يستبدل fetchApi القديم
+    //  كل الأكشنات تمر من _dbCall الآمن
+    // ══════════════════════════════════════════════════════════
+    async function fetchApi({ type, data = {} }) {
+        try {
+            // ترجم أسماء الأكشنات القديمة للجديدة
+            const actionMap = {
+                'watch_ad':            'reward_ad',
+                'verify_tg_membership':'task',
+                'claim_gift':          'claim_gift',
+                'submit_withdraw':     'withdraw',
+                'track_copy_link':     'track_event',
+            };
+            const action = actionMap[type] || type;
+
+            // أكشن الإعلان: يحتاج nonce من start_ad — معالجة خاصة
+            if (type === 'watch_ad') {
+                // المنطق الكامل في watchAd() — لا يُستدعى من هنا
+                return { ok: false, error: 'use_watchAd_function' };
+            }
+
+            // أكشن التحقق من القناة
+            if (type === 'verify_tg_membership') {
+                return await _dbCall('task', { task_id: 'mainChannel', step: 'verify', ...data });
+            }
+
+            // كل الأكشنات الأخرى
+            return await _dbCall(action, data);
+
+        } catch (err) {
+            console.error('[API] error:', type, err);
+            return { ok: false, error: err.message };
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  PAGE NAVIGATION
+    // ══════════════════════════════════════════════════════════
+    function showPage(pageId, navBtn) {
+        // Hide all pages
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        // Show target page
+        const target = document.getElementById('page-' + pageId);
+        if (target) target.classList.add('active');
+
+        // Update nav buttons
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+        // Find the correct nav button by data-page (navBtn might be the element itself or from inline onclick)
+        if (navBtn && navBtn.classList && navBtn.classList.contains('nav-item')) {
+            navBtn.classList.add('active');
+        } else {
+            const navEl = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+            if (navEl) navEl.classList.add('active');
+        }
+
+        // Scroll to top
+        if (target) target.scrollTop = 0;
+    }
+
+
+    (async function initZeroTrust() {
+        const tg = window?.Telegram?.WebApp;
+        if (tg) { tg.ready(); tg.expand(); }
+
+        // إنشاء الجلسة
+        const ok = await _createSession();
+        if (!ok) {
+            console.warn('[ZT] Session failed — running offline');
+            return;
+        }
+
+        // تحميل حالة المستخدم
+        const stateRes = await _dbCall('load_state', {
+            username:    tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || null,
+            referral_by: (new URLSearchParams(window.location.search)).get('start')?.replace('ref_', '') || null,
+        });
+
+        if (stateRes.ok && stateRes.user) {
+            _applyServerState(stateRes.user);
+            // تحديث UI Telegram بعد تحميل السيرفر
+            initTelegramUser();
+        }
+    })();
+</script>
+
+
 
     <!-- ══════════════════════════════════════════
          DAILY GIFT OVERLAY (ad-style)
