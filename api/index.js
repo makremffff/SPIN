@@ -9,7 +9,7 @@
 
 const express     = require('express');
 const crypto      = require('crypto');
-const { Pool }    = require('@neondatabase/serverless');
+const { neon }    = require('@neondatabase/serverless');
 
 const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -48,17 +48,21 @@ const RISK_THRESHOLDS = {
 };
 
 /* ─────────────────────────────────────────
-   DATABASE
+   DATABASE  (neon http driver — works in Vercel serverless)
 ───────────────────────────────────────── */
-const pool = new Pool({ connectionString: DATABASE_URL });
+let _sql = null;
+function getSql() {
+    if (!DATABASE_URL) throw new Error('DATABASE_URL environment variable is not set');
+    if (!_sql) _sql = neon(DATABASE_URL);
+    return _sql;
+}
 
 async function query(sql, params = []) {
-    const client = await pool.connect();
-    try {
-        return await client.query(sql, params);
-    } finally {
-        client.release();
-    }
+    const db = getSql();
+    // neon tagged-template driver: use db.query() for parameterized queries
+    const result = await db.query(sql, params);
+    // result shape: { rows, rowCount, ... } — same as pg
+    return { rows: result.rows || [] };
 }
 
 /* ─────────────────────────────────────────
