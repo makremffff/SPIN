@@ -3367,27 +3367,220 @@
            الاستخدام: fetchApi({ type: 'actionName', data: {...} })
            كل الأكشنات تمر من هنا للتحكم المركزي بالأخطاء
         ══════════════════════════════════════════ */
-        const API_BASE = '/api'; // غيّر هذا لعنوان الـ backend الحقيقي
+        const API_BASE = '/api';
 
-        async function fetchApi({ type, data = {} }) {
-            const tg = window?.Telegram?.WebApp;
+        /* ══════════════════════════════════════════
+           SECURITY LAYER — SESSION + FINGERPRINT + NONCE
+        ══════════════════════════════════════════ */
+        let _SESSION_ID = null;
+        let _RATE_LIMIT_UNTIL = 0;
+
+        /* Build device fingerprint from all required signals */
+        async function buildFingerprint() {
+            const fp = {};
+            try {
+                fp.user_agent = navigator.userAgent || '';
+                fp.lang       = navigator.language || '';
+                fp.screen     = `${screen.width}x${screen.height}x${screen.availWidth}x${screen.availHeight}`;
+                fp.tz_offset  = new Date().getTimezoneOffset();
+                fp.tz_name    = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+                fp.hw_cores   = navigator.hardwareConcurrency || 0;
+                fp.hw_mem     = navigator.deviceMemory || 0;
+                fp.touch_pts  = navigator.maxTouchPoints || 0;
+                fp.dpr        = window.devicePixelRatio || 1;
+                fp.color_depth = screen.colorDepth || 0;
+
+                /* Canvas fingerprint */
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = 200; c.height = 50;
+                    const ctx = c.getContext('2d');
+                    ctx.font = '14px Arial';
+                    ctx.fillStyle = '#f0f';
+                    ctx.fillText('FP_canvas_sig_2025', 10, 30);
+                    ctx.strokeStyle = '#0ff';
+                    ctx.beginPath(); ctx.arc(100, 25, 20, 0, Math.PI * 2); ctx.stroke();
+                    fp.canvas_sig = c.toDataURL().slice(-32);
+                } catch(e) { fp.canvas_sig = ''; }
+
+                /* WebGL fingerprint */
+                try {
+                    const cv = document.createElement('canvas');
+                    const gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+                    if (gl) {
+                        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                        fp.webgl_sig = dbg
+                            ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') + '|' + (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '')
+                            : gl.getParameter(gl.RENDERER) || '';
+                        fp.webgl_sig = fp.webgl_sig.slice(0, 64);
+                    } else { fp.webgl_sig = ''; }
+                } catch(e) { fp.webgl_sig = ''; }
+
+                /* AudioContext fingerprint */
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        const actx = new AudioCtx();
+                        fp.audio_sig = String(actx.sampleRate) + '|' + String(actx.destination.maxChannelCount);
+                        actx.close();
+                    } else { fp.audio_sig = ''; }
+                } catch(e) { fp.audio_sig = ''; }
+
+                /* Composite fp hash using available signals */
+                const sigStr = [fp.user_agent, fp.lang, fp.screen, fp.tz_name, fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig].join('|');
+                const enc = new TextEncoder().encode(sigStr);
+                const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+                fp.fp = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 40);
+            } catch(e) {
+                fp.fp = 'unknown';
+            }
+            return fp;
+        }
+
+        let _fpCache = null;
+        async function getFp() {
+            if (!_fpCache) _fpCache = await buildFingerprint();
+            return _fpCache;
+        }
+
+        /* Show permanent ban screen */
+        function showBanScreen() {
+            document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a1a;flex-direction:column;gap:16px;">
+                <div style="font-size:48px;">🚫</div>
+                <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:20px;font-weight:700;">تم حظر هذا الحساب</div>
+                <div style="color:rgba(255,255,255,0.5);font-size:13px;">يرجى التواصل مع الدعم</div>
+            </div>`;
+        }
+
+        /* Show rate limit toast */
+        function showRateLimitToast() {
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;font-family:Tajawal,sans-serif;font-size:13px;';
+            el.textContent = 'أنت تطلب بسرعة كبيرة، يرجى الانتظار لحظة...';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        /* Create session — called once at startup */
+        async function createSession() {
+            const tg   = window?.Telegram?.WebApp;
             const initData = tg?.initData || '';
-
+            const fp   = await getFp();
             try {
                 const res = await fetch(API_BASE, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Telegram-Init-Data': initData,
+                        'X-Init-Data':   initData,
+                        'X-Fingerprint': JSON.stringify(fp),
                     },
+                    body: JSON.stringify({ type: 'create_session', data: { initData } }),
+                });
+                const json = await res.json();
+                if (json.is_banned) { showBanScreen(); return false; }
+                if (json.session_id) {
+                    _SESSION_ID = json.session_id;
+                    /* Hydrate user state from server */
+                    if (json.user) {
+                        if (json.user.points   !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
+                        if (json.user.level    !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
+                        if (json.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!json.user.tg_verified;
+                        if (json.user.streak_day !== undefined) DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(json.user.streak_day) || 0) + 1);
+                        const today = new Date().toISOString().slice(0,10);
+                        if (json.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+                    }
+                    return true;
+                }
+                return false;
+            } catch(e) {
+                console.error('[Session] createSession error:', e);
+                return false;
+            }
+        }
+
+        /* Fetch a server-generated nonce before every write */
+        async function getNonce() {
+            const fp = await getFp();
+            try {
+                const res = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id':  _SESSION_ID || '',
+                        'X-Fingerprint': JSON.stringify(fp),
+                    },
+                    body: JSON.stringify({ type: 'get_nonce', data: {} }),
+                });
+                const json = await res.json();
+                return json.nonce || null;
+            } catch(e) {
+                console.error('[Nonce] getNonce error:', e);
+                return null;
+            }
+        }
+
+        /* Core fetchApi with full security pipeline */
+        async function fetchApi({ type, data = {} }) {
+            if (!_SESSION_ID) {
+                const ok = await createSession();
+                if (!ok) return { ok: false, error: 'session_unavailable' };
+            }
+
+            if (Date.now() < _RATE_LIMIT_UNTIL) {
+                showRateLimitToast();
+                return { ok: false, error: 'rate_limited' };
+            }
+
+            const tg       = window?.Telegram?.WebApp;
+            const initData = tg?.initData || '';
+            const fp       = await getFp();
+
+            const READ_ONLY = new Set(['load', 'get_state']);
+            const IS_AD_REWARD = type === 'watch_ad';
+
+            let nonce = null;
+            if (!READ_ONLY.has(type) && !IS_AD_REWARD) {
+                nonce = await getNonce();
+                if (!nonce) {
+                    console.error('[API] Could not obtain nonce for', type);
+                    return { ok: false, error: 'nonce_unavailable' };
+                }
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-Init-Data':   initData,
+                'X-Session-Id':  _SESSION_ID || '',
+                'X-Fingerprint': JSON.stringify(fp),
+            };
+            if (nonce) headers['X-Nonce'] = nonce;
+
+            try {
+                const res = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers,
                     body: JSON.stringify({ type, data }),
                 });
 
-                // HTTP-level errors
+                if (res.status === 401) {
+                    /* Session expired — renew and retry once */
+                    console.warn('[API] 401 — renewing session');
+                    _SESSION_ID = null;
+                    const renewed = await createSession();
+                    if (!renewed) return { ok: false, error: 'session_expired' };
+                    return fetchApi({ type, data });
+                }
+
+                if (res.status === 429) {
+                    _RATE_LIMIT_UNTIL = Date.now() + 5000;
+                    showRateLimitToast();
+                    return { ok: false, error: 'rate_limited' };
+                }
+
                 if (!res.ok) {
                     const errBody = await res.json().catch(() => ({}));
                     const msg = errBody?.error || `HTTP ${res.status}`;
-                    console.error(`[API] ❌ ${type} → ${msg}`);
+                    console.error(`[API] ❌ ${type} →`, msg);
                     return { ok: false, error: msg };
                 }
 
@@ -3396,7 +3589,6 @@
                 return { ok: true, ...json };
 
             } catch (err) {
-                // Network / parse errors
                 console.error(`[API] 🔴 ${type} → Network error:`, err);
                 return { ok: false, error: 'network_error' };
             }
@@ -3463,10 +3655,27 @@
                     overlay.classList.remove('visible');
                     AD_STATE.isWatching = false;
 
+                    // ─── الحصول على ad_nonce من السيرفر أولاً ───
+                    let adNonce = null;
+                    try {
+                        const fp2 = await getFp();
+                        const startRes = await fetch(API_BASE, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Session-Id':  _SESSION_ID || '',
+                                'X-Fingerprint': JSON.stringify(fp2),
+                            },
+                            body: JSON.stringify({ type: 'start_ad', data: {} }),
+                        });
+                        const startJson = await startRes.json();
+                        adNonce = startJson.ad_nonce || null;
+                    } catch(e) { console.error('[Ad] start_ad failed:', e); }
+
                     // ─── إرسال الأكشن للـ backend ───
                     const result = await fetchApi({
                         type: 'watch_ad',
-                        data: { userId: CURRENT_USER_ID }
+                        data: { ad_nonce: adNonce }
                     });
 
                     if (result.ok) {
@@ -3670,7 +3879,7 @@
             // ─── إرسال الأكشن للـ backend ───
             const result = await fetchApi({
                 type: 'claim_gift',
-                data: { userId: CURRENT_USER_ID, day: DAILY_GIFT_STATE.dayNumber, pts: data.pts }
+                data: {}
             });
 
             if (!result.ok) {
@@ -3719,7 +3928,7 @@
             });
 
             // ─── تتبع النسخ في الـ backend (fire-and-forget) ───
-            fetchApi({ type: 'track_copy_link', data: { userId: CURRENT_USER_ID } });
+            fetchApi({ type: 'track_copy_link', data: {} });
 
             // Feedback
             btn.classList.add('copied');
@@ -3800,7 +4009,7 @@
             // ─── إرسال الأكشن للـ backend ───
             const result = await fetchApi({
                 type: 'verify_tg_membership',
-                data: { userId: CURRENT_USER_ID }
+                data: {}
             });
 
             if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
@@ -3956,9 +4165,55 @@
         }
 
         /* ─── Init ─── */
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             setTimeout(() => runCounters(document), 350);
             initTelegramUser();
+            /* Create session right after TG init so session_id is ready */
+            await createSession();
+            /* Load user state from server */
+            const loadResult = await fetchApi({ type: 'load', data: {} });
+            if (loadResult.ok) {
+                const pts = parseInt(loadResult.points) || 0;
+                const lvl = parseInt(loadResult.level) || 1;
+                USER_STATE.points = pts;
+                USER_STATE.level  = lvl;
+                TASKS_STATE.tgVerified = !!loadResult.tg_verified;
+
+                /* Ads state */
+                AD_STATE.total        = parseInt(loadResult.ads_total)     || 10;
+                AD_STATE.remaining    = parseInt(loadResult.ads_remaining)  || 10;
+                AD_STATE.watchedToday = parseInt(loadResult.ads_watched_today) || 0;
+                AD_STATE.earnedToday  = AD_STATE.watchedToday * 50;
+                updateAdUI();
+
+                /* Daily gift */
+                if (loadResult.streak_day !== undefined) {
+                    DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(loadResult.streak_day) || 0) + 1);
+                }
+                const today = new Date().toISOString().slice(0,10);
+                if (loadResult.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+
+                /* Withdraw history */
+                if (Array.isArray(loadResult.withdrawals)) {
+                    loadResult.withdrawals.forEach(w => {
+                        WITHDRAW_HISTORY.push({
+                            pts:     parseInt(w.pts) || 0,
+                            address: w.address || '',
+                            ts:      parseInt(w.ts) || Date.now(),
+                            status:  w.status || 'pending',
+                        });
+                    });
+                    renderWithdrawHistory();
+                }
+
+                /* Update balance display */
+                const balEl = document.getElementById('uc-balance-num');
+                if (balEl) balEl.textContent = pts.toLocaleString('en-US');
+                const tonSheet = document.getElementById('ton-sheet-pts');
+                if (tonSheet) tonSheet.textContent = pts.toLocaleString();
+                const tonEquiv = document.getElementById('ton-sheet-equiv');
+                if (tonEquiv) tonEquiv.textContent = '≈ ' + (pts / 100000).toFixed(3) + ' TON';
+            }
         });
 
         /* ══════════════════════════════════════════
@@ -4324,9 +4579,7 @@
             const result = await fetchApi({
                 type: 'submit_withdraw',
                 data: {
-                    userId:  CURRENT_USER_ID,
                     address: addr,
-                    pts:     USER_STATE.points,
                 }
             });
 
