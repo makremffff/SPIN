@@ -234,7 +234,17 @@ function getClientIp(req) {
    TELEGRAM initData VERIFICATION
 ───────────────────────────────────────── */
 function verifyInitData(initDataRaw) {
-    if (!initDataRaw || !BOT_TOKEN) return null;
+    if (!initDataRaw) return null;
+
+    // DEV MODE: no BOT_TOKEN → accept any initData containing a user field
+    if (!BOT_TOKEN) {
+        try {
+            const params = new URLSearchParams(initDataRaw);
+            const userStr = params.get('user');
+            return userStr ? JSON.parse(userStr) : null;
+        } catch { return null; }
+    }
+
     try {
         const params = new URLSearchParams(initDataRaw);
         const hash   = params.get('hash');
@@ -249,9 +259,9 @@ function verifyInitData(initDataRaw) {
 
         if (!timingSafeEqual(computed, hash)) return null;
 
-        // Check freshness (5 minutes max)
+        // 15 minutes window — handles clock drift & slow connections
         const authDate = parseInt(params.get('auth_date') || '0', 10);
-        if (Date.now() / 1000 - authDate > 300) return null;
+        if (Date.now() / 1000 - authDate > 900) return null;
 
         const userStr = params.get('user');
         return userStr ? JSON.parse(userStr) : null;
@@ -495,18 +505,19 @@ async function securityMiddleware(req, res, next) {
     next();
 }
 
-app.use(securityMiddleware);
-
 /* ─────────────────────────────────────────
-   CORS
+   CORS — must be BEFORE securityMiddleware
+   so OPTIONS preflight never hits rate limiter
 ───────────────────────────────────────── */
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Init-Data, X-Session-Id, X-Fingerprint, X-Nonce');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
 });
+
+app.use(securityMiddleware);
 
 /* ─────────────────────────────────────────
    MAIN API ENDPOINT
@@ -734,7 +745,7 @@ app.post('/api', async (req, res) => {
                     [session.telegram_id]
                 );
                 const watchedToday = parseInt(countR.rows[0]?.cnt || 0);
-                if (watchedToday > REWARDS.ad_daily_max) {
+                if (watchedToday > REWARDS.ad_daily_max) { // already over limit — shouldn't happen but guard anyway
                     await query(`UPDATE ad_events SET is_shadow = TRUE WHERE ad_nonce = $1`, [adNonce]).catch(() => {});
                     return res.json({ ok: true, shadow: true, remaining: 0, watchedToday, earnedToday: 0 });
                 }
@@ -1042,21 +1053,30 @@ async function cleanup() {
 }
 
 /* ─────────────────────────────────────────
-   BOOT
+   BOOT  (supports both Vercel serverless & local server)
 ───────────────────────────────────────── */
 const PORT = process.env.PORT || 3000;
 
-(async () => {
-    try {
-        await ensureSchema();
-        console.log('[DB] Schema ready');
-    } catch (e) {
-        console.error('[DB] Schema error:', e.message);
-    }
+// Vercel / serverless: export the express app as the handler
+module.exports = app;
 
-    app.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
+// Local dev: also start a server when run directly with `node index.js`
+if (require.main === module) {
+    (async () => {
+        try {
+            await ensureSchema();
+            console.log('[DB] Schema ready');
+        } catch (e) {
+            console.error('[DB] Schema error:', e.message);
+        }
 
-    // Cleanup every 6 hours
-    setInterval(cleanup, 6 * 60 * 60 * 1000);
-    cleanup();
-})();
+        app.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
+
+        // Cleanup every 6 hours
+        setInterval(cleanup, 6 * 60 * 60 * 1000);
+        cleanup();
+    })();
+} else {
+    // Serverless cold-start: run schema migration once
+    ensureSchema().catch(e => console.error('[DB] Schema error:', e.message));
+}
