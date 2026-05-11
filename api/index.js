@@ -758,6 +758,7 @@ async function handleLoad(client, userId) {
       ts:   new Date(r.created_at).getTime(),
     })),
     completed_tasks: completedTasks,
+    tg_id: u.tg_id,
     // UI config (not sensitive, but served from server)
     config: {
       ads_daily_limit:    CFG.ADS_DAILY_LIMIT,
