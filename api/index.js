@@ -111,8 +111,7 @@ async function bootstrap() {
       user_id BIGINT NOT NULL,
       fingerprint_hash TEXT NOT NULL,
       ip_hash TEXT NOT NULL,
-      -- ad_nonce مخزّن داخل الجلسة — مخفي عن العميل تماماً
-      ad_nonce_hash TEXT,         -- HMAC hash بدل النص الخام
+      ad_nonce_hash TEXT,
       ad_nonce_exp  TIMESTAMPTZ,
       ad_nonce_used BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -122,10 +121,8 @@ async function bootstrap() {
     )`);
 
     // ── nonces — جدول مخصص للـ nonces الحساسة (غير الإعلانات) ─────
-    -- كل nonce مربوط بـ session_id + user_id + fingerprint + ip
     await sql(`CREATE TABLE IF NOT EXISTS nonces (
       id BIGSERIAL PRIMARY KEY,
-      -- لا نخزّن النص الخام — نخزّن HMAC فقط
       nonce_hash TEXT NOT NULL UNIQUE,
       session_id TEXT NOT NULL,
       user_id    BIGINT NOT NULL,
@@ -143,7 +140,7 @@ async function bootstrap() {
       user_id    BIGINT,
       session_id TEXT,
       action     TEXT NOT NULL,
-      status     TEXT NOT NULL,   -- 'ok' | 'rejected' | 'expired' | 'replayed' | 'tampered'
+      status     TEXT NOT NULL,
       ip_hash    TEXT,
       fp_hash    TEXT,
       meta       JSONB,
