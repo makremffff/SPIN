@@ -17,7 +17,11 @@
 'use strict';
 
 const { createHash, createHmac, randomBytes } = require('crypto');
-const { Pool }                                 = require('@neondatabase/serverless');
+const { Pool, neonConfig }                     = require('@neondatabase/serverless');
+
+// ─── Neon: WebSocket support for Vercel serverless ───────────────────────────
+try { neonConfig.webSocketConstructor = require('ws'); } catch(_) {}
+neonConfig.fetchConnectionCache = true;
 
 // ─── Database Pool (singleton per cold start) ────────────────────────────────
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -230,7 +234,9 @@ async function runMigrations(client) {
   const safeAddCol = async (table, col, def) => {
     try {
       await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${def}`);
-    } catch(_) { /* already exists */ }
+    } catch(_) {
+      // column may already exist or other non-fatal error — ignore
+    }
   };
 
   await safeAddCol('users', 'ip_hash',            'TEXT');
@@ -258,6 +264,10 @@ async function ensureMigrated() {
   try {
     await runMigrations(client);
     _migrated = true;
+  } catch(e) {
+    console.error('[Migration] FAILED:', e.message);
+    // رمز الخطأ للمساعدة في التشخيص
+    throw new Error('migration_failed: ' + e.message.slice(0, 200));
   } finally {
     client.release();
   }
@@ -1193,7 +1203,10 @@ module.exports = async function handler(req, res) {
   try { await ensureMigrated(); }
   catch(e) {
     console.error('[DB] Migration error:', e.message);
-    send(res, 500, { error: 'db_init_error' });
+    send(res, 500, {
+      error: 'db_init_error',
+      detail: IS_DEV ? e.message : undefined,
+    });
     return;
   }
 
