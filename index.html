@@ -4270,6 +4270,12 @@
                     renderReferralList(loadResult.referral_list, totalRefs);
                 }
 
+                // ✅ رابط الإحالة من tg_id السيرفر — أكثر موثوقية من Telegram.WebApp
+                if (loadResult.tg_id) {
+                    REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + loadResult.tg_id;
+                    _updateReferralLinkUI();
+                }
+
                 // ✅ tgVerified — إخفاء زر الانضمام إن كان مكتملاً
                 if (TASKS_STATE.tgVerified) {
                     const joinBtn     = document.getElementById('tg-join-btn');
@@ -4481,9 +4487,11 @@
             }
             container.innerHTML = html;
         }
+
+        function formatTimeAgo(ts) {
             const diff = Math.floor((Date.now() - ts) / 1000);
-            if (diff < 60) return 'الآن';
-            if (diff < 3600) return `منذ ${Math.floor(diff/60)} دقيقة`;
+            if (diff < 60)    return 'الآن';
+            if (diff < 3600)  return `منذ ${Math.floor(diff/60)} دقيقة`;
             if (diff < 86400) return `منذ ${Math.floor(diff/3600)} ساعة`;
             return `منذ ${Math.floor(diff/86400)} يوم`;
         }
