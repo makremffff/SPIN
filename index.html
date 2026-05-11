@@ -2539,7 +2539,7 @@
                             <div style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.45);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;" data-i18n="balance_label">الرصيد الكلي</div>
                             <div style="display:flex;align-items:center;gap:7px;">
                                 <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(251,191,36,0.9));">
-                                <span class="uc-balance-num balance-number counter" data-target="75000" style="font-size:26px;">0</span>
+                                <span class="uc-balance-num balance-number counter" data-target="0" style="font-size:26px;">0</span>
                             </div>
                             <span style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.35);font-weight:500;" data-i18n="pts">نقطة</span>
                         </div>
@@ -2576,7 +2576,7 @@
                                 <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="#34d399"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val green counter" data-target="48">0</div>
+                        <div class="uc-stat-val green counter" data-target="0">0</div>
                         <div class="uc-stat-label" data-i18n="friends_label">صديق مدعو</div>
                     </div>
                     <div class="uc-stat">
@@ -2586,7 +2586,7 @@
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z" fill="#60a5fa"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val blue counter" data-target="156">0</div>
+                        <div class="uc-stat-val blue counter" data-target="0">0</div>
                         <div class="uc-stat-label" data-i18n="tasks_done_label">مهمة منجزة</div>
                     </div>
                     <div class="uc-stat">
@@ -2596,7 +2596,7 @@
                                 <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#fbbf24"/>
                             </svg>
                         </div>
-                        <div class="uc-stat-val gold counter" data-target="24000">0</div>
+                        <div class="uc-stat-val gold counter" data-target="0">0</div>
                         <div class="uc-stat-label">إجمالي المكتسب</div>
                     </div>
                 </div>
@@ -3045,14 +3045,14 @@
             <div class="invite-stats">
                 <div class="invite-stat-card glass">
                     <div class="invite-stat-val" style="color:var(--purple);">
-                        <span class="counter" data-target="48">0</span>
+                        <span class="counter" data-target="0">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="total_referrals">إجمالي الإحالات</div>
                 </div>
                 <div class="invite-stat-card glass">
                     <div class="invite-stat-val" style="display:flex;align-items:center;justify-content:center;gap:6px;">
                         <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(251,191,36,0.7));">
-                        <span style="color:var(--gold);" class="counter" data-target="24000">0</span>
+                        <span style="color:var(--gold);" class="counter" data-target="0">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="earned_from_refs">مكتسب من الإحالات</div>
                 </div>
@@ -3093,68 +3093,20 @@
             <div class="invite-list-card glass">
                 <div class="section-header" style="margin-bottom:14px;">
                     <div class="section-title">الأصدقاء المدعوون</div>
-                    <div class="section-badge">48 صديق</div>
+                    <div class="section-badge" id="referral-friends-badge">0 صديق</div>
                 </div>
 
-                <div style="display:flex;flex-direction:column;gap:4px;">
-                    <!-- Item 1 -->
-                    <div class="referral-item">
-                        <div class="referral-avatar">م</div>
-                        <div class="referral-info">
-                            <div class="referral-name">محمد العمري</div>
-                            <div class="referral-date">منذ يومين</div>
+                <!-- ✅ يُملأ من السيرفر عبر renderReferralList() — لا بيانات مزيفة -->
+                <div id="referral-list-container" style="display:flex;flex-direction:column;gap:4px;">
+                    <!-- empty state — يختفي عند وصول البيانات -->
+                    <div id="referral-empty-state" class="empty-state" style="padding:24px 0;">
+                        <div class="empty-icon" style="margin:0 auto 12px;">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+                            </svg>
                         </div>
-                        <div class="referral-reward">
-                            <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
-                            <span class="referral-reward-text">+500</span>
-                        </div>
-                    </div>
-                    <div class="shine-line-sm" style="margin:2px 10px;"></div>
-
-                    <!-- Item 2 -->
-                    <div class="referral-item">
-                        <div class="referral-avatar" style="background:linear-gradient(135deg,rgba(96,165,250,0.2),rgba(52,211,153,0.2));border-color:rgba(96,165,250,0.2);color:var(--blue);">س</div>
-                        <div class="referral-info">
-                            <div class="referral-name">سارة الأحمدي</div>
-                            <div class="referral-date">منذ 4 أيام</div>
-                        </div>
-                        <div class="referral-reward">
-                            <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
-                            <span class="referral-reward-text">+500</span>
-                        </div>
-                    </div>
-                    <div class="shine-line-sm" style="margin:2px 10px;"></div>
-
-                    <!-- Item 3 -->
-                    <div class="referral-item">
-                        <div class="referral-avatar" style="background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.05));border-color:rgba(251,191,36,0.2);color:var(--gold);">ع</div>
-                        <div class="referral-info">
-                            <div class="referral-name">علي المنصوري</div>
-                            <div class="referral-date">منذ أسبوع</div>
-                        </div>
-                        <div class="referral-reward">
-                            <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
-                            <span class="referral-reward-text">+500</span>
-                        </div>
-                    </div>
-                    <div class="shine-line-sm" style="margin:2px 10px;"></div>
-
-                    <!-- Item 4 -->
-                    <div class="referral-item">
-                        <div class="referral-avatar" style="background:linear-gradient(135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.05));border-color:rgba(52,211,153,0.2);color:var(--green);">ن</div>
-                        <div class="referral-info">
-                            <div class="referral-name">نورة الشمري</div>
-                            <div class="referral-date">منذ أسبوعين</div>
-                        </div>
-                        <div class="referral-reward">
-                            <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
-                            <span class="referral-reward-text">+500</span>
-                        </div>
-                    </div>
-
-                    <!-- See all -->
-                    <div style="text-align:center;padding:12px 0 4px;">
-                        <span style="font-size:12px;font-weight:700;color:var(--purple);opacity:0.7;" data-i18n="more_friends">+44 صديق آخر</span>
+                        <div class="empty-title" style="font-size:13px;">لا يوجد أصدقاء مدعوون بعد</div>
+                        <div class="empty-desc">شارك رابطك وابدأ الكسب معاً</div>
                     </div>
                 </div>
             </div>
@@ -3178,7 +3130,7 @@
                 <div class="balance-hero-label"><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.6));vertical-align:middle;margin-left:4px;"><span data-i18n="balance_available">رصيدك المتاح للسحب</span></div>
                 <div class="balance-hero-amount">
                     <img src="asesst/coins.png" alt="" class="coin-img-lg pulse-gold">
-                    <span class="balance-hero-number counter" data-target="75000">0</span>
+                    <span class="balance-hero-number counter" data-target="0">0</span>
                 </div>
                 <div class="balance-hero-unit" data-i18n="pts">نقطة</div>
             </div>
@@ -3362,1145 +3314,1466 @@
          JAVASCRIPT
     ══════════════════════════════════════════ -->
     <script>
-    /* ══════════════════════════════════════════
-       ZERO TRUST FRONTEND — THIN CLIENT
-       All real logic is server-side (index.js)
-       Frontend = Display Layer only
-    ══════════════════════════════════════════ */
+        /* ══════════════════════════════════════════
+           FETCHAPI — UNIFIED API GATEWAY
+           الاستخدام: fetchApi({ type: 'actionName', data: {...} })
+           كل الأكشنات تمر من هنا للتحكم المركزي بالأخطاء
+        ══════════════════════════════════════════ */
+        const API_BASE = '/api';
 
-    const API_BASE = '/api';
+        /* ══════════════════════════════════════════
+           SECURITY LAYER — SESSION + FINGERPRINT + NONCE
+        ══════════════════════════════════════════ */
+        let _SESSION_ID = null;
+        let _RATE_LIMIT_UNTIL = 0;
 
-    /* ─── In-memory session (NOT localStorage) ─── */
-    let _SESSION_ID      = null;
-    let _RATE_LIMIT_UNTIL = 0;
-    let _fpCache          = null;
+        /* Build device fingerprint from all required signals */
+        async function buildFingerprint() {
+            const fp = {};
+            try {
+                fp.user_agent = navigator.userAgent || '';
+                fp.lang       = navigator.language || '';
+                fp.screen     = `${screen.width}x${screen.height}x${screen.availWidth}x${screen.availHeight}`;
+                fp.tz_offset  = new Date().getTimezoneOffset();
+                fp.tz_name    = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+                fp.hw_cores   = navigator.hardwareConcurrency || 0;
+                fp.hw_mem     = navigator.deviceMemory || 0;
+                fp.touch_pts  = navigator.maxTouchPoints || 0;
+                fp.dpr        = window.devicePixelRatio || 1;
+                fp.color_depth = screen.colorDepth || 0;
 
-    /* ─── State (hydrated from server on load) ─── */
-    const USER_STATE = { points: 0, level: 1 };
+                /* Canvas fingerprint */
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = 200; c.height = 50;
+                    const ctx = c.getContext('2d');
+                    ctx.font = '14px Arial';
+                    ctx.fillStyle = '#f0f';
+                    ctx.fillText('FP_canvas_sig_2025', 10, 30);
+                    ctx.strokeStyle = '#0ff';
+                    ctx.beginPath(); ctx.arc(100, 25, 20, 0, Math.PI * 2); ctx.stroke();
+                    fp.canvas_sig = c.toDataURL().slice(-32);
+                } catch(e) { fp.canvas_sig = ''; }
 
-    const AD_STATE = {
-        total: 10, remaining: 10,
-        watchedToday: 0, earnedToday: 0,
-        isWatching: false,
-    };
+                /* WebGL fingerprint */
+                try {
+                    const cv = document.createElement('canvas');
+                    const gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+                    if (gl) {
+                        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                        fp.webgl_sig = dbg
+                            ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') + '|' + (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '')
+                            : gl.getParameter(gl.RENDERER) || '';
+                        fp.webgl_sig = fp.webgl_sig.slice(0, 64);
+                    } else { fp.webgl_sig = ''; }
+                } catch(e) { fp.webgl_sig = ''; }
 
-    const DAILY_GIFT_STATE = { dayNumber: 1, claimed: false, isOpening: false };
+                /* AudioContext fingerprint */
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        const actx = new AudioCtx();
+                        fp.audio_sig = String(actx.sampleRate) + '|' + String(actx.destination.maxChannelCount);
+                        actx.close();
+                    } else { fp.audio_sig = ''; }
+                } catch(e) { fp.audio_sig = ''; }
 
-    const TASKS_STATE = {
-        tgJoined: false, tgVerified: false,
-        ads10Done: false, ads25Done: false, invite3Done: false,
-    };
-
-    const WITHDRAW_HISTORY = [];
-    const NOTIF_LIST_DATA  = [];
-
-    // Set by server after create_session
-    let BOT_USERNAME   = 'RebhApp_bot';
-    let REFERRAL_LINK  = '';
-    let CURRENT_USER_ID = null;
-
-    /* ══════════════════════════════════════════
-       DEVICE FINGERPRINT (sent to server)
-    ══════════════════════════════════════════ */
-    async function buildFingerprint() {
-        const fp = {
-            user_agent : navigator.userAgent || '',
-            lang       : navigator.language  || '',
-            screen     : `${screen.width}x${screen.height}x${screen.colorDepth}`,
-            tz_name    : Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            hw_cores   : navigator.hardwareConcurrency || 0,
-            hw_mem     : navigator.deviceMemory || 0,
-            touch      : navigator.maxTouchPoints || 0,
-            canvas_sig : '',
-            webgl_sig  : '',
-            audio_sig  : '',
-            fp         : 'unknown',
-        };
-        try {
-            const c = document.createElement('canvas');
-            const ctx = c.getContext('2d');
-            if (ctx) {
-                ctx.fillStyle = '#f60'; ctx.fillRect(0, 0, 80, 40);
-                ctx.font = '14px Arial'; ctx.fillStyle = '#069';
-                ctx.fillText('FP_canvas_sig_2025', 10, 30);
-                ctx.strokeStyle = '#0ff';
-                ctx.beginPath(); ctx.arc(100, 25, 20, 0, Math.PI * 2); ctx.stroke();
-                fp.canvas_sig = c.toDataURL().slice(-32);
+                /* Composite fp hash using available signals */
+                const sigStr = [fp.user_agent, fp.lang, fp.screen, fp.tz_name, fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig].join('|');
+                const enc = new TextEncoder().encode(sigStr);
+                const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+                fp.fp = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0, 40);
+            } catch(e) {
+                fp.fp = 'unknown';
             }
-        } catch(e) { fp.canvas_sig = ''; }
-        try {
-            const cv = document.createElement('canvas');
-            const gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
-            if (gl) {
-                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-                fp.webgl_sig = dbg
-                    ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)||'') + '|' + (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)||'')
-                    : (gl.getParameter(gl.RENDERER)||'');
-                fp.webgl_sig = fp.webgl_sig.slice(0, 64);
-            }
-        } catch(e) { fp.webgl_sig = ''; }
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-                const actx = new AudioCtx();
-                fp.audio_sig = String(actx.sampleRate) + '|' + String(actx.destination.maxChannelCount);
-                actx.close();
-            }
-        } catch(e) { fp.audio_sig = ''; }
-        try {
-            const sigStr = [fp.user_agent, fp.lang, fp.screen, fp.tz_name, fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig].join('|');
-            const enc = new TextEncoder().encode(sigStr);
-            const hashBuf = await crypto.subtle.digest('SHA-256', enc);
-            fp.fp = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0,40);
-        } catch(e) { fp.fp = 'unknown'; }
-        return fp;
-    }
+            return fp;
+        }
 
-    async function getFp() {
-        if (!_fpCache) _fpCache = await buildFingerprint();
-        return _fpCache;
-    }
+        let _fpCache = null;
+        async function getFp() {
+            if (!_fpCache) _fpCache = await buildFingerprint();
+            return _fpCache;
+        }
 
-    /* ══════════════════════════════════════════
-       SECURITY UI HELPERS
-    ══════════════════════════════════════════ */
-    function showBanScreen() {
-        document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a1a;flex-direction:column;gap:16px;">
-            <div style="font-size:48px;">🚫</div>
-            <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:20px;font-weight:700;">تم حظر هذا الحساب</div>
-            <div style="color:rgba(255,255,255,0.5);font-size:13px;">يرجى التواصل مع الدعم</div>
-        </div>`;
-    }
+        /* Show permanent ban screen */
+        function showBanScreen() {
+            document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a1a;flex-direction:column;gap:16px;">
+                <div style="font-size:48px;">🚫</div>
+                <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:20px;font-weight:700;">تم حظر هذا الحساب</div>
+                <div style="color:rgba(255,255,255,0.5);font-size:13px;">يرجى التواصل مع الدعم</div>
+            </div>`;
+        }
 
-    function showRateLimitToast() {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;font-family:Tajawal,sans-serif;font-size:13px;';
-        el.textContent = 'أنت تطلب بسرعة كبيرة، يرجى الانتظار لحظة...';
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 3000);
-    }
+        /* Show rate limit toast */
+        function showRateLimitToast() {
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;font-family:Tajawal,sans-serif;font-size:13px;';
+            el.textContent = 'أنت تطلب بسرعة كبيرة، يرجى الانتظار لحظة...';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
 
-    /* ══════════════════════════════════════════
-       SESSION — created once, server-side
-    ══════════════════════════════════════════ */
-    async function createSession() {
-        const tg = window?.Telegram?.WebApp;
-        const initData = tg?.initData || '';
-        const fp = await getFp();
-
-        // Extract ref from startParam
-        const startParam = tg?.initDataUnsafe?.start_param || '';
-        const ref = startParam.startsWith('ref_') ? startParam.replace('ref_', '') : null;
-
-        try {
-            const res = await fetch(API_BASE, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Init-Data':   initData,
-                    'X-Fingerprint': JSON.stringify(fp),
-                },
-                body: JSON.stringify({ type: 'create_session', data: { initData, ref } }),
-            });
-            const json = await res.json();
-            if (json.is_banned) { showBanScreen(); return false; }
-            if (json.session_id) {
-                _SESSION_ID = json.session_id;
-                if (json.bot_username) BOT_USERNAME = json.bot_username;
-                // Hydrate from session response
-                if (json.user) {
-                    if (json.user.points   !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
-                    if (json.user.level    !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
-                    if (json.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!json.user.tg_verified;
-                    if (json.user.streak_day !== undefined) DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(json.user.streak_day)||0) + 1);
-                    const today = new Date().toISOString().slice(0,10);
-                    if (json.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+        /* Create session — called once at startup */
+        async function createSession() {
+            const tg   = window?.Telegram?.WebApp;
+            const initData = tg?.initData || '';
+            const fp   = await getFp();
+            try {
+                const res = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Init-Data':   initData,
+                        'X-Fingerprint': JSON.stringify(fp),
+                    },
+                    body: JSON.stringify({ type: 'create_session', data: { initData } }),
+                });
+                const json = await res.json();
+                if (json.is_banned) { showBanScreen(); return false; }
+                if (json.session_id) {
+                    _SESSION_ID = json.session_id;
+                    /* Hydrate user state from server */
+                    if (json.user) {
+                        if (json.user.points   !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
+                        if (json.user.level    !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
+                        if (json.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!json.user.tg_verified;
+                        if (json.user.streak_day !== undefined) DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(json.user.streak_day) || 0) + 1);
+                        const today = new Date().toISOString().slice(0,10);
+                        if (json.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+                    }
+                    return true;
                 }
-                return true;
-            }
-            return false;
-        } catch(e) {
-            console.error('[Session] createSession error:', e);
-            return false;
-        }
-    }
-
-    /* ══════════════════════════════════════════
-       NONCE — fetched before every write
-    ══════════════════════════════════════════ */
-    async function getNonce() {
-        const fp = await getFp();
-        try {
-            const res = await fetch(API_BASE, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Session-Id':  _SESSION_ID || '',
-                    'X-Fingerprint': JSON.stringify(fp),
-                },
-                body: JSON.stringify({ type: 'get_nonce', data: {} }),
-            });
-            const json = await res.json();
-            return json.nonce || null;
-        } catch(e) {
-            console.error('[Nonce] getNonce error:', e);
-            return null;
-        }
-    }
-
-    /* ══════════════════════════════════════════
-       CORE fetchApi — full security pipeline
-    ══════════════════════════════════════════ */
-    async function fetchApi({ type, data = {} }) {
-        if (!_SESSION_ID) {
-            const ok = await createSession();
-            if (!ok) return { ok: false, error: 'session_unavailable' };
-        }
-
-        if (Date.now() < _RATE_LIMIT_UNTIL) {
-            showRateLimitToast();
-            return { ok: false, error: 'rate_limited' };
-        }
-
-        const tg       = window?.Telegram?.WebApp;
-        const initData = tg?.initData || '';
-        const fp       = await getFp();
-
-        const READ_ONLY    = new Set(['load', 'get_state', 'get_referrals', 'get_withdraw_history', 'health', 'track_copy_link']);
-        const IS_AD_REWARD = type === 'watch_ad' || type === 'start_ad';
-
-        let nonce = null;
-        if (!READ_ONLY.has(type) && !IS_AD_REWARD) {
-            nonce = await getNonce();
-            if (!nonce) {
-                console.error('[API] Could not obtain nonce for', type);
-                return { ok: false, error: 'nonce_unavailable' };
+                return false;
+            } catch(e) {
+                console.error('[Session] createSession error:', e);
+                return false;
             }
         }
 
-        const headers = {
-            'Content-Type': 'application/json',
-            'X-Init-Data':   initData,
-            'X-Session-Id':  _SESSION_ID || '',
-            'X-Fingerprint': JSON.stringify(fp),
-        };
-        if (nonce) headers['X-Nonce'] = nonce;
+        /* Fetch a server-generated nonce before every write */
+        async function getNonce() {
+            const fp = await getFp();
+            try {
+                const res = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Id':  _SESSION_ID || '',
+                        'X-Fingerprint': JSON.stringify(fp),
+                    },
+                    body: JSON.stringify({ type: 'get_nonce', data: {} }),
+                });
+                const json = await res.json();
+                return json.nonce || null;
+            } catch(e) {
+                console.error('[Nonce] getNonce error:', e);
+                return null;
+            }
+        }
 
-        try {
-            const res = await fetch(API_BASE, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ type, data }),
-            });
-
-            if (res.status === 401) {
-                _SESSION_ID = null;
-                const renewed = await createSession();
-                if (!renewed) return { ok: false, error: 'session_expired' };
-                return fetchApi({ type, data });
+        /* Core fetchApi with full security pipeline */
+        async function fetchApi({ type, data = {}, _nonce = null }) {
+            if (!_SESSION_ID) {
+                const ok = await createSession();
+                if (!ok) return { ok: false, error: 'session_unavailable' };
             }
 
-            if (res.status === 429) {
-                _RATE_LIMIT_UNTIL = Date.now() + 5000;
+            if (Date.now() < _RATE_LIMIT_UNTIL) {
                 showRateLimitToast();
                 return { ok: false, error: 'rate_limited' };
             }
 
-            if (!res.ok) {
-                const errBody = await res.json().catch(() => ({}));
-                return { ok: false, error: errBody?.error || `HTTP ${res.status}` };
-            }
+            const tg       = window?.Telegram?.WebApp;
+            const initData = tg?.initData || '';
+            const fp       = await getFp();
 
-            const json = await res.json();
-            return { ok: true, ...json };
-        } catch(err) {
-            console.error(`[API] 🔴 ${type}`, err);
-            return { ok: false, error: 'network_error' };
-        }
-    }
+            const READ_ONLY   = new Set(['load', 'get_state']);
+            const SKIP_NONCE  = new Set(['load', 'get_state', 'get_nonce', 'start_ad', 'watch_ad', 'get_referrals']);
 
-    /* ══════════════════════════════════════════
-       AD SYSTEM
-    ══════════════════════════════════════════ */
-    function updateAdUI() {
-        const r = AD_STATE.remaining;
-        const elRem      = document.getElementById('ads-remaining');
-        const elWatched  = document.getElementById('ads-watched');
-        const elEarned   = document.getElementById('earned-today');
-        const elProgress = document.getElementById('ads-progress');
-        const elBtn      = document.getElementById('ad-watch-btn');
-        const elDone     = document.getElementById('ad-done-state');
-
-        if (elRem)      elRem.textContent     = r;
-        if (elWatched)  elWatched.textContent  = AD_STATE.watchedToday;
-        if (elEarned)   elEarned.textContent   = AD_STATE.earnedToday.toLocaleString('ar-EG');
-        if (elProgress) elProgress.style.width = ((AD_STATE.watchedToday / AD_STATE.total) * 100) + '%';
-
-        if (r <= 0) {
-            if (elBtn)  elBtn.style.display  = 'none';
-            if (elDone) elDone.style.display = 'flex';
-        } else {
-            if (elBtn)  elBtn.style.display  = '';
-            if (elDone) elDone.style.display = 'none';
-        }
-
-        syncDailyTasksFromAds();
-    }
-
-    async function watchAd() {
-        if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
-        AD_STATE.isWatching = true;
-
-        const overlay = document.getElementById('ad-watch-overlay');
-        const countEl = document.getElementById('overlay-count');
-        overlay.classList.add('visible');
-
-        let sec = 5;
-        countEl.textContent = sec;
-
-        const timer = setInterval(async () => {
-            sec--;
-            countEl.textContent = sec;
-            if (sec <= 0) {
-                clearInterval(timer);
-                overlay.classList.remove('visible');
-                AD_STATE.isWatching = false;
-
-                // 1. Get ad_nonce from server first
-                let adNonce = null;
-                const startResult = await fetchApi({ type: 'start_ad', data: {} });
-                if (startResult.ok) {
-                    adNonce = startResult.ad_nonce || null;
-                } else {
-                    const t = TRANSLATIONS[currentLang];
-                    showToast('coin', 'فشل تحميل الإعلان', 'حاول مجدداً', 'gold', '!');
-                    return;
-                }
-
-                // 2. Claim reward with ad_nonce
-                const result = await fetchApi({ type: 'watch_ad', data: { ad_nonce: adNonce } });
-
-                if (result.ok) {
-                    AD_STATE.remaining    = result.remaining    ?? Math.max(0, AD_STATE.remaining - 1);
-                    AD_STATE.watchedToday = result.watchedToday ?? (AD_STATE.watchedToday + 1);
-                    AD_STATE.earnedToday  = result.earnedToday  ?? (AD_STATE.earnedToday + 50);
-                    USER_STATE.points     = result.points       ?? USER_STATE.points;
-                    updateBalanceDisplay(USER_STATE.points);
-                }
-                updateAdUI();
-
-                const t = TRANSLATIONS[currentLang];
-                if (AD_STATE.remaining === 0) {
-                    showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
-                } else if (AD_STATE.remaining <= 3) {
-                    showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} إعلانات متبقية فقط`, 'gold', '+50');
-                } else {
-                    showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+            // ✅ استخدم _nonce المُمرَّر مباشرة إن وُجد، وإلا اطلب من السيرفر
+            let nonce = _nonce || null;
+            if (!nonce && !SKIP_NONCE.has(type) && !READ_ONLY.has(type)) {
+                nonce = await getNonce();
+                if (!nonce) {
+                    console.error('[API] Could not obtain nonce for', type);
+                    return { ok: false, error: 'nonce_unavailable' };
                 }
             }
-        }, 1000);
-    }
 
-    /* ══════════════════════════════════════════
-       BALANCE DISPLAY UPDATER
-    ══════════════════════════════════════════ */
-    function updateBalanceDisplay(pts) {
-        USER_STATE.points = pts;
-        // Main balance counter elements
-        document.querySelectorAll('.balance-number').forEach(el => {
-            el.textContent = pts.toLocaleString('en-US');
-        });
-        // USDT equivalent
-        const usdtEl = document.getElementById('uc-usdt-val');
-        if (usdtEl) usdtEl.textContent = (pts / 100000).toFixed(2);
-        // TON sheet
-        const tonPts   = document.getElementById('ton-sheet-pts');
-        const tonEquiv = document.getElementById('ton-sheet-equiv');
-        if (tonPts)   tonPts.textContent   = pts.toLocaleString();
-        if (tonEquiv) tonEquiv.textContent = '≈ ' + (pts / 100000).toFixed(3) + ' TON';
-        // XP level
-        const level = USER_STATE.level;
-        const xpLevel = document.querySelector('.uc-xp-level');
-        if (xpLevel) xpLevel.textContent = 'المستوى ' + level;
-    }
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-Init-Data':   initData,
+                'X-Session-Id':  _SESSION_ID || '',
+                'X-Fingerprint': JSON.stringify(fp),
+            };
+            if (nonce) headers['X-Nonce'] = nonce;
 
-    /* ══════════════════════════════════════════
-       TOAST SYSTEM
-    ══════════════════════════════════════════ */
-    const TOAST_ICONS = {
-        coin: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#fbbf24" stroke-width="1.8"/><path d="M12 7v10M9.5 9.5C9.5 8.67 10.67 8 12 8s2.5.67 2.5 1.5S13.33 11 12 11s-2.5.67-2.5 1.5S10.67 14 12 14s2.5-.67 2.5-1.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/></svg>`,
-        fire: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 7 8 7 13a5 5 0 0010 0c0-2-.7-3.8-2-5.5.5 1.5.5 2.5.5 2.5S12 8 12 2z" fill="rgba(251,191,36,0.9)"/></svg>`,
-        trophy: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 2h12v8a6 6 0 01-12 0V2z" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 5H3a2 2 0 000 4h3M18 5h3a2 2 0 010 4h-3" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/><path d="M12 16v4M9 20h6" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/></svg>`,
-    };
+            try {
+                const res = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ type, data }),
+                });
 
-    function showToast(iconKey, title, desc, color, badge) {
-        const container = document.getElementById('ad-toast-container');
-        const toast = document.createElement('div');
-        toast.className = 'ad-toast';
-        toast.innerHTML = `
-            <div class="toast-icon-wrap ${color}">${TOAST_ICONS[iconKey] || TOAST_ICONS.coin}</div>
-            <div class="toast-body">
-                <div class="toast-title">${title}</div>
-                <div class="toast-desc">${desc}</div>
-            </div>
-            <div class="toast-badge ${color}">${badge}</div>
-        `;
-        container.appendChild(toast);
-        requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
-        setTimeout(() => {
-            toast.classList.add('hide'); toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 400);
-        }, 3200);
-    }
+                if (res.status === 401) {
+                    /* Session expired — renew and retry once */
+                    console.warn('[API] 401 — renewing session');
+                    _SESSION_ID = null;
+                    const renewed = await createSession();
+                    if (!renewed) return { ok: false, error: 'session_expired' };
+                    return fetchApi({ type, data });
+                }
 
-    /* ══════════════════════════════════════════
-       DAILY GIFT SYSTEM
-    ══════════════════════════════════════════ */
-    const GIFT_DAYS = [
-        { day: 'اليوم الأول',   desc: 'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!', amount: '+100',  pts: 100 },
-        { day: 'اليوم الثاني',  desc: 'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.', amount: '+150',  pts: 150 },
-        { day: 'اليوم الثالث',  desc: 'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.', amount: '+200',  pts: 200 },
-        { day: 'اليوم الرابع',  desc: 'أسبوعك يقترب!\nاستمر في التحدي.', amount: '+250',  pts: 250 },
-        { day: 'اليوم الخامس', desc: 'خمسة أيام!\nأنت من الملتزمين الحقيقيين.', amount: '+300',  pts: 300 },
-        { day: 'اليوم السادس', desc: 'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.', amount: '+400',  pts: 400 },
-        { day: 'اليوم السابع',  desc: 'أسبوع كامل!\nمكافأة ضخمة بانتظارك.', amount: '+750',  pts: 750 },
-    ];
+                if (res.status === 429) {
+                    _RATE_LIMIT_UNTIL = Date.now() + 5000;
+                    showRateLimitToast();
+                    return { ok: false, error: 'rate_limited' };
+                }
 
-    function openDailyGiftOverlay() {
-        if (DAILY_GIFT_STATE.isOpening) return;
-        DAILY_GIFT_STATE.isOpening = true;
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => ({}));
+                    const msg = errBody?.error || `HTTP ${res.status}`;
+                    console.error(`[API] ❌ ${type} →`, msg);
+                    return { ok: false, error: msg };
+                }
 
-        const day  = DAILY_GIFT_STATE.dayNumber;
-        const data = GIFT_DAYS[Math.min(day - 1, GIFT_DAYS.length - 1)];
+                const json = await res.json();
+                console.log(`[API] ✅ ${type}`, json);
+                return { ok: true, ...json };
 
-        const dayTextEl  = document.getElementById('gift-day-text');
-        const descTextEl = document.getElementById('gift-desc-text');
-        const amountEl   = document.getElementById('gift-amount');
-        const dotsEl     = document.getElementById('gift-streak-dots');
-        const btn        = document.getElementById('gift-claim-btn');
-        const label      = document.getElementById('gift-loading-label');
-        const ringIcon   = document.getElementById('gift-ring-icon');
-        const overlay    = document.getElementById('daily-gift-overlay');
-
-        if (!overlay) { DAILY_GIFT_STATE.isOpening = false; return; }
-
-        if (dayTextEl)  dayTextEl.textContent  = data.day;
-        if (descTextEl) descTextEl.textContent = data.desc;
-        if (amountEl)   amountEl.textContent   = data.amount;
-
-        if (dotsEl) {
-            dotsEl.innerHTML = '';
-            for (let i = 1; i <= 7; i++) {
-                const dot = document.createElement('div');
-                dot.style.cssText = `width:${i === day ? '22px' : '8px'};height:8px;border-radius:4px;background:${i < day ? 'rgba(251,191,36,0.75)' : i === day ? '#fbbf24' : 'rgba(255,255,255,0.1)'};box-shadow:${i <= day ? '0 0 6px rgba(251,191,36,0.4)' : 'none'};`;
-                dotsEl.appendChild(dot);
+            } catch (err) {
+                console.error(`[API] 🔴 ${type} → Network error:`, err);
+                return { ok: false, error: 'network_error' };
             }
         }
 
-        if (btn)   btn.style.display   = 'none';
-        if (label) label.style.display = 'block';
-
-        overlay.style.opacity = '1';
-        overlay.style.pointerEvents = 'all';
-
-        if (DAILY_GIFT_STATE.claimed) {
-            const t2 = TRANSLATIONS[currentLang];
-            if (label) {
-                label.textContent   = t2.gift_already_claimed || 'تم استلام هديتك اليوم ✓';
-                label.style.color   = '#34d399';
-                label.style.fontSize = '14px';
-                label.style.fontWeight = '700';
-            }
-            DAILY_GIFT_STATE.isOpening = false;
-            setTimeout(() => closeDailyGiftOverlay(), 2200);
-            return;
-        }
-
-        let sec = 3;
-        const tg2 = TRANSLATIONS[currentLang];
-        if (label) label.textContent = tg2.gift_preparing || 'جاري تحضير هديتك...';
-        const timer = setInterval(() => {
-            sec--;
-            if (sec > 0) {
-                if (label) label.textContent = tg2.gift_preparing || 'جاري تحضير هديتك...';
+        /* ─── Ad System ─── */
+        /* ─── Deposit via Telegram Support ─── */
+        function openDepositSupport() {
+            const msg = encodeURIComponent('مرحبا أريد إيداع داخل البوت');
+            const url = 'https://t.me/YourSupportUsername?text=' + msg;
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.openTelegramLink(url);
             } else {
-                clearInterval(timer);
-                if (label) label.style.display = 'none';
-                if (btn) {
-                    btn.style.display = 'block';
-                    btn.style.transform = 'scale(0.8)'; btn.style.opacity = '0';
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
-                        btn.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-                        btn.style.transform = 'scale(1)'; btn.style.opacity = '1';
-                    }));
+                window.open(url, '_blank');
+            }
+        }
+
+        const AD_STATE = {
+            total: 10,
+            remaining: 10,
+            watchedToday: 0,
+            earnedToday: 0,
+            isWatching: false
+        };
+
+        function updateAdUI() {
+            const r = AD_STATE.remaining;
+            const elRem = document.getElementById('ads-remaining');
+            const elWatched = document.getElementById('ads-watched');
+            const elEarned = document.getElementById('earned-today');
+            const elProgress = document.getElementById('ads-progress');
+            const elBtn = document.getElementById('ad-watch-btn');
+            const elDone = document.getElementById('ad-done-state');
+
+            if (elRem) elRem.textContent = r;
+            if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
+            if (elEarned) elEarned.textContent = AD_STATE.earnedToday.toLocaleString('ar-EG');
+            if (elProgress) elProgress.style.width = ((r / AD_STATE.total) * 100) + '%';
+
+            if (r === 0) {
+                if (elBtn) elBtn.style.display = 'none';
+                if (elDone) elDone.style.display = 'flex';
+            }
+
+            syncDailyTasksFromAds();
+        }
+
+        async function watchAd() {
+            if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
+            AD_STATE.isWatching = true;
+
+            const overlay = document.getElementById('ad-watch-overlay');
+            const countEl = document.getElementById('overlay-count');
+            overlay.classList.add('visible');
+
+            let sec = 5;
+            countEl.textContent = sec;
+
+            const timer = setInterval(async () => {
+                sec--;
+                countEl.textContent = sec;
+                if (sec <= 0) {
+                    clearInterval(timer);
+                    overlay.classList.remove('visible');
+                    AD_STATE.isWatching = false;
+
+                    // ─── الحصول على ad_nonce من السيرفر أولاً ───
+                    let adNonce = null;
+                    try {
+                        const fp2 = await getFp();
+                        const startRes = await fetch(API_BASE, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Session-Id':  _SESSION_ID || '',
+                                'X-Fingerprint': JSON.stringify(fp2),
+                            },
+                            body: JSON.stringify({ type: 'start_ad', data: {} }),
+                        });
+                        const startJson = await startRes.json();
+                        adNonce = startJson.ad_nonce || null;
+                    } catch(e) { console.error('[Ad] start_ad failed:', e); }
+
+                    // ─── إرسال الأكشن للـ backend ───
+                    const result = await fetchApi({
+                        type: 'watch_ad',
+                        data: { ad_nonce: adNonce }
+                    });
+
+                    if (result.ok) {
+                        // ✅ الحقيقة تأتي من السيرفر فقط — لا local update
+                        AD_STATE.remaining    = result.remaining;
+                        AD_STATE.watchedToday = result.watchedToday;
+                        AD_STATE.earnedToday  = result.earnedToday;
+                    } else {
+                        // ❌ السيرفر رفض — لا تعديل على state
+                        console.warn('[Ad] watch_ad rejected by server:', result.error);
+                        return;
+                    }
+
+                    updateAdUI();
+
+                    // Pick toast type
+                    const t = TRANSLATIONS[currentLang];
+                    if (AD_STATE.remaining === 0) {
+                        showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
+                    } else if (AD_STATE.remaining <= 3) {
+                        showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} ${t.ads_watched || 'إعلانات متبقية فقط'}`, 'gold', '+50');
+                    } else {
+                        showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+                    }
+                }
+            }, 1000);
+        }
+
+        /* Toast icons */
+        const TOAST_ICONS = {
+            coin: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#fbbf24" stroke-width="1.8"/>
+                <path d="M12 7v10M9.5 9.5C9.5 8.67 10.67 8 12 8s2.5.67 2.5 1.5S13.33 11 12 11s-2.5.67-2.5 1.5S10.67 14 12 14s2.5-.67 2.5-1.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>`,
+            fire: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C12 2 7 8 7 13a5 5 0 0010 0c0-2-.7-3.8-2-5.5.5 1.5.5 2.5.5 2.5S12 8 12 2z" fill="rgba(251,191,36,0.9)"/>
+                <path d="M12 15c0 1.1-.9 2-2 2" stroke="rgba(251,191,36,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>`,
+            trophy: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M6 2h12v8a6 6 0 01-12 0V2z" stroke="#34d399" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M6 5H3a2 2 0 000 4h3M18 5h3a2 2 0 010 4h-3" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M12 16v4M9 20h6" stroke="#34d399" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>`
+        };
+
+        function showToast(iconKey, title, desc, color, badge) {
+            const container = document.getElementById('ad-toast-container');
+
+            const toast = document.createElement('div');
+            toast.className = 'ad-toast';
+            toast.innerHTML = `
+                <div class="toast-icon-wrap ${color}">${TOAST_ICONS[iconKey]}</div>
+                <div class="toast-body">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-desc">${desc}</div>
+                </div>
+                <div class="toast-badge ${color}">${badge}</div>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => toast.classList.add('show'));
+            });
+
+            // Auto dismiss after 3.2s
+            setTimeout(() => {
+                toast.classList.add('hide');
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3200);
+        }
+
+        /* ─── Daily Gift System ─── */
+        const DAILY_GIFT_STATE = {
+            dayNumber: 1,   // اليوم الحالي للمستخدم (1–7+)
+            claimed: false,
+            isOpening: false
+        };
+
+        const GIFT_DAYS = [
+            { day: 'اليوم الأول',   desc: 'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!', amount: '+100', pts: 100 },
+            { day: 'اليوم الثاني',  desc: 'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.', amount: '+150', pts: 150 },
+            { day: 'اليوم الثالث',  desc: 'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.', amount: '+200', pts: 200 },
+            { day: 'اليوم الرابع',  desc: 'أسبوعك يقترب!\nاستمر في التحدي.', amount: '+250', pts: 250 },
+            { day: 'اليوم الخامس', desc: 'خمسة أيام!\nأنت من الملتزمين الحقيقيين.', amount: '+300', pts: 300 },
+            { day: 'اليوم السادس', desc: 'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.', amount: '+400', pts: 400 },
+            { day: 'اليوم السابع',  desc: 'أسبوع كامل!\nمكافأة ضخمة بانتظارك.', amount: '+750', pts: 750 },
+        ];
+
+        function openDailyGiftOverlay() {
+            if (DAILY_GIFT_STATE.isOpening) return;
+            DAILY_GIFT_STATE.isOpening = true;
+
+            const day = DAILY_GIFT_STATE.dayNumber;
+            const data = GIFT_DAYS[Math.min(day - 1, GIFT_DAYS.length - 1)];
+
+            const dayTextEl  = document.getElementById('gift-day-text');
+            const descTextEl = document.getElementById('gift-desc-text');
+            const amountEl   = document.getElementById('gift-amount');
+            const dotsEl     = document.getElementById('gift-streak-dots');
+            const btn        = document.getElementById('gift-claim-btn');
+            const label      = document.getElementById('gift-loading-label');
+            const ringIcon   = document.getElementById('gift-ring-icon');
+            const overlay    = document.getElementById('daily-gift-overlay');
+
+            if (!overlay) { DAILY_GIFT_STATE.isOpening = false; return; }
+
+            if (dayTextEl)  dayTextEl.textContent  = data.day;
+            if (descTextEl) descTextEl.textContent = data.desc;
+            if (amountEl)   amountEl.textContent   = data.amount;
+
+            // Build streak dots
+            if (dotsEl) {
+                dotsEl.innerHTML = '';
+                for (let i = 1; i <= 7; i++) {
+                    const dot = document.createElement('div');
+                    dot.style.cssText = `
+                        width:${i === day ? '22px' : '8px'};height:8px;border-radius:4px;
+                        background:${i < day ? 'rgba(251,191,36,0.75)' : i === day ? '#fbbf24' : 'rgba(255,255,255,0.1)'};
+                        box-shadow:${i <= day ? '0 0 6px rgba(251,191,36,0.4)' : 'none'};
+                    `;
+                    dotsEl.appendChild(dot);
+                }
+            }
+
+            if (btn)   btn.style.display   = 'none';
+            if (label) label.style.display = 'block';
+
+            if (ringIcon) ringIcon.innerHTML = `
+                <path d="M20 12v10H4V12" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M22 7H2v5h20V7z" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 22V7" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            `;
+
+            overlay.style.opacity = '1';
+            overlay.style.pointerEvents = 'all';
+
+            if (DAILY_GIFT_STATE.claimed) {
+                const t2 = TRANSLATIONS[currentLang];
+                if (label) {
+                    label.textContent   = t2.gift_already_claimed || 'تم استلام هديتك اليوم ✓';
+                    label.style.color      = '#34d399';
+                    label.style.fontSize   = '14px';
+                    label.style.fontWeight = '700';
                 }
                 DAILY_GIFT_STATE.isOpening = false;
+                setTimeout(() => closeDailyGiftOverlay(), 2200);
+                return;
             }
-        }, 1000);
-    }
 
-    function closeDailyGiftOverlay() {
-        const overlay = document.getElementById('daily-gift-overlay');
-        if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
-        DAILY_GIFT_STATE.isOpening = false;
-    }
+            // Countdown 3 seconds like ad overlay
+            let sec = 3;
+            const tg = TRANSLATIONS[currentLang];
+            if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
 
-    function openDailyGift()  { openDailyGiftOverlay(); }
-    function closeDailyGift() { closeDailyGiftOverlay(); }
-
-    async function claimGift() {
-        if (DAILY_GIFT_STATE.claimed) return;
-        DAILY_GIFT_STATE.claimed = true;
-
-        const result = await fetchApi({ type: 'claim_gift', data: {} });
-
-        if (!result.ok) {
-            DAILY_GIFT_STATE.claimed = false;
-            return;
+            const timer = setInterval(() => {
+                sec--;
+                if (sec > 0) {
+                    if (label) label.textContent = tg.gift_preparing || 'جاري تحضير هديتك...';
+                } else {
+                    clearInterval(timer);
+                    if (label) label.style.display = 'none';
+                    if (btn) {
+                        btn.style.display = 'block';
+                        btn.style.transform = 'scale(0.8)';
+                        btn.style.opacity = '0';
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                btn.style.transition = 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+                                btn.style.transform = 'scale(1)';
+                                btn.style.opacity = '1';
+                            });
+                        });
+                    }
+                    DAILY_GIFT_STATE.isOpening = false;
+                }
+            }, 1000);
         }
 
-        const pts = result.pts || 0;
-        if (result.points !== undefined) updateBalanceDisplay(result.points);
-
-        const ringIcon = document.getElementById('gift-ring-icon');
-        if (ringIcon) ringIcon.innerHTML = `<path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-
-        const btn = document.getElementById('gift-claim-btn');
-        const tc  = TRANSLATIONS[currentLang];
-        if (btn) {
-            btn.textContent = tc.gift_claimed || 'تم الاستلام ✓';
-            btn.style.background = 'rgba(52,211,153,0.15)';
-            btn.style.color = '#34d399';
-            btn.style.border = '1px solid rgba(52,211,153,0.28)';
-            btn.style.cursor = 'default';
-            btn.onclick = null;
+        function closeDailyGiftOverlay() {
+            const overlay = document.getElementById('daily-gift-overlay');
+            if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
+            DAILY_GIFT_STATE.isOpening = false;
         }
 
-        showToast('trophy', tc.toast_gift_title || 'تم استلام هديتك!', `+${pts} ${tc.pts || 'نقطة'}`, 'green', `+${pts}`);
+        // Legacy alias (for home button compatibility)
+        function openDailyGift() { openDailyGiftOverlay(); }
+        function closeDailyGift() { closeDailyGiftOverlay(); }
 
-        // Update streak display
-        if (result.streak !== undefined) {
-            DAILY_GIFT_STATE.dayNumber = result.streak + 1;
+        async function claimGift() {
+            if (DAILY_GIFT_STATE.claimed) return;
+
+            // ✅ احصل على nonce من السيرفر أولاً
+            const nonceRes = await fetchApi({ type: 'get_nonce', data: {} });
+            if (!nonceRes.ok || !nonceRes.nonce) {
+                console.warn('[Gift] Could not get nonce');
+                return;
+            }
+
+            DAILY_GIFT_STATE.claimed = true;
+
+            // ✅ أرسل nonce في الـ header عبر fetchApi
+            const result = await fetchApi({
+                type: 'claim_gift',
+                data: {},
+                _nonce: nonceRes.nonce,
+            });
+
+            if (!result.ok) {
+                // Rollback على فشل الـ backend
+                console.warn('[Gift] Backend رفض الطلب — rollback:', result.error);
+                DAILY_GIFT_STATE.claimed = false;
+                return;
+            }
+
+            // ✅ تحديث state من السيرفر
+            if (result.streak_day) DAILY_GIFT_STATE.dayNumber = result.streak_day;
+            if (result.points !== undefined) {
+                USER_STATE.points = result.points;
+                updateBalanceUI(result.points);
+            }
+
+            const ringIcon = document.getElementById('gift-ring-icon');
+            if (ringIcon) ringIcon.innerHTML = `
+                <path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            `;
+
+            const btn = document.getElementById('gift-claim-btn');
+            const tc = TRANSLATIONS[currentLang];
+            if (btn) {
+                btn.textContent = tc.gift_claimed || 'تم الاستلام ✓';
+                btn.style.background = 'rgba(52,211,153,0.15)';
+                btn.style.color = '#34d399';
+                btn.style.border = '1px solid rgba(52,211,153,0.28)';
+                btn.style.cursor = 'default';
+                btn.onclick = null;
+                btn.onmouseenter = null;
+                btn.onmouseleave = null;
+            }
+
+            // ✅ reward يأتي من السيرفر
+            const reward = result.reward || 0;
+            showToast('trophy', tc.toast_gift_title || 'تم استلام هديتك!', `+${reward} ${tc.pts || 'نقطة'}`, 'green', `+${reward}`);
+
+            setTimeout(() => closeDailyGiftOverlay(), 1600);
         }
 
-        setTimeout(() => closeDailyGiftOverlay(), 1600);
-    }
 
-    /* ══════════════════════════════════════════
-       REFERRAL LINK
-    ══════════════════════════════════════════ */
-    function _updateReferralLinkUI() {
-        const linkEl = document.getElementById('referral-link-text');
-        if (linkEl) linkEl.textContent = REFERRAL_LINK;
-    }
+        // ملاحظة: REFERRAL_LINK و BOT_USERNAME معرّفان أعلاه داخل initTelegramUser block
 
-    function copyReferralLink() {
-        const btn = document.getElementById('copy-btn');
-        navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {
-            const ta = document.createElement('textarea');
-            ta.value = REFERRAL_LINK;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
+        function copyReferralLink() {
+            const btn = document.getElementById('copy-btn');
+            navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {
+                // fallback
+                const ta = document.createElement('textarea');
+                ta.value = REFERRAL_LINK;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            });
+
+            // نسخ الرابط — عملية محلية فقط
+
+            // Feedback
+            btn.classList.add('copied');
+            const t = TRANSLATIONS[currentLang];
+            btn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                </svg>
+                ${t.copy_btn_done || 'تم النسخ!'}
+            `;
+
+            showToast('trophy', t.toast_copy_title || 'تم نسخ الرابط ✓', t.toast_copy_desc || 'شارك رابطك مع أصدقائك', 'green', '🔗');
+
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+                    </svg>
+                    ${t.copy_btn_default || t.copy_link}
+                `;
+            }, 2500);
+        }
+
+        function shareTelegram() {
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(REFERRAL_LINK) + '&text=' + text, '_blank');
+        }
+
+        function shareWhatsApp() {
+            const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
+            window.open('https://wa.me/?text=' + text, '_blank');
+        }
+
+        /* ═══════════════════════════════════════
+           TASKS PAGE — LOGIC
+        ═══════════════════════════════════════ */
+
+        const TASKS_STATE = {
+            tgJoined: false,
+            tgVerified: false,
+            // daily counts (sync with AD_STATE)
+            ads10Done: false,
+            ads25Done: false,
+            invite3Done: false,
+        };
+
+        // Called when "انضم للقناة" pressed
+        function handleTelegramTask() {
+            if (TASKS_STATE.tgVerified) return;
+
+            // Open channel — BACKEND: replace with real channel username
+            const channelUrl = 'https://t.me/YourChannelUsername';
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.openTelegramLink(channelUrl);
+            } else {
+                window.open(channelUrl, '_blank');
+            }
+
+            TASKS_STATE.tgJoined = true;
+
+            const joinBtn    = document.getElementById('tg-join-btn');
+            const verifyBtn  = document.getElementById('tg-verify-btn-compact');
+            const verifyHint = document.getElementById('tg-verify-hint');
+
+            if (joinBtn)    { joinBtn.style.display = 'none'; }
+            if (verifyBtn)  { verifyBtn.style.display = 'inline-flex'; verifyBtn.style.animation = 'pageIn 0.3s ease both'; }
+            if (verifyHint) { verifyHint.style.display = 'block'; }
+        }
+
+        async function verifyTelegramTask() {
+            if (TASKS_STATE.tgVerified) return;
+
+            const verifyBtn = document.getElementById('tg-verify-btn-compact');
+            if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
+
+            // ✅ احصل على nonce أولاً
+            const nonceRes = await fetchApi({ type: 'get_nonce', data: {} });
+            if (!nonceRes.ok || !nonceRes.nonce) {
+                if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
+                showToast('coin', 'خطأ', 'تعذّر الاتصال بالسيرفر', 'gold', '!');
+                return;
+            }
+
+            // ✅ الاسم الصحيح: verify_tg_task مع nonce
+            const result = await fetchApi({
+                type: 'verify_tg_task',
+                data: {},
+                _nonce: nonceRes.nonce,
+            });
+
+            if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
+
+            if (!result.ok) {
+                showToast('coin', 'لم يتم التحقق بعد', 'تأكد من انضمامك للقناة ثم حاول مجدداً', 'gold', '!');
+                return;
+            }
+
+            // ✅ تحديث balance من السيرفر
+            if (result.points !== undefined) {
+                USER_STATE.points = result.points;
+                updateBalanceUI(result.points);
+            }
+
+            TASKS_STATE.tgVerified = true;
+
+            const verifyHint = document.getElementById('tg-verify-hint');
+            const actionWrap = document.getElementById('tg-action-wrap');
+            const doneState  = document.getElementById('tg-done-state');
+            const doneOverlay= document.getElementById('tg-done-overlay');
+            const card       = document.getElementById('tg-task-card');
+
+            if (verifyBtn)  verifyBtn.style.display  = 'none';
+            if (verifyHint) verifyHint.style.display = 'none';
+            if (actionWrap) actionWrap.style.display = 'none';
+
+            if (doneState)   { doneState.style.display = 'block'; doneState.style.animation = 'pageIn 0.4s cubic-bezier(0.22,1,0.36,1) both'; }
+            if (doneOverlay) doneOverlay.style.display = 'block';
+            if (card)        card.classList.add('completed');
+
+            showToast('trophy', 'انضممت للقناة! 🎉', '+2,500 نقطة أضيفت لرصيدك', 'gold', '+2,500');
+        }
+
+        /* Daily tasks — update from AD_STATE */
+        function syncDailyTasksFromAds() {
+            const watched = AD_STATE.watchedToday;
+
+            // Task: 10 ads
+            const pct10 = Math.min(watched / 10, 1) * 100;
+            const fill10 = document.getElementById('ads10-fill');
+            const prog10 = document.getElementById('ads10-prog');
+            if (fill10) fill10.style.width = pct10 + '%';
+            if (prog10) prog10.textContent = Math.min(watched, 10) + ' / 10';
+            if (watched >= 10 && !TASKS_STATE.ads10Done) {
+                TASKS_STATE.ads10Done = true;
+                markDailyTaskDone('dtask-ads10');
+            }
+
+            // Task: 25 ads
+            const pct25 = Math.min(watched / 25, 1) * 100;
+            const fill25 = document.getElementById('ads25-fill');
+            const prog25 = document.getElementById('ads25-prog');
+            if (fill25) fill25.style.width = pct25 + '%';
+            if (prog25) prog25.textContent = Math.min(watched, 25) + ' / 25';
+            if (watched >= 25 && !TASKS_STATE.ads25Done) {
+                TASKS_STATE.ads25Done = true;
+                markDailyTaskDone('dtask-ads25');
+            }
+
+            updateDailyBadge();
+        }
+
+        function markDailyTaskDone(cardId) {
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            card.classList.add('completed');
+            // Replace icon with green check
+            const icon = card.querySelector('.dtask-icon');
+            if (icon) {
+                icon.style.background = 'rgba(52,211,153,0.12)';
+                icon.style.border = '1px solid rgba(52,211,153,0.22)';
+                icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+            }
+        }
+
+        function updateDailyBadge() {
+            const done = [TASKS_STATE.ads10Done, TASKS_STATE.ads25Done, TASKS_STATE.invite3Done].filter(Boolean).length;
+            const badge = document.getElementById('daily-tasks-badge');
+            if (badge) badge.textContent = done + ' / 3';
+        }
+
+        function handleDailyTask(type, el) {
+            if (type === 'ads10' || type === 'ads25') {
+                showPage('earn', null);
+                const navEarn = document.querySelector('.nav-item[data-page="earn"]');
+                if (navEarn) {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    navEarn.classList.add('active');
+                }
+            } else if (type === 'invite3') {
+                showPage('invite', null);
+                const navInvite = document.querySelector('.nav-item[data-page="invite"]');
+                if (navInvite) {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    navInvite.classList.add('active');
+                }
+            }
+        }
+
+        /* ─── Page Navigation ─── */
+        function showPage(pageName, btn) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+            // Show target page
+            const target = document.getElementById('page-' + pageName);
+            if (target) target.classList.add('active');
+
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Mark active nav
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                // Find by data-page
+                const navBtn = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+                if (navBtn) navBtn.classList.add('active');
+            }
+
+            // Run counters - reset then animate
+            setTimeout(() => {
+                const scope = target || document;
+                scope.querySelectorAll('.counter').forEach(c => { c.textContent = '0'; });
+                runCounters(scope);
+            }, 80);
+        }
+
+        /* ─── Number Counter ─── */
+        function runCounters(scope) {
+            scope = scope || document;
+            scope.querySelectorAll('.counter').forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                if (!target) return;
+
+                const duration = 1800;
+                const startTime = performance.now();
+
+                function update(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    // Cubic ease-out
+                    const ease = 1 - Math.pow(1 - progress, 3);
+                    const current = Math.floor(ease * target);
+                    counter.textContent = current.toLocaleString('en-US');
+
+                    if (progress < 1) {
+                        requestAnimationFrame(update);
+                    } else {
+                        counter.textContent = target.toLocaleString('en-US');
+                    }
+                }
+
+                requestAnimationFrame(update);
+            });
+        }
+
+        /* ═══ helper: تحديث عناصر الرصيد في الواجهة ═══ */
+        function updateBalanceUI(pts) {
+            pts = parseInt(pts) || 0;
+            const balEl    = document.getElementById('uc-balance-num');
+            const tonSheet = document.getElementById('ton-sheet-pts');
+            const tonEquiv = document.getElementById('ton-sheet-equiv');
+            const heroNum  = document.querySelector('.balance-hero-number');
+            const usdtEl   = document.getElementById('uc-usdt-val');
+            const xpLevel  = document.querySelector('.uc-xp-level');
+            const xpPct    = document.querySelector('.uc-xp-pct');
+            const xpFill   = document.querySelector('.uc-xp-fill');
+
+            if (balEl)    balEl.textContent  = pts.toLocaleString('en-US');
+            if (heroNum)  heroNum.textContent = pts.toLocaleString('en-US');
+            if (tonSheet) tonSheet.textContent = pts.toLocaleString('en-US');
+            if (tonEquiv) tonEquiv.textContent = '≈ ' + (pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(3) + ' TON';
+            if (usdtEl)   usdtEl.textContent  = (pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(2);
+
+            // XP bar — نعيد حسابه من النقاط
+            const lvl  = USER_STATE.level || 1;
+            const THRESHOLDS = [0, 0, 500, 1500, 3500, 8000, 16000, 30000, 55000, 90000, 150000];
+            const curr = THRESHOLDS[lvl] || 0;
+            const next = THRESHOLDS[lvl + 1] || curr + 10000;
+            const pct  = next > curr ? Math.min(100, Math.floor((pts - curr) / (next - curr) * 100)) : 100;
+            if (xpLevel) xpLevel.textContent = `المستوى ${lvl}`;
+            if (xpPct)   xpPct.textContent   = pct + '%';
+            if (xpFill)  xpFill.style.width  = pct + '%';
+        }
+
+        /* ─── Init ─── */
+        window.addEventListener('DOMContentLoaded', async () => {
+            initTelegramUser();
+            /* Create session right after TG init */
+            await createSession();
+            /* Load full state from server */
+            const loadResult = await fetchApi({ type: 'load', data: {} });
+            if (loadResult.ok) {
+                const pts = parseInt(loadResult.points) || 0;
+                const lvl = parseInt(loadResult.level)  || 1;
+
+                // ✅ تحديث state من السيرفر — كل القيم تأتي من هناك
+                USER_STATE.points = pts;
+                USER_STATE.level  = lvl;
+                TASKS_STATE.tgVerified = !!loadResult.tg_verified;
+
+                // ✅ config من السيرفر — يُستخدم في TON_CONFIG و openTonWithdraw
+                if (loadResult.config) {
+                    Object.assign(_SERVER_CONFIG, loadResult.config);
+                }
+
+                // ✅ Ads state من السيرفر
+                AD_STATE.total        = parseInt(loadResult.ads_total)        || _SERVER_CONFIG.ads_daily_limit || 10;
+                AD_STATE.remaining    = parseInt(loadResult.ads_remaining)     || AD_STATE.total;
+                AD_STATE.watchedToday = parseInt(loadResult.ads_watched_today) || 0;
+                AD_STATE.earnedToday  = parseInt(loadResult.earned_today)      || 0;  // ✅ من السيرفر مباشرة
+                updateAdUI();
+
+                // ✅ Daily gift state
+                if (loadResult.streak_day !== undefined) {
+                    DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(loadResult.streak_day) || 0) + 1);
+                }
+                const today = new Date().toISOString().slice(0, 10);
+                const lastGift = loadResult.last_gift_date
+                    ? String(loadResult.last_gift_date).slice(0, 10)
+                    : '';
+                if (lastGift === today) DAILY_GIFT_STATE.claimed = true;
+
+                // ✅ Withdraw history من السيرفر
+                if (Array.isArray(loadResult.withdrawals)) {
+                    WITHDRAW_HISTORY.length = 0;
+                    loadResult.withdrawals.forEach(w => {
+                        WITHDRAW_HISTORY.push({
+                            pts:     parseInt(w.pts)  || 0,
+                            address: w.address        || '',
+                            ts:      parseInt(w.ts)   || Date.now(),
+                            status:  w.status         || 'pending',
+                        });
+                    });
+                    renderWithdrawHistory();
+                }
+
+                // ✅ sync daily tasks من completed_tasks
+                if (Array.isArray(loadResult.completed_tasks)) {
+                    if (loadResult.completed_tasks.includes('ads_10')) {
+                        TASKS_STATE.ads10Done = true;
+                        markDailyTaskDone('dtask-ads10');
+                    }
+                    if (loadResult.completed_tasks.includes('ads_25')) {
+                        TASKS_STATE.ads25Done = true;
+                        markDailyTaskDone('dtask-ads25');
+                    }
+                    if (loadResult.completed_tasks.includes('tg_join')) {
+                        TASKS_STATE.tgVerified = true;
+                    }
+                }
+
+                // ✅ Referral stats — تحديث مباشر بدون data-target
+                const totalRefs  = parseInt(loadResult.total_referrals)  || 0;
+                const earnedRefs = parseInt(loadResult.earned_from_refs) || 0;
+
+                // home page stats
+                const statEls = document.querySelectorAll('.uc-stat-val');
+                statEls.forEach(el => {
+                    if (el.classList.contains('green'))  el.textContent = totalRefs;
+                    if (el.classList.contains('gold'))   el.textContent = earnedRefs.toLocaleString('en-US');
+                    if (el.classList.contains('blue'))   el.textContent = loadResult.completed_tasks?.length || 0;
+                });
+                // invite page stat cards
+                const inviteStatVals = document.querySelectorAll('.invite-stat-val');
+                if (inviteStatVals[0]) inviteStatVals[0].querySelector('span')
+                    ? (inviteStatVals[0].querySelector('span').textContent = totalRefs)
+                    : (inviteStatVals[0].textContent = totalRefs);
+                if (inviteStatVals[1]) {
+                    const sp = inviteStatVals[1].querySelector('span[style*="color:var(--gold)"]');
+                    if (sp) sp.textContent = earnedRefs.toLocaleString('en-US');
+                }
+                // badge الأصدقاء
+                const refBadge = document.getElementById('referral-friends-badge');
+                if (refBadge) refBadge.textContent = totalRefs + ' صديق';
+
+                // ✅ Referral list
+                if (Array.isArray(loadResult.referral_list) && loadResult.referral_list.length > 0) {
+                    renderReferralList(loadResult.referral_list, totalRefs);
+                }
+
+                // ✅ tgVerified — إخفاء زر الانضمام إن كان مكتملاً
+                if (TASKS_STATE.tgVerified) {
+                    const joinBtn     = document.getElementById('tg-join-btn');
+                    const verifyBtn   = document.getElementById('tg-verify-btn-compact');
+                    const actionWrap  = document.getElementById('tg-action-wrap');
+                    const doneState   = document.getElementById('tg-done-state');
+                    const doneOverlay = document.getElementById('tg-done-overlay');
+                    const card        = document.getElementById('tg-task-card');
+                    if (joinBtn)    joinBtn.style.display    = 'none';
+                    if (verifyBtn)  verifyBtn.style.display  = 'none';
+                    if (actionWrap) actionWrap.style.display = 'flex';
+                    if (doneState)  doneState.style.display  = 'block';
+                    if (doneOverlay)doneOverlay.style.display= 'block';
+                    if (card)       card.classList.add('completed');
+                }
+
+                // ✅ تحديث UI الرصيد — مباشر
+                updateBalanceUI(pts);
+                // balance counters بالقيمة الحقيقية
+                document.querySelectorAll('.balance-hero-number').forEach(el => { el.textContent = pts.toLocaleString('en-US'); });
+                const ucBal = document.querySelector('.uc-balance-num');
+                if (ucBal) ucBal.textContent = pts.toLocaleString('en-US');
+
+                setTimeout(() => runCounters(document), 120);
+            } else {
+                // ✅ fallback counters بالأصفار
+                setTimeout(() => runCounters(document), 350);
+            }
         });
 
-        fetchApi({ type: 'track_copy_link', data: {} });
+        /* ══════════════════════════════════════════
+           TELEGRAM USER DATA — PROFESSIONAL v2
+        ══════════════════════════════════════════ */
 
-        btn.classList.add('copied');
-        const t = TRANSLATIONS[currentLang];
-        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>${t.copy_btn_done || 'تم النسخ!'}`;
-        showToast('trophy', t.toast_copy_title || 'تم نسخ الرابط ✓', t.toast_copy_desc || 'شارك رابطك مع أصدقائك', 'green', '🔗');
+        // اسم بوت الإحالة — غيّر هذا باسم بوتك الحقيقي
+        const BOT_USERNAME = 'RebhApp_bot';
 
-        setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>${t.copy_btn_default || t.copy_link || 'نسخ'}`;
-        }, 2500);
-    }
+        // متغير عالمي للرابط — يُحدَّث من initTelegramUser()
+        let REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_0000000000';
 
-    function shareTelegram() {
-        const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
-        const url = 'https://t.me/share/url?url=' + encodeURIComponent(REFERRAL_LINK) + '&text=' + text;
-        if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(url);
-        else window.open(url, '_blank');
-    }
+        // معرّف المستخدم العالمي — يُحدَّث عند التهيئة
+        let CURRENT_USER_ID = null;
 
-    function shareWhatsApp() {
-        const text = encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n' + REFERRAL_LINK);
-        window.open('https://wa.me/?text=' + text, '_blank');
-    }
+        function initTelegramUser() {
+            // ─── 1. التحقق من وجود Telegram WebApp SDK ───
+            const tg = window?.Telegram?.WebApp;
 
-    /* ══════════════════════════════════════════
-       TASKS LOGIC
-    ══════════════════════════════════════════ */
-    function handleTelegramTask() {
-        if (TASKS_STATE.tgVerified) return;
-        const channelUrl = 'https://t.me/' + (window.__CHANNEL || 'YourChannelUsername');
-        if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(channelUrl);
-        else window.open(channelUrl, '_blank');
-        TASKS_STATE.tgJoined = true;
-        const joinBtn   = document.getElementById('tg-join-btn');
-        const verifyBtn = document.getElementById('tg-verify-btn-compact');
-        const hint      = document.getElementById('tg-verify-hint');
-        if (joinBtn)   joinBtn.style.display   = 'none';
-        if (verifyBtn) { verifyBtn.style.display = 'inline-flex'; }
-        if (hint)      hint.style.display = 'block';
-    }
-
-    async function verifyTelegramTask() {
-        if (TASKS_STATE.tgVerified) return;
-        const verifyBtn = document.getElementById('tg-verify-btn-compact');
-        if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
-
-        const result = await fetchApi({ type: 'verify_tg_membership', data: {} });
-
-        if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
-
-        if (!result.ok) {
-            showToast('coin', 'لم يتم التحقق بعد', 'تأكد من انضمامك للقناة ثم حاول مجدداً', 'gold', '!');
-            return;
-        }
-
-        TASKS_STATE.tgVerified = true;
-
-        const hint      = document.getElementById('tg-verify-hint');
-        const actionWrap = document.getElementById('tg-action-wrap');
-        const doneState  = document.getElementById('tg-done-state');
-        const doneOverlay= document.getElementById('tg-done-overlay');
-        const card       = document.getElementById('tg-task-card');
-
-        if (verifyBtn)  verifyBtn.style.display  = 'none';
-        if (hint)       hint.style.display       = 'none';
-        if (actionWrap) actionWrap.style.display = 'none';
-        if (doneState)  { doneState.style.display = 'block'; }
-        if (doneOverlay) doneOverlay.style.display = 'block';
-        if (card)       card.classList.add('completed');
-
-        if (result.points !== undefined) updateBalanceDisplay(result.points);
-        showToast('trophy', 'انضممت للقناة! 🎉', `+${result.pts || 2500} نقطة أضيفت لرصيدك`, 'gold', `+${result.pts || 2500}`);
-    }
-
-    function syncDailyTasksFromAds() {
-        const watched = AD_STATE.watchedToday;
-
-        const fill10 = document.getElementById('ads10-fill');
-        const prog10 = document.getElementById('ads10-prog');
-        if (fill10) fill10.style.width = Math.min(watched / 10, 1) * 100 + '%';
-        if (prog10) prog10.textContent = Math.min(watched, 10) + ' / 10';
-        if (watched >= 10 && !TASKS_STATE.ads10Done) {
-            TASKS_STATE.ads10Done = true;
-            markDailyTaskDone('dtask-ads10');
-        }
-
-        const fill25 = document.getElementById('ads25-fill');
-        const prog25 = document.getElementById('ads25-prog');
-        if (fill25) fill25.style.width = Math.min(watched / 25, 1) * 100 + '%';
-        if (prog25) prog25.textContent = Math.min(watched, 25) + ' / 25';
-        if (watched >= 25 && !TASKS_STATE.ads25Done) {
-            TASKS_STATE.ads25Done = true;
-            markDailyTaskDone('dtask-ads25');
-        }
-
-        updateDailyBadge();
-    }
-
-    function markDailyTaskDone(cardId) {
-        const card = document.getElementById(cardId);
-        if (!card) return;
-        card.classList.add('completed');
-        const icon = card.querySelector('.dtask-icon');
-        if (icon) {
-            icon.style.background = 'rgba(52,211,153,0.12)';
-            icon.style.border = '1px solid rgba(52,211,153,0.22)';
-            icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
-        }
-    }
-
-    function updateDailyBadge() {
-        const done = [TASKS_STATE.ads10Done, TASKS_STATE.ads25Done, TASKS_STATE.invite3Done].filter(Boolean).length;
-        const badge = document.getElementById('daily-tasks-badge');
-        if (badge) badge.textContent = done + ' / 3';
-    }
-
-    function handleDailyTask(type) {
-        if (type === 'ads10' || type === 'ads25') {
-            showPage('earn', null);
-            const navEarn = document.querySelector('.nav-item[data-page="earn"]');
-            if (navEarn) {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                navEarn.classList.add('active');
+            if (!tg) {
+                console.warn('[TG] ⚠️ لم يتم تشغيل التطبيق داخل Telegram WebApp — SDK غير محمّل أو البيئة خارجية');
+                _applyFallbackUser();
+                return;
             }
-        } else if (type === 'invite3') {
-            showPage('invite', null);
-            const navInvite = document.querySelector('.nav-item[data-page="invite"]');
-            if (navInvite) {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                navInvite.classList.add('active');
+
+            // ─── 2. إخبار تيليغرام أن التطبيق جاهز ───
+            tg.ready();
+
+            // ─── 3. توسيع التطبيق ليملأ الشاشة ───
+            tg.expand();
+
+            // ─── 4. قراءة بيانات المستخدم بأمان ───
+            const user = tg?.initDataUnsafe?.user;
+
+            if (!user) {
+                console.warn('[TG] ⚠️ initDataUnsafe.user غير متوفر — ربما البيئة dev أو Bot لا يمرر البيانات');
+                _applyFallbackUser();
+                return;
+            }
+
+            // ─── 5. استخراج البيانات بـ optional chaining ───
+            const userId    = user?.id          ?? null;
+            const firstName = user?.first_name  ?? '';
+            const lastName  = user?.last_name   ?? '';
+            const username  = user?.username    ?? '';
+            const photoUrl  = user?.photo_url   ?? '';
+            const langCode  = user?.language_code ?? 'ar';
+            const isPremium = user?.is_premium  ?? false;
+
+            // ─── 6. بناء اسم العرض (بدون undefined/null/فارغ) ───
+            let displayName = '@مستخدم'; // fallback آمن
+            if (username) {
+                displayName = '@' + username;
+            } else if (firstName || lastName) {
+                displayName = [firstName, lastName].filter(Boolean).join(' ');
+            }
+
+            // ─── 7. حفظ ID عالمياً وبناء رابط الإحالة الديناميكي ───
+            if (userId) {
+                CURRENT_USER_ID = userId;
+                REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + userId;
+            }
+
+            // ─── 8. تحديث واجهة المستخدم ───
+            _applyUserToUI(displayName, photoUrl, userId);
+
+            // ─── 9. تحديث نص رابط الإحالة في صفحة الدعوة ───
+            _updateReferralLinkUI();
+
+            // ─── 10. طباعة كل البيانات في Console للتأكد ───
+            console.group('[TG] ✅ بيانات المستخدم — Telegram WebApp');
+            console.log('🆔 User ID       :', userId   ?? '—');
+            console.log('👤 First Name    :', firstName || '—');
+            console.log('👤 Last Name     :', lastName  || '—');
+            console.log('🔗 Username      :', username  ? '@' + username : '—');
+            console.log('🌐 Language      :', langCode  || '—');
+            console.log('⭐ Premium       :', isPremium);
+            console.log('🖼️  Photo URL     :', photoUrl  || '(لا توجد صورة)');
+            console.log('🔗 Referral Link :', REFERRAL_LINK);
+            console.log('📦 Raw initData  :', tg.initDataUnsafe);
+            console.groupEnd();
+        }
+
+        // ─── تطبيق البيانات على الـ UI ───
+        function _applyUserToUI(displayName, photoUrl, userId) {
+            const nameEl  = document.getElementById('uc-user-name');
+            const photoEl = document.getElementById('uc-user-photo');
+
+            // اسم المستخدم — مضمون بدون undefined/null
+            if (nameEl) {
+                nameEl.textContent = displayName || '@مستخدم';
+            }
+
+            // صورة المستخدم — مع fallback تلقائي
+            if (photoEl) {
+                if (photoUrl) {
+                    photoEl.src = photoUrl;
+                    photoEl.onerror = function () {
+                        console.warn('[TG] 🖼️ فشل تحميل الصورة — تطبيق avatar بديل');
+                        this.onerror = null; // منع حلقة لا نهائية
+                        this.src = _generateFallbackAvatar(displayName, userId);
+                    };
+                } else {
+                    // لا توجد صورة أصلاً — استخدم avatar مولّد من الاسم/ID
+                    photoEl.src = _generateFallbackAvatar(displayName, userId);
+                }
             }
         }
-    }
 
-    /* ══════════════════════════════════════════
-       WITHDRAW HISTORY
-    ══════════════════════════════════════════ */
-    function formatTimeAgo(ts) {
-        const diff = Math.floor((Date.now() - ts) / 1000);
-        if (diff < 60)    return 'الآن';
-        if (diff < 3600)  return `منذ ${Math.floor(diff/60)} دقيقة`;
-        if (diff < 86400) return `منذ ${Math.floor(diff/3600)} ساعة`;
-        return `منذ ${Math.floor(diff/86400)} يوم`;
-    }
-
-    function renderWithdrawHistory() {
-        const list  = document.getElementById('withdraw-history-list');
-        const empty = document.getElementById('withdraw-empty');
-        const badge = document.getElementById('withdraw-count-badge');
-
-        if (!WITHDRAW_HISTORY.length) {
-            if (empty) empty.style.display = '';
-            if (badge) badge.style.display = 'none';
-            return;
+        // ─── توليد avatar بديل ذكي ───
+        function _generateFallbackAvatar(name, userId) {
+            // استخدم seed من userId لضمان ثبات الصورة لكل مستخدم
+            const seed = userId ? String(userId) : (name || 'user');
+            return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(seed)
+                 + '&backgroundColor=1a1a2e,16213e,0f3460&textColor=fbbf24&fontSize=38&fontWeight=700';
         }
 
-        if (empty) empty.style.display = 'none';
-        if (badge) { badge.style.display = ''; badge.textContent = WITHDRAW_HISTORY.length + ' طلب'; }
+        // ─── fallback عند غياب بيانات Telegram ───
+        function _applyFallbackUser() {
+            const nameEl  = document.getElementById('uc-user-name');
+            const photoEl = document.getElementById('uc-user-photo');
 
-        let html = '';
-        WITHDRAW_HISTORY.slice().reverse().forEach(item => {
-            const tonAmt    = (item.pts / 100000).toFixed(3);
-            const addr      = String(item.address || '');
-            const addrShort = addr.length > 14 ? addr.substring(0,6) + '...' + addr.slice(-6) : addr;
-            html += `<div class="withdraw-hist-item">
-                <div class="withdraw-hist-icon"><img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;"></div>
-                <div class="withdraw-hist-info">
-                    <div class="withdraw-hist-name">سحب TON</div>
-                    <div class="withdraw-hist-addr">${addrShort}</div>
-                    <div class="withdraw-hist-time">${formatTimeAgo(typeof item.ts === 'number' ? item.ts : new Date(item.ts).getTime())}</div>
-                </div>
-                <div class="withdraw-hist-right">
-                    <div class="withdraw-hist-pts">${parseInt(item.pts).toLocaleString()}</div>
-                    <div class="withdraw-hist-ton">${tonAmt} TON</div>
-                    <div class="withdraw-hist-badge pending">قيد المعالجة</div>
-                </div>
-            </div>`;
-        });
-        list.innerHTML = html;
-    }
+            if (nameEl)  nameEl.textContent = '@مستخدم';
+            if (photoEl) photoEl.src = _generateFallbackAvatar('user', null);
 
-    /* ══════════════════════════════════════════
-       NOTIFICATIONS
-    ══════════════════════════════════════════ */
-    let unreadNotifCount = 0;
-
-    function addNotification(type, title, sub, ts) {
-        NOTIF_LIST_DATA.unshift({ type, title, sub, ts: ts || Date.now(), read: false });
-        unreadNotifCount++;
-        updateNotifBadge();
-        renderNotifList();
-    }
-
-    function updateNotifBadge() {
-        const badge = document.getElementById('notif-badge');
-        if (!badge) return;
-        if (unreadNotifCount > 0) {
-            badge.classList.add('visible');
-            badge.textContent = unreadNotifCount > 9 ? '9+' : unreadNotifCount;
-        } else {
-            badge.classList.remove('visible');
-            badge.textContent = '';
+            console.info('[TG] ℹ️ تم تطبيق بيانات افتراضية — لا بيانات Telegram متاحة');
         }
-    }
 
-    function renderNotifList() {
-        const list     = document.getElementById('notif-list');
-        const emptyMsg = document.getElementById('notif-empty-msg');
-        if (!list) return;
-        if (!NOTIF_LIST_DATA.length) { if (emptyMsg) emptyMsg.style.display = ''; return; }
-        if (emptyMsg) emptyMsg.style.display = 'none';
+        // ─── تحديث نص الرابط في صفحة الدعوة ───
+        function _updateReferralLinkUI() {
+            const linkEl = document.getElementById('referral-link-text');
+            if (linkEl) {
+                linkEl.textContent = REFERRAL_LINK;
+            }
+        }
 
-        const tonIcon  = `<img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:22px;height:22px;border-radius:7px;object-fit:cover;">`;
-        const coinIcon = `<img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.7));">`;
+        /* ══════════════════════════════════════════
+           WITHDRAW HISTORY STATE
+        ══════════════════════════════════════════ */
+        const WITHDRAW_HISTORY = [];
+        const NOTIF_LIST_DATA = [];
 
-        let html = '';
-        NOTIF_LIST_DATA.forEach((n, i) => {
-            const icon = n.type === 'ton' ? tonIcon : coinIcon;
-            html += `<div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${i})">
-                ${!n.read ? '<div class="notif-unread-dot"></div>' : ''}
-                <div class="notif-item-icon ${n.type === 'ton' ? 'ton' : 'gold'}">${icon}</div>
-                <div class="notif-item-body">
-                    <div class="notif-item-title">${n.title}</div>
-                    <div class="notif-item-sub">${n.sub}</div>
-                </div>
-                <div class="notif-item-time">${formatTimeAgo(n.ts)}</div>
-            </div>`;
-        });
-        list.innerHTML = html;
-    }
+        /* ═══ Render Referral List from server data ═══ */
+        function renderReferralList(list, total) {
+            const container = document.getElementById('referral-list-container');
+            if (!container) return;
 
-    function markNotifRead(idx) {
-        if (!NOTIF_LIST_DATA[idx].read) {
-            NOTIF_LIST_DATA[idx].read = true;
-            unreadNotifCount = Math.max(0, unreadNotifCount - 1);
+            const colors = [
+                { bg: 'linear-gradient(135deg,rgba(167,139,250,0.2),rgba(96,165,250,0.2))', border: 'rgba(167,139,250,0.2)', color: 'var(--purple)' },
+                { bg: 'linear-gradient(135deg,rgba(96,165,250,0.2),rgba(52,211,153,0.2))',  border: 'rgba(96,165,250,0.2)',  color: 'var(--blue)'   },
+                { bg: 'linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.05))',border: 'rgba(251,191,36,0.2)',  color: 'var(--gold)'   },
+                { bg: 'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.05))',border: 'rgba(52,211,153,0.2)',  color: 'var(--green)'  },
+            ];
+            const pts = _SERVER_CONFIG.pts_per_referral || 500;
+
+            if (!list.length) return; // keep empty state
+
+            let html = '';
+            list.forEach((r, i) => {
+                const c    = colors[i % colors.length];
+                const ch   = (r.name || 'م')[0];
+                const time = formatTimeAgo(r.ts || Date.now());
+                html += `
+                    <div class="referral-item">
+                        <div class="referral-avatar" style="background:${c.bg};border-color:${c.border};color:${c.color};">${ch}</div>
+                        <div class="referral-info">
+                            <div class="referral-name">${r.name || 'مستخدم'}</div>
+                            <div class="referral-date">${time}</div>
+                        </div>
+                        <div class="referral-reward">
+                            <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
+                            <span class="referral-reward-text">+${pts}</span>
+                        </div>
+                    </div>
+                    <div class="shine-line-sm" style="margin:2px 10px;"></div>
+                `;
+            });
+            const extra = total - list.length;
+            if (extra > 0) {
+                html += `<div style="text-align:center;padding:12px 0 4px;"><span style="font-size:12px;font-weight:700;color:var(--purple);opacity:0.7;">+${extra} صديق آخر</span></div>`;
+            }
+            container.innerHTML = html;
+        }
+            const diff = Math.floor((Date.now() - ts) / 1000);
+            if (diff < 60) return 'الآن';
+            if (diff < 3600) return `منذ ${Math.floor(diff/60)} دقيقة`;
+            if (diff < 86400) return `منذ ${Math.floor(diff/3600)} ساعة`;
+            return `منذ ${Math.floor(diff/86400)} يوم`;
+        }
+
+        function renderWithdrawHistory() {
+            const list = document.getElementById('withdraw-history-list');
+            const empty = document.getElementById('withdraw-empty');
+            const badge = document.getElementById('withdraw-count-badge');
+
+            if (WITHDRAW_HISTORY.length === 0) {
+                if (empty) empty.style.display = '';
+                if (badge) badge.style.display = 'none';
+                return;
+            }
+
+            if (empty) empty.style.display = 'none';
+            if (badge) { badge.style.display = ''; badge.textContent = WITHDRAW_HISTORY.length + ' طلب'; }
+
+            let html = '';
+            WITHDRAW_HISTORY.slice().reverse().forEach(item => {
+                const tonAmt = (item.pts / 100000).toFixed(3);
+                const addrShort = item.address.length > 14
+                    ? item.address.substring(0, 6) + '...' + item.address.slice(-6)
+                    : item.address;
+                html += `
+                <div class="withdraw-hist-item">
+                    <div class="withdraw-hist-icon">
+                        <img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;">
+                    </div>
+                    <div class="withdraw-hist-info">
+                        <div class="withdraw-hist-name">سحب TON</div>
+                        <div class="withdraw-hist-addr">${addrShort}</div>
+                        <div class="withdraw-hist-time">${formatTimeAgo(item.ts)}</div>
+                    </div>
+                    <div class="withdraw-hist-right">
+                        <div class="withdraw-hist-pts">${item.pts.toLocaleString()}</div>
+                        <div class="withdraw-hist-ton">${tonAmt} TON</div>
+                        <div class="withdraw-hist-badge pending">قيد المعالجة</div>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html;
+        }
+
+        /* ══════════════════════════════════════════
+           NOTIFICATIONS
+        ══════════════════════════════════════════ */
+        let unreadNotifCount = 0;
+
+        function addNotification(type, title, sub, ts) {
+            NOTIF_LIST_DATA.unshift({ type, title, sub, ts: ts || Date.now(), read: false });
+            unreadNotifCount++;
             updateNotifBadge();
             renderNotifList();
         }
-    }
 
-    function openNotifPanel() {
-        document.getElementById('notif-panel').classList.add('open');
-        document.getElementById('notif-backdrop').classList.add('visible');
-        NOTIF_LIST_DATA.forEach(n => { n.read = true; });
-        unreadNotifCount = 0;
-        updateNotifBadge();
-        renderNotifList();
-    }
-
-    function closeNotifPanel() {
-        document.getElementById('notif-panel').classList.remove('open');
-        document.getElementById('notif-backdrop').classList.remove('visible');
-    }
-
-    /* ══════════════════════════════════════════
-       TON WITHDRAW
-    ══════════════════════════════════════════ */
-    function openTonWithdraw() {
-        const overlay   = document.getElementById('ton-withdraw-overlay');
-        const ptsEl     = document.getElementById('ton-sheet-pts');
-        const equivEl   = document.getElementById('ton-sheet-equiv');
-        const levelWarn = document.getElementById('ton-level-warn');
-        const ptsWarn   = document.getElementById('ton-pts-warn');
-        const currentLevelEl = document.getElementById('ton-current-level');
-        const submitBtn = document.getElementById('ton-submit-btn');
-        const input     = document.getElementById('ton-address-input');
-
-        input.value = '';
-        document.getElementById('ton-error-msg').style.display = 'none';
-
-        const pts = USER_STATE.points;
-        if (ptsEl)   ptsEl.textContent   = pts.toLocaleString();
-        if (equivEl) equivEl.textContent = '≈ ' + (pts / 100000).toFixed(3) + ' TON';
-
-        const hasLevel = USER_STATE.level >= 5;
-        const hasPts   = pts >= 50000;
-
-        if (levelWarn) levelWarn.style.display = 'none';
-        if (ptsWarn)   ptsWarn.style.display   = 'none';
-
-        if (!hasLevel) {
-            if (levelWarn) levelWarn.style.display = '';
-            if (currentLevelEl) currentLevelEl.textContent = USER_STATE.level;
-            submitBtn.disabled = true;
-        } else if (!hasPts) {
-            if (ptsWarn) ptsWarn.style.display = '';
-            submitBtn.disabled = true;
-        } else {
-            submitBtn.disabled = false;
-        }
-
-        overlay.classList.add('visible');
-    }
-
-    function closeTonWithdraw() {
-        document.getElementById('ton-withdraw-overlay').classList.remove('visible');
-    }
-
-    function handleTonOverlayClick(e) {
-        if (e.target === document.getElementById('ton-withdraw-overlay')) closeTonWithdraw();
-    }
-
-    function clearTonError() {
-        document.getElementById('ton-error-msg').style.display = 'none';
-        document.getElementById('ton-address-input').style.borderColor = 'rgba(83,147,255,0.3)';
-    }
-
-    function isValidTonAddress(addr) {
-        addr = addr.trim();
-        return (addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:')) && addr.length >= 48;
-    }
-
-    async function submitTonWithdraw() {
-        const input     = document.getElementById('ton-address-input');
-        const addr      = input.value.trim();
-        const errEl     = document.getElementById('ton-error-msg');
-        const submitBtn = document.getElementById('ton-submit-btn');
-
-        if (!isValidTonAddress(addr)) {
-            errEl.style.display = 'block';
-            input.style.borderColor = 'rgba(248,113,113,0.5)';
-            return;
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ جاري الإرسال...';
-
-        const result = await fetchApi({ type: 'submit_withdraw', data: { address: addr } });
-
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'إرسال طلب السحب';
-
-        if (!result.ok) {
-            errEl.textContent = result.error === 'insufficient_balance' ? 'رصيدك غير كافٍ'
-                              : result.error === 'level_too_low'       ? 'المستوى غير كافٍ للسحب'
-                              : 'حدث خطأ، حاول مجدداً';
-            errEl.style.display = 'block';
-            return;
-        }
-
-        if (result.points !== undefined) updateBalanceDisplay(result.points);
-
-        WITHDRAW_HISTORY.push({ pts: result.pts || USER_STATE.points, address: addr, ts: Date.now(), status: 'pending' });
-        addNotification('ton', 'تم استلام طلب السحب', `${(result.pts || 0).toLocaleString()} نقطة ≈ ${((result.pts || 0) / 100000).toFixed(3)} TON`, Date.now());
-        renderWithdrawHistory();
-        closeTonWithdraw();
-        showToast('trophy', 'تم إرسال طلب السحب! 🎉', 'سيتم معالجة طلبك قريباً', 'green', '✓');
-    }
-
-    /* ══════════════════════════════════════════
-       PAGE NAV
-    ══════════════════════════════════════════ */
-    function showPage(pageName, btn) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        const target = document.getElementById('page-' + pageName);
-        if (target) target.classList.add('active');
-
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-        if (btn) {
-            btn.classList.add('active');
-        } else {
-            const navBtn = document.querySelector(`.nav-item[data-page="${pageName}"]`);
-            if (navBtn) navBtn.classList.add('active');
-        }
-
-        // Load referrals when visiting invite page
-        if (pageName === 'invite') loadReferrals();
-        // Load withdraw history when visiting withdraw page
-        if (pageName === 'withdraw') loadWithdrawHistory();
-
-        setTimeout(() => {
-            const scope = target || document;
-            scope.querySelectorAll('.counter').forEach(c => { c.textContent = '0'; });
-            runCounters(scope);
-        }, 80);
-    }
-
-    async function loadReferrals() {
-        const result = await fetchApi({ type: 'get_referrals', data: {} });
-        if (!result.ok) return;
-
-        const totalEl  = document.getElementById('invite-total-refs');
-        const earnedEl = document.getElementById('invite-earned-refs');
-        if (totalEl)  totalEl.textContent  = result.total_referrals || 0;
-        if (earnedEl) earnedEl.textContent = (result.earned_refs || 0).toLocaleString();
-
-        // Update home stats
-        const homeFriendsEl = document.querySelector('.uc-stat-val.green.counter');
-        if (homeFriendsEl) { homeFriendsEl.setAttribute('data-target', result.total_referrals || 0); }
-
-        const listEl = document.getElementById('referral-list');
-        if (!listEl || !result.referrals) return;
-
-        if (!result.referrals.length) {
-            listEl.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.3);padding:20px;font-size:13px;">لا يوجد أصدقاء مدعوون بعد</div>';
-            return;
-        }
-
-        listEl.innerHTML = result.referrals.map(r => `
-            <div class="referral-item">
-                <div class="referral-avatar">${(r.name || '?')[0].toUpperCase()}</div>
-                <div class="referral-info">
-                    <div class="referral-name">${r.name || 'مستخدم'}</div>
-                    <div class="referral-date">${r.joined ? new Date(r.joined).toLocaleDateString('ar-EG') : ''}</div>
-                </div>
-                <div class="referral-reward">
-                    <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.7));">
-                    <span class="referral-reward-text">+1,000</span>
-                </div>
-            </div>`).join('');
-    }
-
-    async function loadWithdrawHistory() {
-        const result = await fetchApi({ type: 'get_withdraw_history', data: {} });
-        if (!result.ok || !result.history) return;
-
-        WITHDRAW_HISTORY.length = 0;
-        result.history.forEach(w => {
-            WITHDRAW_HISTORY.push({
-                pts    : parseInt(w.pts_amount) || 0,
-                address: w.ton_address || '',
-                ts     : new Date(w.created_at).getTime() || Date.now(),
-                status : w.status || 'pending',
-            });
-        });
-        renderWithdrawHistory();
-    }
-
-    /* ══════════════════════════════════════════
-       NUMBER COUNTER ANIMATION
-    ══════════════════════════════════════════ */
-    function runCounters(scope) {
-        scope = scope || document;
-        scope.querySelectorAll('.counter').forEach(counter => {
-            const target = parseInt(counter.getAttribute('data-target'));
-            if (!target) return;
-            const duration = 1800;
-            const startTime = performance.now();
-            function update(now) {
-                const elapsed  = now - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const ease     = 1 - Math.pow(1 - progress, 3);
-                counter.textContent = Math.floor(ease * target).toLocaleString('en-US');
-                if (progress < 1) requestAnimationFrame(update);
-                else counter.textContent = target.toLocaleString('en-US');
-            }
-            requestAnimationFrame(update);
-        });
-    }
-
-    /* ══════════════════════════════════════════
-       TELEGRAM USER INIT
-    ══════════════════════════════════════════ */
-    function _generateFallbackAvatar(name, userId) {
-        const seed = userId ? String(userId) : (name || 'user');
-        return 'https://api.dicebear.com/7.x/initials/svg?seed=' + encodeURIComponent(seed)
-             + '&backgroundColor=1a1a2e,16213e,0f3460&textColor=fbbf24&fontSize=38&fontWeight=700';
-    }
-
-    function _applyFallbackUser() {
-        const nameEl  = document.getElementById('uc-user-name');
-        const photoEl = document.getElementById('uc-user-photo');
-        if (nameEl)  nameEl.textContent = '@مستخدم';
-        if (photoEl) photoEl.src = _generateFallbackAvatar('user', null);
-    }
-
-    function _applyUserToUI(displayName, photoUrl, userId) {
-        const nameEl  = document.getElementById('uc-user-name');
-        const photoEl = document.getElementById('uc-user-photo');
-        if (nameEl)  nameEl.textContent = displayName || '@مستخدم';
-        if (photoEl) {
-            if (photoUrl) {
-                photoEl.src = photoUrl;
-                photoEl.onerror = function () {
-                    this.onerror = null;
-                    this.src = _generateFallbackAvatar(displayName, userId);
-                };
+        function updateNotifBadge() {
+            const badge = document.getElementById('notif-badge');
+            if (!badge) return;
+            if (unreadNotifCount > 0) {
+                badge.classList.add('visible');
+                badge.textContent = unreadNotifCount > 9 ? '9+' : unreadNotifCount;
             } else {
-                photoEl.src = _generateFallbackAvatar(displayName, userId);
+                badge.classList.remove('visible');
+                badge.textContent = '';
             }
         }
-    }
 
-    function initTelegramUser() {
-        const tg = window?.Telegram?.WebApp;
-        if (!tg) { _applyFallbackUser(); return; }
-        tg.ready();
-        tg.expand();
+        function renderNotifList() {
+            const list = document.getElementById('notif-list');
+            const emptyMsg = document.getElementById('notif-empty-msg');
+            if (!list) return;
 
-        const user = tg?.initDataUnsafe?.user;
-        if (!user) { _applyFallbackUser(); return; }
+            if (NOTIF_LIST_DATA.length === 0) {
+                if (emptyMsg) emptyMsg.style.display = '';
+                return;
+            }
+            if (emptyMsg) emptyMsg.style.display = 'none';
 
-        const userId    = user?.id          ?? null;
-        const firstName = user?.first_name  ?? '';
-        const lastName  = user?.last_name   ?? '';
-        const username  = user?.username    ?? '';
-        const photoUrl  = user?.photo_url   ?? '';
+            const tonIcon = `<img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:22px;height:22px;border-radius:7px;object-fit:cover;">`;
+            const coinIcon = `<img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.7));">`;
 
-        let displayName = '@مستخدم';
-        if (username) displayName = '@' + username;
-        else if (firstName || lastName) displayName = [firstName, lastName].filter(Boolean).join(' ');
-
-        if (userId) {
-            CURRENT_USER_ID = userId;
-            REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + userId;
+            let html = '';
+            NOTIF_LIST_DATA.forEach((n, i) => {
+                const icon = n.type === 'ton' ? tonIcon : coinIcon;
+                const iconClass = n.type === 'ton' ? 'ton' : 'gold';
+                html += `
+                <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markNotifRead(${i})">
+                    ${!n.read ? '<div class="notif-unread-dot"></div>' : ''}
+                    <div class="notif-item-icon ${iconClass}">${icon}</div>
+                    <div class="notif-item-body">
+                        <div class="notif-item-title">${n.title}</div>
+                        <div class="notif-item-sub">${n.sub}</div>
+                    </div>
+                    <div class="notif-item-time">${formatTimeAgo(n.ts)}</div>
+                </div>`;
+            });
+            list.innerHTML = html;
         }
 
-        _applyUserToUI(displayName, photoUrl, userId);
-        _updateReferralLinkUI();
-    }
-
-    /* ══════════════════════════════════════════
-       DEPOSIT
-    ══════════════════════════════════════════ */
-    function openDepositSupport() {
-        const msg = encodeURIComponent('مرحبا أريد إيداع داخل البوت');
-        const url = 'https://t.me/YourSupportUsername?text=' + msg;
-        if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(url);
-        else window.open(url, '_blank');
-    }
-
-    /* ══════════════════════════════════════════
-       BOOT — DOMContentLoaded
-    ══════════════════════════════════════════ */
-    window.addEventListener('DOMContentLoaded', async () => {
-        setTimeout(() => runCounters(document), 350);
-
-        // 1. Init TG user data (display only)
-        initTelegramUser();
-
-        // 2. Create server session (verifies TG identity)
-        const sessionOk = await createSession();
-        if (!sessionOk) return;
-
-        // 3. Load full server state
-        const loadResult = await fetchApi({ type: 'load', data: {} });
-        if (!loadResult.ok) return;
-
-        const pts = parseInt(loadResult.points) || 0;
-        const lvl = parseInt(loadResult.level)  || 1;
-        USER_STATE.points = pts;
-        USER_STATE.level  = lvl;
-        TASKS_STATE.tgVerified = !!loadResult.tg_verified;
-
-        // Update referral link with real bot username if server returned it
-        if (CURRENT_USER_ID) {
-            REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + CURRENT_USER_ID;
-            _updateReferralLinkUI();
+        function markNotifRead(idx) {
+            if (!NOTIF_LIST_DATA[idx].read) {
+                NOTIF_LIST_DATA[idx].read = true;
+                unreadNotifCount = Math.max(0, unreadNotifCount - 1);
+                updateNotifBadge();
+                renderNotifList();
+            }
         }
 
-        // Restore ad state
-        AD_STATE.total        = 10;
-        AD_STATE.remaining    = loadResult.ads_remaining    ?? 10;
-        AD_STATE.watchedToday = loadResult.ads_watched_today ?? 0;
-        AD_STATE.earnedToday  = AD_STATE.watchedToday * 50;
-        updateAdUI();
-
-        // Restore gift state
-        if (loadResult.streak_day !== undefined) {
-            DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(loadResult.streak_day)||0) + 1);
-        }
-        const today = new Date().toISOString().slice(0,10);
-        if (loadResult.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
-
-        // Restore tasks
-        if (TASKS_STATE.tgVerified) {
-            const doneState   = document.getElementById('tg-done-state');
-            const doneOverlay = document.getElementById('tg-done-overlay');
-            const actionWrap  = document.getElementById('tg-action-wrap');
-            if (doneState)   doneState.style.display   = 'block';
-            if (doneOverlay) doneOverlay.style.display = 'block';
-            if (actionWrap)  actionWrap.style.display  = 'none';
+        function openNotifPanel() {
+            document.getElementById('notif-panel').classList.add('open');
+            document.getElementById('notif-backdrop').classList.add('visible');
+            // mark all read when panel opens
+            NOTIF_LIST_DATA.forEach(n => { n.read = true; });
+            unreadNotifCount = 0;
+            updateNotifBadge();
+            renderNotifList();
         }
 
-        // Update balance display
-        updateBalanceDisplay(pts);
-
-        // Update home stats counters
-        const friendsEl = document.querySelector('.uc-stat-val.green.counter');
-        if (friendsEl) friendsEl.setAttribute('data-target', loadResult.total_referrals || 0);
-        const tasksEl   = document.querySelector('.uc-stat-val.blue.counter');
-        if (tasksEl) {
-            const tasksDone = (loadResult.total_referrals ? 1 : 0) + (TASKS_STATE.tgVerified ? 1 : 0) + AD_STATE.watchedToday;
-            tasksEl.setAttribute('data-target', tasksDone);
+        function closeNotifPanel() {
+            document.getElementById('notif-panel').classList.remove('open');
+            document.getElementById('notif-backdrop').classList.remove('visible');
         }
 
-        setTimeout(() => runCounters(document), 100);
+        /* ══════════════════════════════════════════
+           TON WITHDRAW LOGIC
+        ══════════════════════════════════════════ */
+        // ✅ TON_CONFIG يُشتق من _SERVER_CONFIG القادم من السيرفر — لا hardcoding
+        const TON_CONFIG = new Proxy({}, {
+            get(_, k) {
+                if (k === 'minPts')    return _SERVER_CONFIG.withdraw_min_pts   || 50000;
+                if (k === 'minLevel')  return _SERVER_CONFIG.withdraw_min_level || 5;
+                if (k === 'ptsPerTon') return _SERVER_CONFIG.pts_per_ton        || 100000;
+            }
+        });
 
-        // Open daily gift if not claimed
-        if (!DAILY_GIFT_STATE.claimed) {
-            setTimeout(() => openDailyGiftOverlay(), 1200);
+        // ✅ قيم ابتدائية صفر — تُحدَّث من السيرفر عند load
+        const USER_STATE = {
+            points: 0,
+            level:  1,
+        };
+
+        // ✅ config يأتي من السيرفر — لا قيم hardcoded
+        let _SERVER_CONFIG = {
+            withdraw_min_pts:   50000,
+            withdraw_min_level: 5,
+            pts_per_ton:        100000,
+            pts_per_referral:   500,
+            ads_daily_limit:    10,
+        };
+
+        function openTonWithdraw() {
+            const overlay = document.getElementById('ton-withdraw-overlay');
+            const ptsEl   = document.getElementById('ton-sheet-pts');
+            const equivEl = document.getElementById('ton-sheet-equiv');
+            const levelWarn = document.getElementById('ton-level-warn');
+            const ptsWarn   = document.getElementById('ton-pts-warn');
+            const currentLevelEl = document.getElementById('ton-current-level');
+            const submitBtn = document.getElementById('ton-submit-btn');
+            const input = document.getElementById('ton-address-input');
+
+            // Reset input
+            input.value = '';
+            document.getElementById('ton-error-msg').style.display = 'none';
+
+            // Fill balance
+            ptsEl.textContent = USER_STATE.points.toLocaleString();
+            const tonEquiv = (USER_STATE.points / TON_CONFIG.ptsPerTon).toFixed(3);
+            equivEl.textContent = '≈ ' + tonEquiv + ' TON';
+
+            // Check level
+            const hasLevel = USER_STATE.level >= TON_CONFIG.minLevel;
+            const hasPts   = USER_STATE.points >= TON_CONFIG.minPts;
+
+            levelWarn.style.display = 'none';
+            ptsWarn.style.display   = 'none';
+
+            if (!hasLevel) {
+                levelWarn.style.display = '';
+                if (currentLevelEl) currentLevelEl.textContent = USER_STATE.level;
+                submitBtn.disabled = true;
+            } else if (!hasPts) {
+                ptsWarn.style.display = '';
+                submitBtn.disabled = true;
+            } else {
+                submitBtn.disabled = false;
+            }
+
+            overlay.classList.add('visible');
         }
-    });
 
-    </script>
+        function closeTonWithdraw() {
+            document.getElementById('ton-withdraw-overlay').classList.remove('visible');
+        }
+
+        function handleTonOverlayClick(e) {
+            if (e.target === document.getElementById('ton-withdraw-overlay')) {
+                closeTonWithdraw();
+            }
+        }
+
+        function clearTonError() {
+            document.getElementById('ton-error-msg').style.display = 'none';
+            document.getElementById('ton-address-input').style.borderColor = 'rgba(83,147,255,0.3)';
+        }
+
+        function isValidTonAddress(addr) {
+            addr = addr.trim();
+            return (addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:')) && addr.length >= 48;
+        }
+
+        async function submitTonWithdraw() {
+            const input = document.getElementById('ton-address-input');
+            const addr  = input.value.trim();
+            const errEl = document.getElementById('ton-error-msg');
+            const submitBtn = document.getElementById('ton-submit-btn');
+
+            if (!isValidTonAddress(addr)) {
+                errEl.style.display = 'block';
+                input.style.borderColor = 'rgba(248,113,113,0.5)';
+                return;
+            }
+
+            // ─── Loading state ───
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ جاري الإرسال...';
+
+            // ✅ احصل على nonce قبل الإرسال
+            const wNonceRes = await fetchApi({ type: 'get_nonce', data: {} });
+            if (!wNonceRes.ok || !wNonceRes.nonce) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'إرسال طلب السحب';
+                errEl.textContent = 'تعذّر الاتصال بالسيرفر، حاول مجدداً';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            // ─── إرسال الأكشن للـ backend ───
+            const result = await fetchApi({
+                type: 'submit_withdraw',
+                data: { address: addr },
+                _nonce: wNonceRes.nonce,
+            });
+
+            // Restore button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'إرسال طلب السحب';
+
+            if (!result.ok) {
+                errEl.textContent = result.error === 'insufficient_balance'
+                    ? 'رصيدك غير كافٍ'
+                    : result.error === 'level_too_low'
+                    ? `يتطلب المستوى ${result.required_level || 5} للسحب`
+                    : 'حدث خطأ، حاول مجدداً';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            // ✅ تحديث balance من السيرفر مباشرة
+            if (result.new_balance !== undefined) {
+                USER_STATE.points = result.new_balance;
+                updateBalanceUI(result.new_balance);
+            }
+
+            // ✅ بيانات history من السيرفر
+            const item = {
+                pts:     result.pts_deducted || USER_STATE.points,
+                address: addr,
+                ts:      Date.now(),
+                status:  result.status || 'pending',
+            };
+            WITHDRAW_HISTORY.push(item);
+
+            // Add notification
+            addNotification(
+                'ton',
+                'تم استلام طلب السحب',
+                `${item.pts.toLocaleString()} نقطة ≈ ${(result.ton_amount || item.pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(3)} TON`,
+                item.ts
+            );
+
+            // Render history
+            renderWithdrawHistory();
+
+            // Close overlay
+            closeTonWithdraw();
+
+            // Toast
+            showToast('trophy', 'تم إرسال طلب السحب! 🎉', 'سيتم معالجة طلبك قريباً', 'green', '✓');
+        }
     </script>
 
     <!-- ══════════════════════════════════════════
