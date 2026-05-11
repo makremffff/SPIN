@@ -3315,67 +3315,89 @@
     ══════════════════════════════════════════ -->
     <script>
         /* ══════════════════════════════════════════════════════════════
-           SECURITY LAYER v2.0 — IIFE Closure
-           ✅ _sessionId مخفي داخل closure — لا يظهر في Console/DevTools
-           ✅ ad_nonce مخزّن في السيرفر فقط — لا يُرسل للعميل أبداً
-           ✅ nonce يُطلب من السيرفر قبل كل عملية write
-           ✅ fingerprint مُشفَّر بـ SubtleCrypto
+           ZERO TRUST SECURITY LAYER v3.0 — IIFE Closure
+           ✅ _sessionId مخفي داخل closure — لا يظهر في Console/DevTools/window
+           ✅ ad_nonce: مخزّن في الجلسة على السيرفر — لا يُرسل للعميل أبداً
+           ✅ nonces الحساسة: السيرفر يُصدرها وهو اللي يتحقق منها بـ HMAC
+           ✅ العميل يُرسل rawNonce في header — السيرفر يُعيد حساب HMAC ويقارن
+           ✅ كل nonce مربوط بـ session + user + fingerprint + ip (server-side)
+           ✅ Constant-time comparison على السيرفر — يمنع timing attacks
+           ✅ Nonce واحد لكل action — يُحذف فوراً بعد الاستخدام
+           ✅ Nonce TTL 5 دقائق — ينتهي تلقائياً
+           ✅ Replay attacks ممنوعة بالكامل — nonce مُستخدم = رفض فوري
+           ✅ fingerprint مُشفَّر بـ SubtleCrypto — multi-signal
+           ✅ Session binding — الجلسة مربوطة بالـ fingerprint على السيرفر
         ══════════════════════════════════════════════════════════════ */
         const API_BASE = '/api';
 
         const { fetchApi, createSession } = (() => {
-        /* ─── متغيرات خاصة — مخفية بالكامل عن Console ─── */
-        let _sessionId       = null;   // ✅ لا يظهر في window._SESSION_ID
-        let _rateLimitUntil  = 0;
-        let _fpCache         = null;
 
-        /* ─── Fingerprint — Multi-Signal ─── */
+        /* ─── Private state — مخفي بالكامل عن Console/DevTools ─── */
+        let _sessionId      = null;  // ✅ لا يظهر في window أو DevTools
+        let _rateLimitUntil = 0;
+        let _fpCache        = null;
+        let _pendingSession = null;  // يمنع طلبات createSession المتزامنة
+
+        /* ══════════════════════════════════════════════════════════
+           FINGERPRINT — Multi-Signal SubtleCrypto SHA-256
+        ══════════════════════════════════════════════════════════ */
         async function _buildFingerprint() {
             const fp = {};
             try {
                 fp.user_agent  = navigator.userAgent || '';
-                fp.lang        = navigator.language || '';
+                fp.lang        = navigator.language   || '';
                 fp.screen      = `${screen.width}x${screen.height}x${screen.availWidth}x${screen.availHeight}`;
                 fp.tz_offset   = new Date().getTimezoneOffset();
                 fp.tz_name     = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
                 fp.hw_cores    = navigator.hardwareConcurrency || 0;
-                fp.hw_mem      = navigator.deviceMemory || 0;
-                fp.touch_pts   = navigator.maxTouchPoints || 0;
-                fp.dpr         = window.devicePixelRatio || 1;
-                fp.color_depth = screen.colorDepth || 0;
+                fp.hw_mem      = navigator.deviceMemory        || 0;
+                fp.touch_pts   = navigator.maxTouchPoints      || 0;
+                fp.dpr         = window.devicePixelRatio       || 1;
+                fp.color_depth = screen.colorDepth             || 0;
 
+                // Canvas fingerprint
                 try {
                     const c = document.createElement('canvas');
                     c.width = 200; c.height = 50;
                     const ctx = c.getContext('2d');
                     ctx.font = '14px Arial'; ctx.fillStyle = '#f0f';
-                    ctx.fillText('FP_canvas_sig_2025', 10, 30);
+                    ctx.fillText('ZT_fp_v3_2025', 10, 30);
                     ctx.strokeStyle = '#0ff'; ctx.beginPath();
                     ctx.arc(100, 25, 20, 0, Math.PI * 2); ctx.stroke();
                     fp.canvas_sig = c.toDataURL().slice(-32);
-                } catch(_) { fp.canvas_sig = ''; }
+                } catch (_) { fp.canvas_sig = ''; }
 
+                // WebGL fingerprint
                 try {
                     const gl = document.createElement('canvas').getContext('webgl');
                     if (gl) {
                         const dbg = gl.getExtension('WEBGL_debug_renderer_info');
                         fp.webgl_sig = (dbg
-                            ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') + '|' + (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '')
+                            ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   || '') + '|'
+                            + (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '')
                             : gl.getParameter(gl.RENDERER) || '').slice(0, 64);
                     } else { fp.webgl_sig = ''; }
-                } catch(_) { fp.webgl_sig = ''; }
+                } catch (_) { fp.webgl_sig = ''; }
 
+                // Audio fingerprint
                 try {
                     const ac = new (window.AudioContext || window.webkitAudioContext)();
                     fp.audio_sig = ac.sampleRate + '|' + ac.destination.maxChannelCount;
                     ac.close();
-                } catch(_) { fp.audio_sig = ''; }
+                } catch (_) { fp.audio_sig = ''; }
 
-                const sigStr = [fp.user_agent, fp.lang, fp.screen, fp.tz_name, fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig].join('|');
-                const enc = new TextEncoder().encode(sigStr);
+                // SubtleCrypto SHA-256 للـ fingerprint النهائي
+                const sigStr = [
+                    fp.user_agent, fp.lang, fp.screen, fp.tz_name,
+                    fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig,
+                ].join('|');
+                const enc     = new TextEncoder().encode(sigStr);
                 const hashBuf = await crypto.subtle.digest('SHA-256', enc);
-                fp.fp = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
-            } catch(_) { fp.fp = 'unknown'; }
+                fp.fp = Array.from(new Uint8Array(hashBuf))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('')
+                    .slice(0, 40);
+            } catch (_) { fp.fp = 'unknown'; }
             return fp;
         }
 
@@ -3384,86 +3406,151 @@
             return _fpCache;
         }
 
-        /* ─── Ban Screen ─── */
+        /* ══════════════════════════════════════════════════════════
+           UI HELPERS
+        ══════════════════════════════════════════════════════════ */
         function _showBanScreen() {
-            document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a1a;flex-direction:column;gap:16px;">
-                <div style="font-size:48px;">🚫</div>
-                <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:20px;font-weight:700;">تم حظر هذا الحساب</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:13px;">يرجى التواصل مع الدعم</div>
-            </div>`;
+            document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;
+                            background:#0a0a1a;flex-direction:column;gap:16px;">
+                    <div style="font-size:48px;">🚫</div>
+                    <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:20px;font-weight:700;">
+                        تم حظر هذا الحساب
+                    </div>
+                    <div style="color:rgba(255,255,255,0.5);font-size:13px;">يرجى التواصل مع الدعم</div>
+                </div>`;
         }
 
-        /* ─── Rate Limit Toast ─── */
         function _showRateLimitToast() {
             const el = document.createElement('div');
-            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;font-family:Tajawal,sans-serif;font-size:13px;';
+            el.style.cssText = [
+                'position:fixed;top:20px;left:50%;transform:translateX(-50%);',
+                'background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);',
+                'color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;',
+                'font-family:Tajawal,sans-serif;font-size:13px;',
+            ].join('');
             el.textContent = 'أنت تطلب بسرعة كبيرة، يرجى الانتظار لحظة...';
             document.body.appendChild(el);
             setTimeout(() => el.remove(), 3000);
         }
 
-        /* ─── Create Session — نتيجة session_id تُخزَّن في closure فقط ─── */
+        /* ══════════════════════════════════════════════════════════
+           CREATE SESSION
+        ══════════════════════════════════════════════════════════ */
         async function createSession() {
-            const tg       = window?.Telegram?.WebApp;
-            const initData = tg?.initData || '';
-            const fp       = await _getFp();
-            try {
-                const res = await fetch(API_BASE, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type':  'application/json',
-                        'X-Init-Data':   initData,
-                        'X-Fingerprint': JSON.stringify(fp),
-                    },
-                    body: JSON.stringify({ type: 'create_session', data: { initData } }),
-                });
-                const json = await res.json();
-                if (json.is_banned) { _showBanScreen(); return false; }
-                if (json.session_id) {
-                    // ✅ session_id محفوظ في closure — لا يظهر في window أو console
-                    _sessionId = json.session_id;
-                    if (json.user) {
-                        if (json.user.points      !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
-                        if (json.user.level       !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
-                        if (json.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!json.user.tg_verified;
-                        if (json.user.streak_day  !== undefined) DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(json.user.streak_day) || 0) + 1);
-                        const today = new Date().toISOString().slice(0, 10);
-                        if (json.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+            // يمنع طلبات متزامنة
+            if (_pendingSession) return _pendingSession;
+
+            _pendingSession = (async () => {
+                const tg       = window?.Telegram?.WebApp;
+                const initData = tg?.initData || '';
+                const fp       = await _getFp();
+                try {
+                    const res = await fetch(API_BASE, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':  'application/json',
+                            'X-Init-Data':   initData,
+                            'X-Fingerprint': JSON.stringify(fp),
+                        },
+                        body: JSON.stringify({ type: 'create_session', data: { initData } }),
+                    });
+                    const json = await res.json();
+                    if (json.is_banned) { _showBanScreen(); return false; }
+                    if (json.session_id) {
+                        // ✅ session_id محفوظ في closure — غير مرئي خارجها
+                        _sessionId = json.session_id;
+                        if (json.user) {
+                            if (json.user.points      !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
+                            if (json.user.level       !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
+                            if (json.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!json.user.tg_verified;
+                            if (json.user.streak_day  !== undefined)
+                                DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(json.user.streak_day) || 0) + 1);
+                            const today = new Date().toISOString().slice(0, 10);
+                            if (json.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+                        }
+                        return true;
                     }
-                    return true;
+                    return false;
+                } catch (e) {
+                    console.error('[ZT] Session error:', e.message);
+                    return false;
+                } finally {
+                    _pendingSession = null;
                 }
-                return false;
-            } catch(e) {
-                console.error('[ZT] Session error:', e.message);
-                return false;
-            }
+            })();
+
+            return _pendingSession;
         }
 
-        /* ─── Nonce: يُطلب من السيرفر — لا يُخزَّن في متغير مرئي ─── */
-        async function _getNonce() {
+        /* ══════════════════════════════════════════════════════════
+           NONCE — Zero Trust Protocol
+           ✅ العميل يطلب nonce من السيرفر لعملية محددة (action)
+           ✅ السيرفر يُصدر rawNonce — يُخزّن HMAC فقط في DB
+           ✅ العميل يُرسل rawNonce في X-Nonce header
+           ✅ السيرفر يُعيد حساب HMAC ويقارن بـ constant-time
+           ✅ Nonce يُحذف فوراً بعد الاستخدام
+           ✅ لا يُخزَّن rawNonce في localStorage أو متغير عالمي
+        ══════════════════════════════════════════════════════════ */
+
+        /**
+         * _requestNonce — يطلب nonce من السيرفر لعملية محددة
+         * الـ nonce الخام يُرجع مرة واحدة فقط ويُستخدم فوراً
+         * @param {string} action - اسم العملية: 'claim_gift' | 'verify_tg_task' | 'submit_withdraw'
+         * @returns {string|null} rawNonce
+         */
+        async function _requestNonce(action) {
+            if (!_sessionId) return null;
             const fp = await _getFp();
             try {
                 const res = await fetch(API_BASE, {
                     method: 'POST',
                     headers: {
-                        'Content-Type':  'application/json',
-                        'X-Session-Id':  _sessionId || '',
-                        'X-Fingerprint': JSON.stringify(fp),
+                        'Content-Type':   'application/json',
+                        'X-Session-Id':   _sessionId,
+                        'X-Fingerprint':  JSON.stringify(fp),
+                        'X-Nonce-Action': action,  // ✅ السيرفر يربط الـ nonce بهذا الـ action
                     },
                     body: JSON.stringify({ type: 'get_nonce', data: {} }),
                 });
                 const json = await res.json();
-                return json.nonce || null;
-            } catch(_) { return null; }
+                // ✅ نُرجع rawNonce مباشرة — لا نُخزّنه
+                return json.ok && json.nonce ? json.nonce : null;
+            } catch (_) { return null; }
         }
 
-        /* ─── fetchApi — Core Security Pipeline ─── */
-        async function fetchApi({ type, data = {}, _nonce = null }) {
+        /* ══════════════════════════════════════════════════════════
+           FETCH API — Core Security Pipeline v3.0
+        ══════════════════════════════════════════════════════════ */
+
+        /**
+         * fetchApi — الـ pipeline الرئيسي لكل طلبات السيرفر
+         *
+         * نظام الـ nonce:
+         * - start_ad / watch_ad: السيرفر يتعامل بالكامل مع الـ nonce داخلياً
+         * - claim_gift / verify_tg_task / submit_withdraw:
+         *   → المُستدعي يمرر _nonce (حصل عليه بـ _requestNonce قبل الاستدعاء)
+         *   → أو يمرر _nonceAction وسيطلبه fetchApi تلقائياً
+         *
+         * ممنوع:
+         * ❌ تخزين nonce في localStorage
+         * ❌ إنشاء nonce من client-side
+         * ❌ إرسال nonce في body — يُرسل في header فقط
+         *
+         * @param {object} opts
+         * @param {string}  opts.type         - نوع الطلب
+         * @param {object}  opts.data         - بيانات الطلب
+         * @param {string}  [opts._nonce]     - rawNonce جاهز (اختياري)
+         * @param {string}  [opts._nonceAction] - اطلب nonce تلقائياً لهذا الـ action
+         */
+        async function fetchApi({ type, data = {}, _nonce = null, _nonceAction = null }) {
+            // تأكد من وجود session
             if (!_sessionId) {
                 const ok = await createSession();
                 if (!ok) return { ok: false, error: 'session_unavailable' };
             }
 
+            // Rate limit محلي
             if (Date.now() < _rateLimitUntil) {
                 _showRateLimitToast();
                 return { ok: false, error: 'rate_limited' };
@@ -3473,32 +3560,46 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            // ✅ هذه الأكشنات لا تحتاج nonce من العميل
-            const SKIP_NONCE = new Set(['load', 'get_state', 'get_nonce', 'start_ad', 'watch_ad', 'get_referrals']);
+            // ✅ هذه الأكشنات: السيرفر يتعامل مع الـ nonce داخلياً — العميل لا يُرسل شيئاً
+            const SERVER_HANDLES_NONCE = new Set([
+                'load', 'get_state', 'get_nonce',
+                'start_ad', 'watch_ad',       // ← ad_nonce مخزّن في الجلسة
+                'get_referrals',
+            ]);
 
-            // ✅ nonce يُمرَّر من الخارج أو يُطلب داخلياً — لا يُخزَّن في متغير عالمي
+            // ✅ جلب nonce إن لزم
             let nonce = _nonce || null;
-            if (!nonce && !SKIP_NONCE.has(type)) {
-                nonce = await _getNonce();
+            if (!nonce && !SERVER_HANDLES_NONCE.has(type)) {
+                // طلب nonce مرتبط بالـ action المحدد
+                const action = _nonceAction || type;
+                nonce = await _requestNonce(action);
                 if (!nonce) return { ok: false, error: 'nonce_unavailable' };
             }
 
+            // بناء الـ headers — nonce يُرسل في header فقط، لا في body
             const headers = {
                 'Content-Type':  'application/json',
                 'X-Init-Data':   initData,
                 'X-Session-Id':  _sessionId || '',
                 'X-Fingerprint': JSON.stringify(fp),
             };
+            // ✅ X-Nonce: rawNonce فقط — السيرفر يحسب HMAC منه
             if (nonce) headers['X-Nonce'] = nonce;
 
             try {
-                const res = await fetch(API_BASE, { method: 'POST', headers, body: JSON.stringify({ type, data }) });
+                const res = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ type, data }),
+                });
 
+                // Session منتهية — جدّدها وأعد المحاولة مرة واحدة
                 if (res.status === 401) {
                     _sessionId = null;
                     const renewed = await createSession();
                     if (!renewed) return { ok: false, error: 'session_expired' };
-                    return fetchApi({ type, data }); // nonce جديد في الاستدعاء الجديد
+                    // ✅ nonce جديد في الاستدعاء الجديد — لا نُعيد استخدام القديم
+                    return fetchApi({ type, data, _nonceAction: _nonceAction || type });
                 }
 
                 if (res.status === 429) {
@@ -3515,14 +3616,14 @@
                 const json = await res.json();
                 return { ok: true, ...json };
 
-            } catch(err) {
+            } catch (err) {
                 return { ok: false, error: 'network_error' };
             }
         }
 
-        // ✅ كشف الـ closure للخارج — فقط الدوال الضرورية
+        // ✅ نكشف فقط الدوال الضرورية — كل الباقي مخفي في closure
         return { fetchApi, createSession };
-        })(); // ← نهاية IIFE
+        })(); // ← نهاية IIFE Zero Trust v3.0
 
         /* ─── Ad System ─── */
         /* ─── Deposit via Telegram Support ─── */
@@ -3789,21 +3890,14 @@
 
         async function claimGift() {
             if (DAILY_GIFT_STATE.claimed) return;
-
-            // ✅ احصل على nonce من السيرفر أولاً
-            const nonceRes = await fetchApi({ type: 'get_nonce', data: {} });
-            if (!nonceRes.ok || !nonceRes.nonce) {
-                console.warn('[Gift] Could not get nonce');
-                return;
-            }
-
             DAILY_GIFT_STATE.claimed = true;
 
-            // ✅ أرسل nonce في الـ header عبر fetchApi
+            // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'claim_gift'
+            // السيرفر يتحقق أن هذا الـ nonce صدر لـ claim_gift تحديداً
             const result = await fetchApi({
-                type: 'claim_gift',
-                data: {},
-                _nonce: nonceRes.nonce,
+                type:         'claim_gift',
+                data:         {},
+                _nonceAction: 'claim_gift',
             });
 
             if (!result.ok) {
@@ -3937,19 +4031,12 @@
             const verifyBtn = document.getElementById('tg-verify-btn-compact');
             if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
 
-            // ✅ احصل على nonce أولاً
-            const nonceRes = await fetchApi({ type: 'get_nonce', data: {} });
-            if (!nonceRes.ok || !nonceRes.nonce) {
-                if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
-                showToast('coin', 'خطأ', 'تعذّر الاتصال بالسيرفر', 'gold', '!');
-                return;
-            }
-
-            // ✅ الاسم الصحيح: verify_tg_task مع nonce
+            // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'verify_tg_task'
+            // السيرفر يرفض الـ nonce إن لم يكن صادراً لهذا الـ action تحديداً
             const result = await fetchApi({
-                type: 'verify_tg_task',
-                data: {},
-                _nonce: nonceRes.nonce,
+                type:         'verify_tg_task',
+                data:         {},
+                _nonceAction: 'verify_tg_task',
             });
 
             if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
@@ -4684,21 +4771,12 @@
             submitBtn.disabled = true;
             submitBtn.textContent = '⏳ جاري الإرسال...';
 
-            // ✅ احصل على nonce قبل الإرسال
-            const wNonceRes = await fetchApi({ type: 'get_nonce', data: {} });
-            if (!wNonceRes.ok || !wNonceRes.nonce) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'إرسال طلب السحب';
-                errEl.textContent = 'تعذّر الاتصال بالسيرفر، حاول مجدداً';
-                errEl.style.display = 'block';
-                return;
-            }
-
             // ─── إرسال الأكشن للـ backend ───
+            // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'submit_withdraw'
             const result = await fetchApi({
-                type: 'submit_withdraw',
-                data: { address: addr },
-                _nonce: wNonceRes.nonce,
+                type:         'submit_withdraw',
+                data:         { address: addr },
+                _nonceAction: 'submit_withdraw',
             });
 
             // Restore button
