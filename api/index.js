@@ -81,193 +81,28 @@ const CFG = {
 const rateLimitMap = new Map();  // key -> { count, resetAt }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  AUTO MIGRATION — Schema creation + column additions
+//  DB READY CHECK — الجداول تُنشأ يدوياً من schema.sql في Neon Dashboard
 // ══════════════════════════════════════════════════════════════════════════════
-async function runMigrations(client) {
-  // ── Users ─────────────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id               BIGSERIAL PRIMARY KEY,
-      tg_id            BIGINT    UNIQUE NOT NULL,
-      tg_username      TEXT,
-      tg_first_name    TEXT,
-      tg_last_name     TEXT,
-      tg_language_code TEXT      DEFAULT 'ar',
-      tg_is_premium    BOOLEAN   DEFAULT FALSE,
-      points           BIGINT    DEFAULT 0,
-      level            INT       DEFAULT 1,
-      xp               BIGINT    DEFAULT 0,
-      is_banned        BOOLEAN   DEFAULT FALSE,
-      is_shadow_banned BOOLEAN   DEFAULT FALSE,
-      ban_reason       TEXT,
-      risk_score       INT       DEFAULT 0,
-      referrer_id      BIGINT    REFERENCES users(id) ON DELETE SET NULL,
-      tg_verified      BOOLEAN   DEFAULT FALSE,
-      streak_day       INT       DEFAULT 0,
-      last_gift_date   DATE,
-      ads_watched_total BIGINT   DEFAULT 0,
-      total_referrals  INT       DEFAULT 0,
-      earned_from_refs BIGINT    DEFAULT 0,
-      created_at       TIMESTAMPTZ DEFAULT NOW(),
-      updated_at       TIMESTAMPTZ DEFAULT NOW()
-    )
+async function checkDbReady(client) {
+  // تحقق أن الجدول الرئيسي موجود
+  const res = await client.query(`
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'users'
   `);
-
-  // ── Sessions ──────────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      id             TEXT        PRIMARY KEY,
-      user_id        BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      fingerprint_hash TEXT,
-      ip_hash        TEXT,
-      created_at     TIMESTAMPTZ DEFAULT NOW(),
-      last_active    TIMESTAMPTZ DEFAULT NOW(),
-      expires_at     TIMESTAMPTZ NOT NULL,
-      is_revoked     BOOLEAN     DEFAULT FALSE
-    )
-  `);
-
-  // ── Nonces ────────────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS nonces (
-      nonce      TEXT        PRIMARY KEY,
-      user_id    BIGINT      NOT NULL,
-      type       TEXT        DEFAULT 'general',
-      used       BOOLEAN     DEFAULT FALSE,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      expires_at TIMESTAMPTZ NOT NULL
-    )
-  `);
-
-  // ── Ad Logs (per-day tracking) ────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS ad_logs (
-      id          BIGSERIAL   PRIMARY KEY,
-      user_id     BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      log_date    DATE        NOT NULL DEFAULT CURRENT_DATE,
-      count       INT         DEFAULT 0,
-      points_earned BIGINT    DEFAULT 0,
-      created_at  TIMESTAMPTZ DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(user_id, log_date)
-    )
-  `);
-
-  // ── Ad Nonces (separate — short TTL) ─────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS ad_nonces (
-      nonce      TEXT        PRIMARY KEY,
-      user_id    BIGINT      NOT NULL,
-      used       BOOLEAN     DEFAULT FALSE,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      expires_at TIMESTAMPTZ NOT NULL
-    )
-  `);
-
-  // ── Withdrawals ───────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS withdrawals (
-      id         BIGSERIAL   PRIMARY KEY,
-      user_id    BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      pts        BIGINT      NOT NULL,
-      ton_amount NUMERIC(18,6),
-      address    TEXT        NOT NULL,
-      method     TEXT        DEFAULT 'ton',
-      status     TEXT        DEFAULT 'pending',
-      tx_hash    TEXT,
-      notes      TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
-  // ── Tasks ─────────────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS user_tasks (
-      id          BIGSERIAL   PRIMARY KEY,
-      user_id     BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      task_type   TEXT        NOT NULL,
-      completed   BOOLEAN     DEFAULT FALSE,
-      completed_at TIMESTAMPTZ,
-      task_date   DATE        DEFAULT CURRENT_DATE,
-      UNIQUE(user_id, task_type, task_date)
-    )
-  `);
-
-  // ── Referrals ─────────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS referrals (
-      id           BIGSERIAL   PRIMARY KEY,
-      referrer_id  BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      referred_id  BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      points_given BIGINT      DEFAULT 0,
-      created_at   TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(referred_id)
-    )
-  `);
-
-  // ── Risk Events ───────────────────────────────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS risk_events (
-      id         BIGSERIAL   PRIMARY KEY,
-      user_id    BIGINT      REFERENCES users(id) ON DELETE CASCADE,
-      event_type TEXT        NOT NULL,
-      ip_hash    TEXT,
-      fp_hash    TEXT,
-      score_delta INT        DEFAULT 0,
-      meta       JSONB,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
-  // ── Rate Limit Log (persistent fallback) ─────────────────────────────────
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS rate_limit_log (
-      key        TEXT        PRIMARY KEY,
-      count      INT         DEFAULT 0,
-      reset_at   TIMESTAMPTZ NOT NULL,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
-  // ─── Auto-add missing columns (safe idempotent) ───────────────────────────
-  const safeAddCol = async (table, col, def) => {
-    try {
-      await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${def}`);
-    } catch(_) {
-      // column may already exist or other non-fatal error — ignore
-    }
-  };
-
-  await safeAddCol('users', 'ip_hash',            'TEXT');
-  await safeAddCol('users', 'fp_hash',             'TEXT');
-  await safeAddCol('users', 'cluster_ban',         'BOOLEAN DEFAULT FALSE');
-  await safeAddCol('users', 'last_ip_hash',        'TEXT');
-  await safeAddCol('users', 'share_task_done',     'BOOLEAN DEFAULT FALSE');
-  await safeAddCol('withdrawals', 'reviewed_at',   'TIMESTAMPTZ');
-  await safeAddCol('withdrawals', 'reviewed_by',   'TEXT');
-
-  // ─── Indexes ──────────────────────────────────────────────────────────────
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id  ON sessions(user_id)`);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_sessions_expires   ON sessions(expires_at)`);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_nonces_user_id     ON nonces(user_id)`);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_ad_logs_user_date  ON ad_logs(user_id, log_date)`);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_withdrawals_user   ON withdrawals(user_id)`);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_risk_events_user   ON risk_events(user_id)`);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)`);
+  if (parseInt(res.rows[0].count) === 0) {
+    throw new Error('tables_not_found: run schema.sql in Neon Dashboard first');
+  }
 }
-
-let _migrated = false;
+let _dbChecked = false;
 async function ensureMigrated() {
-  if (_migrated) return;
+  if (_dbChecked) return;
   const client = await pool.connect();
   try {
-    await runMigrations(client);
-    _migrated = true;
+    await checkDbReady(client);
+    _dbChecked = true;
   } catch(e) {
-    console.error('[Migration] FAILED:', e.message);
-    // رمز الخطأ للمساعدة في التشخيص
-    throw new Error('migration_failed: ' + e.message.slice(0, 200));
+    console.error('[DB] Check failed:', e.message);
+    throw new Error('db_check_failed: ' + e.message.slice(0, 200));
   } finally {
     client.release();
   }
@@ -1202,10 +1037,10 @@ module.exports = async function handler(req, res) {
   // ── Ensure DB schema ─────────────────────────────────────────────────────
   try { await ensureMigrated(); }
   catch(e) {
-    console.error('[DB] Migration error:', e.message);
+    console.error('[DB] Error:', e.message);
     send(res, 500, {
-      error: 'db_init_error',
-      detail: IS_DEV ? e.message : undefined,
+      error: 'db_error',
+      detail: e.message,   // دائماً اعرض التفاصيل للتشخيص
     });
     return;
   }
