@@ -397,36 +397,45 @@ async function createSessionRow(userId, fpHash, ipHash) {
 // NONCE SYSTEM — Zero Trust / Hidden / One-Time / Bound
 // ═══════════════════════════════════════════════════════════════════
 
-// issueNonce — ينشئ nonce عشوائي ويخزّنه مرتبطاً بالجلسة
-async function issueNonce(sessionId, userId) {
-  const rawNonce = genRawNonce(32);
+// ═══════════════════════════════════════════════════════════════════
+// NONCE SYSTEM — Zero Trust
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * consumeNonce — التحقق من nonce العميل (one-time use)
+ *
+ * العميل يُولّد nonce عشوائياً client-side ويُرسله في X-Nonce header.
+ * السيرفر:
+ *   ① يتحقق أنه لم يُستخدم من قبل (anti-replay)
+ *   ② يتحقق أنه مرتبط بنفس الجلسة
+ *   ③ يُسجّله في جدول nonces ثم يحذفه فور الاستخدام (one-time)
+ */
+async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action) {
+  if (!rawNonce || rawNonce.length < 16) {
+    await addRisk(userId, 'missing_nonce', ipHash, fpHash, 5);
+    return 'missing';
+  }
+  if (!sessionId) return 'invalid';
+
+  // هل استُخدم من قبل؟
+  const existing = await sql(
+    `SELECT id, expires_at FROM nonces WHERE nonce=$1 LIMIT 1`,
+    [rawNonce]
+  );
+  if (existing.length) {
+    // nonce موجود = replay attack
+    await addRisk(userId, `nonce_replay_${action}`, ipHash, fpHash, 25);
+    await writeAudit(userId, sessionId, action, 'nonce_replay', ipHash, fpHash, { nonce: rawNonce.slice(0, 8) });
+    return 'replay';
+  }
+
+  // سجّله + احذفه بعد 5 دقائق تلقائياً (cleanup job يمسحه)
   const exp = new Date(Date.now() + CFG.NONCE_TTL_MS).toISOString();
   await sql(
     `INSERT INTO nonces(nonce, session_id, user_id, expires_at)
      VALUES($1,$2,$3,$4) ON CONFLICT(nonce) DO NOTHING`,
     [rawNonce, sessionId, userId, exp]
   );
-  return rawNonce;
-}
-
-
-async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action) {
-  if (!rawNonce || !sessionId) return 'invalid';
-  const rows = await sql(
-    `SELECT id, expires_at FROM nonces
-     WHERE nonce=$1 AND session_id=$2 AND user_id=$3
-     LIMIT 1`,
-    [rawNonce, sessionId, userId]
-  );
-  if (!rows.length) {
-    await addRisk(userId, 'invalid_nonce', ipHash, fpHash, 10);
-    return 'invalid';
-  }
-  if (new Date(rows[0].expires_at) < new Date()) {
-    await sql(`DELETE FROM nonces WHERE id=$1`, [rows[0].id]);
-    return 'expired';
-  }
-  await sql(`DELETE FROM nonces WHERE id=$1`, [rows[0].id]);
   return 'ok';
 }
 
@@ -864,16 +873,7 @@ async function handleGetReferrals(userId) {
   };
 }
 
-// ── get_nonce — يُصدر nonce للعميل لعملية محددة ───────────────────
-// العميل يرسله في الـ header — السيرفر يتحقق منه باستخدام HMAC
-async function handleGetNonce(session, ipHash, fpHash) {
-  try {
-    const rawNonce = await issueNonce(session.id, session.user_id);
-    return { ok: true, nonce: rawNonce };
-  } catch (err) {
-    return { ok: false, error: 'nonce_error' };
-  }
-}
+
 
 
 async function handleAdmin(action, body) {
@@ -974,7 +974,7 @@ module.exports = async function handler(req, res) {
   const fpHash = hashFp(fpData);
 
   // ── Rate limit per IP ─────────────────────────────────────────
-  const isWrite = !['load', 'get_state', 'get_nonce', 'create_session', 'get_referrals', 'start_ad', 'watch_ad'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'start_ad', 'watch_ad'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -1019,14 +1019,10 @@ module.exports = async function handler(req, res) {
 
     let result;
     switch (type) {
-      case 'get_nonce':
-        result = await handleGetNonce(session, ipHash, fpHash);
-        break;
-
       case 'load':      result = await handleLoad(userId);       break;
       case 'get_state': result = await handleGetState(userId);   break;
 
-      // ✅ start_ad: السيرفر يُنشئ nonce مخفي في الجلسة — العميل لا يراه
+      // ✅ start_ad: السيرفر يُنشئ nonce مخفي في الجلسة — العميل لا يراه أبداً
       case 'start_ad':
         result = await handleStartAd(userId, sessionId, ipHash, fpHash);
         break;
@@ -1036,8 +1032,8 @@ module.exports = async function handler(req, res) {
         result = await handleWatchAd(userId, sessionId, ipHash, fpHash);
         break;
 
-      // ✅ العمليات التالية: rawNonce يأتي من العميل عبر X-Nonce header
-      // السيرفر يُعيد حساب HMAC ويقارن — لا يثق بقيمة الـ nonce مباشرة
+      // ✅ العمليات التالية: nonce يأتي من العميل عبر X-Nonce header (مُولَّد client-side)
+      // السيرفر يتحقق إنه غير مستخدم + مربوط بالجلسة + غير منتهي الصلاحية
       case 'claim_gift':
         result = await handleClaimGift(userId, rawNonce, sessionId, fpHash, ipHash);
         break;
