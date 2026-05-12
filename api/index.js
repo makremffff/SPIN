@@ -29,7 +29,6 @@ async function sql(query, params = []) {
 // ── Config ────────────────────────────────────────────────────────
 const BOT_TOKEN    = process.env.BOT_TOKEN    || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-me-in-env';
-const NONCE_SECRET = process.env.NONCE_SECRET || 'k9mX2pQr7vNsL4wYjHdA8cBtF1eUoGiZx3nRqTsP6uVcMbW';
 
 const IP_SALT      = process.env.IP_SALT      || 'rebh_ip_salt_2025';
 const IS_DEV       = process.env.NODE_ENV !== 'production';
@@ -63,7 +62,7 @@ const CFG = {
 
   // ── Multi-account ────────────────────────────────────────────────
   MULTI_ACCT: {
-    MAX_PER_IP:          3,
+    MAX_PER_IP:          1,
     MAX_PER_FP:          1,
     IP_WHITELIST:        new Set([]),
   },
@@ -111,7 +110,7 @@ async function bootstrap() {
       user_id BIGINT NOT NULL,
       fingerprint_hash TEXT NOT NULL,
       ip_hash TEXT NOT NULL,
-      ad_nonce_hash TEXT,
+      ad_nonce TEXT,
       ad_nonce_exp  TIMESTAMPTZ,
       ad_nonce_used BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -123,13 +122,9 @@ async function bootstrap() {
     // ── nonces — جدول مخصص للـ nonces الحساسة (غير الإعلانات) ─────
     await sql(`CREATE TABLE IF NOT EXISTS nonces (
       id BIGSERIAL PRIMARY KEY,
-      nonce_hash TEXT NOT NULL UNIQUE,
+      nonce      TEXT NOT NULL UNIQUE,
       session_id TEXT NOT NULL,
       user_id    BIGINT NOT NULL,
-      fp_hash    TEXT NOT NULL,
-      ip_hash    TEXT NOT NULL,
-      action     TEXT NOT NULL DEFAULT 'general',
-      used       BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       expires_at TIMESTAMPTZ NOT NULL
     )`);
@@ -208,11 +203,11 @@ async function bootstrap() {
 
     // ── Migrations ────────────────────────────────────────────────
     const migrations = [
-      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_hash TEXT`,
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce TEXT`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_exp  TIMESTAMPTZ`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_used BOOLEAN DEFAULT FALSE`,
       // إزالة ad_nonce النص الخام القديم إن وُجد
-      `ALTER TABLE sessions DROP COLUMN IF EXISTS ad_nonce`,
+      `ALTER TABLE sessions DROP COLUMN IF EXISTS ad_nonce_hash`,
     ];
     for (const m of migrations) { try { await sql(m); } catch (_) {} }
 
@@ -222,7 +217,7 @@ async function bootstrap() {
       `CREATE INDEX IF NOT EXISTS idx_s_exp     ON sessions(expires_at)`,
       `CREATE INDEX IF NOT EXISTS idx_s_ip      ON sessions(ip_hash)`,
       `CREATE INDEX IF NOT EXISTS idx_s_fp      ON sessions(fingerprint_hash)`,
-      `CREATE INDEX IF NOT EXISTS idx_n_hash    ON nonces(nonce_hash)`,
+      `CREATE INDEX IF NOT EXISTS idx_n_hash    ON nonces(nonce)`,
       `CREATE INDEX IF NOT EXISTS idx_n_sess    ON nonces(session_id)`,
       `CREATE INDEX IF NOT EXISTS idx_n_user    ON nonces(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_al_ud     ON ad_logs(user_id, log_date)`,
@@ -250,7 +245,7 @@ setInterval(async () => {
     // إعادة ضبط ad_nonce المنتهية في الجلسات الحية
     await sql(`
       UPDATE sessions
-      SET ad_nonce_hash=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE
+      SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE
       WHERE ad_nonce_exp < NOW()
     `);
     // حذف audit_log القديمة (أكثر من 30 يوم)
@@ -272,20 +267,7 @@ function genRawNonce(bytes = 32) {
   return randomBytes(bytes).toString('hex');
 }
 
-/**
- * hmacNonce — يُنشئ HMAC للـ nonce الخام
- * يُستخدم لتخزين hash بدل النص الخام — حتى لو سُرب الـ DB لا يمكن استخدامه
- * @param {string} rawNonce
- * @param {string} sessionId
- * @param {string} userId
- * @param {string} fpHash
- * @param {string} ipHash
- */
-function hmacNonce(rawNonce, sessionId, userId, fpHash, ipHash) {
-  return createHmac('sha256', NONCE_SECRET)
-    .update(`${rawNonce}:${sessionId}:${userId}:${fpHash}:${ipHash}`)
-    .digest('hex');
-}
+
 
 /**
  * constantTimeCompare — مقارنة آمنة من timing attacks
@@ -415,141 +397,47 @@ async function createSessionRow(userId, fpHash, ipHash) {
 // NONCE SYSTEM — Zero Trust / Hidden / One-Time / Bound
 // ═══════════════════════════════════════════════════════════════════
 
-/**
- * issueNonce — يُنشئ nonce جديد ويخزّن HMAC فقط في DB
- *
- * الـ nonce الخام يُرسل للعميل مرة واحدة فقط ثم يُنسى من السيرفر
- * DB يحتوي على HMAC(nonce + session + user + fp + ip) فقط
- * → حتى لو سُرب الـ DB لا يمكن إعادة استخدامه بدون معرفة باقي المعطيات
- *
- * @param {string} sessionId
- * @param {number} userId
- * @param {string} fpHash
- * @param {string} ipHash
- * @param {string} action  - اسم العملية المرتبطة بهذا الـ nonce
- * @returns {string} rawNonce — يُرسل للعميل مرة واحدة فقط
- */
-async function issueNonce(sessionId, userId, fpHash, ipHash, action = 'general') {
-  const rawNonce  = genRawNonce(32);
-  const nonceHash = hmacNonce(rawNonce, sessionId, userId, fpHash, ipHash);
-  const exp       = new Date(Date.now() + CFG.NONCE_TTL_MS).toISOString();
-
-  // تحقق أنه لا يوجد nonce سابق غير مستخدم لنفس الـ action + session
-  // يمنع flood من client يطلب nonces بلا استخدام
-  const existing = await sql(
-    `SELECT COUNT(*) AS cnt FROM nonces
-     WHERE session_id=$1 AND action=$2 AND used=FALSE AND expires_at > NOW()`,
-    [sessionId, action]
-  );
-  if (parseInt(existing[0]?.cnt) >= 3) {
-    // العميل يطلب nonces مكثفة بدون استخدام — ارفع risk
-    await addRisk(userId, 'nonce_flood', ipHash, fpHash, 5);
-    throw new Error('nonce_flood');
-  }
-
+// issueNonce — ينشئ nonce عشوائي ويخزّنه مرتبطاً بالجلسة
+async function issueNonce(sessionId, userId) {
+  const rawNonce = genRawNonce(32);
+  const exp = new Date(Date.now() + CFG.NONCE_TTL_MS).toISOString();
   await sql(
-    `INSERT INTO nonces(nonce_hash, session_id, user_id, fp_hash, ip_hash, action, expires_at)
-     VALUES($1,$2,$3,$4,$5,$6,$7)`,
-    [nonceHash, sessionId, userId, fpHash, ipHash, action, exp]
+    `INSERT INTO nonces(nonce, session_id, user_id, expires_at)
+     VALUES($1,$2,$3,$4) ON CONFLICT(nonce) DO NOTHING`,
+    [rawNonce, sessionId, userId, exp]
   );
-
-  // ✅ الـ nonce الخام يُرسل للعميل مرة واحدة فقط
-  // السيرفر لا يحتفظ بالنص الخام — يحتفظ بالـ HMAC فقط
   return rawNonce;
 }
 
-/**
- * consumeNonce — التحقق من الـ nonce وحذفه فوراً (one-time use)
- *
- * يُحسب HMAC من البيانات المرتبطة ويقارن بما في DB
- * بعد النجاح يُحذف فوراً — لا يمكن إعادة الاستخدام
- *
- * @returns {'ok'|'invalid'|'expired'|'used'|'tampered'}
- */
-async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action = 'general') {
-  if (!rawNonce || !sessionId || !userId) return 'invalid';
 
-  // احسب الـ HMAC من جانب السيرفر
-  const expectedHash = hmacNonce(rawNonce, sessionId, userId, fpHash, ipHash);
-
-  // ابحث عن الـ nonce في DB — نقارن الـ hash بدل النص الخام
+async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action) {
+  if (!rawNonce || !sessionId) return 'invalid';
   const rows = await sql(
-    `SELECT id, used, expires_at, action FROM nonces
-     WHERE nonce_hash = $1
+    `SELECT id, expires_at FROM nonces
+     WHERE nonce=$1 AND session_id=$2 AND user_id=$3
      LIMIT 1`,
-    [expectedHash]
+    [rawNonce, sessionId, userId]
   );
-
   if (!rows.length) {
-    await writeAudit(userId, sessionId, action, 'rejected', ipHash, fpHash, {
-      reason: 'nonce_not_found',
-    });
-    await addRisk(userId, 'invalid_nonce', ipHash, fpHash, 15);
+    await addRisk(userId, 'invalid_nonce', ipHash, fpHash, 10);
     return 'invalid';
   }
-
-  const record = rows[0];
-
-  // تحقق من الاستخدام السابق (Replay Attack)
-  if (record.used) {
-    await writeAudit(userId, sessionId, action, 'replayed', ipHash, fpHash, {
-      reason: 'nonce_already_used',
-      nonce_id: record.id,
-    });
-    await addRisk(userId, 'nonce_replay', ipHash, fpHash, 25);
-    return 'used';
-  }
-
-  // تحقق من الانتهاء
-  if (new Date(record.expires_at) < new Date()) {
-    await sql(`DELETE FROM nonces WHERE id=$1`, [record.id]);
-    await writeAudit(userId, sessionId, action, 'expired', ipHash, fpHash, {
-      reason: 'nonce_expired',
-    });
+  if (new Date(rows[0].expires_at) < new Date()) {
+    await sql(`DELETE FROM nonces WHERE id=$1`, [rows[0].id]);
     return 'expired';
   }
-
-  // تحقق أن الـ action مطابق
-  if (record.action !== action) {
-    await writeAudit(userId, sessionId, action, 'tampered', ipHash, fpHash, {
-      reason: 'action_mismatch',
-      expected: record.action,
-      got: action,
-    });
-    await addRisk(userId, 'nonce_action_mismatch', ipHash, fpHash, 20);
-    return 'tampered';
-  }
-
-  // ✅ كل التحققات نجحت — احذف الـ nonce فوراً (one-time use)
-  await sql(`DELETE FROM nonces WHERE id=$1`, [record.id]);
-
-  await writeAudit(userId, sessionId, action, 'ok', ipHash, fpHash, {
-    nonce_id: record.id,
-  });
+  await sql(`DELETE FROM nonces WHERE id=$1`, [rows[0].id]);
   return 'ok';
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// AD NONCE — مخزّن في session — لا يُرسل للعميل أبداً
-// ═══════════════════════════════════════════════════════════════════
 
-/**
- * issueAdNonce — يُنشئ nonce للإعلان ويخزّن HMAC في الجلسة فقط
- * العميل لا يرى هذا الـ nonce — السيرفر يتحقق منه تلقائياً عند watch_ad
- */
 async function issueAdNonce(sessionId, userId, fpHash, ipHash) {
-  const rawNonce  = genRawNonce(32);
-  const nonceHash = hmacNonce(rawNonce, sessionId, userId, fpHash, ipHash);
-  const exp       = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
-
+  const rawNonce = genRawNonce(32);
+  const exp      = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
   await sql(
-    `UPDATE sessions
-     SET ad_nonce_hash=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
-     WHERE id=$1`,
-    [sessionId, nonceHash, exp]
+    `UPDATE sessions SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE WHERE id=$1`,
+    [sessionId, rawNonce, exp]
   );
-
-  // ✅ لا نعيد rawNonce للعميل — السيرفر يتحقق داخلياً فقط
   return true;
 }
 
@@ -561,48 +449,25 @@ async function consumeAdNonce(sessionId, userId, fpHash, ipHash) {
   if (!sessionId) return false;
 
   const rows = await sql(
-    `SELECT ad_nonce_hash, ad_nonce_exp, ad_nonce_used
+    `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used
      FROM sessions
      WHERE id=$1 AND is_revoked=FALSE`,
     [sessionId]
   );
   if (!rows.length) return false;
 
-  const { ad_nonce_hash, ad_nonce_exp, ad_nonce_used } = rows[0];
+  const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
 
-  if (!ad_nonce_hash) {
-    await writeAudit(userId, sessionId, 'watch_ad', 'rejected', ipHash, fpHash, {
-      reason: 'no_ad_nonce',
-    });
-    return false;
-  }
-
+  if (!ad_nonce) return false;
   if (ad_nonce_used) {
-    await writeAudit(userId, sessionId, 'watch_ad', 'replayed', ipHash, fpHash, {
-      reason: 'ad_nonce_already_used',
-    });
     await addRisk(userId, 'ad_nonce_replay', ipHash, fpHash, 25);
     return false;
   }
-
   if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) {
-    await sql(
-      `UPDATE sessions SET ad_nonce_hash=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE WHERE id=$1`,
-      [sessionId]
-    );
-    await writeAudit(userId, sessionId, 'watch_ad', 'expired', ipHash, fpHash, {
-      reason: 'ad_nonce_expired',
-    });
+    await sql(`UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE WHERE id=$1`, [sessionId]);
     return false;
   }
-
-  // ✅ الـ nonce صالح — احذفه فوراً (one-time use)
-  await sql(
-    `UPDATE sessions SET ad_nonce_hash=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE WHERE id=$1`,
-    [sessionId]
-  );
-
-  await writeAudit(userId, sessionId, 'watch_ad', 'ok', ipHash, fpHash, {});
+  await sql(`UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE WHERE id=$1`, [sessionId]);
   return true;
 }
 
@@ -792,7 +657,7 @@ async function handleCreateSession(body, ipHash, fpHash) {
 
   return {
     ok: true,
-    session_id: sessionId,
+    _sid: sessionId,   // ← يُستخدم داخلياً فقط لضبط cookie — لا يُعرض في UI
     user: {
       points:           parseInt(finalUser.points) || 0,
       level:            parseInt(finalUser.level) || 1,
@@ -1001,21 +866,15 @@ async function handleGetReferrals(userId) {
 
 // ── get_nonce — يُصدر nonce للعميل لعملية محددة ───────────────────
 // العميل يرسله في الـ header — السيرفر يتحقق منه باستخدام HMAC
-async function handleGetNonce(session, ipHash, fpHash, action) {
-  const validActions = ['claim_gift', 'verify_tg_task', 'submit_withdraw'];
-  const act = validActions.includes(action) ? action : 'general';
-
+async function handleGetNonce(session, ipHash, fpHash) {
   try {
-    const rawNonce = await issueNonce(session.id, session.user_id, fpHash, ipHash, act);
-    // ✅ الـ nonce الخام يُرسل مرة واحدة فقط — لا يُخزَّن في DB كنص
-    return { ok: true, nonce: rawNonce, action: act };
+    const rawNonce = await issueNonce(session.id, session.user_id);
+    return { ok: true, nonce: rawNonce };
   } catch (err) {
-    if (err.message === 'nonce_flood') {
-      return { ok: false, error: 'too_many_pending_nonces' };
-    }
-    throw err;
+    return { ok: false, error: 'nonce_error' };
   }
 }
+
 
 async function handleAdmin(action, body) {
   if (action === 'list_withdrawals') {
@@ -1083,10 +942,11 @@ async function handleAdmin(action, body) {
 // ═══════════════════════════════════════════════════════════════════
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers',
-    'Content-Type, X-Init-Data, X-Session-Id, X-Fingerprint, X-Nonce, X-Admin-Secret, X-Nonce-Action'
+    'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret'
   );
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'method_not_allowed' });
@@ -1100,13 +960,13 @@ module.exports = async function handler(req, res) {
   const type = body?.type || '';
   if (!type) return res.status(400).json({ error: 'missing_type' });
 
-  const sessionId   = req.headers['x-session-id']    || '';
-  const fpRaw       = req.headers['x-fingerprint']   || '{}';
-  // ✅ X-Nonce: يحتوي فقط على rawNonce الذي أصدره السيرفر مسبقاً
-  // السيرفر يُعيد حساب الـ HMAC ويقارن بما في DB
-  const rawNonce    = req.headers['x-nonce']         || '';
-  const nonceAction = req.headers['x-nonce-action']  || 'general';
-  const adminKey    = req.headers['x-admin-secret']  || '';
+  // ✅ session_id من cookie httpOnly — مخفي عن العميل
+  const cookieHeader = req.headers['cookie'] || '';
+  const sidMatch     = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
+  const sessionId    = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
+  const fpRaw        = req.headers['x-fingerprint']  || '{}';
+  const rawNonce     = req.headers['x-nonce']        || '';
+  const adminKey     = req.headers['x-admin-secret'] || '';
 
   const ipHash = hashIp(getIp(req));
   let fpData = {};
@@ -1114,7 +974,7 @@ module.exports = async function handler(req, res) {
   const fpHash = hashFp(fpData);
 
   // ── Rate limit per IP ─────────────────────────────────────────
-  const isWrite = !['load', 'get_state', 'get_nonce', 'create_session', 'get_referrals', 'start_ad'].includes(type);
+  const isWrite = !['load', 'get_state', 'get_nonce', 'create_session', 'get_referrals', 'start_ad', 'watch_ad'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -1129,6 +989,14 @@ module.exports = async function handler(req, res) {
     // ── Create Session ────────────────────────────────────────────
     if (type === 'create_session') {
       const result = await handleCreateSession(body, ipHash, fpHash);
+      if (result._sid) {
+        // ✅ session_id في httpOnly cookie — لا يظهر في JS أو Console
+        const maxAge = Math.floor(CFG.SESSION_TTL_MS / 1000);
+        res.setHeader('Set-Cookie',
+          `sid=${encodeURIComponent(result._sid)}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`
+        );
+        delete result._sid;  // لا يُرسل في JSON
+      }
       return res.status(result.status || 200).json(result);
     }
 
@@ -1152,8 +1020,7 @@ module.exports = async function handler(req, res) {
     let result;
     switch (type) {
       case 'get_nonce':
-        // ✅ يُصدر nonce لعملية محددة — العميل يرسله في طلبه القادم
-        result = await handleGetNonce(session, ipHash, fpHash, nonceAction);
+        result = await handleGetNonce(session, ipHash, fpHash);
         break;
 
       case 'load':      result = await handleLoad(userId);       break;
