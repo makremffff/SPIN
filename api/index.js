@@ -747,10 +747,18 @@ async function handleLoad(userId) {
 }
 
 async function handleGetState(userId) {
-  const r = await sql(`SELECT points,level,xp,total_referrals,earned_from_refs FROM users WHERE id=$1`, [userId]);
+  const r = await sql(`SELECT points,level,xp,total_referrals,earned_from_refs,ad_last_reward FROM users WHERE id=$1`, [userId]);
   if (!r.length) return { ok: false, error: 'user_not_found' };
   const u  = r[0];
   const ad = (await sql(`SELECT count,points_earned FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`, [userId]))[0] || { count: 0, points_earned: 0 };
+
+  // ── حساب cooldown المتبقي بدقة ─────────────────────────────────────
+  let ad_cooldown_ms = 0;
+  if (u.ad_last_reward) {
+    const elapsed = Date.now() - new Date(u.ad_last_reward).getTime();
+    ad_cooldown_ms = Math.max(0, CFG.AD_COOLDOWN_MS - elapsed);
+  }
+
   return {
     ok: true,
     points: parseInt(u.points) || 0, level: parseInt(u.level) || 1, xp: parseInt(u.xp) || 0,
@@ -758,6 +766,8 @@ async function handleGetState(userId) {
     ads_watched_today: parseInt(ad.count) || 0,
     ads_remaining: Math.max(0, CFG.ADS_DAILY_LIMIT - (parseInt(ad.count) || 0)),
     earned_today: parseInt(ad.points_earned) || 0,
+    ad_cooldown_ms,                        // ← الفرونت يستخدمه لعرض العداد
+    ads_daily_limit: CFG.ADS_DAILY_LIMIT,  // ← config من السيرفر دائماً
   };
 }
 
@@ -790,6 +800,23 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash) {
       return { ok: false, error: 'cooldown_active', wait_ms: CFG.AD_COOLDOWN_MS - elapsed };
     }
   }
+
+  // [2.5] Server-side 15s enforcement — يتحقق أن الإعلان استمر 15 ثانية فعلياً
+  // يُقارن NOW() - ad_started_at من session — يرفض إذا أقل من 14 ثانية
+  const timingRow = await sql(`SELECT ad_started_at FROM sessions WHERE id=$1`, [sessionId]);
+  if (timingRow.length && timingRow[0].ad_started_at) {
+    const adElapsed = Date.now() - new Date(timingRow[0].ad_started_at).getTime();
+    const MIN_AD_MS = 14 * 1000; // 14s كحد أدنى (1s buffer للـ network latency)
+    if (adElapsed < MIN_AD_MS) {
+      await addRisk(userId, 'ad_too_fast', ipHash, fpHash, 20);
+      await writeAudit(userId, sessionId, 'reward_ad', 'too_fast', ipHash, fpHash, {
+        elapsed_ms: adElapsed,
+      });
+      return { ok: false, error: 'ad_duration_invalid' };
+    }
+  }
+  // مسح ad_started_at بعد التحقق
+  await sql(`UPDATE sessions SET ad_started_at=NULL WHERE id=$1`, [sessionId]);
 
   // [3] Atomic nonce — ينشأ ويُستهلك داخلياً بدون أي مدخل من العميل
   const nonceValid = await _atomicAdReward(sessionId, userId, ipHash, fpHash);
@@ -952,6 +979,41 @@ async function handleGetReferrals(userId) {
 
 
 
+
+// ── track_ad_event — تسجيل أحداث الإعلان (بدون reward) ──────────────
+// آمن تماماً — لا يُعطي نقاط — فقط يسجّل الحدث في audit_log
+// يُستخدم لـ: ad_requested, ad_loaded, ad_started, ad_failed, suspicious_activity
+async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
+  const allowed = new Set([
+    'ad_requested', 'ad_loaded', 'ad_started',
+    'ad_failed',    'suspicious_activity',
+  ]);
+  const event = body?.data?.event || '';
+  if (!allowed.has(event)) {
+    return { ok: false, error: 'unknown_event' };
+  }
+
+  // ── ad_started: نسجّل وقت البداية في الجلسة لـ server-side timing enforcement ──
+  if (event === 'ad_started') {
+    await sql(
+      `UPDATE sessions SET ad_started_at=NOW() WHERE id=$1`,
+      [sessionId]
+    );
+  }
+
+  // ── suspicious_activity: إضافة نقاط risk ─────────────────────────
+  if (event === 'suspicious_activity') {
+    const reason = String(body?.data?.reason || 'client_report').slice(0, 50);
+    await addRisk(userId, `client_suspicious_${reason}`, ipHash, fpHash, 10);
+  }
+
+  await writeAudit(userId, sessionId, event, 'tracked', ipHash, fpHash, {
+    meta: body?.data?.meta || {},
+  });
+
+  return { ok: true };
+}
+
 async function handleAdmin(action, body) {
   if (action === 'list_withdrawals') {
     const r = await sql(
@@ -1050,7 +1112,7 @@ module.exports = async function handler(req, res) {
   const fpHash = hashFp(fpData);
 
   // ── Rate limit per IP ─────────────────────────────────────────
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -1121,6 +1183,11 @@ module.exports = async function handler(req, res) {
 
       case 'get_referrals':
         result = await handleGetReferrals(userId);
+        break;
+
+      // ✅ track_ad_event: تسجيل أحداث الإعلان — لا يُعطي نقاط — فقط audit
+      case 'track_ad_event':
+        result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash);
         break;
 
       default:
