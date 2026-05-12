@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>الربح عربي</title>
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script> -->
+    <!-- Adsgram SDK is loaded dynamically in body with retry logic -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2454,10 +2454,149 @@
         }
 
     </style>
-    <!-- ✅ Adsgram SDK — إعلانات Telegram Mini Apps (15 ثانية rewarded video) -->
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    <!-- ✅ Adsgram SDK — Dynamic loader with retry & error handling -->
+    <script>
+    (function() {
+        var MAX_RETRIES = 3, retries = 0, TIMEOUT = 8000;
+        window._adsgramLoadStatus = 'pending'; // pending | loaded | failed
+        window._adsgramCallbacks = [];
+
+        function onAdsgramReady() {
+            window._adsgramLoadStatus = 'loaded';
+            window._adsgramCallbacks.forEach(function(cb) { try { cb(); } catch(_) {} });
+            window._adsgramCallbacks = [];
+        }
+
+        function loadSdk() {
+            var s = document.createElement('script');
+            s.src = 'https://sad.adsgram.ai/js/sad.min.js';
+            s.async = true;
+            var timer = setTimeout(function() {
+                s.remove();
+                retry();
+            }, TIMEOUT);
+            s.onload = function() {
+                clearTimeout(timer);
+                onAdsgramReady();
+            };
+            s.onerror = function() {
+                clearTimeout(timer);
+                retry();
+            };
+            document.head.appendChild(s);
+        }
+
+        function retry() {
+            retries++;
+            if (retries < MAX_RETRIES) {
+                console.warn('[Adsgram] Load failed, retry ' + retries + '/' + MAX_RETRIES);
+                setTimeout(loadSdk, 1500 * retries);
+            } else {
+                window._adsgramLoadStatus = 'failed';
+                console.error('[Adsgram] SDK load failed after ' + MAX_RETRIES + ' retries');
+                window._adsgramCallbacks.forEach(function(cb) { try { cb('failed'); } catch(_) {} });
+                window._adsgramCallbacks = [];
+            }
+        }
+
+        window.onAdsgramLoaded = function(cb) {
+            if (window._adsgramLoadStatus === 'loaded') { cb(); return; }
+            if (window._adsgramLoadStatus === 'failed') { cb('failed'); return; }
+            window._adsgramCallbacks.push(cb);
+        };
+
+        loadSdk();
+    })();
+    </script>
 </head>
 <body>
+
+    <!-- ══════════════════════════════════════════
+         LOADING SCREEN — Professional skeleton
+    ══════════════════════════════════════════ -->
+    <div id="app-loading-screen" style="
+        position:fixed;inset:0;z-index:99999;
+        background:#0d0a1a;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:28px;
+        transition:opacity 0.5s cubic-bezier(0.4,0,0.2,1),visibility 0.5s;
+    ">
+        <!-- Logo / Brand -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+            <div style="
+                width:72px;height:72px;border-radius:22px;
+                background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(251,191,36,0.06));
+                border:1px solid rgba(251,191,36,0.3);
+                display:flex;align-items:center;justify-content:center;
+                box-shadow:0 0 40px rgba(251,191,36,0.15);
+                animation:loadPulse 2s ease-in-out infinite;
+            ">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="#fbbf24" stroke-width="1.6"/>
+                    <path d="M12 7v10M9.5 9.5C9.5 8.67 10.67 8 12 8s2.5.67 2.5 1.5S13.33 11 12 11s-2.5.67-2.5 1.5S10.67 14 12 14s2.5-.67 2.5-1.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div style="font-family:'DynaPuff','Tajawal',sans-serif;font-size:20px;font-weight:700;color:#fff;
+                        text-shadow:0 0 20px rgba(251,191,36,0.4);">الربح عربي</div>
+        </div>
+
+        <!-- Spinner ring -->
+        <div style="position:relative;width:48px;height:48px;">
+            <svg width="48" height="48" viewBox="0 0 48 48" style="animation:loadSpin 1s linear infinite;">
+                <circle cx="24" cy="24" r="20" stroke="rgba(251,191,36,0.1)" stroke-width="4" fill="none"/>
+                <circle cx="24" cy="24" r="20" stroke="#fbbf24" stroke-width="4" fill="none"
+                        stroke-linecap="round" stroke-dasharray="32 95"/>
+            </svg>
+        </div>
+
+        <!-- Skeleton cards -->
+        <div style="width:min(360px,90vw);display:flex;flex-direction:column;gap:12px;">
+            <div style="height:100px;border-radius:20px;background:rgba(255,255,255,0.04);
+                        animation:skelShimmer 1.6s ease-in-out infinite;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="height:70px;border-radius:14px;background:rgba(255,255,255,0.04);
+                            animation:skelShimmer 1.6s ease-in-out infinite 0.2s;"></div>
+                <div style="height:70px;border-radius:14px;background:rgba(255,255,255,0.04);
+                            animation:skelShimmer 1.6s ease-in-out infinite 0.4s;"></div>
+            </div>
+        </div>
+
+        <div style="font-family:'Readex Pro',sans-serif;font-size:12px;color:rgba(255,255,255,0.25);">
+            جاري التحميل...
+        </div>
+    </div>
+
+    <style>
+        @keyframes loadPulse {
+            0%,100% { box-shadow:0 0 40px rgba(251,191,36,0.15); transform:scale(1); }
+            50%      { box-shadow:0 0 60px rgba(251,191,36,0.3);  transform:scale(1.04); }
+        }
+        @keyframes loadSpin { to { transform:rotate(360deg); } }
+        @keyframes skelShimmer {
+            0%   { background:rgba(255,255,255,0.04); }
+            50%  { background:rgba(255,255,255,0.08); }
+            100% { background:rgba(255,255,255,0.04); }
+        }
+    </style>
+
+    <!-- ══════════════════════════════════════════
+         OFFLINE BANNER
+    ══════════════════════════════════════════ -->
+    <div id="offline-banner" style="
+        position:fixed;top:0;left:0;right:0;z-index:9998;
+        background:rgba(248,113,113,0.15);
+        border-bottom:1px solid rgba(248,113,113,0.3);
+        padding:10px 16px;
+        text-align:center;
+        font-family:'Tajawal',sans-serif;
+        font-size:13px;color:#f87171;font-weight:700;
+        backdrop-filter:blur(12px);
+        display:none;
+        transform:translateY(-100%);
+        transition:transform 0.3s ease;
+    ">
+        📵 أنت غير متصل بالإنترنت — سيتم إعادة الاتصال تلقائياً
+    </div>
 
     <!-- ══════════════════════════════════════════
          TOP BAR
@@ -2888,6 +3027,15 @@
                         <div class="ad-btn-reward-label" data-i18n="pts">نقطة</div>
                     </div>
                 </button>
+
+                <!-- Cooldown countdown message -->
+                <div id="ad-cooldown-msg" style="
+                    display:none;text-align:center;
+                    font-family:'Readex Pro',sans-serif;font-size:12px;
+                    color:rgba(251,191,36,0.7);font-weight:600;
+                    margin-top:10px;padding:6px 14px;border-radius:20px;
+                    background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.12);
+                "></div>
 
                 <!-- All-done state (hidden initially) -->
                 <div class="ad-done-state" id="ad-done-state">
@@ -3549,16 +3697,59 @@
         // ✅ Adsgram Block ID — غيّره لـ block ID الخاص بك
         const AD_BLOCK_ID = 'int-30077';
 
-        // ✅ AdController يُهيَّأ مرة واحدة عند تحميل الصفحة
-        // حسب دوكيومنت Adsgram: init() يُعيد نفس الكنترولر لنفس blockId
-        let _adController = null;
-        function _getAdController() {
+        // ══════════════════════════════════════════════════════════
+        // ✅ AdController — Robust initialization per Adsgram docs
+        // حسب الدوكيمنت: AdController.init() يُعيد نفس الـ instance
+        // لنفس blockId — آمن للاستدعاء المتعدد
+        //
+        // Anti-fraud:
+        //   • الإعلان لا يُشغَّل إلا بعد التحقق من SDK load
+        //   • _adWatchStartedAt يُسجَّل لحظة بدء الإعلان
+        //   • reward يُرفض إذا مر أقل من 14s
+        //   • كل حدث يُرسَل للسيرفر عبر trackAdEvent
+        // ══════════════════════════════════════════════════════════
+        let _adController      = null;
+        let _adWatchStartedAt  = 0;   // timestamp لبداية الإعلان — anti-fraud
+        let _adRetryCount      = 0;
+        const AD_MAX_RETRIES   = 2;
+        const AD_MIN_DURATION  = 14000; // 14s minimum (server enforces 14s too)
+
+        // ── تهيئة الـ controller مع callbacks رسمية ──────────────────
+        function _initAdController() {
             if (!window.Adsgram) return null;
-            if (!_adController) {
-                _adController = window.Adsgram.init({ blockId: AD_BLOCK_ID });
-                // onTooLongSession / onNonStopShow → نسمح للـ SDK يعرض alert افتراضي
+            if (_adController) return _adController;
+
+            try {
+                _adController = window.Adsgram.init({
+                    blockId: AD_BLOCK_ID,
+                    debug:   false,
+                    debugBanners: false,
+                });
+                console.info('[Adsgram] ✅ Controller initialized — blockId:', AD_BLOCK_ID);
+            } catch (e) {
+                console.error('[Adsgram] ❌ init failed:', e.message);
+                _adController = null;
             }
             return _adController;
+        }
+
+        // ── _getAdController — يتحقق من SDK ثم يُهيئ الـ controller ──
+        function _getAdController() {
+            if (!window.Adsgram) {
+                console.warn('[Adsgram] SDK not loaded yet');
+                return null;
+            }
+            return _initAdController();
+        }
+
+        // ── trackAdEvent — يرسل حدث للسيرفر بشكل آمن ────────────────
+        async function trackAdEvent(event, meta) {
+            try {
+                await fetchApi({
+                    type: 'track_ad_event',
+                    data: { event, meta: meta || {} },
+                });
+            } catch (_) {}
         }
 
         const AD_STATE = {
@@ -3566,25 +3757,56 @@
             remaining: 10,
             watchedToday: 0,
             earnedToday: 0,
-            isWatching: false
+            isWatching: false,
+            cooldownUntil: 0,   // timestamp — from server get_state
+            _cooldownTimer: null, // internal countdown interval
         };
 
         function updateAdUI() {
             const r = AD_STATE.remaining;
-            const elRem = document.getElementById('ads-remaining');
-            const elWatched = document.getElementById('ads-watched');
-            const elEarned = document.getElementById('earned-today');
+            const elRem      = document.getElementById('ads-remaining');
+            const elWatched  = document.getElementById('ads-watched');
+            const elEarned   = document.getElementById('earned-today');
             const elProgress = document.getElementById('ads-progress');
-            const elBtn = document.getElementById('ad-watch-btn');
-            const elDone = document.getElementById('ad-done-state');
+            const elBtn      = document.getElementById('ad-watch-btn');
+            const elDone     = document.getElementById('ad-done-state');
+            const elCooldown = document.getElementById('ad-cooldown-msg');
 
-            if (elRem) elRem.textContent = r;
-            if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
-            if (elEarned) elEarned.textContent = AD_STATE.earnedToday.toLocaleString('ar-EG');
-            if (elProgress) elProgress.style.width = ((r / AD_STATE.total) * 100) + '%';
+            if (elRem)     elRem.textContent     = r;
+            if (elWatched) elWatched.textContent  = AD_STATE.watchedToday;
+            if (elEarned)  elEarned.textContent   = AD_STATE.earnedToday.toLocaleString('ar-EG');
+            if (elProgress) elProgress.style.width = (((AD_STATE.total - r) / AD_STATE.total) * 100) + '%';
+
+            // ── Cooldown state ──────────────────────────────────────
+            const coolLeft = AD_STATE.cooldownUntil - Date.now();
+            if (coolLeft > 0 && r > 0) {
+                if (elBtn) elBtn.classList.add('disabled');
+                if (elCooldown) {
+                    const sec = Math.ceil(coolLeft / 1000);
+                    elCooldown.textContent = `⏳ انتظر ${sec}s`;
+                    elCooldown.style.display = 'block';
+                }
+                // Update countdown every second
+                if (!AD_STATE._cooldownTimer) {
+                    AD_STATE._cooldownTimer = setInterval(() => {
+                        const left = AD_STATE.cooldownUntil - Date.now();
+                        if (left <= 0) {
+                            clearInterval(AD_STATE._cooldownTimer);
+                            AD_STATE._cooldownTimer = null;
+                            if (elBtn) elBtn.classList.remove('disabled');
+                            if (elCooldown) elCooldown.style.display = 'none';
+                        } else {
+                            if (elCooldown) elCooldown.textContent = `⏳ انتظر ${Math.ceil(left / 1000)}s`;
+                        }
+                    }, 1000);
+                }
+            } else {
+                if (r > 0 && elBtn) elBtn.classList.remove('disabled');
+                if (elCooldown) elCooldown.style.display = 'none';
+            }
 
             if (r === 0) {
-                if (elBtn) elBtn.style.display = 'none';
+                if (elBtn)  elBtn.style.display  = 'none';
                 if (elDone) elDone.style.display = 'flex';
             }
 
@@ -3593,56 +3815,127 @@
 
         async function watchAd() {
             if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
-            AD_STATE.isWatching = true;
 
-            // ✅ تأكد أن SDK محمّل قبل محاولة تشغيل الإعلان
-            if (!window.Adsgram) {
-                console.warn('[Ad] Adsgram SDK not loaded yet');
-                AD_STATE.isWatching = false;
+            // ── Cooldown check client-side (server enforces too) ──────
+            if (AD_STATE.cooldownUntil && Date.now() < AD_STATE.cooldownUntil) {
+                const waitSec = Math.ceil((AD_STATE.cooldownUntil - Date.now()) / 1000);
                 const t = TRANSLATIONS[currentLang];
-                showToast('coin', t.toast_ad_error || 'تعذّر تحميل الإعلان', t.toast_ad_retry || 'حاول مرة أخرى', 'red', '');
+                showToast('coin', t.toast_ad_wait || 'انتظر قليلاً', `${waitSec}s`, 'red', '');
                 return;
             }
 
-            // ✅ overlay تحميل مؤقت — يظهر ريثما يحمّل Adsgram إعلانه
+            AD_STATE.isWatching = true;
+
             const overlay = document.getElementById('ad-watch-overlay');
             const countEl = document.getElementById('overlay-count');
+            const adBtn   = document.getElementById('ad-watch-btn');
+
+            // ── Disable button visually ───────────────────────────────
+            if (adBtn) adBtn.classList.add('disabled');
+
+            // ══════════════════════════════════════════════════════════
+            // ✅ تحقق من SDK load — مع fallback + retry handling
+            // ══════════════════════════════════════════════════════════
+            if (!window.Adsgram || window._adsgramLoadStatus !== 'loaded') {
+                // SDK لم يتحمّل بعد — انتظر أو أظهر رسالة
+                if (window._adsgramLoadStatus === 'failed') {
+                    AD_STATE.isWatching = false;
+                    if (adBtn) adBtn.classList.remove('disabled');
+                    const t = TRANSLATIONS[currentLang];
+                    showToast('coin',
+                        t.toast_ad_error || 'تعذّر تحميل الإعلان',
+                        t.toast_ad_retry || 'تحقق من اتصالك وحاول مرة أخرى',
+                        'red', '');
+                    await trackAdEvent('ad_failed', { reason: 'sdk_failed_to_load' });
+                    return;
+                }
+
+                // SDK لا يزال يُحمّل — أظهر overlay وانتظر
+                if (overlay) {
+                    if (countEl) countEl.textContent = '⏳';
+                    overlay.classList.add('visible');
+                }
+
+                // انتظر حتى يتحمّل SDK (max 8s)
+                const sdkLoaded = await new Promise((res) => {
+                    const timeout = setTimeout(() => res(false), 8000);
+                    window.onAdsgramLoaded(function(status) {
+                        clearTimeout(timeout);
+                        res(status !== 'failed');
+                    });
+                });
+
+                if (overlay) overlay.classList.remove('visible');
+
+                if (!sdkLoaded) {
+                    AD_STATE.isWatching = false;
+                    if (adBtn) adBtn.classList.remove('disabled');
+                    const t = TRANSLATIONS[currentLang];
+                    showToast('coin',
+                        t.toast_ad_error || 'تعذّر تحميل الإعلان',
+                        t.toast_ad_retry || 'تحقق من اتصالك وحاول مرة أخرى',
+                        'red', '');
+                    return;
+                }
+            }
+
+            // ── overlay تحميل مؤقت ───────────────────────────────────
             if (overlay) {
                 if (countEl) countEl.textContent = '⏳';
                 overlay.classList.add('visible');
             }
 
-            // ✅ Adsgram SDK يُشغّل الإعلان (15 ثانية حقيقية)
-            // SDK يعرض واجهته الخاصة — overlay يختفي حين يبدأ الإعلان
+            // ── إرسال حدث ad_started للسيرفر قبل show() ─────────────
+            await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID });
+
+            // ── تشغيل الإعلان ─────────────────────────────────────────
             const adShown = await _showAdsgramAd();
             AD_STATE.isWatching = false;
             if (overlay) overlay.classList.remove('visible');
+            if (adBtn) adBtn.classList.remove('disabled');
 
             if (!adShown) {
-                // المستخدم أغلق الإعلان أو حصل خطأ — لا مكافأة
+                // أغلق أو خطأ — لا مكافأة — واجهة تبقى سليمة
                 return;
             }
 
-            // ✅ reward_ad: يُستدعى فقط بعد نجاح Adsgram callback (result.done=true)
-            // السيرفر يُنشئ الـ nonce ويتحقق منه ويُعطي النقاط — كل شيء داخلي
-            // session_id يُرسل تلقائياً عبر httpOnly cookie
+            // ══════════════════════════════════════════════════════════
+            // ✅ reward_ad — يُستدعى فقط بعد result.done === true
+            //    + 14s client check + server enforces 14s also
+            // ══════════════════════════════════════════════════════════
             const result = await fetchApi({ type: 'reward_ad', data: {} });
 
             if (result.ok) {
+                // ── تحديث state من السيرفر ────────────────────────────
                 AD_STATE.remaining    = result.remaining;
                 AD_STATE.watchedToday = result.watchedToday;
                 AD_STATE.earnedToday  = result.earnedToday;
+                // cooldown من السيرفر
+                if (result.cooldown_ms) {
+                    AD_STATE.cooldownUntil = Date.now() + result.cooldown_ms;
+                }
                 if (result.points !== undefined) {
-                    // انيميشن الرصيد عند الإضافة
-                    animateBalance(USER_STATE.points, result.points);
+                    animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
                 }
+                await trackAdEvent('reward_granted', {
+                    points_earned: 50,
+                    watched_today: result.watchedToday,
+                });
             } else {
                 console.warn('[Ad] reward_ad rejected:', result.error);
                 if (result.error === 'cooldown_active') {
+                    const waitMs = result.wait_ms || 30000;
+                    AD_STATE.cooldownUntil = Date.now() + waitMs;
+                    const waitSec = Math.ceil(waitMs / 1000);
                     const t = TRANSLATIONS[currentLang];
-                    const waitSec = Math.ceil((result.wait_ms || 30000) / 1000);
                     showToast('coin', t.toast_ad_wait || 'انتظر قليلاً', `${waitSec}s`, 'red', '');
+                } else if (result.error === 'ad_duration_invalid') {
+                    const t = TRANSLATIONS[currentLang];
+                    showToast('coin', 'لم يكتمل الإعلان', 'شاهد الإعلان كاملاً للحصول على المكافأة', 'red', '');
+                } else if (result.error === 'daily_limit_reached') {
+                    AD_STATE.remaining = 0;
+                    updateAdUI();
                 }
                 return;
             }
@@ -3659,31 +3952,93 @@
             }
         }
 
-        // ✅ _showAdsgramAd — يُشغّل Adsgram ويعود true فقط عند مشاهدة الإعلان كاملاً
-        // حسب دوكيومنت Adsgram:
-        //   • show() → Promise يُحَل إذا شاهد المستخدم حتى النهاية
-        //   • show() → Promise يُرفض إذا أغلق أو حصل خطأ
-        //   • result.done = true يعني مشاهدة كاملة
-        // الإعلانات 15 ثانية — Adsgram SDK يتحكم بالمدة، لا حاجة لـ timer يدوي
+        // ══════════════════════════════════════════════════════════
+        // ✅ _showAdsgramAd — Official Adsgram SDK implementation
+        //
+        // Per Adsgram docs:
+        //   • AdController.show() → Promise
+        //   • .then(result) → result.done === true means full watch
+        //   • .catch(result) → result.error === true means technical error
+        //                    → result.done === false means user skipped
+        //
+        // Security:
+        //   • نسجّل _adWatchStartedAt قبل show()
+        //   • نتحقق أن 14s+ مرت قبل إرسال reward_ad
+        //   • نرسل كل حدث للسيرفر عبر trackAdEvent
+        //   • نمنع reward إذا أُغلق الإعلان مبكراً
+        // ══════════════════════════════════════════════════════════
         function _showAdsgramAd() {
-            return new Promise((resolve) => {
+            return new Promise(async (resolve) => {
                 const controller = _getAdController();
                 if (!controller) {
-                    console.warn('[Ad] Adsgram SDK not loaded or blockId wrong');
+                    console.warn('[Adsgram] SDK not ready');
+                    await trackAdEvent('ad_failed', { reason: 'sdk_not_ready' });
                     resolve(false);
                     return;
                 }
-                controller.show()
-                    .then((result) => {
-                        // result.done = true → المستخدم شاهد الإعلان كاملاً (15 ثانية)
-                        resolve(result && result.done === true);
-                    })
-                    .catch((result) => {
-                        // أغلق المستخدم الإعلان أو حصل خطأ
-                        // result.error = true يعني خطأ تقني
-                        console.warn('[Ad] Adsgram skipped or error:', result?.description || result?.state);
+
+                // ── تتبع: طلب الإعلان ─────────────────────────────────
+                await trackAdEvent('ad_requested', { block_id: AD_BLOCK_ID });
+
+                // ── تسجيل وقت بداية الإعلان — anti-fraud ─────────────
+                _adWatchStartedAt = Date.now();
+
+                try {
+                    const result = await controller.show();
+
+                    // ── result.done === true = مشاهدة كاملة ─────────────
+                    if (result && result.done === true) {
+                        const elapsed = Date.now() - _adWatchStartedAt;
+
+                        // ── Client-side 14s check — طبقة أمان إضافية ──
+                        if (elapsed < AD_MIN_DURATION) {
+                            console.warn('[Adsgram] ⚠️ Ad too short:', elapsed + 'ms');
+                            await trackAdEvent('suspicious_activity', {
+                                reason: 'ad_too_short',
+                                elapsed_ms: elapsed,
+                            });
+                            resolve(false);
+                            return;
+                        }
+
+                        await trackAdEvent('ad_completed', { elapsed_ms: elapsed });
+                        _adRetryCount = 0;
+                        resolve(true);
+                    } else {
+                        // result.done = false → المستخدم أغلق الإعلان
+                        await trackAdEvent('ad_failed', {
+                            reason:      'user_skipped',
+                            result_done: result?.done,
+                            result_error:result?.error,
+                        });
                         resolve(false);
-                    });
+                    }
+                } catch (result) {
+                    // .catch() → خطأ تقني أو إغلاق
+                    const errReason = result?.description || result?.state || 'unknown';
+                    console.warn('[Adsgram] catch:', errReason);
+
+                    if (result?.error === true) {
+                        // خطأ تقني — retry
+                        await trackAdEvent('ad_failed', {
+                            reason:  'technical_error',
+                            message: errReason,
+                        });
+                        if (_adRetryCount < AD_MAX_RETRIES) {
+                            _adRetryCount++;
+                            console.info('[Adsgram] Retry', _adRetryCount, '/', AD_MAX_RETRIES);
+                            // reset controller for next attempt
+                            _adController = null;
+                            setTimeout(() => resolve(_showAdsgramAd()), 1500);
+                            return;
+                        }
+                        _adRetryCount = 0;
+                    } else {
+                        // المستخدم أغلق الإعلان
+                        await trackAdEvent('ad_failed', { reason: 'user_closed' });
+                    }
+                    resolve(false);
+                }
             });
         }
 
@@ -4211,6 +4566,15 @@
         }
 
         /* ─── Init ─── */
+        // ── Hide loading screen ──────────────────────────────────
+        function _hideLoadingScreen() {
+            const screen = document.getElementById('app-loading-screen');
+            if (!screen) return;
+            screen.style.opacity = '0';
+            screen.style.visibility = 'hidden';
+            setTimeout(() => screen.remove(), 600);
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             initTelegramUser();
             /* Create session right after TG init */
@@ -4340,25 +4704,42 @@
                 setTimeout(() => runCounters(document), 350);
             }
 
+            // ── إخفاء loading screen بعد تحميل البيانات ──────────────
+            _hideLoadingScreen();
+
             // ══════════════════════════════════════════════════════
-            // ✅ Auto-refresh — يحدث الرصيد وبيانات المستخدم كل 5 ثواني
-            // يستخدم get_state (خفيف) بدلاً من load الثقيل
+            // ✅ Auto-refresh — يحدث كل البيانات كل 5 ثواني
+            //    • الرصيد + المستوى
+            //    • حالة الإعلانات + cooldown
+            //    • إحصائيات الإحالات
+            //    • حالة المهام
             // ══════════════════════════════════════════════════════
-            let _lastPolledPts = USER_STATE.points;
-            setInterval(async () => {
+            let _lastPolledPts  = USER_STATE.points;
+            let _pollFailCount  = 0;
+            const MAX_POLL_FAIL = 5;
+
+            async function _doPoll() {
                 try {
                     const state = await fetchApi({ type: 'get_state', data: {} });
-                    if (!state.ok) return;
+                    if (!state.ok) {
+                        _pollFailCount++;
+                        return;
+                    }
+                    _pollFailCount = 0;
 
-                    // تحديث AD_STATE
+                    // ── Ads state + cooldown ──────────────────────────
                     if (state.ads_remaining !== undefined) {
                         AD_STATE.remaining    = state.ads_remaining;
                         AD_STATE.watchedToday = state.ads_watched_today || 0;
                         AD_STATE.earnedToday  = state.earned_today || 0;
+                        // cooldown المتبقي من السيرفر
+                        if (state.ad_cooldown_ms > 0) {
+                            AD_STATE.cooldownUntil = Date.now() + state.ad_cooldown_ms;
+                        }
                         updateAdUI();
                     }
 
-                    // تحديث الرصيد — انيميشن فقط إذا تغيّرت القيمة
+                    // ── Balance animation إذا تغيّر ──────────────────
                     if (state.points !== undefined && state.points !== _lastPolledPts) {
                         animateBalance(_lastPolledPts, state.points, 800);
                         _lastPolledPts    = state.points;
@@ -4367,8 +4748,76 @@
 
                     if (state.level !== undefined) USER_STATE.level = state.level;
 
-                } catch (_) { /* صامت */ }
-            }, 5000);
+                    // ── Referral stats ────────────────────────────────
+                    if (state.total_referrals !== undefined) {
+                        const statEls = document.querySelectorAll('.uc-stat-val.green');
+                        statEls.forEach(el => { el.textContent = state.total_referrals; });
+                    }
+                    if (state.earned_from_refs !== undefined) {
+                        const statEls = document.querySelectorAll('.uc-stat-val.gold');
+                        statEls.forEach(el => { el.textContent = state.earned_from_refs.toLocaleString('en-US'); });
+                    }
+
+                } catch (_) {
+                    _pollFailCount++;
+                }
+            }
+
+            // Polling interval — 5s normal, slower if offline
+            let _pollInterval = setInterval(_doPoll, 5000);
+
+            // ══════════════════════════════════════════════════════
+            // ✅ Offline detection + reconnect handling
+            // ══════════════════════════════════════════════════════
+            const offlineBanner = document.getElementById('offline-banner');
+
+            function showOfflineBanner() {
+                if (!offlineBanner) return;
+                offlineBanner.style.display = 'block';
+                requestAnimationFrame(() => {
+                    offlineBanner.style.transform = 'translateY(0)';
+                });
+            }
+
+            function hideOfflineBanner() {
+                if (!offlineBanner) return;
+                offlineBanner.style.transform = 'translateY(-100%)';
+                setTimeout(() => { offlineBanner.style.display = 'none'; }, 300);
+            }
+
+            window.addEventListener('offline', () => {
+                clearInterval(_pollInterval);
+                showOfflineBanner();
+                console.warn('[Network] ⚡ Offline');
+            });
+
+            window.addEventListener('online', async () => {
+                hideOfflineBanner();
+                console.info('[Network] ✅ Back online — re-polling');
+                await _doPoll();
+                _pollInterval = setInterval(_doPoll, 5000);
+            });
+
+            // ══════════════════════════════════════════════════════
+            // ✅ Anti-console manipulation — protect balance
+            // يمنع تغيير USER_STATE.points من الـ console
+            // ══════════════════════════════════════════════════════
+            Object.defineProperty(USER_STATE, 'points', {
+                get() { return this._points || 0; },
+                set(v) {
+                    const val = parseInt(v);
+                    if (isNaN(val) || val < 0) return;
+                    // منع القفز غير المعقول — فرق أكثر من 10x الحد اليومي مشبوه
+                    const MAX_JUMP = (this._points || 0) + 100000;
+                    if (val > MAX_JUMP && (this._points || 0) > 0) {
+                        console.warn('[Security] Suspicious balance change blocked');
+                        return;
+                    }
+                    this._points = val;
+                },
+                configurable: false,
+            });
+
         });
 
         /* ══════════════════════════════════════════
@@ -4694,8 +5143,11 @@
         });
 
         // ✅ قيم ابتدائية صفر — تُحدَّث من السيرفر عند load
+        // Anti-fraud: points protected via backing _points field
+        // Object.defineProperty applied in DOMContentLoaded
         const USER_STATE = {
-            points: 0,
+            _points: 0,
+            points: 0,  // will be overridden by defineProperty
             level:  1,
         };
 
