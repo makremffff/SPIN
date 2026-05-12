@@ -43,10 +43,12 @@ const CFG = {
   PTS_PER_TON:           100000,
 
   // ── Nonce ────────────────────────────────────────────────────────
-  // الـ nonce لا يُرسل للعميل أبداً — مخزّن في جدول nonces مرتبط بالجلسة
-  // العميل يحصل فقط على "operation_token" مؤقت لا يكشف منطق التحقق
   NONCE_TTL_MS:          5  * 60 * 1000,   // 5 دقائق
   AD_NONCE_TTL_MS:       2  * 60 * 1000,   // 2 دقيقة للإعلانات
+
+  // ── Ad timing — server-side enforcement ──────────────────────────
+  // cooldown بين إعلان وإعلان — منع التكرار السريع
+  AD_COOLDOWN_MS:        30 * 1000,        // 30 ثانية بين كل reward_ad
 
   // ── Session ──────────────────────────────────────────────────────
   SESSION_TTL_MS:        7  * 24 * 60 * 60 * 1000,
@@ -110,7 +112,7 @@ async function bootstrap() {
       user_id BIGINT NOT NULL,
       fingerprint_hash TEXT NOT NULL,
       ip_hash TEXT NOT NULL,
-      ad_nonce TEXT,
+      ad_nonce      TEXT,
       ad_nonce_exp  TIMESTAMPTZ,
       ad_nonce_used BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -206,6 +208,8 @@ async function bootstrap() {
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce TEXT`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_exp  TIMESTAMPTZ`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_used BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_started_at TIMESTAMPTZ`,
+      `ALTER TABLE users    ADD COLUMN IF NOT EXISTS ad_last_reward TIMESTAMPTZ`,
       // إزالة ad_nonce النص الخام القديم إن وُجد
       `ALTER TABLE sessions DROP COLUMN IF EXISTS ad_nonce_hash`,
     ];
@@ -440,43 +444,68 @@ async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action)
 }
 
 
-async function issueAdNonce(sessionId, userId, fpHash, ipHash) {
-  const rawNonce = genRawNonce(32);
-  const exp      = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
-  await sql(
-    `UPDATE sessions SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE WHERE id=$1`,
-    [sessionId, rawNonce, exp]
-  );
-  return true;
-}
+// ═══════════════════════════════════════════════════════════════════
+// AD NONCE SYSTEM — Zero Trust (مطابق لنظام طماطم)
+//
+// المبدأ: لا يوجد endpoint اسمه start_ad أو watch_ad يُرسل أي شيء
+// عن الـ nonce. السيرفر ينشئه ويستهلكه داخلياً في نفس العملية.
+//
+// التسلسل الصحيح:
+//   [1] Adsgram SDK يُشغَّل client-side (لا طلب للسيرفر هنا)
+//   [2] Adsgram callback (onReward) يستدعي reward_ad
+//   [3] handleRewardAd ينشئ nonce داخلياً → يتحقق منه → يُعطي النقاط
+//       كل هذا في نفس الـ function — لا endpoint منفصل للـ nonce
+//
+// لماذا هذا أقوى من start_ad + watch_ad؟
+//   • لا يوجد طلب start_ad يمكن إرساله من curl
+//   • لا يوجد طلب watch_ad يمكن إرساله من curl
+//   • الـ nonce يُنشأ ويُستهلك في نفس الـ DB transaction
+//   • التحقق الوحيد الممكن: cooldown + daily_limit + shadow_ban
+// ═══════════════════════════════════════════════════════════════════
 
 /**
- * consumeAdNonce — يتحقق من nonce الإعلان ويحذفه فوراً
- * لا يحتاج أي مدخل من العميل
+ * _atomicAdReward — ينشئ nonce داخلياً ويستهلكه في نفس اللحظة
+ * لا يُرسل الـ nonce للعميل ولا يقبله منه
+ * يُستدعى فقط من handleRewardAd بعد التحقق من cooldown + daily limit
  */
-async function consumeAdNonce(sessionId, userId, fpHash, ipHash) {
-  if (!sessionId) return false;
+async function _atomicAdReward(sessionId, userId, ipHash, fpHash) {
+  // إنشاء nonce داخلي — لا يخرج من هذه الدالة
+  const internalNonce = genRawNonce(32);
+  const exp           = new Date(Date.now() + 30 * 1000).toISOString(); // 30 ثانية فقط
 
+  // كتابته في الجلسة
+  await sql(
+    `UPDATE sessions SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE WHERE id=$1`,
+    [sessionId, internalNonce, exp]
+  );
+
+  // قراءته والتحقق منه فوراً — في نفس العملية
   const rows = await sql(
     `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used
-     FROM sessions
-     WHERE id=$1 AND is_revoked=FALSE`,
+     FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
     [sessionId]
   );
   if (!rows.length) return false;
 
   const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
 
-  if (!ad_nonce) return false;
-  if (ad_nonce_used) {
-    await addRisk(userId, 'ad_nonce_replay', ipHash, fpHash, 25);
+  if (!ad_nonce || ad_nonce_used)                              return false;
+  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date())   return false;
+
+  // مقارنة ثابتة الزمن — يمنع timing attacks
+  const bufA = Buffer.from(internalNonce, 'hex');
+  const bufB = Buffer.from(ad_nonce,      'hex');
+  const match = bufA.length === bufB.length && require('crypto').timingSafeEqual(bufA, bufB);
+  if (!match) {
+    await addRisk(userId, 'ad_nonce_internal_mismatch', ipHash, fpHash, 50);
     return false;
   }
-  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) {
-    await sql(`UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE WHERE id=$1`, [sessionId]);
-    return false;
-  }
-  await sql(`UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE WHERE id=$1`, [sessionId]);
+
+  // حذفه فوراً — one-time use
+  await sql(
+    `UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE WHERE id=$1`,
+    [sessionId]
+  );
   return true;
 }
 
@@ -732,47 +761,94 @@ async function handleGetState(userId) {
   };
 }
 
-// ── start_ad — يُنشئ nonce مخفياً في الجلسة ──────────────────────
-async function handleStartAd(userId, sessionId, ipHash, fpHash) {
-  const r = await sql(`SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`, [userId]);
-  if ((parseInt(r[0]?.count) || 0) >= CFG.ADS_DAILY_LIMIT) {
+// ── reward_ad — endpoint وحيد للإعلانات (بدون start_ad / watch_ad) ─
+//
+// يُستدعى فقط من Adsgram onReward callback — بعد مشاهدة الإعلان فعلياً
+// السيرفر ينشئ الـ nonce ويتحقق منه ويعطي النقاط في نفس العملية
+// لا يوجد أي endpoint منفصل يخص الـ nonce
+//
+async function handleRewardAd(userId, sessionId, ipHash, fpHash) {
+  // [1] Daily limit
+  const adR = await sql(
+    `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
+    [userId]
+  );
+  const watchedToday = parseInt(adR[0]?.count) || 0;
+  if (watchedToday >= CFG.ADS_DAILY_LIMIT) {
     return { ok: false, error: 'daily_limit_reached' };
   }
 
-  // ✅ nonce يُخزَّن في الجلسة فقط — العميل لا يراه
-  await issueAdNonce(sessionId, userId, fpHash, ipHash);
-  return { ok: true };
-}
-
-// ── watch_ad — يتحقق من nonce الجلسة بدون أي مدخل من العميل ──────
-async function handleWatchAd(userId, sessionId, ipHash, fpHash) {
-  const valid = await consumeAdNonce(sessionId, userId, fpHash, ipHash);
-  if (!valid) {
-    await addRisk(userId, 'invalid_ad_nonce', ipHash, fpHash, 10);
-    return { ok: false, error: 'invalid_ad_nonce' };
+  // [2] Cooldown — منع الطلبات المتكررة السريعة (30 ثانية بين كل إعلان)
+  const coolR = await sql(
+    `SELECT ad_last_reward FROM users WHERE id=$1`, [userId]
+  );
+  const lastReward = coolR[0]?.ad_last_reward;
+  if (lastReward) {
+    const elapsed = Date.now() - new Date(lastReward).getTime();
+    if (elapsed < CFG.AD_COOLDOWN_MS) {
+      await addRisk(userId, 'ad_cooldown_violation', ipHash, fpHash, 5);
+      return { ok: false, error: 'cooldown_active', wait_ms: CFG.AD_COOLDOWN_MS - elapsed };
+    }
   }
 
+  // [3] Atomic nonce — ينشأ ويُستهلك داخلياً بدون أي مدخل من العميل
+  const nonceValid = await _atomicAdReward(sessionId, userId, ipHash, fpHash);
+  if (!nonceValid) {
+    await addRisk(userId, 'ad_nonce_failed', ipHash, fpHash, 15);
+    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_fail', ipHash, fpHash, {});
+    return { ok: false, error: 'security_check_failed' };
+  }
+
+  // [4] Shadow ban — رد ناجح زائف
+  const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
+  if (uR[0]?.is_shadow_banned) {
+    await writeAudit(userId, sessionId, 'reward_ad', 'shadow', ipHash, fpHash, {});
+    const fakeAd = await sql(`SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`, [userId]);
+    const fakeWatched = parseInt(fakeAd[0]?.count) || 0;
+    return {
+      ok: true,
+      remaining:    Math.max(0, CFG.ADS_DAILY_LIMIT - fakeWatched),
+      watchedToday: fakeWatched,
+      earnedToday:  fakeWatched * CFG.POINTS_PER_AD,
+      points:       parseInt((await sql(`SELECT points FROM users WHERE id=$1`, [userId]))[0]?.points) || 0,
+      all_done:     fakeWatched >= CFG.ADS_DAILY_LIMIT,
+    };
+  }
+
+  // [5] إضافة النقاط + تحديث cooldown
   const lr = await sql(
     `INSERT INTO ad_logs(user_id, log_date, count, points_earned)
      VALUES($1, CURRENT_DATE, 1, $2)
      ON CONFLICT(user_id, log_date) DO UPDATE SET
-       count       = CASE WHEN ad_logs.count < $3 THEN ad_logs.count + 1       ELSE ad_logs.count        END,
+       count         = CASE WHEN ad_logs.count < $3 THEN ad_logs.count + 1         ELSE ad_logs.count         END,
        points_earned = CASE WHEN ad_logs.count < $3 THEN ad_logs.points_earned + $2 ELSE ad_logs.points_earned END,
-       updated_at  = NOW()
+       updated_at    = NOW()
      RETURNING count, points_earned`,
     [userId, CFG.POINTS_PER_AD, CFG.ADS_DAILY_LIMIT]
   );
   const watched = parseInt(lr[0].count) || 0;
+
   await sql(
-    `UPDATE users SET points=points+$1, xp=xp+$1, ads_watched_total=ads_watched_total+1, updated_at=NOW() WHERE id=$2`,
+    `UPDATE users
+     SET points=points+$1, xp=xp+$1,
+         ads_watched_total=ads_watched_total+1,
+         ad_last_reward=NOW(),
+         updated_at=NOW()
+     WHERE id=$2`,
     [CFG.POINTS_PER_AD, userId]
   );
+
   await syncLevel(userId);
   if (watched >= 10) await upsertTask(userId, 'ads_10');
   if (watched >= 25) await upsertTask(userId, 'ads_25');
+
+  await writeAudit(userId, sessionId, 'reward_ad', 'ok', ipHash, fpHash, {
+    watched, points_earned: CFG.POINTS_PER_AD
+  });
+
   const ur = await sql(`SELECT points FROM users WHERE id=$1`, [userId]);
   return {
-    ok: true,
+    ok:           true,
     remaining:    Math.max(0, CFG.ADS_DAILY_LIMIT - watched),
     watchedToday: watched,
     earnedToday:  parseInt(lr[0].points_earned) || 0,
@@ -974,7 +1050,7 @@ module.exports = async function handler(req, res) {
   const fpHash = hashFp(fpData);
 
   // ── Rate limit per IP ─────────────────────────────────────────
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'start_ad', 'watch_ad'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -1022,14 +1098,11 @@ module.exports = async function handler(req, res) {
       case 'load':      result = await handleLoad(userId);       break;
       case 'get_state': result = await handleGetState(userId);   break;
 
-      // ✅ start_ad: السيرفر يُنشئ nonce مخفي في الجلسة — العميل لا يراه أبداً
-      case 'start_ad':
-        result = await handleStartAd(userId, sessionId, ipHash, fpHash);
-        break;
-
-      // ✅ watch_ad: السيرفر يقرأ nonce من الجلسة مباشرة — بدون أي مدخل من العميل
-      case 'watch_ad':
-        result = await handleWatchAd(userId, sessionId, ipHash, fpHash);
+      // ✅ reward_ad: endpoint وحيد للإعلانات
+      // يُستدعى من Adsgram onReward callback فقط
+      // الـ nonce يُنشأ ويُستهلك داخلياً — لا يُرسل ولا يُقبل من العميل
+      case 'reward_ad':
+        result = await handleRewardAd(userId, sessionId, ipHash, fpHash);
         break;
 
       // ✅ العمليات التالية: nonce يأتي من العميل عبر X-Nonce header (مُولَّد client-side)
