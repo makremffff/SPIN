@@ -3314,29 +3314,15 @@
          JAVASCRIPT
     ══════════════════════════════════════════ -->
     <script>
-        /* ══════════════════════════════════════════════════════════════
-           ZERO TRUST SECURITY LAYER v3.0 — IIFE Closure
-           ✅ _sessionId مخفي داخل closure — لا يظهر في Console/DevTools/window
-           ✅ ad_nonce: مخزّن في الجلسة على السيرفر — لا يُرسل للعميل أبداً
-           ✅ nonces الحساسة: السيرفر يُصدرها وهو اللي يتحقق منها بـ HMAC
-           ✅ العميل يُرسل rawNonce في header — السيرفر يُعيد حساب HMAC ويقارن
-           ✅ كل nonce مربوط بـ session + user + fingerprint + ip (server-side)
-           ✅ Constant-time comparison على السيرفر — يمنع timing attacks
-           ✅ Nonce واحد لكل action — يُحذف فوراً بعد الاستخدام
-           ✅ Nonce TTL 5 دقائق — ينتهي تلقائياً
-           ✅ Replay attacks ممنوعة بالكامل — nonce مُستخدم = رفض فوري
-           ✅ fingerprint مُشفَّر بـ SubtleCrypto — multi-signal
-           ✅ Session binding — الجلسة مربوطة بالـ fingerprint على السيرفر
-        ══════════════════════════════════════════════════════════════ */
         const API_BASE = '/api';
 
         const { fetchApi, createSession } = (() => {
 
-        /* ─── Private state — مخفي بالكامل عن Console/DevTools ─── */
-        let _sessionId      = null;  // ✅ لا يظهر في window أو DevTools
+        /* ─── state ─── */
+        let _sessionReady   = false;
         let _rateLimitUntil = 0;
         let _fpCache        = null;
-        let _pendingSession = null;  // يمنع طلبات createSession المتزامنة
+        let _pendingSession = null;
 
         /* ══════════════════════════════════════════════════════════
            FINGERPRINT — Multi-Signal SubtleCrypto SHA-256
@@ -3354,8 +3340,6 @@
                 fp.touch_pts   = navigator.maxTouchPoints      || 0;
                 fp.dpr         = window.devicePixelRatio       || 1;
                 fp.color_depth = screen.colorDepth             || 0;
-
-                // Canvas fingerprint
                 try {
                     const c = document.createElement('canvas');
                     c.width = 200; c.height = 50;
@@ -3366,8 +3350,6 @@
                     ctx.arc(100, 25, 20, 0, Math.PI * 2); ctx.stroke();
                     fp.canvas_sig = c.toDataURL().slice(-32);
                 } catch (_) { fp.canvas_sig = ''; }
-
-                // WebGL fingerprint
                 try {
                     const gl = document.createElement('canvas').getContext('webgl');
                     if (gl) {
@@ -3378,25 +3360,15 @@
                             : gl.getParameter(gl.RENDERER) || '').slice(0, 64);
                     } else { fp.webgl_sig = ''; }
                 } catch (_) { fp.webgl_sig = ''; }
-
-                // Audio fingerprint
                 try {
                     const ac = new (window.AudioContext || window.webkitAudioContext)();
                     fp.audio_sig = ac.sampleRate + '|' + ac.destination.maxChannelCount;
                     ac.close();
                 } catch (_) { fp.audio_sig = ''; }
-
-                // SubtleCrypto SHA-256 للـ fingerprint النهائي
-                const sigStr = [
-                    fp.user_agent, fp.lang, fp.screen, fp.tz_name,
-                    fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig,
-                ].join('|');
+                const sigStr  = [fp.user_agent, fp.lang, fp.screen, fp.tz_name, fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig].join('|');
                 const enc     = new TextEncoder().encode(sigStr);
                 const hashBuf = await crypto.subtle.digest('SHA-256', enc);
-                fp.fp = Array.from(new Uint8Array(hashBuf))
-                    .map(b => b.toString(16).padStart(2, '0'))
-                    .join('')
-                    .slice(0, 40);
+                fp.fp = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
             } catch (_) { fp.fp = 'unknown'; }
             return fp;
         }
@@ -3406,9 +3378,7 @@
             return _fpCache;
         }
 
-        /* ══════════════════════════════════════════════════════════
-           UI HELPERS
-        ══════════════════════════════════════════════════════════ */
+        /* ── UI helpers ── */
         function _showBanScreen() {
             document.body.innerHTML = `
                 <div style="display:flex;align-items:center;justify-content:center;height:100vh;
@@ -3423,12 +3393,7 @@
 
         function _showRateLimitToast() {
             const el = document.createElement('div');
-            el.style.cssText = [
-                'position:fixed;top:20px;left:50%;transform:translateX(-50%);',
-                'background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);',
-                'color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;',
-                'font-family:Tajawal,sans-serif;font-size:13px;',
-            ].join('');
+            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;font-family:Tajawal,sans-serif;font-size:13px;';
             el.textContent = 'أنت تطلب بسرعة كبيرة، يرجى الانتظار لحظة...';
             document.body.appendChild(el);
             setTimeout(() => el.remove(), 3000);
@@ -3436,18 +3401,20 @@
 
         /* ══════════════════════════════════════════════════════════
            CREATE SESSION
+           ✅ session_id يُحفظ في httpOnly cookie تلقائياً من السيرفر
+           ✅ العميل يحصل على { ok: true } فقط — لا session_id في JSON
+           ✅ Cookie ينتقل تلقائياً في كل طلب — لا يظهر في JS
         ══════════════════════════════════════════════════════════ */
         async function createSession() {
-            // يمنع طلبات متزامنة
             if (_pendingSession) return _pendingSession;
-
             _pendingSession = (async () => {
                 const tg       = window?.Telegram?.WebApp;
                 const initData = tg?.initData || '';
                 const fp       = await _getFp();
                 try {
                     const res = await fetch(API_BASE, {
-                        method: 'POST',
+                        method:      'POST',
+                        credentials: 'include',   // ✅ يرسل ويستقبل cookies
                         headers: {
                             'Content-Type':  'application/json',
                             'X-Init-Data':   initData,
@@ -3457,9 +3424,9 @@
                     });
                     const json = await res.json();
                     if (json.is_banned) { _showBanScreen(); return false; }
-                    if (json.session_id) {
-                        // ✅ session_id محفوظ في closure — غير مرئي خارجها
-                        _sessionId = json.session_id;
+                    if (json.ok) {
+                        // ✅ session_id في cookie — لا نحتاج نخزّنه هنا
+                        _sessionReady = true;
                         if (json.user) {
                             if (json.user.points      !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
                             if (json.user.level       !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
@@ -3479,78 +3446,35 @@
                     _pendingSession = null;
                 }
             })();
-
             return _pendingSession;
         }
 
         /* ══════════════════════════════════════════════════════════
-           NONCE — Zero Trust Protocol
-           ✅ العميل يطلب nonce من السيرفر لعملية محددة (action)
-           ✅ السيرفر يُصدر rawNonce — يُخزّن HMAC فقط في DB
-           ✅ العميل يُرسل rawNonce في X-Nonce header
-           ✅ السيرفر يُعيد حساب HMAC ويقارن بـ constant-time
-           ✅ Nonce يُحذف فوراً بعد الاستخدام
-           ✅ لا يُخزَّن rawNonce في localStorage أو متغير عالمي
+           NONCE — نفس نظام Tomato Farm
+           ✅ العميل يولّد nonce عشوائي
+           ✅ يُرسل في X-Nonce header
+           ✅ السيرفر يتحقق إنه ما استُخدم + مربوط بالجلسة
+           ✅ لا يُخزَّن في localStorage
         ══════════════════════════════════════════════════════════ */
-
-        /**
-         * _requestNonce — يطلب nonce من السيرفر لعملية محددة
-         * الـ nonce الخام يُرجع مرة واحدة فقط ويُستخدم فوراً
-         * @param {string} action - اسم العملية: 'claim_gift' | 'verify_tg_task' | 'submit_withdraw'
-         * @returns {string|null} rawNonce
-         */
-        async function _requestNonce(action) {
-            if (!_sessionId) return null;
-            const fp = await _getFp();
-            try {
-                const res = await fetch(API_BASE, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type':   'application/json',
-                        'X-Session-Id':   _sessionId,
-                        'X-Fingerprint':  JSON.stringify(fp),
-                        'X-Nonce-Action': action,  // ✅ السيرفر يربط الـ nonce بهذا الـ action
-                    },
-                    body: JSON.stringify({ type: 'get_nonce', data: {} }),
-                });
-                const json = await res.json();
-                // ✅ نُرجع rawNonce مباشرة — لا نُخزّنه
-                return json.ok && json.nonce ? json.nonce : null;
-            } catch (_) { return null; }
+        function _genNonce() {
+            // nonce عشوائي 32 byte من crypto.getRandomValues
+            const arr = new Uint8Array(32);
+            crypto.getRandomValues(arr);
+            return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
         /* ══════════════════════════════════════════════════════════
-           FETCH API — Core Security Pipeline v3.0
+           FETCH API
+           ✅ credentials: 'include' — cookie ينتقل تلقائياً
+           ✅ nonce عشوائي في X-Nonce header لكل write operation
+           ✅ fingerprint في كل طلب
         ══════════════════════════════════════════════════════════ */
-
-        /**
-         * fetchApi — الـ pipeline الرئيسي لكل طلبات السيرفر
-         *
-         * نظام الـ nonce:
-         * - start_ad / watch_ad: السيرفر يتعامل بالكامل مع الـ nonce داخلياً
-         * - claim_gift / verify_tg_task / submit_withdraw:
-         *   → المُستدعي يمرر _nonce (حصل عليه بـ _requestNonce قبل الاستدعاء)
-         *   → أو يمرر _nonceAction وسيطلبه fetchApi تلقائياً
-         *
-         * ممنوع:
-         * ❌ تخزين nonce في localStorage
-         * ❌ إنشاء nonce من client-side
-         * ❌ إرسال nonce في body — يُرسل في header فقط
-         *
-         * @param {object} opts
-         * @param {string}  opts.type         - نوع الطلب
-         * @param {object}  opts.data         - بيانات الطلب
-         * @param {string}  [opts._nonce]     - rawNonce جاهز (اختياري)
-         * @param {string}  [opts._nonceAction] - اطلب nonce تلقائياً لهذا الـ action
-         */
-        async function fetchApi({ type, data = {}, _nonce = null, _nonceAction = null }) {
-            // تأكد من وجود session
-            if (!_sessionId) {
+        async function fetchApi({ type, data = {} }) {
+            if (!_sessionReady) {
                 const ok = await createSession();
                 if (!ok) return { ok: false, error: 'session_unavailable' };
             }
 
-            // Rate limit محلي
             if (Date.now() < _rateLimitUntil) {
                 _showRateLimitToast();
                 return { ok: false, error: 'rate_limited' };
@@ -3560,46 +3484,29 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            // ✅ هذه الأكشنات: السيرفر يتعامل مع الـ nonce داخلياً — العميل لا يُرسل شيئاً
-            const SERVER_HANDLES_NONCE = new Set([
-                'load', 'get_state', 'get_nonce',
-                'start_ad', 'watch_ad',       // ← ad_nonce مخزّن في الجلسة
-                'get_referrals',
-            ]);
+            const SKIP_NONCE = new Set(['load', 'get_state', 'get_nonce', 'start_ad', 'watch_ad', 'get_referrals', 'create_session']);
+            const nonce = SKIP_NONCE.has(type) ? null : _genNonce();
 
-            // ✅ جلب nonce إن لزم
-            let nonce = _nonce || null;
-            if (!nonce && !SERVER_HANDLES_NONCE.has(type)) {
-                // طلب nonce مرتبط بالـ action المحدد
-                const action = _nonceAction || type;
-                nonce = await _requestNonce(action);
-                if (!nonce) return { ok: false, error: 'nonce_unavailable' };
-            }
-
-            // بناء الـ headers — nonce يُرسل في header فقط، لا في body
             const headers = {
                 'Content-Type':  'application/json',
                 'X-Init-Data':   initData,
-                'X-Session-Id':  _sessionId || '',
                 'X-Fingerprint': JSON.stringify(fp),
             };
-            // ✅ X-Nonce: rawNonce فقط — السيرفر يحسب HMAC منه
             if (nonce) headers['X-Nonce'] = nonce;
 
             try {
                 const res = await fetch(API_BASE, {
-                    method: 'POST',
+                    method:      'POST',
+                    credentials: 'include',   // ✅ cookie تنتقل تلقائياً
                     headers,
                     body: JSON.stringify({ type, data }),
                 });
 
-                // Session منتهية — جدّدها وأعد المحاولة مرة واحدة
                 if (res.status === 401) {
-                    _sessionId = null;
+                    _sessionReady = false;
                     const renewed = await createSession();
                     if (!renewed) return { ok: false, error: 'session_expired' };
-                    // ✅ nonce جديد في الاستدعاء الجديد — لا نُعيد استخدام القديم
-                    return fetchApi({ type, data, _nonceAction: _nonceAction || type });
+                    return fetchApi({ type, data });
                 }
 
                 if (res.status === 429) {
@@ -3621,9 +3528,8 @@
             }
         }
 
-        // ✅ نكشف فقط الدوال الضرورية — كل الباقي مخفي في closure
         return { fetchApi, createSession };
-        })(); // ← نهاية IIFE Zero Trust v3.0
+        })();
 
         /* ─── Ad System ─── */
         /* ─── Deposit via Telegram Support ─── */
@@ -3894,11 +3800,7 @@
 
             // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'claim_gift'
             // السيرفر يتحقق أن هذا الـ nonce صدر لـ claim_gift تحديداً
-            const result = await fetchApi({
-                type:         'claim_gift',
-                data:         {},
-                _nonceAction: 'claim_gift',
-            });
+            const result = await fetchApi({ type: 'claim_gift', data: {} });
 
             if (!result.ok) {
                 // Rollback على فشل الـ backend
@@ -4031,13 +3933,7 @@
             const verifyBtn = document.getElementById('tg-verify-btn-compact');
             if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
 
-            // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'verify_tg_task'
-            // السيرفر يرفض الـ nonce إن لم يكن صادراً لهذا الـ action تحديداً
-            const result = await fetchApi({
-                type:         'verify_tg_task',
-                data:         {},
-                _nonceAction: 'verify_tg_task',
-            });
+            const result = await fetchApi({ type: 'verify_tg_task', data: {} });
 
             if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
 
@@ -4771,13 +4667,7 @@
             submitBtn.disabled = true;
             submitBtn.textContent = '⏳ جاري الإرسال...';
 
-            // ─── إرسال الأكشن للـ backend ───
-            // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'submit_withdraw'
-            const result = await fetchApi({
-                type:         'submit_withdraw',
-                data:         { address: addr },
-                _nonceAction: 'submit_withdraw',
-            });
+            const result = await fetchApi({ type: 'submit_withdraw', data: { address: addr } });
 
             // Restore button
             submitBtn.disabled = false;
