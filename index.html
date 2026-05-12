@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>الربح عربي</title>
-    <!-- ✅ Telegram WebApp SDK — يجب تحميله أول شيء قبل أي سكريبت آخر -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script> -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2454,6 +2454,8 @@
         }
 
     </style>
+    <!-- ✅ Adsgram SDK — إعلانات Telegram Mini Apps (15 ثانية rewarded video) -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 </head>
 <body>
 
@@ -3547,6 +3549,18 @@
         // ✅ Adsgram Block ID — غيّره لـ block ID الخاص بك
         const AD_BLOCK_ID = 'int-30077';
 
+        // ✅ AdController يُهيَّأ مرة واحدة عند تحميل الصفحة
+        // حسب دوكيومنت Adsgram: init() يُعيد نفس الكنترولر لنفس blockId
+        let _adController = null;
+        function _getAdController() {
+            if (!window.Adsgram) return null;
+            if (!_adController) {
+                _adController = window.Adsgram.init({ blockId: AD_BLOCK_ID });
+                // onTooLongSession / onNonStopShow → نسمح للـ SDK يعرض alert افتراضي
+            }
+            return _adController;
+        }
+
         const AD_STATE = {
             total: 10,
             remaining: 10,
@@ -3581,78 +3595,95 @@
             if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
             AD_STATE.isWatching = true;
 
+            // ✅ تأكد أن SDK محمّل قبل محاولة تشغيل الإعلان
+            if (!window.Adsgram) {
+                console.warn('[Ad] Adsgram SDK not loaded yet');
+                AD_STATE.isWatching = false;
+                const t = TRANSLATIONS[currentLang];
+                showToast('coin', t.toast_ad_error || 'تعذّر تحميل الإعلان', t.toast_ad_retry || 'حاول مرة أخرى', 'red', '');
+                return;
+            }
+
+            // ✅ overlay تحميل مؤقت — يظهر ريثما يحمّل Adsgram إعلانه
             const overlay = document.getElementById('ad-watch-overlay');
             const countEl = document.getElementById('overlay-count');
-            overlay.classList.add('visible');
+            if (overlay) {
+                if (countEl) countEl.textContent = '⏳';
+                overlay.classList.add('visible');
+            }
 
-            let sec = 5;
-            countEl.textContent = sec;
+            // ✅ Adsgram SDK يُشغّل الإعلان (15 ثانية حقيقية)
+            // SDK يعرض واجهته الخاصة — overlay يختفي حين يبدأ الإعلان
+            const adShown = await _showAdsgramAd();
+            AD_STATE.isWatching = false;
+            if (overlay) overlay.classList.remove('visible');
 
-            const timer = setInterval(async () => {
-                sec--;
-                countEl.textContent = sec;
-                if (sec <= 0) {
-                    clearInterval(timer);
-                    overlay.classList.remove('visible');
-                    AD_STATE.isWatching = false;
+            if (!adShown) {
+                // المستخدم أغلق الإعلان أو حصل خطأ — لا مكافأة
+                return;
+            }
 
-                    // ✅ Adsgram SDK — يُشغَّل client-side بالكامل
-                    // لا يوجد طلب start_ad أو watch_ad — السيرفر لا يعلم بشيء حتى هذه اللحظة
-                    const adShown = await _showAdsgramAd();
-                    if (!adShown) {
-                        // الإعلان فشل أو أغلقه المستخدم — لا نُرسل أي طلب
-                        return;
-                    }
+            // ✅ reward_ad: يُستدعى فقط بعد نجاح Adsgram callback (result.done=true)
+            // السيرفر يُنشئ الـ nonce ويتحقق منه ويُعطي النقاط — كل شيء داخلي
+            // session_id يُرسل تلقائياً عبر httpOnly cookie
+            const result = await fetchApi({ type: 'reward_ad', data: {} });
 
-                    // ✅ reward_ad: يُستدعى فقط بعد نجاح Adsgram callback
-                    // السيرفر يُنشئ الـ nonce ويتحقق منه ويُعطي النقاط — كل شيء داخلي
-                    const result = await fetchApi({ type: 'reward_ad', data: {} });
-
-                    if (result.ok) {
-                        AD_STATE.remaining    = result.remaining;
-                        AD_STATE.watchedToday = result.watchedToday;
-                        AD_STATE.earnedToday  = result.earnedToday;
-                        if (result.points !== undefined) {
-                            USER_STATE.points = result.points;
-                            updateBalanceUI(result.points);
-                        }
-                    } else {
-                        console.warn('[Ad] reward_ad rejected:', result.error);
-                        return;
-                    }
-
-                    updateAdUI();
-
-                    const t = TRANSLATIONS[currentLang];
-                    if (AD_STATE.remaining === 0) {
-                        showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
-                    } else if (AD_STATE.remaining <= 3) {
-                        showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} ${t.ads_watched || 'إعلانات متبقية فقط'}`, 'gold', '+50');
-                    } else {
-                        showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
-                    }
+            if (result.ok) {
+                AD_STATE.remaining    = result.remaining;
+                AD_STATE.watchedToday = result.watchedToday;
+                AD_STATE.earnedToday  = result.earnedToday;
+                if (result.points !== undefined) {
+                    // انيميشن الرصيد عند الإضافة
+                    animateBalance(USER_STATE.points, result.points);
+                    USER_STATE.points = result.points;
                 }
-            }, 1000);
+            } else {
+                console.warn('[Ad] reward_ad rejected:', result.error);
+                if (result.error === 'cooldown_active') {
+                    const t = TRANSLATIONS[currentLang];
+                    const waitSec = Math.ceil((result.wait_ms || 30000) / 1000);
+                    showToast('coin', t.toast_ad_wait || 'انتظر قليلاً', `${waitSec}s`, 'red', '');
+                }
+                return;
+            }
+
+            updateAdUI();
+
+            const t = TRANSLATIONS[currentLang];
+            if (AD_STATE.remaining === 0) {
+                showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
+            } else if (AD_STATE.remaining <= 3) {
+                showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} ${t.ads_watched || 'إعلانات متبقية فقط'}`, 'gold', '+50');
+            } else {
+                showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+            }
         }
 
-        // ✅ _showAdsgramAd — يُشغّل Adsgram ويعود true فقط عند نجاح المشاهدة
-        // لا يُرسل أي طلب للسيرفر — فقط يُشغّل SDK ويرجع النتيجة
+        // ✅ _showAdsgramAd — يُشغّل Adsgram ويعود true فقط عند مشاهدة الإعلان كاملاً
+        // حسب دوكيومنت Adsgram:
+        //   • show() → Promise يُحَل إذا شاهد المستخدم حتى النهاية
+        //   • show() → Promise يُرفض إذا أغلق أو حصل خطأ
+        //   • result.done = true يعني مشاهدة كاملة
+        // الإعلانات 15 ثانية — Adsgram SDK يتحكم بالمدة، لا حاجة لـ timer يدوي
         function _showAdsgramAd() {
             return new Promise((resolve) => {
-                if (!window.Adsgram) {
-                    console.warn('[Ad] Adsgram SDK not loaded');
+                const controller = _getAdController();
+                if (!controller) {
+                    console.warn('[Ad] Adsgram SDK not loaded or blockId wrong');
                     resolve(false);
                     return;
                 }
-                try {
-                    const controller = window.Adsgram.init({ blockId: AD_BLOCK_ID });
-                    controller.show()
-                        .then(() => resolve(true))   // ✅ المستخدم شاهد الإعلان كاملاً
-                        .catch(() => resolve(false)); // ❌ أغلق أو فشل
-                } catch (e) {
-                    console.warn('[Ad] Adsgram error:', e.message);
-                    resolve(false);
-                }
+                controller.show()
+                    .then((result) => {
+                        // result.done = true → المستخدم شاهد الإعلان كاملاً (15 ثانية)
+                        resolve(result && result.done === true);
+                    })
+                    .catch((result) => {
+                        // أغلق المستخدم الإعلان أو حصل خطأ
+                        // result.error = true يعني خطأ تقني
+                        console.warn('[Ad] Adsgram skipped or error:', result?.description || result?.state);
+                        resolve(false);
+                    });
             });
         }
 
@@ -3840,8 +3871,8 @@
             // ✅ تحديث state من السيرفر
             if (result.streak_day) DAILY_GIFT_STATE.dayNumber = result.streak_day;
             if (result.points !== undefined) {
+                animateBalance(USER_STATE.points, result.points);
                 USER_STATE.points = result.points;
-                updateBalanceUI(result.points);
             }
 
             const ringIcon = document.getElementById('gift-ring-icon');
@@ -3972,8 +4003,8 @@
 
             // ✅ تحديث balance من السيرفر
             if (result.points !== undefined) {
+                animateBalance(USER_STATE.points, result.points);
                 USER_STATE.points = result.points;
-                updateBalanceUI(result.points);
             }
 
             TASKS_STATE.tgVerified = true;
@@ -4119,6 +4150,35 @@
 
                 requestAnimationFrame(update);
             });
+        }
+
+        /* ═══ انيميشن رصيد — يتحرك من قيمة قديمة إلى قيمة جديدة ═══ */
+        function animateBalance(fromPts, toPts, duration) {
+            fromPts  = parseInt(fromPts) || 0;
+            toPts    = parseInt(toPts)   || 0;
+            duration = duration || 1400;
+            if (fromPts === toPts) { updateBalanceUI(toPts); return; }
+
+            const balEl   = document.getElementById('uc-balance-num');
+            const heroNum = document.querySelector('.balance-hero-number');
+            const start   = performance.now();
+
+            function tick(now) {
+                const elapsed  = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                // ease-out cubic
+                const ease    = 1 - Math.pow(1 - progress, 3);
+                const current = Math.round(fromPts + (toPts - fromPts) * ease);
+                const fmt     = current.toLocaleString('en-US');
+                if (balEl)   balEl.textContent   = fmt;
+                if (heroNum) heroNum.textContent  = fmt;
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    updateBalanceUI(toPts); // نهاية — نحدّث كل العناصر بالكامل
+                }
+            }
+            requestAnimationFrame(tick);
         }
 
         /* ═══ helper: تحديث عناصر الرصيد في الواجهة ═══ */
@@ -4268,18 +4328,47 @@
                     if (card)       card.classList.add('completed');
                 }
 
-                // ✅ تحديث UI الرصيد — مباشر
-                updateBalanceUI(pts);
-                // balance counters بالقيمة الحقيقية
-                document.querySelectorAll('.balance-hero-number').forEach(el => { el.textContent = pts.toLocaleString('en-US'); });
-                const ucBal = document.querySelector('.uc-balance-num');
-                if (ucBal) ucBal.textContent = pts.toLocaleString('en-US');
+                // ✅ انيميشن الرصيد — يبدأ من 0 حتى القيمة الحقيقية عند أول تحميل
+                // data-target للعناصر الأخرى (إحصائيات وغيرها)
+                setTimeout(() => {
+                    animateBalance(0, pts, 1600);
+                    runCounters(document);
+                }, 120);
 
-                setTimeout(() => runCounters(document), 120);
             } else {
                 // ✅ fallback counters بالأصفار
                 setTimeout(() => runCounters(document), 350);
             }
+
+            // ══════════════════════════════════════════════════════
+            // ✅ Auto-refresh — يحدث الرصيد وبيانات المستخدم كل 5 ثواني
+            // يستخدم get_state (خفيف) بدلاً من load الثقيل
+            // ══════════════════════════════════════════════════════
+            let _lastPolledPts = USER_STATE.points;
+            setInterval(async () => {
+                try {
+                    const state = await fetchApi({ type: 'get_state', data: {} });
+                    if (!state.ok) return;
+
+                    // تحديث AD_STATE
+                    if (state.ads_remaining !== undefined) {
+                        AD_STATE.remaining    = state.ads_remaining;
+                        AD_STATE.watchedToday = state.ads_watched_today || 0;
+                        AD_STATE.earnedToday  = state.earned_today || 0;
+                        updateAdUI();
+                    }
+
+                    // تحديث الرصيد — انيميشن فقط إذا تغيّرت القيمة
+                    if (state.points !== undefined && state.points !== _lastPolledPts) {
+                        animateBalance(_lastPolledPts, state.points, 800);
+                        _lastPolledPts    = state.points;
+                        USER_STATE.points = state.points;
+                    }
+
+                    if (state.level !== undefined) USER_STATE.level = state.level;
+
+                } catch (_) { /* صامت */ }
+            }, 5000);
         });
 
         /* ══════════════════════════════════════════
@@ -4713,8 +4802,8 @@
 
             // ✅ تحديث balance من السيرفر مباشرة
             if (result.new_balance !== undefined) {
+                animateBalance(USER_STATE.points, result.new_balance);
                 USER_STATE.points = result.new_balance;
-                updateBalanceUI(result.new_balance);
             }
 
             // ✅ بيانات history من السيرفر
