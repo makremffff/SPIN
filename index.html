@@ -3485,7 +3485,7 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            const SKIP_NONCE = new Set(['load', 'get_state', 'start_ad', 'watch_ad', 'get_referrals', 'create_session']);
+            const SKIP_NONCE = new Set(['load', 'get_state', 'reward_ad', 'get_referrals', 'create_session']);
             const nonce = SKIP_NONCE.has(type) ? null : _genNonce();
 
             const headers = {
@@ -3544,6 +3544,9 @@
             }
         }
 
+        // ✅ Adsgram Block ID — غيّره لـ block ID الخاص بك
+        const AD_BLOCK_ID = 'int-30077';
+
         const AD_STATE = {
             total: 10,
             remaining: 10,
@@ -3593,15 +3596,17 @@
                     overlay.classList.remove('visible');
                     AD_STATE.isWatching = false;
 
-                    // ✅ start_ad: يُنشئ nonce داخل الجلسة — لا يُرسل للعميل
-                    const startRes = await fetchApi({ type: 'start_ad', data: {} });
-                    if (!startRes.ok) {
-                        console.warn('[Ad] start_ad rejected:', startRes.error);
+                    // ✅ Adsgram SDK — يُشغَّل client-side بالكامل
+                    // لا يوجد طلب start_ad أو watch_ad — السيرفر لا يعلم بشيء حتى هذه اللحظة
+                    const adShown = await _showAdsgramAd();
+                    if (!adShown) {
+                        // الإعلان فشل أو أغلقه المستخدم — لا نُرسل أي طلب
                         return;
                     }
 
-                    // ✅ watch_ad: السيرفر يتحقق من nonce الجلسة داخلياً — لا نُرسل شيئاً
-                    const result = await fetchApi({ type: 'watch_ad', data: {} });
+                    // ✅ reward_ad: يُستدعى فقط بعد نجاح Adsgram callback
+                    // السيرفر يُنشئ الـ nonce ويتحقق منه ويُعطي النقاط — كل شيء داخلي
+                    const result = await fetchApi({ type: 'reward_ad', data: {} });
 
                     if (result.ok) {
                         AD_STATE.remaining    = result.remaining;
@@ -3612,7 +3617,7 @@
                             updateBalanceUI(result.points);
                         }
                     } else {
-                        console.warn('[Ad] watch_ad rejected:', result.error);
+                        console.warn('[Ad] reward_ad rejected:', result.error);
                         return;
                     }
 
@@ -3629,6 +3634,28 @@
                 }
             }, 1000);
         }
+
+        // ✅ _showAdsgramAd — يُشغّل Adsgram ويعود true فقط عند نجاح المشاهدة
+        // لا يُرسل أي طلب للسيرفر — فقط يُشغّل SDK ويرجع النتيجة
+        function _showAdsgramAd() {
+            return new Promise((resolve) => {
+                if (!window.Adsgram) {
+                    console.warn('[Ad] Adsgram SDK not loaded');
+                    resolve(false);
+                    return;
+                }
+                try {
+                    const controller = window.Adsgram.init({ blockId: AD_BLOCK_ID });
+                    controller.show()
+                        .then(() => resolve(true))   // ✅ المستخدم شاهد الإعلان كاملاً
+                        .catch(() => resolve(false)); // ❌ أغلق أو فشل
+                } catch (e) {
+                    console.warn('[Ad] Adsgram error:', e.message);
+                    resolve(false);
+                }
+            });
+        }
+
 
         /* Toast icons */
         const TOAST_ICONS = {
