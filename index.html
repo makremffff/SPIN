@@ -3450,11 +3450,12 @@
         }
 
         /* ══════════════════════════════════════════════════════════
-           NONCE — نفس نظام Tomato Farm
-           ✅ العميل يولّد nonce عشوائي
-           ✅ يُرسل في X-Nonce header
-           ✅ السيرفر يتحقق إنه ما استُخدم + مربوط بالجلسة
-           ✅ لا يُخزَّن في localStorage
+           NONCE — Client-Side One-Time Token (Anti-Replay)
+           ✅ العميل يُولّد nonce عشوائي 32-byte لكل عملية write
+           ✅ يُرسل في X-Nonce header — السيرفر يتحقق أنه غير مستخدم
+           ✅ السيرفر يرفض أي nonce مكرر (anti-replay protection)
+           ✅ لا يُخزَّن في localStorage — in-memory فقط
+           ✅ الإعلانات: nonce مخفي في الجلسة — العميل لا يراه أبداً
         ══════════════════════════════════════════════════════════ */
         function _genNonce() {
             // nonce عشوائي 32 byte من crypto.getRandomValues
@@ -3484,7 +3485,7 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            const SKIP_NONCE = new Set(['load', 'get_state', 'get_nonce', 'start_ad', 'watch_ad', 'get_referrals', 'create_session']);
+            const SKIP_NONCE = new Set(['load', 'get_state', 'start_ad', 'watch_ad', 'get_referrals', 'create_session']);
             const nonce = SKIP_NONCE.has(type) ? null : _genNonce();
 
             const headers = {
