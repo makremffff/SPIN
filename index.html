@@ -3028,6 +3028,21 @@
                     </div>
                 </button>
 
+                <!-- Preload progress indicator -->
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-family:'Readex Pro',sans-serif;font-size:10px;
+                              color:rgba(255,255,255,0.3);font-weight:500;">تقدم التحميل</span>
+                        <span id="ad-preload-label" style="font-family:'DynaPuff',sans-serif;
+                              font-size:10px;color:rgba(251,191,36,0.6);font-weight:700;">0 / 3</span>
+                    </div>
+                    <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:10px;overflow:hidden;">
+                        <div id="ad-preload-bar" style="height:100%;width:0%;border-radius:10px;
+                             background:linear-gradient(90deg,#f59e0b,#fbbf24);
+                             transition:width 0.4s cubic-bezier(0.22,1,0.36,1);"></div>
+                    </div>
+                </div>
+
                 <!-- Cooldown countdown message -->
                 <div id="ad-cooldown-msg" style="
                     display:none;text-align:center;
@@ -3444,21 +3459,29 @@
         <div class="ad-watch-ring">
             <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
                 <circle cx="44" cy="44" r="38" stroke="rgba(251,191,36,0.12)" stroke-width="6"/>
-                <circle cx="44" cy="44" r="38" stroke="url(#ringGrad)" stroke-width="6"
-                        stroke-linecap="round" stroke-dasharray="100 140"/>
+                <circle cx="44" cy="44" r="38" stroke="url(#ringGrad2)" stroke-width="6"
+                        stroke-linecap="round" stroke-dasharray="100 140"
+                        style="animation:spin 2s linear infinite;transform-origin:44px 44px;"/>
                 <defs>
-                    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <linearGradient id="ringGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stop-color="#f59e0b"/>
                         <stop offset="100%" stop-color="#fcd34d"/>
                     </linearGradient>
                 </defs>
             </svg>
             <div class="ad-watch-inner">
-                <span class="ad-watch-count" id="overlay-count">5</span>
+                <span class="ad-watch-count" id="overlay-count">⏳</span>
             </div>
         </div>
-        <div class="ad-watch-label" data-i18n="ad_loading">جاري تحميل الإعلان...</div>
+        <div class="ad-watch-label" id="overlay-label" data-i18n="ad_loading">جاري تحميل الإعلان...</div>
+        <div style="margin-top:10px;font-family:'Readex Pro',sans-serif;font-size:11px;
+                    color:rgba(255,255,255,0.4);font-weight:500;text-align:center;">
+            اضغط على الشاشة إذا طُلب منك ذلك
+        </div>
     </div>
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 
     <!-- ══════════════════════════════════════════
          JAVASCRIPT
@@ -3722,7 +3745,7 @@
         let _adWatchStartedAt  = 0;   // timestamp لبداية الإعلان — anti-fraud
         let _adRetryCount      = 0;
         const AD_MAX_RETRIES   = 2;
-        const AD_MIN_DURATION  = 14000; // 14s minimum (server enforces 14s too)
+        const AD_MIN_DURATION  = 7000;  // 7s minimum client-side check
 
         // ── تهيئة الـ controller مع callbacks رسمية ──────────────────
         function _initAdController() {
@@ -3762,14 +3785,20 @@
             } catch (_) {}
         }
 
+        // ── عدد الإعلانات المطلوب تحميلها قبل إعطاء الجائزة ────────
+        // حسب نظام Adsgram: نُحمّل 3 إعلانات — نُعطي جائزة بعد الثالث فقط
+        const AD_PRELOAD_REQUIRED = 3;
+
         const AD_STATE = {
             total: 10,
             remaining: 10,
             watchedToday: 0,
             earnedToday: 0,
             isWatching: false,
-            cooldownUntil: 0,   // timestamp — from server get_state
-            _cooldownTimer: null, // internal countdown interval
+            cooldownUntil: 0,      // timestamp — from server get_state
+            _cooldownTimer: null,  // internal countdown interval
+            preloadCount: 0,       // عدد الإعلانات المحمّلة في الجلسة الحالية
+            pendingReward: false,  // انتظار إرسال reward بعد الـ 3rd ad
         };
 
         function updateAdUI() {
@@ -3823,14 +3852,22 @@
             syncDailyTasksFromAds();
         }
 
+        // ══════════════════════════════════════════════════════════
+        // ✅ watchAd — يُستدعى عند ضغط المستخدم (user-initiated)
+        //
+        // حسب نظام Adsgram الرسمي:
+        //   • يجب أن يكون الاستدعاء مباشراً من حدث مستخدم (click/tap)
+        //   • نُحمّل AD_PRELOAD_REQUIRED إعلانات أولاً
+        //   • نُنقص من progress عند تحميل كل إعلان
+        //   • نُعطي reward فقط بعد اكتمال الثالث
+        // ══════════════════════════════════════════════════════════
         async function watchAd() {
             if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
 
-            // ── Cooldown check client-side (server enforces too) ──────
+            // ── Cooldown check ────────────────────────────────────────
             if (AD_STATE.cooldownUntil && Date.now() < AD_STATE.cooldownUntil) {
                 const waitSec = Math.ceil((AD_STATE.cooldownUntil - Date.now()) / 1000);
-                const t = TRANSLATIONS[currentLang];
-                showToast('coin', t.toast_ad_wait || 'انتظر قليلاً', `${waitSec}s`, 'red', '');
+                showToast('coin', 'انتظر قليلاً ⏳', `${waitSec} ثانية`, 'red', '');
                 return;
             }
 
@@ -3839,130 +3876,157 @@
             const overlay = document.getElementById('ad-watch-overlay');
             const countEl = document.getElementById('overlay-count');
             const adBtn   = document.getElementById('ad-watch-btn');
+            const preloadBar = document.getElementById('ad-preload-bar');
 
-            // ── Disable button visually ───────────────────────────────
             if (adBtn) adBtn.classList.add('disabled');
 
-            // ══════════════════════════════════════════════════════════
-            // ✅ تحقق من SDK load — مع fallback + retry handling
-            // ══════════════════════════════════════════════════════════
+            // ── تحقق من SDK ───────────────────────────────────────────
             if (!window.Adsgram || window._adsgramLoadStatus !== 'loaded') {
-                // SDK لم يتحمّل بعد — انتظر أو أظهر رسالة
                 if (window._adsgramLoadStatus === 'failed') {
-                    AD_STATE.isWatching = false;
-                    if (adBtn) adBtn.classList.remove('disabled');
-                    const t = TRANSLATIONS[currentLang];
-                    showToast('coin',
-                        t.toast_ad_error || 'تعذّر تحميل الإعلان',
-                        t.toast_ad_retry || 'تحقق من اتصالك وحاول مرة أخرى',
-                        'red', '');
+                    _adReset(adBtn);
+                    showToast('coin', 'تعذّر تحميل الإعلان', 'تحقق من اتصالك وحاول مرة أخرى', 'red', '');
                     await trackAdEvent('ad_failed', { reason: 'sdk_failed_to_load' });
                     return;
                 }
-
-                // SDK لا يزال يُحمّل — أظهر overlay وانتظر
-                if (overlay) {
-                    if (countEl) countEl.textContent = '⏳';
-                    overlay.classList.add('visible');
-                }
-
-                // انتظر حتى يتحمّل SDK (max 8s)
+                if (overlay) { if (countEl) countEl.textContent = '⏳'; overlay.classList.add('visible'); }
                 const sdkLoaded = await new Promise((res) => {
-                    const timeout = setTimeout(() => res(false), 8000);
-                    window.onAdsgramLoaded(function(status) {
-                        clearTimeout(timeout);
-                        res(status !== 'failed');
-                    });
+                    const t = setTimeout(() => res(false), 8000);
+                    window.onAdsgramLoaded((s) => { clearTimeout(t); res(s !== 'failed'); });
                 });
-
                 if (overlay) overlay.classList.remove('visible');
-
                 if (!sdkLoaded) {
-                    AD_STATE.isWatching = false;
-                    if (adBtn) adBtn.classList.remove('disabled');
-                    const t = TRANSLATIONS[currentLang];
-                    showToast('coin',
-                        t.toast_ad_error || 'تعذّر تحميل الإعلان',
-                        t.toast_ad_retry || 'تحقق من اتصالك وحاول مرة أخرى',
-                        'red', '');
+                    _adReset(adBtn);
+                    showToast('coin', 'تعذّر تحميل الإعلان', 'تحقق من اتصالك وحاول مرة أخرى', 'red', '');
                     return;
                 }
             }
 
-            // ── overlay تحميل مؤقت ───────────────────────────────────
-            if (overlay) {
-                if (countEl) countEl.textContent = '⏳';
-                overlay.classList.add('visible');
-            }
+            // ══════════════════════════════════════════════════════════
+            // ✅ PRELOAD LOOP — نُحمّل AD_PRELOAD_REQUIRED إعلانات
+            // نُنقص واحد من progress عند كل تحميل ناجح
+            // نُعطي reward فقط بعد اكتمال الـ 3
+            // ══════════════════════════════════════════════════════════
+            let successCount = 0;
 
-            // ── إرسال حدث ad_started للسيرفر قبل show() ─────────────
-            await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID });
+            for (let i = 0; i < AD_PRELOAD_REQUIRED; i++) {
+                // ── تحديث overlay: اعلان X من Y ──────────────────────
+                if (overlay) {
+                    if (countEl) countEl.textContent = `${i + 1}/${AD_PRELOAD_REQUIRED}`;
+                    overlay.classList.add('visible');
+                }
+                _updatePreloadBar(preloadBar, i, AD_PRELOAD_REQUIRED);
 
-            // ── تشغيل الإعلان ─────────────────────────────────────────
-            const adShown = await _showAdsgramAd();
-            AD_STATE.isWatching = false;
-            if (overlay) overlay.classList.remove('visible');
-            if (adBtn) adBtn.classList.remove('disabled');
+                await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, attempt: i + 1 });
 
-            if (!adShown) {
-                // أغلق أو خطأ — لا مكافأة — واجهة تبقى سليمة
-                return;
+                const adShown = await _showAdsgramAd();
+
+                if (overlay) overlay.classList.remove('visible');
+
+                if (!adShown) {
+                    // المستخدم أغلق أو خطأ — نوقف الدورة
+                    if (successCount > 0) {
+                        // إذا أكمل بعض الإعلانات — نُعلمه
+                        showToast('coin',
+                            `${successCount} إعلان من ${AD_PRELOAD_REQUIRED}`,
+                            'شاهد الكل للحصول على المكافأة',
+                            'red', '');
+                    }
+                    _adReset(adBtn);
+                    _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
+                    return;
+                }
+
+                successCount++;
+
+                // ✅ نُنقص من progress اليومي عند كل إعلان ناجح
+                if (AD_STATE.remaining > 0) {
+                    AD_STATE.remaining--;
+                    AD_STATE.watchedToday++;
+                    // تحديث UI فوري بدون انتظار server
+                    const elRem     = document.getElementById('ads-remaining');
+                    const elWatched = document.getElementById('ads-watched');
+                    const elProgress= document.getElementById('ads-progress');
+                    if (elRem)     elRem.textContent = AD_STATE.remaining;
+                    if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
+                    if (elProgress) elProgress.style.width =
+                        (((AD_STATE.total - AD_STATE.remaining) / AD_STATE.total) * 100) + '%';
+                }
+
+                // ── إشعار تقدم بين الإعلانات ──────────────────────────
+                if (i < AD_PRELOAD_REQUIRED - 1) {
+                    const left = AD_PRELOAD_REQUIRED - successCount;
+                    showToast('coin',
+                        `إعلان ${successCount} مكتمل ✓`,
+                        `${left} إعلان ${left === 1 ? 'متبقي' : 'متبقيين'} للمكافأة`,
+                        'gold', '');
+                    // فترة قصيرة بين الإعلانات
+                    await new Promise(r => setTimeout(r, 800));
+                }
             }
 
             // ══════════════════════════════════════════════════════════
-            // ✅ reward_ad — يُستدعى فقط بعد result.done === true
-            //    السيرفر هو المرجع الوحيد — يتحقق من cooldown + daily limit
+            // ✅ كل الإعلانات اكتملت — أرسل reward_ad
             // ══════════════════════════════════════════════════════════
+            _updatePreloadBar(preloadBar, AD_PRELOAD_REQUIRED, AD_PRELOAD_REQUIRED);
+
             const result = await fetchApi({
                 type: 'reward_ad',
-                data: { ad_started_at: _adWatchStartedAt },
+                data: { ad_started_at: _adWatchStartedAt, preload_count: successCount },
             });
 
+            _adReset(adBtn);
+            _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
+
             if (result.ok) {
-                // ── تحديث state من السيرفر ────────────────────────────
                 AD_STATE.remaining    = result.remaining;
                 AD_STATE.watchedToday = result.watchedToday;
                 AD_STATE.earnedToday  = result.earnedToday;
-                // cooldown من السيرفر
-                if (result.cooldown_ms) {
-                    AD_STATE.cooldownUntil = Date.now() + result.cooldown_ms;
-                }
+                if (result.cooldown_ms) AD_STATE.cooldownUntil = Date.now() + result.cooldown_ms;
                 if (result.points !== undefined) {
                     animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
                 }
-                await trackAdEvent('reward_granted', {
-                    points_earned: 50,
-                    watched_today: result.watchedToday,
-                });
+                await trackAdEvent('reward_granted', { watched_today: result.watchedToday });
             } else {
                 console.warn('[Ad] reward_ad rejected:', result.error);
                 if (result.error === 'cooldown_active') {
                     const waitMs = result.wait_ms || 30000;
                     AD_STATE.cooldownUntil = Date.now() + waitMs;
-                    const waitSec = Math.ceil(waitMs / 1000);
-                    const t = TRANSLATIONS[currentLang];
-                    showToast('coin', t.toast_ad_wait || 'انتظر قليلاً', `${waitSec}s`, 'red', '');
+                    showToast('coin', 'انتظر قليلاً', `${Math.ceil(waitMs/1000)}s`, 'red', '');
                 } else if (result.error === 'ad_duration_invalid') {
-                    const t = TRANSLATIONS[currentLang];
-                    showToast('coin', 'لم يكتمل الإعلان', 'شاهد الإعلان كاملاً للحصول على المكافأة', 'red', '');
+                    showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل للحصول على المكافأة', 'red', '');
                 } else if (result.error === 'daily_limit_reached') {
                     AD_STATE.remaining = 0;
-                    updateAdUI();
                 }
-                return;
             }
 
             updateAdUI();
 
-            const t = TRANSLATIONS[currentLang];
-            if (AD_STATE.remaining === 0) {
-                showToast('trophy', t.toast_ad_done_title || 'أكملت جميع الإعلانات! 🏆', t.toast_ad_done_sub || 'حصلت على 500 نقطة اليوم', 'green', '+500');
-            } else if (AD_STATE.remaining <= 3) {
-                showToast('fire', t.toast_ad_fire || 'رائع! استمر! 🔥', `${AD_STATE.remaining} ${t.ads_watched || 'إعلانات متبقية فقط'}`, 'gold', '+50');
-            } else {
-                showToast('coin', t.toast_ad_watch || 'تمت المشاهدة ✓', t.toast_ad_pts || 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+            if (result.ok) {
+                if (AD_STATE.remaining === 0) {
+                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆', 'حصلت على كل نقاط اليوم', 'green', '+50');
+                } else {
+                    showToast('coin', 'مكافأة محصّلة ✓', 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+                }
             }
+        }
+
+        // ── helpers ───────────────────────────────────────────────────
+        function _adReset(adBtn) {
+            AD_STATE.isWatching = false;
+            if (adBtn) adBtn.classList.remove('disabled');
+        }
+
+        function _updatePreloadBar(el, done, total) {
+            if (!el) return;
+            const pct = total > 0 ? (done / total) * 100 : 0;
+            el.style.width = pct + '%';
+            el.style.background = done >= total
+                ? 'linear-gradient(90deg, #34d399, #10b981)'
+                : 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+            // تحديث label
+            const label = document.getElementById('ad-preload-label');
+            if (label) label.textContent = `${done} / ${total}`;
         }
 
         // ══════════════════════════════════════════════════════════
