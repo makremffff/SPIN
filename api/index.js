@@ -1232,6 +1232,46 @@ async function handleAdsgramCallback(req, res) {
   }
 }
 
+// ── claim_adsgram_task — جائزة 70 نقطة عند إكمال task-30166 ────────
+async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
+  // [1] تحقق أن المستخدم لم يطلب هذه الجائزة من قبل اليوم
+  const already = await sql(
+    `SELECT id FROM completed_tasks WHERE user_id=$1 AND task_key='adsgram_task_daily' AND completed_at::date=CURRENT_DATE`,
+    [userId]
+  );
+  if (already.length) {
+    return { ok: false, error: 'already_claimed_today' };
+  }
+
+  const TASK_POINTS = 70;
+
+  // [2] أعطِ النقاط
+  await sql(
+    `UPDATE users SET points=points+$1, xp=xp+$1, updated_at=NOW() WHERE id=$2`,
+    [TASK_POINTS, userId]
+  );
+
+  // [3] سجّل الإكمال
+  await sql(
+    `INSERT INTO completed_tasks(user_id, task_key, completed_at)
+     VALUES($1, 'adsgram_task_daily', NOW())
+     ON CONFLICT DO NOTHING`,
+    [userId]
+  );
+
+  await writeAudit(userId, sessionId, 'claim_adsgram_task', 'ok', ipHash, fpHash, {
+    points_earned: TASK_POINTS,
+    block_id: 'task-30166',
+  });
+
+  const ur = await sql(`SELECT points FROM users WHERE id=$1`, [userId]);
+  return {
+    ok:     true,
+    points: parseInt(ur[0]?.points) || 0,
+    earned: TASK_POINTS,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════
@@ -1363,6 +1403,10 @@ module.exports = async function handler(req, res) {
       // ✅ track_ad_event: تسجيل أحداث الإعلان — لا يُعطي نقاط — فقط audit
       case 'track_ad_event':
         result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash);
+        break;
+
+      case 'claim_adsgram_task':
+        result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash);
         break;
 
       default:
