@@ -4115,6 +4115,8 @@
                     animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
                 }
+                // ✅ حدّث UI فوراً بالقيم الحقيقية من السيرفر
+                updateAdUI();
                 await trackAdEvent('reward_granted', { watched_today: result.watchedToday });
             } else {
                 console.warn('[Ad] reward_ad rejected:', result.error);
@@ -4128,8 +4130,6 @@
                     AD_STATE.remaining = 0;
                 }
             }
-
-            updateAdUI();
 
             if (result.ok) {
                 if (AD_STATE.remaining === 0) {
