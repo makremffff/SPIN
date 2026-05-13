@@ -1092,14 +1092,160 @@ async function handleAdmin(action, body) {
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════
+// Adsgram Server-to-Server Reward Callback
+// GET /api/adsgram-reward?userId=[userId]
+//
+// Adsgram يستدعي هذا الـ endpoint من سيرفرهم عند اكتمال الإعلان
+// يجب ضبط Reward URL في Adsgram dashboard:
+//   https://yourdomain.com/api/adsgram-reward?userId=[userId]
+//
+// Security layers:
+//   1. userId موجود في DB
+//   2. daily limit لم يتجاوز
+//   3. cooldown server-side
+//   4. audit log لكل callback (منع replay)
+//   5. نرد بـ 200 دائماً — Adsgram لا يُعيد المحاولة عند أي كود
+// ══════════════════════════════════════════════════════════════════
+async function handleAdsgramCallback(req, res) {
+  // ── نرد بـ 200 فوراً حتى لا يُعيد Adsgram المحاولة ──────────
+  // المنطق كله يحدث بعد الرد
+  res.setHeader('Content-Type', 'text/plain');
+
+  // ── استخراج userId من query string ──────────────────────────
+  const rawUrl  = req.url || '';
+  const qStart  = rawUrl.indexOf('?');
+  const query   = qStart >= 0 ? new URLSearchParams(rawUrl.slice(qStart + 1)) : new URLSearchParams();
+  const rawId   = query.get('userId') || query.get('userid') || query.get('user_id') || '';
+
+  // ── تحقق أساسي: userId لازم يكون رقم صالح ──────────────────
+  const tgId = parseInt(rawId, 10);
+  if (!tgId || isNaN(tgId) || tgId <= 0) {
+    console.warn('[Adsgram CB] Invalid userId:', rawId);
+    res.status(400).end('invalid_user');
+    return;
+  }
+
+  // ── رد فوري بـ 200 لـ Adsgram ────────────────────────────────
+  res.status(200).end('ok');
+
+  // ── بقية المنطق async بعد الرد ───────────────────────────────
+  try {
+    const ipHash = hashIp(getIp(req));
+
+    // [1] تحقق أن المستخدم موجود في DB
+    const userRows = await sql(
+      `SELECT id, points, shadow_banned FROM users WHERE tg_id=$1`,
+      [tgId]
+    );
+    if (!userRows.length) {
+      console.warn('[Adsgram CB] User not found, tgId:', tgId);
+      await sql(
+        `INSERT INTO audit_log(user_id,session_id,action,status,ip_hash,meta,created_at)
+         VALUES(0,'adsgram_cb','adsgram_callback','user_not_found',$1,$2::jsonb,NOW())`,
+        [ipHash, JSON.stringify({ tg_id: tgId })]
+      );
+      return;
+    }
+    const user   = userRows[0];
+    const userId = user.id;
+
+    // [2] Shadow ban check
+    if (user.shadow_banned) {
+      await writeAudit(userId, 'adsgram_cb', 'adsgram_callback', 'shadow_banned', ipHash, '{}', {});
+      return;
+    }
+
+    // [3] Daily limit check
+    const adLog = (await sql(
+      `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
+      [userId]
+    ))[0];
+    const watchedToday = parseInt(adLog?.count) || 0;
+    if (watchedToday >= CFG.ADS_DAILY_LIMIT) {
+      await writeAudit(userId, 'adsgram_cb', 'adsgram_callback', 'daily_limit', ipHash, '{}', {
+        watched: watchedToday,
+      });
+      return;
+    }
+
+    // [4] Cooldown check — منع replay سريع
+    const coolRow = (await sql(
+      `SELECT ad_last_reward FROM users WHERE id=$1`,
+      [userId]
+    ))[0];
+    if (coolRow?.ad_last_reward) {
+      const elapsed = Date.now() - new Date(coolRow.ad_last_reward).getTime();
+      if (elapsed < CFG.AD_COOLDOWN_MS) {
+        await writeAudit(userId, 'adsgram_cb', 'adsgram_callback', 'cooldown', ipHash, '{}', {
+          elapsed_ms: elapsed,
+        });
+        return;
+      }
+    }
+
+    // [5] Replay detection — هل وصل callback لنفس المستخدم خلال آخر دقيقة؟
+    const recentCb = await sql(
+      `SELECT id FROM audit_log
+       WHERE user_id=$1 AND action='adsgram_callback' AND status='ok'
+         AND created_at > NOW() - INTERVAL '60 seconds'
+       LIMIT 1`,
+      [userId]
+    );
+    if (recentCb.length) {
+      await writeAudit(userId, 'adsgram_cb', 'adsgram_callback', 'replay', ipHash, '{}', {});
+      return;
+    }
+
+    // [6] أعطِ النقاط ✅
+    await sql(
+      `UPDATE users
+       SET points = points + $1,
+           xp     = xp     + $1,
+           ad_last_reward = NOW()
+       WHERE id = $2`,
+      [CFG.POINTS_PER_AD, userId]
+    );
+
+    // [7] حدّث ad_logs
+    await sql(
+      `INSERT INTO ad_logs(user_id, log_date, count, points_earned)
+       VALUES($1, CURRENT_DATE, 1, $2)
+       ON CONFLICT (user_id, log_date)
+       DO UPDATE SET
+         count         = ad_logs.count + 1,
+         points_earned = ad_logs.points_earned + $2`,
+      [userId, CFG.POINTS_PER_AD]
+    );
+
+    // [8] Audit log
+    await writeAudit(userId, 'adsgram_cb', 'adsgram_callback', 'ok', ipHash, '{}', {
+      tg_id:         tgId,
+      points_earned: CFG.POINTS_PER_AD,
+    });
+
+    console.info('[Adsgram CB] ✅ Reward granted — userId:', userId, 'tgId:', tgId);
+
+  } catch (err) {
+    console.error('[Adsgram CB] Error:', err.message);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════
 
 module.exports = async function handler(req, res) {
+  // ── Adsgram Server Callback — GET /api/adsgram-reward?userId=[userId]
+  // يجب أن يكون أول شيء قبل CORS checks
+  if (req.method === 'GET' && (req.url || '').includes('adsgram-reward')) {
+    return handleAdsgramCallback(req, res);
+  }
+
   res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers',
     'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret, X-Session-ID'
   );
