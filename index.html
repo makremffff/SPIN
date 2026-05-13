@@ -3780,7 +3780,7 @@
 
         // ── عدد الإعلانات المطلوب تحميلها قبل إعطاء الجائزة ────────
         // حسب نظام Adsgram: نُحمّل 3 إعلانات — نُعطي جائزة بعد الثالث فقط
-        const AD_PRELOAD_REQUIRED = 3;
+        const AD_PRELOAD_REQUIRED = 2;
 
         const AD_STATE = {
             total: 10,
@@ -3974,7 +3974,7 @@
                 if (i < AD_PRELOAD_REQUIRED - 1) {
                     const left = AD_PRELOAD_REQUIRED - successCount;
                     const nextNum = i + 2;
-                    const WAIT_SEC = 6;
+                    const WAIT_SEC = 2;
 
                     // أظهر overlay العداد
                     if (overlay) overlay.classList.add('visible');
