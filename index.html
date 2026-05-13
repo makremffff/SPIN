@@ -2680,7 +2680,7 @@
                             <div style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.45);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;" data-i18n="balance_label">الرصيد الكلي</div>
                             <div style="display:flex;align-items:center;gap:7px;">
                                 <img src="asesst/coins.png" alt="" style="width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(251,191,36,0.9));">
-                                <span class="uc-balance-num balance-number counter" data-target="0" style="font-size:26px;">0</span>
+                                <span id="uc-balance-num" class="uc-balance-num balance-number counter" data-target="0" style="font-size:26px;">0</span>
                             </div>
                             <span style="font-family:'Readex Pro',sans-serif;font-size:9px;color:rgba(251,191,36,0.35);font-weight:500;" data-i18n="pts">نقطة</span>
                         </div>
@@ -3470,6 +3470,7 @@
 
         /* ─── state ─── */
         let _sessionReady   = false;
+        let _sessionToken   = null;   // in-memory session token for X-Session-ID header
         let _rateLimitUntil = 0;
         let _fpCache        = null;
         let _pendingSession = null;
@@ -3569,13 +3570,20 @@
                             'Content-Type':  'application/json',
                             'X-Init-Data':   initData,
                             'X-Fingerprint': JSON.stringify(fp),
+                            // X-Session-ID sent if renewing session
+                            ...(_sessionToken ? { 'X-Session-ID': _sessionToken } : {}),
                         },
                         body: JSON.stringify({ type: 'create_session', data: { initData } }),
                     });
                     const json = await res.json();
                     if (json.is_banned) { _showBanScreen(); return false; }
                     if (json.ok) {
-                        // ✅ session_id في cookie — لا نحتاج نخزّنه هنا
+                        // ✅ session_token — نحفظه in-memory ونُرسله كـ X-Session-ID header
+                        // هذا fallback لـ Telegram WebApp الذي يمنع cookies أحياناً
+                        if (json._session_token) {
+                            _sessionToken = json._session_token;
+                            delete json._session_token; // لا يبقى في الذاكرة بعد الحفظ
+                        }
                         _sessionReady = true;
                         if (json.user) {
                             if (json.user.points      !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
@@ -3635,7 +3643,7 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            const SKIP_NONCE = new Set(['load', 'get_state', 'reward_ad', 'get_referrals', 'create_session']);
+            const SKIP_NONCE = new Set(['load', 'get_state', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event']);
             const nonce = SKIP_NONCE.has(type) ? null : _genNonce();
 
             const headers = {
@@ -3644,6 +3652,8 @@
                 'X-Fingerprint': JSON.stringify(fp),
             };
             if (nonce) headers['X-Nonce'] = nonce;
+            // ✅ X-Session-ID كـ fallback لـ cookie في Telegram WebApp iframe
+            if (_sessionToken) headers['X-Session-ID'] = _sessionToken;
 
             try {
                 const res = await fetch(API_BASE, {
@@ -3901,9 +3911,12 @@
 
             // ══════════════════════════════════════════════════════════
             // ✅ reward_ad — يُستدعى فقط بعد result.done === true
-            //    + 14s client check + server enforces 14s also
+            //    السيرفر هو المرجع الوحيد — يتحقق من cooldown + daily limit
             // ══════════════════════════════════════════════════════════
-            const result = await fetchApi({ type: 'reward_ad', data: {} });
+            const result = await fetchApi({
+                type: 'reward_ad',
+                data: { ad_started_at: _adWatchStartedAt },
+            });
 
             if (result.ok) {
                 // ── تحديث state من السيرفر ────────────────────────────
@@ -4798,25 +4811,8 @@
                 _pollInterval = setInterval(_doPoll, 5000);
             });
 
-            // ══════════════════════════════════════════════════════
-            // ✅ Anti-console manipulation — protect balance
-            // يمنع تغيير USER_STATE.points من الـ console
-            // ══════════════════════════════════════════════════════
-            Object.defineProperty(USER_STATE, 'points', {
-                get() { return this._points || 0; },
-                set(v) {
-                    const val = parseInt(v);
-                    if (isNaN(val) || val < 0) return;
-                    // منع القفز غير المعقول — فرق أكثر من 10x الحد اليومي مشبوه
-                    const MAX_JUMP = (this._points || 0) + 100000;
-                    if (val > MAX_JUMP && (this._points || 0) > 0) {
-                        console.warn('[Security] Suspicious balance change blocked');
-                        return;
-                    }
-                    this._points = val;
-                },
-                configurable: false,
-            });
+            // ── Anti-tamper: freeze _SERVER_CONFIG so no console override ─
+            try { Object.freeze(_SERVER_CONFIG); } catch(_) {}
 
         });
 
@@ -5143,11 +5139,8 @@
         });
 
         // ✅ قيم ابتدائية صفر — تُحدَّث من السيرفر عند load
-        // Anti-fraud: points protected via backing _points field
-        // Object.defineProperty applied in DOMContentLoaded
         const USER_STATE = {
-            _points: 0,
-            points: 0,  // will be overridden by defineProperty
+            points: 0,
             level:  1,
         };
 
