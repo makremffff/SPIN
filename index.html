@@ -3902,30 +3902,53 @@
             let successCount = 0;
 
             for (let i = 0; i < AD_PRELOAD_REQUIRED; i++) {
-                // ── تحديث overlay: اعلان X من Y ──────────────────────
+                // ══════════════════════════════════════════════════
+                // الخطوة 1: overlay "تجهيز" يظهر ثم يختفي فوراً
+                // حتى لا يحجب واجهة Adsgram
+                // ══════════════════════════════════════════════════
                 if (overlay) {
-                    if (countEl) countEl.textContent = `${i + 1}/${AD_PRELOAD_REQUIRED}`;
+                    if (countEl) {
+                        countEl.textContent = `${i + 1} / ${AD_PRELOAD_REQUIRED}`;
+                    }
+                    const labelEl = document.getElementById('overlay-label');
+                    if (labelEl) labelEl.textContent = 'جاري تحميل الإعلان...';
                     overlay.classList.add('visible');
                 }
                 _updatePreloadBar(preloadBar, i, AD_PRELOAD_REQUIRED);
 
-                await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, attempt: i + 1 });
-
-                const adShown = await _showAdsgramAd();
-
+                // أخفِ الـ overlay بعد 600ms — قبل ما يظهر Adsgram
+                await new Promise(r => setTimeout(r, 600));
                 if (overlay) overlay.classList.remove('visible');
 
+                await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, attempt: i + 1 });
+
+                // ══════════════════════════════════════════════════
+                // الخطوة 2: شغّل الإعلان — Adsgram يعرض واجهته
+                // ══════════════════════════════════════════════════
+                const adShown = await _showAdsgramAd();
+
                 if (!adShown) {
-                    // المستخدم أغلق أو خطأ — نوقف الدورة
-                    if (successCount > 0) {
-                        // إذا أكمل بعض الإعلانات — نُعلمه
-                        showToast('coin',
-                            `${successCount} إعلان من ${AD_PRELOAD_REQUIRED}`,
-                            'شاهد الكل للحصول على المكافأة',
-                            'red', '');
+                    // ── تحديد سبب الفشل وإشعار المستخدم ──────────
+                    const elapsed = Date.now() - _adWatchStartedAt;
+                    let failTitle, failSub;
+
+                    if (elapsed < 1000) {
+                        // أُغلق فوراً — لم يضغط أصلاً
+                        failTitle = '❌ لم تبدأ مشاهدة الإعلان';
+                        failSub   = 'يجب الضغط على الإعلان لبدء المشاهدة';
+                    } else if (elapsed < 6000) {
+                        // أُغلق مبكراً — لم يكمل
+                        failTitle = `⚠️ الإعلان ${i + 1} لم يكتمل`;
+                        failSub   = `شاهده حتى النهاية (${successCount}/${AD_PRELOAD_REQUIRED} مكتمل)`;
+                    } else {
+                        // خطأ تقني
+                        failTitle = '⚠️ تعذّر تشغيل الإعلان';
+                        failSub   = 'حاول مرة أخرى';
                     }
+
+                    showToast('coin', failTitle, failSub, 'red', '');
                     _adReset(adBtn);
-                    _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
+                    _updatePreloadBar(preloadBar, successCount, AD_PRELOAD_REQUIRED);
                     return;
                 }
 
@@ -3935,24 +3958,51 @@
                 if (AD_STATE.remaining > 0) {
                     AD_STATE.remaining--;
                     AD_STATE.watchedToday++;
-                    // تحديث UI فوري بدون انتظار server
-                    const elRem     = document.getElementById('ads-remaining');
-                    const elWatched = document.getElementById('ads-watched');
-                    const elProgress= document.getElementById('ads-progress');
-                    if (elRem)     elRem.textContent = AD_STATE.remaining;
-                    if (elWatched) elWatched.textContent = AD_STATE.watchedToday;
+                    const elRem      = document.getElementById('ads-remaining');
+                    const elWatched  = document.getElementById('ads-watched');
+                    const elProgress = document.getElementById('ads-progress');
+                    if (elRem)      elRem.textContent = AD_STATE.remaining;
+                    if (elWatched)  elWatched.textContent = AD_STATE.watchedToday;
                     if (elProgress) elProgress.style.width =
                         (((AD_STATE.total - AD_STATE.remaining) / AD_STATE.total) * 100) + '%';
                 }
 
-                // ── إشعار تقدم بين الإعلانات ──────────────────────────
+                // ══════════════════════════════════════════════════
+                // الخطوة 3: بعد كل إعلان (ما عدا الأخير) → انتظر 6s
+                // مع عداد مرئي في الـ overlay
+                // ══════════════════════════════════════════════════
                 if (i < AD_PRELOAD_REQUIRED - 1) {
                     const left = AD_PRELOAD_REQUIRED - successCount;
+                    const nextNum = i + 2;
+                    const WAIT_SEC = 6;
+
+                    // أظهر overlay العداد
+                    if (overlay) overlay.classList.add('visible');
+                    const labelEl = document.getElementById('overlay-label');
+
+                    await new Promise(resolve => {
+                        let remaining = WAIT_SEC;
+                        if (countEl) countEl.textContent = `${remaining}s`;
+                        if (labelEl) labelEl.textContent =
+                            `إعلان ${successCount} مكتمل ✓ — الإعلان ${nextNum} يبدأ بعد ${remaining}s`;
+
+                        const tick = setInterval(() => {
+                            remaining--;
+                            if (countEl) countEl.textContent = `${remaining}s`;
+                            if (labelEl) labelEl.textContent =
+                                `إعلان ${successCount} مكتمل ✓ — الإعلان ${nextNum} يبدأ بعد ${remaining}s`;
+                            if (remaining <= 0) {
+                                clearInterval(tick);
+                                if (overlay) overlay.classList.remove('visible');
+                                resolve();
+                            }
+                        }, 1000);
+                    });
+
                     showToast('coin',
                         `إعلان ${successCount} مكتمل ✓`,
-                        `${left} إعلان ${left === 1 ? 'متبقي' : 'متبقيين'} للمكافأة`,
+                        `${left} ${left === 1 ? 'إعلان متبقي' : 'إعلانات متبقية'} للمكافأة`,
                         'gold', '');
-    
                 }
             }
 
