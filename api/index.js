@@ -809,7 +809,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     const timingRow = await sql(`SELECT ad_started_at FROM sessions WHERE id=$1`, [sessionId]);
     const sessionStartedAt = timingRow[0]?.ad_started_at;
     const clientStartedAt  = body?.data?.ad_started_at;  // من الفرونت كـ fallback
-    const MIN_AD_MS        = 13 * 1000; // 13s (2s buffer للـ network + processing)
+    const MIN_AD_MS        = 6 * 1000;  // 6s minimum (7s client - 1s buffer)
 
     // نستخدم session أولاً، وإلا نستخدم client timestamp
     let adStartedAt = sessionStartedAt
