@@ -3456,32 +3456,25 @@
 
     <!-- Ad watching overlay -->
     <div id="ad-watch-overlay">
-        <div class="ad-watch-ring">
-            <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
-                <circle cx="44" cy="44" r="38" stroke="rgba(251,191,36,0.12)" stroke-width="6"/>
-                <circle cx="44" cy="44" r="38" stroke="url(#ringGrad2)" stroke-width="6"
-                        stroke-linecap="round" stroke-dasharray="100 140"
-                        style="animation:spin 2s linear infinite;transform-origin:44px 44px;"/>
-                <defs>
-                    <linearGradient id="ringGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stop-color="#f59e0b"/>
-                        <stop offset="100%" stop-color="#fcd34d"/>
-                    </linearGradient>
-                </defs>
-            </svg>
-            <div class="ad-watch-inner">
-                <span class="ad-watch-count" id="overlay-count">⏳</span>
+        <!-- GIF تحميل -->
+        <img src="assets/loading.gif"
+             alt="loading"
+             style="width:96px;height:96px;object-fit:contain;border-radius:16px;">
+
+        <!-- رقم الإعلان الحالي -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <div id="overlay-count"
+                 style="font-family:'DynaPuff',sans-serif;font-size:22px;font-weight:700;
+                        color:#fbbf24;letter-spacing:1px;">
+                ⏳
+            </div>
+            <div id="overlay-label"
+                 style="font-family:'Readex Pro',sans-serif;font-size:13px;font-weight:600;
+                        color:rgba(255,255,255,0.7);text-align:center;">
+                جاري تحميل الإعلان...
             </div>
         </div>
-        <div class="ad-watch-label" id="overlay-label" data-i18n="ad_loading">جاري تحميل الإعلان...</div>
-        <div style="margin-top:10px;font-family:'Readex Pro',sans-serif;font-size:11px;
-                    color:rgba(255,255,255,0.4);font-weight:500;text-align:center;">
-            اضغط على الشاشة إذا طُلب منك ذلك
-        </div>
     </div>
-    <style>
-        @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
 
     <!-- ══════════════════════════════════════════
          JAVASCRIPT
@@ -3959,8 +3952,7 @@
                         `إعلان ${successCount} مكتمل ✓`,
                         `${left} إعلان ${left === 1 ? 'متبقي' : 'متبقيين'} للمكافأة`,
                         'gold', '');
-                    // فترة قصيرة بين الإعلانات
-                    await new Promise(r => setTimeout(r, 800));
+    
                 }
             }
 
@@ -4526,33 +4518,22 @@
 
         /* ─── Page Navigation ─── */
         function showPage(pageName, btn) {
-            // Hide all pages
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
-            // Show target page
             const target = document.getElementById('page-' + pageName);
             if (target) target.classList.add('active');
 
-            // Update nav items
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-            });
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
 
-            // Mark active nav
             if (btn) {
                 btn.classList.add('active');
             } else {
-                // Find by data-page
                 const navBtn = document.querySelector(`.nav-item[data-page="${pageName}"]`);
                 if (navBtn) navBtn.classList.add('active');
             }
 
-            // Run counters - reset then animate
-            setTimeout(() => {
-                const scope = target || document;
-                scope.querySelectorAll('.counter').forEach(c => { c.textContent = '0'; });
-                runCounters(scope);
-            }, 80);
+            // ✅ أعد رسم الرصيد بالقيمة الحالية — بدون reset إلى 0
+            updateBalanceUI(USER_STATE.points);
         }
 
         /* ─── Number Counter ─── */
@@ -4625,8 +4606,10 @@
             const xpPct    = document.querySelector('.uc-xp-pct');
             const xpFill   = document.querySelector('.uc-xp-fill');
 
-            if (balEl)    balEl.textContent  = pts.toLocaleString('en-US');
-            if (heroNum)  heroNum.textContent = pts.toLocaleString('en-US');
+            const formatted = pts.toLocaleString('en-US');
+            // ✅ حدّث data-target حتى لا يُعيد runCounters القيمة لـ 0
+            if (balEl)   { balEl.textContent  = formatted; balEl.dataset.target  = pts; }
+            if (heroNum) { heroNum.textContent = formatted; heroNum.dataset.target = pts; }
             if (tonSheet) tonSheet.textContent = pts.toLocaleString('en-US');
             if (tonEquiv) tonEquiv.textContent = '≈ ' + (pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(3) + ' TON';
             if (usdtEl)   usdtEl.textContent  = (pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(2);
