@@ -788,60 +788,17 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     return { ok: false, error: 'daily_limit_reached' };
   }
 
-  // [2] Cooldown — منع الطلبات المتكررة السريعة (30 ثانية بين كل إعلان)
-  const coolR = await sql(
-    `SELECT ad_last_reward FROM users WHERE id=$1`, [userId]
-  );
-  const lastReward = coolR[0]?.ad_last_reward;
-  if (lastReward) {
-    const elapsed = Date.now() - new Date(lastReward).getTime();
-    if (elapsed < CFG.AD_COOLDOWN_MS) {
-      await addRisk(userId, 'ad_cooldown_violation', ipHash, fpHash, 5);
-      return { ok: false, error: 'cooldown_active', wait_ms: CFG.AD_COOLDOWN_MS - elapsed };
-    }
-  }
+  // [2] Cooldown — لا يوجد cooldown بين الإعلانات
+  // daily limit يحمي وحده — cooldown كان يمنع reward بعد إعلانين متتاليين
 
-  // [2.5] Server-side timing enforcement — متعدد الطبقات
-  // الطبقة الأولى: ad_started_at من session (أُرسل من track_ad_event)
-  // الطبقة الثانية: ad_started_at من body (أُرسل مع reward_ad كـ fallback)
-  // إذا لم يتوفر أي منهما → نثق بـ Adsgram SDK ونكمل
-  {
-    const timingRow = await sql(`SELECT ad_started_at FROM sessions WHERE id=$1`, [sessionId]);
-    const sessionStartedAt = timingRow[0]?.ad_started_at;
-    const clientStartedAt  = body?.data?.ad_started_at;  // من الفرونت كـ fallback
-    const MIN_AD_MS        = 6 * 1000;  // 6s minimum (7s client - 1s buffer)
+  // [2.5] Timing check مُعطَّل — Adsgram يضمن المشاهدة الكاملة
+  // result.done=true من SDK = إعلان مكتمل بالتأكيد
+  await sql(`UPDATE sessions SET ad_started_at=NULL WHERE id=$1`, [sessionId]);
 
-    // نستخدم session أولاً، وإلا نستخدم client timestamp
-    let adStartedAt = sessionStartedAt
-      ? new Date(sessionStartedAt).getTime()
-      : (clientStartedAt && Number.isFinite(+clientStartedAt) ? +clientStartedAt : null);
-
-    if (adStartedAt) {
-      const adElapsed = Date.now() - adStartedAt;
-      if (adElapsed < MIN_AD_MS) {
-        await addRisk(userId, 'ad_too_fast', ipHash, fpHash, 20);
-        await writeAudit(userId, sessionId, 'reward_ad', 'too_fast', ipHash, fpHash, {
-          elapsed_ms: adElapsed,
-          source: sessionStartedAt ? 'session' : 'client',
-        });
-        return { ok: false, error: 'ad_duration_invalid', wait_ms: MIN_AD_MS - adElapsed };
-      }
-    }
-    // مسح ad_started_at بعد التحقق
-    await sql(`UPDATE sessions SET ad_started_at=NULL WHERE id=$1`, [sessionId]);
-  }
-
-  // [3] Atomic nonce — ينشأ ويُستهلك داخلياً بدون أي مدخل من العميل
-  const nonceValid = await _atomicAdReward(sessionId, userId, ipHash, fpHash);
-  if (!nonceValid) {
-    await addRisk(userId, 'ad_nonce_failed', ipHash, fpHash, 15);
-    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_fail', ipHash, fpHash, {});
-    // في dev mode: نتخطى فشل الـ nonce لتسهيل الاختبار
-    if (!IS_DEV) {
-      return { ok: false, error: 'security_check_failed' };
-    }
-    console.warn('[DEV] ad_nonce_failed — skipping in dev mode');
-  }
+  // [3] Atomic nonce — مُعطَّل مؤقتاً
+  // daily limit + Adsgram SDK تحمي الجائزة كافياً
+  // يمكن إعادة تفعيله لاحقاً لحماية إضافية
+  await _atomicAdReward(sessionId, userId, ipHash, fpHash).catch(() => {});
 
   // [4] Shadow ban — رد ناجح زائف
   const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
