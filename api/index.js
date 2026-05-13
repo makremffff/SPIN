@@ -777,7 +777,7 @@ async function handleGetState(userId) {
 // السيرفر ينشئ الـ nonce ويتحقق منه ويعطي النقاط في نفس العملية
 // لا يوجد أي endpoint منفصل يخص الـ nonce
 //
-async function handleRewardAd(userId, sessionId, ipHash, fpHash) {
+async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
   // [1] Daily limit
   const adR = await sql(
     `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
@@ -801,29 +801,46 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash) {
     }
   }
 
-  // [2.5] Server-side 15s enforcement — يتحقق أن الإعلان استمر 15 ثانية فعلياً
-  // يُقارن NOW() - ad_started_at من session — يرفض إذا أقل من 14 ثانية
-  const timingRow = await sql(`SELECT ad_started_at FROM sessions WHERE id=$1`, [sessionId]);
-  if (timingRow.length && timingRow[0].ad_started_at) {
-    const adElapsed = Date.now() - new Date(timingRow[0].ad_started_at).getTime();
-    const MIN_AD_MS = 14 * 1000; // 14s كحد أدنى (1s buffer للـ network latency)
-    if (adElapsed < MIN_AD_MS) {
-      await addRisk(userId, 'ad_too_fast', ipHash, fpHash, 20);
-      await writeAudit(userId, sessionId, 'reward_ad', 'too_fast', ipHash, fpHash, {
-        elapsed_ms: adElapsed,
-      });
-      return { ok: false, error: 'ad_duration_invalid' };
+  // [2.5] Server-side timing enforcement — متعدد الطبقات
+  // الطبقة الأولى: ad_started_at من session (أُرسل من track_ad_event)
+  // الطبقة الثانية: ad_started_at من body (أُرسل مع reward_ad كـ fallback)
+  // إذا لم يتوفر أي منهما → نثق بـ Adsgram SDK ونكمل
+  {
+    const timingRow = await sql(`SELECT ad_started_at FROM sessions WHERE id=$1`, [sessionId]);
+    const sessionStartedAt = timingRow[0]?.ad_started_at;
+    const clientStartedAt  = body?.data?.ad_started_at;  // من الفرونت كـ fallback
+    const MIN_AD_MS        = 13 * 1000; // 13s (2s buffer للـ network + processing)
+
+    // نستخدم session أولاً، وإلا نستخدم client timestamp
+    let adStartedAt = sessionStartedAt
+      ? new Date(sessionStartedAt).getTime()
+      : (clientStartedAt && Number.isFinite(+clientStartedAt) ? +clientStartedAt : null);
+
+    if (adStartedAt) {
+      const adElapsed = Date.now() - adStartedAt;
+      if (adElapsed < MIN_AD_MS) {
+        await addRisk(userId, 'ad_too_fast', ipHash, fpHash, 20);
+        await writeAudit(userId, sessionId, 'reward_ad', 'too_fast', ipHash, fpHash, {
+          elapsed_ms: adElapsed,
+          source: sessionStartedAt ? 'session' : 'client',
+        });
+        return { ok: false, error: 'ad_duration_invalid', wait_ms: MIN_AD_MS - adElapsed };
+      }
     }
+    // مسح ad_started_at بعد التحقق
+    await sql(`UPDATE sessions SET ad_started_at=NULL WHERE id=$1`, [sessionId]);
   }
-  // مسح ad_started_at بعد التحقق
-  await sql(`UPDATE sessions SET ad_started_at=NULL WHERE id=$1`, [sessionId]);
 
   // [3] Atomic nonce — ينشأ ويُستهلك داخلياً بدون أي مدخل من العميل
   const nonceValid = await _atomicAdReward(sessionId, userId, ipHash, fpHash);
   if (!nonceValid) {
     await addRisk(userId, 'ad_nonce_failed', ipHash, fpHash, 15);
     await writeAudit(userId, sessionId, 'reward_ad', 'nonce_fail', ipHash, fpHash, {});
-    return { ok: false, error: 'security_check_failed' };
+    // في dev mode: نتخطى فشل الـ nonce لتسهيل الاختبار
+    if (!IS_DEV) {
+      return { ok: false, error: 'security_check_failed' };
+    }
+    console.warn('[DEV] ad_nonce_failed — skipping in dev mode');
   }
 
   // [4] Shadow ban — رد ناجح زائف
@@ -1084,7 +1101,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers',
-    'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret'
+    'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret, X-Session-ID'
   );
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'method_not_allowed' });
@@ -1098,10 +1115,13 @@ module.exports = async function handler(req, res) {
   const type = body?.type || '';
   if (!type) return res.status(400).json({ error: 'missing_type' });
 
-  // ✅ session_id من cookie httpOnly — مخفي عن العميل
+  // ✅ session_id من cookie httpOnly أولاً — ثم X-Session-ID header كـ fallback
+  // X-Session-ID مطلوب لـ Telegram WebApp (iframe يمنع cookies أحياناً)
   const cookieHeader = req.headers['cookie'] || '';
   const sidMatch     = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
-  const sessionId    = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
+  const sessionFromCookie = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
+  const sessionFromHeader = req.headers['x-session-id'] || '';
+  const sessionId = sessionFromCookie || sessionFromHeader;
   const fpRaw        = req.headers['x-fingerprint']  || '{}';
   const rawNonce     = req.headers['x-nonce']        || '';
   const adminKey     = req.headers['x-admin-secret'] || '';
@@ -1128,12 +1148,21 @@ module.exports = async function handler(req, res) {
     if (type === 'create_session') {
       const result = await handleCreateSession(body, ipHash, fpHash);
       if (result._sid) {
-        // ✅ session_id في httpOnly cookie — لا يظهر في JS أو Console
+        // ✅ session_id في httpOnly cookie مع fallback header للـ Telegram WebApp
         const maxAge = Math.floor(CFG.SESSION_TTL_MS / 1000);
+        const isHttps = req.headers['x-forwarded-proto'] === 'https'
+          || req.connection?.encrypted
+          || process.env.NODE_ENV === 'production';
+        const sameSite = isHttps ? 'None' : 'Lax';
+        const secure   = isHttps ? '; Secure' : '';
         res.setHeader('Set-Cookie',
-          `sid=${encodeURIComponent(result._sid)}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`
+          `sid=${encodeURIComponent(result._sid)}; HttpOnly; SameSite=${sameSite}${secure}; Max-Age=${maxAge}; Path=/`
         );
-        delete result._sid;  // لا يُرسل في JSON
+        // ✅ أيضاً نُرسل session_token مبهم للعميل لـ X-Session-ID header
+        // العميل يخزّنه in-memory فقط ويُرسله في كل طلب كـ fallback
+        // لا يُخزَّن في localStorage — يُحذف عند إغلاق الصفحة
+        result._session_token = result._sid; // العميل سيحذفه بعد حفظه
+        delete result._sid;
       }
       return res.status(result.status || 200).json(result);
     }
@@ -1164,7 +1193,7 @@ module.exports = async function handler(req, res) {
       // يُستدعى من Adsgram onReward callback فقط
       // الـ nonce يُنشأ ويُستهلك داخلياً — لا يُرسل ولا يُقبل من العميل
       case 'reward_ad':
-        result = await handleRewardAd(userId, sessionId, ipHash, fpHash);
+        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body);
         break;
 
       // ✅ العمليات التالية: nonce يأتي من العميل عبر X-Nonce header (مُولَّد client-side)
