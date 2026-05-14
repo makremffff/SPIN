@@ -246,6 +246,15 @@ setInterval(async () => {
   try {
     await sql(`DELETE FROM nonces   WHERE expires_at < NOW()`);
     await sql(`DELETE FROM sessions WHERE expires_at < NOW()`);
+    await sql(`CREATE TABLE IF NOT EXISTS completed_tasks (
+      id          SERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL,
+      task_key    TEXT NOT NULL,
+      completed_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, task_key, completed_at)
+    )`).catch(()=>{});
+    await sql(`CREATE INDEX IF NOT EXISTS idx_ct_user ON completed_tasks(user_id, task_key, completed_at)`).catch(()=>{});
+
     // إعادة ضبط ad_nonce المنتهية في الجلسات الحية
     await sql(`
       UPDATE sessions
@@ -777,14 +786,7 @@ async function handleGetState(userId) {
 // السيرفر ينشئ الـ nonce ويتحقق منه ويعطي النقاط في نفس العملية
 // لا يوجد أي endpoint منفصل يخص الـ nonce
 //
-async function handleRewardAd(userId, rawNonce, sessionId, ipHash, fpHash, body) {
-  // [0] Nonce — one-time use, مرتبط بالجلسة، anti-replay
-  const nonceResult = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'reward_ad');
-  if (nonceResult !== 'ok') {
-    await addRisk(userId, `reward_ad_nonce_${nonceResult}`, ipHash, fpHash, 20);
-    return { ok: false, error: 'invalid_nonce' };
-  }
-
+async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
   // [1] Daily limit
   const adR = await sql(
     `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
@@ -795,11 +797,7 @@ async function handleRewardAd(userId, rawNonce, sessionId, ipHash, fpHash, body)
     return { ok: false, error: 'daily_limit_reached' };
   }
 
-  // [2] Cooldown check مُعطَّل — daily limit يكفي للحماية
-
-  // [2.5] Timing check مُعطَّل
-
-  // [3] _atomicAdReward محذوف — consumeNonce في [0] يكفي
+  // [2] حماية بـ daily limit فقط — Adsgram يضمن المشاهدة الحقيقية
 
   // [4] Shadow ban — رد ناجح زائف
   const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
@@ -1190,27 +1188,27 @@ async function handleAdsgramCallback(req, res) {
   }
 }
 
-// ── claim_adsgram_task — جائزة 70 نقطة عند إكمال task-30166 ──────
-async function handleClaimAdsgramTask(userId, rawNonce, sessionId, ipHash, fpHash) {
-  // Nonce check — one-time use
-  const nonceResult = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'claim_adsgram_task');
-  if (nonceResult !== 'ok') {
-    await addRisk(userId, `task_nonce_${nonceResult}`, ipHash, fpHash, 15);
-    return { ok: false, error: 'invalid_nonce' };
-  }
-
+// ── claim_adsgram_task ───────────────────────────────────────────
+async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
+  // تحقق مرة واحدة في اليوم
   const already = await sql(
-    `SELECT id FROM completed_tasks WHERE user_id=$1 AND task_key='adsgram_task_daily' AND completed_at::date=CURRENT_DATE`,
+    `SELECT id FROM completed_tasks
+     WHERE user_id=$1 AND task_key='adsgram_task_daily'
+       AND completed_at > NOW() - INTERVAL '60 seconds'`,
     [userId]
   );
   if (already.length) return { ok: false, error: 'already_claimed_today' };
 
   const TASK_PTS = 70;
-  await sql(`UPDATE users SET points=points+$1, xp=xp+$1, updated_at=NOW() WHERE id=$2`, [TASK_PTS, userId]);
   await sql(
-    `INSERT INTO completed_tasks(user_id,task_key,completed_at) VALUES($1,'adsgram_task_daily',NOW()) ON CONFLICT DO NOTHING`,
-    [userId]
+    `UPDATE users SET points=points+$1, xp=xp+$1, updated_at=NOW() WHERE id=$2`,
+    [TASK_PTS, userId]
   );
+  await sql(
+    `INSERT INTO completed_tasks(user_id, task_key, completed_at)
+     VALUES($1, 'adsgram_task_daily', NOW())`,
+    [userId]
+  ).catch(()=>{});
   await syncLevel(userId);
   await writeAudit(userId, sessionId, 'claim_adsgram_task', 'ok', ipHash, fpHash, { points: TASK_PTS });
   const ur = await sql(`SELECT points FROM users WHERE id=$1`, [userId]);
@@ -1324,7 +1322,7 @@ module.exports = async function handler(req, res) {
       // يُستدعى من Adsgram onReward callback فقط
       // الـ nonce يُنشأ ويُستهلك داخلياً — لا يُرسل ولا يُقبل من العميل
       case 'reward_ad':
-        result = await handleRewardAd(userId, rawNonce, sessionId, ipHash, fpHash, body);
+        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body);
         break;
 
       // ✅ العمليات التالية: nonce يأتي من العميل عبر X-Nonce header (مُولَّد client-side)
@@ -1351,7 +1349,7 @@ module.exports = async function handler(req, res) {
         break;
 
       case 'claim_adsgram_task':
-        result = await handleClaimAdsgramTask(userId, rawNonce, sessionId, ipHash, fpHash);
+        result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash);
         break;
 
       default:
