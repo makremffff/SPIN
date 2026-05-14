@@ -2868,52 +2868,50 @@
             </div>
 
             <div id="adsgram-task-outer" style="margin-bottom:14px;">
-
-                <!-- ✅ Adsgram widget يعمل بشكل طبيعي — الشكل من CSS فقط -->
+                <!-- Card wrapper -->
                 <div id="adsgram-task-card" class="glass" style="
                     border-radius:var(--radius-xl);
-                    border:1px solid rgba(251,191,36,0.18);
-                    background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(251,191,36,0.02));
+                    border:1px solid rgba(251,191,36,0.15);
+                    background:linear-gradient(135deg,rgba(251,191,36,0.05),rgba(251,191,36,0.01));
                     overflow:hidden;
-                    transition:opacity 0.4s ease,transform 0.4s ease;
+                    transition:opacity 0.3s ease,transform 0.3s ease;
                 ">
-                    <!-- header داخل الكارد -->
-                    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px 10px;">
-                        <div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;
-                            background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(251,191,36,0.06));
-                            border:1px solid rgba(251,191,36,0.28);
+                    <!-- header -->
+                    <div style="display:flex;align-items:center;gap:13px;padding:13px 15px 8px;">
+                        <div style="width:43px;height:43px;border-radius:13px;flex-shrink:0;
+                            background:linear-gradient(135deg,rgba(251,191,36,0.16),rgba(251,191,36,0.05));
+                            border:1px solid rgba(251,191,36,0.25);
                             display:flex;align-items:center;justify-content:center;">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
                                 <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                                      stroke="rgba(251,191,36,0.9)" stroke-width="1.8" stroke-linecap="round"/>
+                                      stroke="rgba(251,191,36,0.85)" stroke-width="1.8" stroke-linecap="round"/>
                             </svg>
                         </div>
                         <div style="flex:1;">
-                            <div style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:800;
-                                        color:rgba(255,255,255,0.92);margin-bottom:4px;">مهمة إعلانية</div>
+                            <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;
+                                        color:rgba(255,255,255,0.9);margin-bottom:3px;">مهمة إعلانية</div>
                             <div style="display:flex;align-items:center;gap:5px;">
-                                <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;
-                                     filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
+                                <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
                                 <span style="font-family:'DynaPuff',sans-serif;font-size:12px;
                                              font-weight:700;color:rgba(251,191,36,0.85);">+70 نقطة</span>
                             </div>
                         </div>
                     </div>
-
-                    <!-- ✅ widget نفسه بدون تغيير — Adsgram يُظهر زر Go/Play بداخله -->
-                    <div style="padding:0 12px 14px;">
+                    <!-- widget داخل الكارد -->
+                    <div style="padding:0 12px 13px;">
                         <adsgram-task id="adsgram-task-widget" data-block-id="task-30166">
-                            <div slot="reward" style="display:inline-flex;align-items:center;gap:5px;">
-                                <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
-                                <span style="font-family:'Readex Pro',sans-serif;font-size:11px;
-                                             font-weight:700;color:rgba(251,191,36,0.9);">+70 نقطة</span>
+                            <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
+                                <img src="asesst/coins.png" alt="" style="width:11px;height:11px;object-fit:contain;">
+                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+70 نقطة</span>
                             </div>
                         </adsgram-task>
                     </div>
                 </div>
 
-                <!-- حالة الإكمال — تظهر بعد الجائزة مع عداد 60s -->
-                <div id="adsgram-task-done" style="display:none;" class="glass">
+                <!-- حالة الإكمال + عداد 60s -->
+                <div id="adsgram-task-done" style="display:none;border-radius:var(--radius-xl);
+                     border:1px solid rgba(52,211,153,0.2);padding:14px 15px;
+                     background:linear-gradient(135deg,rgba(52,211,153,0.06),rgba(52,211,153,0.01));">
                 </div>
             </div>
 
@@ -3716,7 +3714,7 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            const SKIP_NONCE = new Set(['load', 'get_state', 'get_referrals', 'create_session', 'track_ad_event']);
+            const SKIP_NONCE = new Set(['load', 'get_state', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event']);
             const nonce = SKIP_NONCE.has(type) ? null : _genNonce();
 
             const headers = {
@@ -3825,30 +3823,26 @@
             return _initAdController();
         }
 
-        // ── Adsgram Task widget init ──────────────────────────────────
-        // ── Adsgram Task ──────────────────────────────────────────
-        let _adsgramTaskCountdown = null;
+        // ── Adsgram Task ──────────────────────────────────────────────
+        let _taskCountdown = null;
 
         function _initAdsgramTask() {
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
-            // ── onReward: المستخدم ضغط Go وأكمل المهمة ───────────
-            // يُطلق مباشرة من Adsgram عند الضغط على زر Go/Play
             widget.addEventListener('reward', async () => {
-                // جائزة فورية
+                // جائزة فورية + إغلاق كارد
                 const result = await fetchApi({ type: 'claim_adsgram_task', data: {} });
-
                 if (result.ok) {
                     animateBalance(USER_STATE.points, result.points, 1000);
                     USER_STATE.points = result.points;
                     showToast('coin', 'مهمة مكتملة ✓', '+70 نقطة', 'gold', '+70');
-                    _closeAdsgramTaskCard();
+                    _closeTaskCard();
                 } else {
-                    const msg = result.error === 'already_claimed_today'
-                        ? 'أكملت هذه المهمة اليوم'
-                        : 'حدث خطأ، حاول مرة أخرى';
-                    showToast('coin', msg, '', 'red', '');
+                    const e = result.error;
+                    showToast('coin',
+                        e === 'already_claimed_today' ? 'أكملت هذه المهمة اليوم' : 'حدث خطأ، حاول مرة أخرى',
+                        '', 'red', '');
                 }
             });
 
@@ -3858,71 +3852,61 @@
             });
         }
 
-        // ── إغلاق الكارد + عداد 60s ──────────────────────────────
-        function _closeAdsgramTaskCard() {
+        function _closeTaskCard() {
             const card  = document.getElementById('adsgram-task-card');
             const done  = document.getElementById('adsgram-task-done');
             const outer = document.getElementById('adsgram-task-outer');
 
-            // أخفِ الكارد بـ animation
+            // أخفِ الكارد
             if (card) {
-                card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                card.style.opacity    = '0';
-                card.style.transform  = 'scale(0.96)';
-                setTimeout(() => { card.style.display = 'none'; }, 320);
+                card.style.opacity   = '0';
+                card.style.transform = 'scale(0.96)';
+                setTimeout(() => { if(card) card.style.display = 'none'; }, 300);
             }
 
-            // أظهر رسالة الإكمال + عداد 60s
-            if (done) {
-                let secsLeft = 60;
-                done.style.display       = 'block';
-                done.style.borderRadius  = 'var(--radius-xl)';
-                done.style.padding       = '14px 16px';
-                done.style.border        = '1px solid rgba(52,211,153,0.22)';
-                done.style.background    = 'linear-gradient(135deg,rgba(52,211,153,0.07),rgba(52,211,153,0.02))';
+            // أظهر رسالة + عداد 60s
+            if (!done) return;
+            done.style.display = 'block';
+            let s = 60;
 
-                const render = (s) => {
-                    const pct = ((60 - s) / 60) * 100;
-                    done.innerHTML = `
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-                            <div style="width:40px;height:40px;border-radius:12px;flex-shrink:0;
-                                background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.28);
-                                display:flex;align-items:center;justify-content:center;font-size:18px;">✓</div>
-                            <div style="flex:1;">
-                                <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;
-                                    color:rgba(52,211,153,0.9);margin-bottom:3px;">مهمة مكتملة</div>
-                                <div style="display:flex;align-items:center;gap:5px;">
-                                    <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
-                                    <span style="font-family:'Readex Pro',sans-serif;font-size:12px;
-                                        font-weight:600;color:rgba(251,191,36,0.8);">+70 نقطة أضيفت لرصيدك</span>
-                                </div>
-                            </div>
-                            <div style="font-family:'DynaPuff',sans-serif;font-size:13px;font-weight:700;
-                                color:rgba(255,255,255,0.35);flex-shrink:0;">${s}s</div>
+            const render = () => {
+                const pct = Math.round(((60 - s) / 60) * 100);
+                done.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px;">
+                        <div style="width:38px;height:38px;border-radius:11px;flex-shrink:0;
+                            background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);
+                            display:flex;align-items:center;justify-content:center;font-size:17px;">✓</div>
+                        <div style="flex:1;">
+                            <div style="font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;
+                                color:rgba(52,211,153,0.85);margin-bottom:2px;">مهمة مكتملة</div>
+                            <div style="font-family:'Readex Pro',sans-serif;font-size:11px;
+                                color:rgba(255,255,255,0.4);">المهمة التالية خلال ${s} ثانية</div>
                         </div>
-                        <div style="height:2px;background:rgba(52,211,153,0.08);border-radius:4px;overflow:hidden;">
-                            <div style="height:100%;width:${pct}%;background:rgba(52,211,153,0.4);
-                                border-radius:4px;transition:width 1s linear;"></div>
-                        </div>`;
-                };
+                        <span style="font-family:'DynaPuff',sans-serif;font-size:12px;
+                            font-weight:700;color:rgba(255,255,255,0.3);">${s}s</span>
+                    </div>
+                    <div style="height:2px;background:rgba(52,211,153,0.07);border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:rgba(52,211,153,0.35);
+                            border-radius:3px;transition:width 1s linear;"></div>
+                    </div>`;
+            };
+            render();
 
-                render(secsLeft);
-                _adsgramTaskCountdown = setInterval(() => {
-                    secsLeft--;
-                    if (secsLeft <= 0) {
-                        clearInterval(_adsgramTaskCountdown);
-                        _adsgramTaskCountdown = null;
-                        // أخفِ كل الـ section
-                        if (outer) {
-                            outer.style.transition = 'opacity 0.5s';
-                            outer.style.opacity    = '0';
-                            setTimeout(() => { outer.style.display = 'none'; }, 500);
-                        }
-                    } else {
-                        render(secsLeft);
+            if (_taskCountdown) clearInterval(_taskCountdown);
+            _taskCountdown = setInterval(() => {
+                s--;
+                if (s <= 0) {
+                    clearInterval(_taskCountdown);
+                    _taskCountdown = null;
+                    if (outer) {
+                        outer.style.transition = 'opacity 0.4s';
+                        outer.style.opacity    = '0';
+                        setTimeout(() => { if(outer) outer.style.display = 'none'; }, 400);
                     }
-                }, 1000);
-            }
+                } else {
+                    render();
+                }
+            }, 1000);
         }
 
         // ── trackAdEvent — يرسل حدث للسيرفر بشكل آمن ────────────────
@@ -4111,6 +4095,19 @@
 
                 successCount++;
 
+                // ✅ نُنقص من progress اليومي عند كل إعلان ناجح
+                if (AD_STATE.remaining > 0) {
+                    AD_STATE.remaining--;
+                    AD_STATE.watchedToday++;
+                    const elRem      = document.getElementById('ads-remaining');
+                    const elWatched  = document.getElementById('ads-watched');
+                    const elProgress = document.getElementById('ads-progress');
+                    if (elRem)      elRem.textContent = AD_STATE.remaining;
+                    if (elWatched)  elWatched.textContent = AD_STATE.watchedToday;
+                    if (elProgress) elProgress.style.width =
+                        (((AD_STATE.total - AD_STATE.remaining) / AD_STATE.total) * 100) + '%';
+                }
+
                 // ══════════════════════════════════════════════════
                 // الخطوة 3: بعد كل إعلان (ما عدا الأخير) → انتظر 6s
                 // مع عداد مرئي في الـ overlay
@@ -4172,13 +4169,7 @@
                     animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
                 }
-                updateAdUI();
                 await trackAdEvent('reward_granted', { watched_today: result.watchedToday });
-                if (AD_STATE.remaining === 0) {
-                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆', 'حصلت على كل نقاط اليوم', 'green', '+50');
-                } else {
-                    showToast('coin', 'مكافأة محصّلة ✓', 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
-                }
             } else {
                 console.warn('[Ad] reward_ad rejected:', result.error);
                 if (result.error === 'cooldown_active') {
@@ -4189,9 +4180,16 @@
                     showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل للحصول على المكافأة', 'red', '');
                 } else if (result.error === 'daily_limit_reached') {
                     AD_STATE.remaining = 0;
-                    updateAdUI();
-                } else if (result.error === 'security_check_failed') {
-                    showToast('coin', 'خطأ في التحقق', 'حاول مرة أخرى', 'red', '');
+                }
+            }
+
+            updateAdUI();
+
+            if (result.ok) {
+                if (AD_STATE.remaining === 0) {
+                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆', 'حصلت على كل نقاط اليوم', 'green', '+50');
+                } else {
+                    showToast('coin', 'مكافأة محصّلة ✓', 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
                 }
             }
         }
@@ -4959,7 +4957,7 @@
 
             // ── إخفاء loading screen بعد تحميل البيانات ──────────────
             _hideLoadingScreen();
-            setTimeout(_initAdsgramTask, 1200);
+            setTimeout(_initAdsgramTask, 1000);
 
             // ══════════════════════════════════════════════════════
             // ✅ Auto-refresh — يحدث كل البيانات كل 5 ثواني
