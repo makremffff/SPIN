@@ -3644,16 +3644,16 @@
                             // X-Session-ID sent if renewing session
                             ...(_sessionToken ? { 'X-Session-ID': _sessionToken } : {}),
                         },
-                        body: JSON.stringify({ type: 'create_session', data: { initData } }),
+                        body: JSON.stringify({ action: 'create_session', data: { initData } }),
                     });
                     const json = await res.json();
                     if (json.is_banned) { _showBanScreen(); return false; }
                     if (json.ok) {
-                        // ✅ session_token — نحفظه in-memory ونُرسله كـ X-Session-ID header
-                        // هذا fallback لـ Telegram WebApp الذي يمنع cookies أحياناً
-                        if (json._session_token) {
-                            _sessionToken = json._session_token;
-                            delete json._session_token; // لا يبقى في الذاكرة بعد الحفظ
+                        // ✅ session_id — نحفظه in-memory ونُرسله كـ X-Session-ID header
+                        // السيرفر الجديد يُرجع session_id مباشرة (لا _session_token)
+                        const sid = json.session_id || json._session_token;
+                        if (sid) {
+                            _sessionToken = sid;
                         }
                         _sessionReady = true;
                         if (json.user) {
@@ -3694,11 +3694,69 @@
         }
 
         /* ══════════════════════════════════════════════════════════
-           FETCH API
-           ✅ credentials: 'include' — cookie ينتقل تلقائياً
-           ✅ nonce عشوائي في X-Nonce header لكل write operation
-           ✅ fingerprint في كل طلب
+           FETCH API v4.0 — Ephemeral Nonce Architecture
+           ══════════════════════════════════════════════════════════
+           🔐 نظام الـ Nonce الجديد:
+           • السيرفر هو الوحيد الذي يُنشئ nonces
+           • العمليات الحساسة تطلب nonce من السيرفر أولاً (start_ad)
+           • الـ nonce يُرسَل في X-Nonce header
+           • حتى لو رأى المستخدم الـ nonce في Network tab،
+             لا يستطيع استعماله مجدداً (one-time use)
+           • الـ nonce مربوط بـ session + user + fingerprint + ip
         ══════════════════════════════════════════════════════════ */
+
+        // Actions التي تحتاج nonce من السيرفر (ephemeral)
+        const _NEEDS_SERVER_NONCE = new Set([
+            'reward_ad', 'claim_adsgram_task',
+            'plant', 'harvest', 'withdraw', 'redeem_promo',
+            'handle_task', 'add_balance', 'giveaway_enter',
+        ]);
+
+        // Actions التي لا تحتاج أي nonce
+        const _SKIP_NONCE = new Set([
+            'load', 'get_state', 'get_tasks', 'get_referrals',
+            'create_session', 'track_ad_event',
+            'start_ad', 'request_nonce',
+            'save_tasks', 'update_photo', 'update_cell',
+        ]);
+
+        // نوع الـ nonce لكل action
+        function _getNonceType(type) {
+            if (type === 'reward_ad')          return 'ad_reward';
+            if (type === 'claim_adsgram_task') return 'adsgram_task';
+            return 'general';
+        }
+
+        // طلب nonce من السيرفر — يُستدعى قبل كل عملية حساسة
+        async function _requestNonce(nonceType) {
+            try {
+                const tg       = window?.Telegram?.WebApp;
+                const initData = tg?.initData || '';
+                const fp       = await _getFp();
+
+                const headers = {
+                    'Content-Type':  'application/json',
+                    'X-Init-Data':   initData,
+                    'X-Fingerprint': JSON.stringify(fp),
+                };
+                if (_sessionToken) headers['X-Session-ID'] = _sessionToken;
+
+                const res = await fetch(API_BASE, {
+                    method:      'POST',
+                    credentials: 'include',
+                    headers,
+                    body: JSON.stringify({
+                        action: 'start_ad',
+                        data: { nonce_type: nonceType },
+                    }),
+                });
+                const json = await res.json();
+                return json?.ad_nonce || null;
+            } catch (_) {
+                return null;
+            }
+        }
+
         async function fetchApi({ type, data = {} }) {
             if (!_sessionReady) {
                 const ok = await createSession();
@@ -3714,8 +3772,18 @@
             const initData = tg?.initData || '';
             const fp       = await _getFp();
 
-            const SKIP_NONCE = new Set(['load', 'get_state', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event']);
-            const nonce = SKIP_NONCE.has(type) ? null : _genNonce();
+            // ── نظام الـ Nonce ────────────────────────────────────────
+            let nonce = null;
+            if (_NEEDS_SERVER_NONCE.has(type)) {
+                // طلب nonce من السيرفر — السيرفر ينشئه ويحفظه
+                const nonceType = _getNonceType(type);
+                nonce = await _requestNonce(nonceType);
+                if (!nonce) {
+                    console.warn('[fetchApi] Could not get nonce from server for', type);
+                    return { ok: false, error: 'nonce_unavailable' };
+                }
+            }
+            // ─────────────────────────────────────────────────────────
 
             const headers = {
                 'Content-Type':  'application/json',
@@ -3723,15 +3791,14 @@
                 'X-Fingerprint': JSON.stringify(fp),
             };
             if (nonce) headers['X-Nonce'] = nonce;
-            // ✅ X-Session-ID كـ fallback لـ cookie في Telegram WebApp iframe
             if (_sessionToken) headers['X-Session-ID'] = _sessionToken;
 
             try {
                 const res = await fetch(API_BASE, {
                     method:      'POST',
-                    credentials: 'include',   // ✅ cookie تنتقل تلقائياً
+                    credentials: 'include',
                     headers,
-                    body: JSON.stringify({ type, data }),
+                    body: JSON.stringify({ action: type, data }),
                 });
 
                 if (res.status === 401) {
@@ -3831,7 +3898,9 @@
             if (!widget) return;
 
             widget.addEventListener('reward', async () => {
-                // جائزة فورية + إغلاق كارد
+                // ✅ الجائزة تُعطى فقط بعد تأكيد السيرفر
+                // الـ nonce يُطلب تلقائياً من _requestNonce (نوع adsgram_task)
+                // السيرفر يتحقق من cooldown + يُضيف النقاط
                 const result = await fetchApi({ type: 'claim_adsgram_task', data: {} });
                 if (result.ok) {
                     animateBalance(USER_STATE.points, result.points, 1000);
@@ -3840,9 +3909,13 @@
                     _closeTaskCard();
                 } else {
                     const e = result.error;
-                    showToast('coin',
-                        e === 'already_claimed_today' ? 'أكملت هذه المهمة اليوم' : 'حدث خطأ، حاول مرة أخرى',
-                        '', 'red', '');
+                    if (e === 'already_claimed_today') {
+                        const wait = result.wait_sec || 60;
+                        showToast('coin', 'أكملت هذه المهمة مؤخراً', `انتظر ${wait} ثانية`, 'red', '');
+                        _closeTaskCard(); // إغلاق الكارد مع عداد الانتظار
+                    } else {
+                        showToast('coin', 'حدث خطأ، حاول مرة أخرى', '', 'red', '');
+                    }
                 }
             });
 
@@ -4149,12 +4222,17 @@
 
             // ══════════════════════════════════════════════════════════
             // ✅ كل الإعلانات اكتملت — أرسل reward_ad
+            // الـ nonce يُطلب تلقائياً من _requestNonce داخل fetchApi
             // ══════════════════════════════════════════════════════════
             _updatePreloadBar(preloadBar, AD_PRELOAD_REQUIRED, AD_PRELOAD_REQUIRED);
 
             const result = await fetchApi({
                 type: 'reward_ad',
-                data: { ad_started_at: _adWatchStartedAt, preload_count: successCount },
+                data: {
+                    ad_type:       'seed_single',       // نوع المكافأة المطلوبة
+                    ad_started_at: _adWatchStartedAt,  // anti-fraud timestamp
+                    preload_count: successCount,
+                },
             });
 
             _adReset(adBtn);
