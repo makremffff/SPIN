@@ -34,10 +34,10 @@ const IP_SALT      = process.env.IP_SALT      || 'rebh_ip_salt_2025';
 const IS_DEV       = process.env.NODE_ENV !== 'production';
 
 const CFG = {
-  POINTS_PER_AD:         50,
+  POINTS_PER_AD:         150,
   POINTS_PER_REFERRAL:   500,
   POINTS_PER_TG_TASK:    2500,
-  ADS_DAILY_LIMIT:       10,
+  ADS_DAILY_LIMIT:       2,
   WITHDRAW_MIN_PTS:      50000,
   WITHDRAW_MIN_LEVEL:    5,
   PTS_PER_TON:           100000,
@@ -777,7 +777,14 @@ async function handleGetState(userId) {
 // السيرفر ينشئ الـ nonce ويتحقق منه ويعطي النقاط في نفس العملية
 // لا يوجد أي endpoint منفصل يخص الـ nonce
 //
-async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
+async function handleRewardAd(userId, rawNonce, sessionId, ipHash, fpHash, body) {
+  // [0] Nonce — one-time use, مرتبط بالجلسة، anti-replay
+  const nonceResult = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'reward_ad');
+  if (nonceResult !== 'ok') {
+    await addRisk(userId, `reward_ad_nonce_${nonceResult}`, ipHash, fpHash, 20);
+    return { ok: false, error: 'invalid_nonce' };
+  }
+
   // [1] Daily limit
   const adR = await sql(
     `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
@@ -1186,7 +1193,14 @@ async function handleAdsgramCallback(req, res) {
 }
 
 // ── claim_adsgram_task — جائزة 70 نقطة عند إكمال task-30166 ──────
-async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
+async function handleClaimAdsgramTask(userId, rawNonce, sessionId, ipHash, fpHash) {
+  // Nonce check — one-time use
+  const nonceResult = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'claim_adsgram_task');
+  if (nonceResult !== 'ok') {
+    await addRisk(userId, `task_nonce_${nonceResult}`, ipHash, fpHash, 15);
+    return { ok: false, error: 'invalid_nonce' };
+  }
+
   const already = await sql(
     `SELECT id FROM completed_tasks WHERE user_id=$1 AND task_key='adsgram_task_daily' AND completed_at::date=CURRENT_DATE`,
     [userId]
@@ -1312,7 +1326,7 @@ module.exports = async function handler(req, res) {
       // يُستدعى من Adsgram onReward callback فقط
       // الـ nonce يُنشأ ويُستهلك داخلياً — لا يُرسل ولا يُقبل من العميل
       case 'reward_ad':
-        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body);
+        result = await handleRewardAd(userId, rawNonce, sessionId, ipHash, fpHash, body);
         break;
 
       // ✅ العمليات التالية: nonce يأتي من العميل عبر X-Nonce header (مُولَّد client-side)
@@ -1336,6 +1350,10 @@ module.exports = async function handler(req, res) {
       // ✅ track_ad_event: تسجيل أحداث الإعلان — لا يُعطي نقاط — فقط audit
       case 'track_ad_event':
         result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash);
+        break;
+
+      case 'claim_adsgram_task':
+        result = await handleClaimAdsgramTask(userId, rawNonce, sessionId, ipHash, fpHash);
         break;
 
       default:
