@@ -34,7 +34,7 @@ const IP_SALT      = process.env.IP_SALT      || 'rebh_ip_salt_2025';
 const IS_DEV       = process.env.NODE_ENV !== 'production';
 
 const CFG = {
-  POINTS_PER_AD:         150,
+  POINTS_PER_AD:         50,
   POINTS_PER_REFERRAL:   500,
   POINTS_PER_TG_TASK:    2500,
   ADS_DAILY_LIMIT:       10,
@@ -797,11 +797,9 @@ async function handleRewardAd(userId, rawNonce, sessionId, ipHash, fpHash, body)
 
   // [2] Cooldown check مُعطَّل — daily limit يكفي للحماية
 
-  // [2.5] Timing check مُعطَّل — Adsgram result.done=true يضمن المشاهدة
-  await sql(`UPDATE sessions SET ad_started_at=NULL WHERE id=$1`, [sessionId]).catch(()=>{});
+  // [2.5] Timing check مُعطَّل
 
-  // [3] Nonce مُعطَّل — daily limit + Adsgram يحميان بما يكفي
-  await _atomicAdReward(sessionId, userId, ipHash, fpHash).catch(()=>{});
+  // [3] _atomicAdReward محذوف — consumeNonce في [0] يكفي
 
   // [4] Shadow ban — رد ناجح زائف
   const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
