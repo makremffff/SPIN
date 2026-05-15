@@ -4,10 +4,9 @@
  * ✅ Ephemeral Nonce Architecture (مطابق لطماطم)
  *    • Nonce يظهر في request لكن one-time + short TTL + bound
  *    • أي replay يفشل فوراً — حتى لو رآه المستخدم في Network tab
- * ✅ reward_ad — Atomic Server-Side (بدون start_ad / watch_ad)
+ * ✅ reward_ad — يستقبل ad_nonce من العميل ويستهلكه (session-based)
  *    • السيرفر ينشئ nonce داخلياً ويستهلكه في نفس العملية
  *    • Cooldown + Daily Limit + Shadow Ban + Risk Score
- *    • ad_started_at timing enforcement server-side
  * ✅ claim_adsgram_task — cooldown حقيقي 60s من البداية (ليس النهاية)
  * ✅ Session binding — fingerprint + ip_hash
  * ✅ crypto.timingSafeEqual لكل مقارنة حساسة
@@ -49,11 +48,10 @@ const CFG = {
 
   // ── Nonce TTL ────────────────────────────────────────────────────
   NONCE_TTL_MS:          5  * 60 * 1000,   // 5 دقائق للعمليات العامة
-  AD_NONCE_TTL_MS:       30 * 1000,        // 30 ثانية للإعلانات (atomic)
+  AD_NONCE_TTL_MS:       5 * 60 * 1000,    // 5 دقائق (start_ad → reward_ad)
 
-  // ── Ad timing — server-side enforcement ──────────────────────────
+  // ── Ad timing ────────────────────────────────────────────────────
   AD_COOLDOWN_MS:        30 * 1000,        // 30s cooldown بين كل reward_ad
-  AD_MIN_DURATION_MS:    14 * 1000,        // 14s حد أدنى لمشاهدة الإعلان
 
   // ── Adsgram Task ─────────────────────────────────────────────────
   // 60 ثانية cooldown من وقت بدء المهمة (ليس من وقت النقر)
@@ -127,7 +125,6 @@ async function bootstrap() {
       ad_nonce      TEXT,
       ad_nonce_exp  TIMESTAMPTZ,
       ad_nonce_used BOOLEAN DEFAULT FALSE,
-      ad_started_at TIMESTAMPTZ,
       adsgram_task_started_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_active TIMESTAMPTZ DEFAULT NOW(),
@@ -234,7 +231,6 @@ async function bootstrap() {
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce TEXT`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_exp TIMESTAMPTZ`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce_used BOOLEAN DEFAULT FALSE`,
-      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_started_at TIMESTAMPTZ`,
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS adsgram_task_started_at TIMESTAMPTZ`,
       `ALTER TABLE users    ADD COLUMN IF NOT EXISTS ad_last_reward TIMESTAMPTZ`,
       `ALTER TABLE nonces   ADD COLUMN IF NOT EXISTS ip_hash TEXT`,
@@ -493,38 +489,36 @@ async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action)
 
 
 // ═══════════════════════════════════════════════════════════════════
-// AD NONCE SYSTEM — Atomic / Zero Trust
+// AD NONCE SYSTEM — Session-Based (مطابق لنظام toma)
 //
-// reward_ad:
-//   [1] السيرفر ينشئ nonce داخلياً (لا يُرسله للعميل)
-//   [2] يكتبه في الجلسة
-//   [3] يقرأه ويتحقق منه بـ timingSafeEqual
-//   [4] يحذفه فوراً (one-time)
-//   [5] يعطي النقاط
-//   كل هذا في نفس الـ function call — لا endpoint منفصل
+// التدفق:
+//   [1] start_ad  → السيرفر يُنشئ nonce ويحفظه في الجلسة → يُرسله للعميل
+//   [2] العميل يشاهد الإعلان كاملاً
+//   [3] reward_ad → العميل يُرسل ad_nonce → السيرفر يستهلكه → يُعطي النقاط
+//
+// الأمان:
+//   • الـ nonce مصدره السيرفر فقط — لا يمكن توليده من العميل
+//   • TTL 5 دقائق (كافٍ لمشاهدة الإعلان)
+//   • one-time use — أي إعادة استخدام → رفض فوري
+//   • constant-time comparison — يمنع timing attacks
 // ═══════════════════════════════════════════════════════════════════
 
-/**
- * _atomicAdNonce — ينشئ nonce داخلياً ويستهلكه في نفس اللحظة
- * لا يُرسل للعميل، لا يقبله من العميل
- * يُستدعى فقط من handleRewardAd
- */
-async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
-  // إنشاء nonce داخلي ephemeral — لا يخرج من هذه الدالة
-  const internalNonce = genRawNonce(32);
-  const exp = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
-
-  // [1] كتابته في الجلسة atomically
-  const writeResult = await sql(
-    `UPDATE sessions
-     SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
-     WHERE id=$1 AND is_revoked=FALSE AND expires_at > NOW()
-     RETURNING id`,
-    [sessionId, internalNonce, exp]
+// issueAdNonce — يُنشئ nonce ويحفظه في الجلسة ويُرجعه للعميل
+async function issueAdNonce(sessionId) {
+  const nonce = crypto.randomBytes(32).toString('hex');
+  const exp   = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
+  await sql(
+    `UPDATE sessions SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
+     WHERE id=$1 AND is_revoked=FALSE`,
+    [sessionId, nonce, exp]
   );
-  if (!writeResult.length) return false;
+  return nonce;
+}
 
-  // [2] قراءته والتحقق منه فوراً
+// consumeAdNonce — يتحقق من الـ nonce القادم من العميل ويستهلكه فوراً
+async function consumeAdNonce(sessionId, clientNonce) {
+  if (!clientNonce || !sessionId) return false;
+
   const rows = await sql(
     `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used
      FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
@@ -534,29 +528,32 @@ async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
 
   const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
 
-  if (!ad_nonce || ad_nonce_used)                            return false;
-  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) return false;
-
-  // [3] مقارنة ثابتة الزمن — يمنع timing attacks
-  const match = constantTimeCompare(internalNonce, ad_nonce);
-  if (!match) {
-    await addRisk(userId, 'ad_nonce_internal_mismatch', ipHash, fpHash, 50);
-    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_mismatch', ipHash, fpHash, {});
+  if (!ad_nonce || ad_nonce_used) return false;
+  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) {
+    await sql(`UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE WHERE id=$1`, [sessionId]);
     return false;
   }
 
-  // [4] استهلاكه فوراً — one-time use — حتى لو جاء طلب ثانٍ parallel
+  // constant-time comparison — يمنع timing attacks
+  let expected, received;
+  try {
+    expected = Buffer.from(ad_nonce,    'hex');
+    received = Buffer.from(clientNonce, 'hex');
+  } catch (_) { return false; }
+
+  const match = expected.length === received.length &&
+                crypto.timingSafeEqual(expected, received);
+  if (!match) return false;
+
+  // استهلاكه فوراً — one-time use
   const consumed = await sql(
-    `UPDATE sessions
-     SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE
+    `UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE
      WHERE id=$1 AND ad_nonce=$2 AND ad_nonce_used=FALSE
      RETURNING id`,
-    [sessionId, internalNonce]
+    [sessionId, ad_nonce]
   );
-  // إذا لم يُستهلك = race condition (طلب parallel سبق هذا الطلب)
   return consumed.length > 0;
 }
-
 
 // ═══════════════════════════════════════════════════════════════════
 // AUDIT LOG
@@ -820,21 +817,61 @@ async function handleGetState(userId) {
 
 
 // ══════════════════════════════════════════════════════════════════
+// start_ad — يُصدر nonce للجلسة ويُرجعه للعميل
+//
+// ✅ يُستدعى قبل مشاهدة الإعلان مباشرة
+// ✅ السيرفر يُنشئ nonce ويحفظه في الجلسة
+// ✅ العميل يستقبله ويُرسله لاحقاً مع reward_ad
+// ✅ TTL 5 دقائق — يمنع استخدامه بعد انتهائه
+// ══════════════════════════════════════════════════════════════════
+async function handleStartAd(userId, sessionId, ipHash, fpHash) {
+  // فحص shadow ban أولاً
+  const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
+  if (uR[0]?.is_shadow_banned) {
+    // رد ناجح زائف — لا يعرف أنه محظور
+    const fakeNonce = crypto.randomBytes(32).toString('hex');
+    return { ok: true, ad_nonce: fakeNonce };
+  }
+
+  // فحص daily limit قبل إصدار الـ nonce
+  const adR = await sql(
+    `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
+    [userId]
+  );
+  const watchedToday = parseInt(adR[0]?.count) || 0;
+  if (watchedToday >= CFG.ADS_DAILY_LIMIT) {
+    return { ok: false, error: 'daily_limit_reached' };
+  }
+
+  // فحص cooldown
+  const coolRow = (await sql(`SELECT ad_last_reward FROM users WHERE id=$1`, [userId]))[0];
+  if (coolRow?.ad_last_reward) {
+    const elapsed = Date.now() - new Date(coolRow.ad_last_reward).getTime();
+    if (elapsed < CFG.AD_COOLDOWN_MS) {
+      const waitMs = CFG.AD_COOLDOWN_MS - elapsed;
+      return { ok: false, error: 'cooldown_active', wait_ms: waitMs };
+    }
+  }
+
+  const adNonce = await issueAdNonce(sessionId);
+  await writeAudit(userId, sessionId, 'start_ad', 'ok', ipHash, fpHash, {});
+  return { ok: true, ad_nonce: adNonce };
+}
+
+
+// ══════════════════════════════════════════════════════════════════
 // reward_ad — endpoint وحيد للإعلانات
 //
-// ✅ لا يوجد start_ad / watch_ad / generate_nonce
+// ✅ يتطلب ad_nonce مُصدَر من start_ad
 // ✅ الـ nonce يُنشأ ويُستهلك داخلياً في نفس العملية
 // ✅ Atomic: لا race conditions ممكنة
 // ✅ Cooldown check + Daily limit + Shadow ban + Risk score
-// ✅ Server-side timing enforcement (ad_started_at)
 // ✅ Replay protection: cooldown + nonce + audit check
 //
-// ⚠️ الفرونت يُرسل فقط: { type: 'reward_ad', data: { ad_started_at, preload_count } }
-// السيرفر يتحقق من كل شيء داخلياً — لا يُرسل نقاط إلا بعد اجتياز كل الفحوصات
+// ⚠️ الفرونت يُرسل فقط: { type: 'reward_ad', data: { ad_nonce } }
+// الـ nonce مُصدَر من start_ad — السيرفر يستهلكه ويتحقق من كل شيء
 // ══════════════════════════════════════════════════════════════════
 async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
-  const clientStartedAt = parseInt(body?.data?.ad_started_at) || 0;
-
   // ── [1] Daily limit ──────────────────────────────────────────────
   const adR = await sql(
     `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
@@ -857,22 +894,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     }
   }
 
-  // ── [3] Server-side timing enforcement ──────────────────────────
-  // نتحقق من ad_started_at المحفوظ في الجلسة (سجّله track_ad_event 'ad_started')
-  // إذا لم يوجد أو الوقت قصير جداً = مشتبه به
-  if (clientStartedAt > 0) {
-    const clientElapsed = Date.now() - clientStartedAt;
-    if (clientElapsed < CFG.AD_MIN_DURATION_MS) {
-      await addRisk(userId, 'ad_too_fast_client', ipHash, fpHash, 10);
-      await writeAudit(userId, sessionId, 'reward_ad', 'timing_invalid', ipHash, fpHash, {
-        client_elapsed_ms: clientElapsed,
-        min_required_ms: CFG.AD_MIN_DURATION_MS,
-      });
-      return { ok: false, error: 'ad_duration_invalid' };
-    }
-  }
-
-  // ── [4] Replay detection في audit_log (ضد curl/postman) ─────────
+  // ── [3] Replay detection في audit_log (ضد curl/postman) ─────────
   // نرفض إذا جاء reward_ad ناجح خلال آخر 25 ثانية من نفس المستخدم
   const recentReward = await sql(
     `SELECT id FROM audit_log
@@ -902,17 +924,17 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     };
   }
 
-  // ── [6] Atomic internal nonce — منع race conditions ─────────────
-  // السيرفر ينشئ nonce داخلي ويستهلكه في نفس العملية
-  // هذا يمنع parallel requests من إعطاء نقاط مزدوجة
-  const nonceOk = await _atomicAdNonce(sessionId, userId, ipHash, fpHash);
+  // ── [5] التحقق من ad_nonce (مُصدَر من start_ad) ────────────────
+  // السيرفر يستهلكه فوراً — one-time use — يمنع replay + parallel requests
+  const clientAdNonce = body?.data?.ad_nonce || '';
+  const nonceOk = await consumeAdNonce(sessionId, clientAdNonce);
   if (!nonceOk) {
-    await addRisk(userId, 'ad_parallel_attempt', ipHash, fpHash, 10);
+    await addRisk(userId, 'ad_nonce_invalid', ipHash, fpHash, 20);
     await writeAudit(userId, sessionId, 'reward_ad', 'nonce_failed', ipHash, fpHash, {});
-    return { ok: false, error: 'cooldown_active', wait_ms: 5000 };
+    return { ok: false, error: 'invalid_ad_nonce' };
   }
 
-  // ── [7] إضافة النقاط atomically ──────────────────────────────────
+  // ── [6] إضافة النقاط atomically ──────────────────────────────────
   const lr = await sql(
     `INSERT INTO ad_logs(user_id, log_date, count, points_earned)
      VALUES($1, CURRENT_DATE, 1, $2)
@@ -963,7 +985,6 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
 //   • الفرونت يُرسل claim_adsgram_task مباشرة = نقاط بدون مشاهدة حقيقية
 //
 // الحل:
-//   • track_ad_event('ad_started') يُسجّل adsgram_task_started_at في الجلسة
 //   • claim_adsgram_task يتحقق أن 10 ثوانٍ على الأقل مرت من البداية
 //   • cooldown 60s من آخر مرة مُنحت فيها الجائزة (ليس من البداية)
 //   • Replay protection عبر completed_tasks + cooldown
@@ -1137,48 +1158,6 @@ async function handleGetReferrals(userId) {
 }
 
 
-// ── track_ad_event ────────────────────────────────────────────────
-// آمن تماماً — لا يُعطي نقاط — فقط يسجّل + يُحدّث timing للسيرفر
-async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
-  const allowed = new Set([
-    'ad_requested', 'ad_loaded', 'ad_started',
-    'ad_failed',    'ad_completed', 'reward_granted',
-    'suspicious_activity',
-  ]);
-  const event = body?.data?.event || '';
-  if (!allowed.has(event)) {
-    return { ok: false, error: 'unknown_event' };
-  }
-
-  // ── ad_started: سجّل وقت البداية في الجلسة (server-side timing) ──
-  if (event === 'ad_started') {
-    await sql(
-      `UPDATE sessions SET ad_started_at=NOW() WHERE id=$1`,
-      [sessionId]
-    );
-  }
-
-  // ── ad_started لمهمة Adsgram: سجّل وقت بداية المهمة ─────────────
-  // الفرونت يُرسل { event: 'ad_started', meta: { type: 'adsgram_task' } }
-  if (event === 'ad_started' && body?.data?.meta?.type === 'adsgram_task') {
-    await sql(
-      `UPDATE sessions SET adsgram_task_started_at=NOW() WHERE id=$1`,
-      [sessionId]
-    );
-  }
-
-  // ── suspicious_activity: إضافة نقاط risk ─────────────────────────
-  if (event === 'suspicious_activity') {
-    const reason = String(body?.data?.reason || 'client_report').slice(0, 50);
-    await addRisk(userId, `client_suspicious_${reason}`, ipHash, fpHash, 10);
-  }
-
-  await writeAudit(userId, sessionId, event, 'tracked', ipHash, fpHash, {
-    meta: body?.data?.meta || {},
-  });
-
-  return { ok: true };
-}
 
 async function handleAdmin(action, body) {
   if (action === 'list_withdrawals') {
@@ -1381,7 +1360,7 @@ module.exports = async function handler(req, res) {
   const fpHash = hashFp(fpData);
 
   // ── Rate limit per IP ─────────────────────────────────────────
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'start_ad'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -1438,8 +1417,12 @@ module.exports = async function handler(req, res) {
         result = await handleGetState(userId);
         break;
 
-      // ✅ reward_ad — endpoint وحيد بدون start_ad/watch_ad
-      // الـ nonce يُنشأ ويُستهلك داخلياً في نفس العملية (Atomic)
+      // ✅ start_ad — يُصدر nonce للجلسة (session-based, server-generated)
+      case 'start_ad':
+        result = await handleStartAd(userId, sessionId, ipHash, fpHash);
+        break;
+
+      // ✅ reward_ad — يتحقق من ad_nonce ويُعطي النقاط
       case 'reward_ad':
         result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body);
         break;
@@ -1459,11 +1442,6 @@ module.exports = async function handler(req, res) {
 
       case 'get_referrals':
         result = await handleGetReferrals(userId);
-        break;
-
-      // ✅ track_ad_event — بدون نقاط، فقط audit + timing
-      case 'track_ad_event':
-        result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash);
         break;
 
       // ✅ claim_adsgram_task — يتحقق من وقت المشاهدة server-side
