@@ -246,6 +246,27 @@ async function bootstrap() {
       completed_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // ── nonce_history — سجل داخلي للأدمن فقط (لا يُرسل للعميل أبداً) ──
+    // الغرض: debug + تحليل هجمات + تتبع الأنماط
+    // الـ nonce المسجّل هنا دائماً مُستهلك أو منتهي الصلاحية
+    // لا توجد أي endpoint تُعيده للعميل
+    await sql(`CREATE TABLE IF NOT EXISTS nonce_history (
+      id           BIGSERIAL    PRIMARY KEY,
+      nonce_hash   TEXT         NOT NULL,          -- sha256 للـ nonce (ليس الـ raw)
+      user_id      BIGINT       NOT NULL,
+      session_id   TEXT         NOT NULL,
+      ip_hash      TEXT,
+      fp_hash      TEXT,
+      action       TEXT         NOT NULL DEFAULT 'reward_ad',
+      outcome      TEXT         NOT NULL,          -- 'consumed' | 'expired' | 'mismatch'
+      created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ  NOT NULL,
+      consumed_at  TIMESTAMPTZ
+    )`);
+    await sql(`CREATE INDEX IF NOT EXISTS idx_nh_user    ON nonce_history(user_id)`);
+    await sql(`CREATE INDEX IF NOT EXISTS idx_nh_session ON nonce_history(session_id)`);
+    await sql(`CREATE INDEX IF NOT EXISTS idx_nh_created ON nonce_history(created_at DESC)`);
+
     // ── device_fingerprints (مطابق toma.js) ──────────────────────
     await sql(`CREATE TABLE IF NOT EXISTS device_fingerprints (
       fingerprint   TEXT          NOT NULL,
@@ -273,6 +294,7 @@ async function bootstrap() {
       `ALTER TABLE users    ADD COLUMN IF NOT EXISTS cluster_ban BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE users    ADD COLUMN IF NOT EXISTS last_ip_hash TEXT`,
       `ALTER TABLE users    ADD COLUMN IF NOT EXISTS is_shadow_banned BOOLEAN DEFAULT FALSE`,
+      // nonce_history لا يحتاج migration لأنه جديد كلياً
     ];
     for (const m of migrations) { try { await sql(m); } catch (_) {} }
 
@@ -316,8 +338,10 @@ setInterval(async () => {
       SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE
       WHERE ad_nonce_exp < NOW()
     `);
-    await sql(`DELETE FROM audit_log  WHERE created_at < NOW() - INTERVAL '30 days'`);
-    await sql(`DELETE FROM risk_events WHERE created_at < NOW() - INTERVAL '7 days'`);
+    await sql(`DELETE FROM audit_log    WHERE created_at < NOW() - INTERVAL '30 days'`);
+    await sql(`DELETE FROM risk_events  WHERE created_at < NOW() - INTERVAL '7 days'`);
+    // nonce_history: نحتفظ بـ 30 يوم للتحليل
+    await sql(`DELETE FROM nonce_history WHERE created_at < NOW() - INTERVAL '30 days'`);
     console.log('[CLEANUP] OK');
   } catch (_) {}
 }, 60 * 60 * 1000);
@@ -615,14 +639,27 @@ async function consumeAdNonce(sessionId, clientNonce) {
 }
 
 /**
- * _atomicAdNonce — البديل الآمن عند عدم استخدام start_ad
- * ينشئ nonce داخلياً ويستهلكه في نفس العملية (Atomic)
- * يُستخدم كـ fallback إذا لم يُرسل العميل nonce
+ * _atomicAdNonce — Atomic Internal Nonce (بدون start_ad)
+ *
+ * المبدأ الكامل:
+ *   [1] السيرفر يُولّد nonce عشوائي داخلياً — لا يخرج من هذه الدالة أبداً
+ *   [2] يكتبه في sessions مع expiry
+ *   [3] يقرأه فوراً من DB ويُقارنه بـ timingSafeEqual
+ *   [4] يحذفه من sessions (one-time use)
+ *   [5] يسجّل sha256(nonce) في nonce_history للأدمن — ليس الـ raw nonce
+ *
+ * ⛔ الـ nonce لا يظهر في أي response للعميل أبداً
+ * ✅ nonce_history يخزّن فقط sha256(nonce) — حتى لو اخترق الـ DB لا توجد قيمة
+ * ✅ الأدمن يرى التوقيت + النتيجة + الـ hash فقط (للتحليل)
  */
 async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
+  // [1] توليد nonce عشوائي داخلي — يبقى داخل هذه الدالة فقط
   const internalNonce = genRawNonce(32);
-  const exp = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
+  const exp           = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
+  // نُخزّن hash للـ nonce (ليس القيمة الحقيقية) في الـ history
+  const nonceHash     = sha256(internalNonce);
 
+  // [2] كتابته في الجلسة atomically
   const writeResult = await sql(
     `UPDATE sessions
      SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
@@ -630,25 +667,43 @@ async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
      RETURNING id`,
     [sessionId, internalNonce, exp]
   );
-  if (!writeResult.length) return false;
+  if (!writeResult.length) {
+    // الجلسة غير موجودة أو منتهية
+    _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'session_invalid').catch(() => {});
+    return false;
+  }
 
+  // [3] قراءته من DB والتحقق منه
   const rows = await sql(
     `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
     [sessionId]
   );
-  if (!rows.length) return false;
-
-  const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
-
-  if (!ad_nonce || ad_nonce_used)                            return false;
-  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) return false;
-
-  const match = constantTimeCompare(internalNonce, ad_nonce);
-  if (!match) {
-    await addRisk(userId, 'ad_nonce_internal_mismatch', ipHash, fpHash, 50);
+  if (!rows.length) {
+    _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'read_failed').catch(() => {});
     return false;
   }
 
+  const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
+
+  if (!ad_nonce || ad_nonce_used) {
+    _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'race_condition').catch(() => {});
+    return false;
+  }
+  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) {
+    _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'expired').catch(() => {});
+    return false;
+  }
+
+  // [3b] مقارنة ثابتة الزمن — timingSafeEqual
+  const match = constantTimeCompare(internalNonce, ad_nonce);
+  if (!match) {
+    await addRisk(userId, 'ad_nonce_internal_mismatch', ipHash, fpHash, 50);
+    _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'mismatch').catch(() => {});
+    return false;
+  }
+
+  // [4] حذف nonce من sessions فوراً (one-time use)
+  // شرط ad_nonce=$2 AND ad_nonce_used=FALSE يمنع race conditions
   const consumed = await sql(
     `UPDATE sessions
      SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE
@@ -656,7 +711,40 @@ async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
      RETURNING id`,
     [sessionId, internalNonce]
   );
-  return consumed.length > 0;
+
+  if (!consumed.length) {
+    // طلب parallel سبق هذا الطلب — race condition محمية
+    _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'race_parallel').catch(() => {});
+    return false;
+  }
+
+  // [5] تسجيل sha256(nonce) في history (للأدمن فقط — لا يُرسل للعميل)
+  _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, exp, 'consumed').catch(() => {});
+
+  return true;
+}
+
+/**
+ * _recordNonceHistory — تسجيل داخلي للأدمن فقط
+ *
+ * ⚠️ يُخزّن sha256(nonce) فقط — ليس الـ raw nonce
+ * ⚠️ لا توجد أي endpoint تُعيد هذه البيانات للعميل
+ * ✅ الأدمن يرى: توقيت الإنشاء + النتيجة + الـ hash + IP/FP (للتحليل)
+ *
+ * @param {string} nonceHash - sha256 للـ nonce (مش القيمة الحقيقية)
+ * @param {string} outcome   - 'consumed'|'expired'|'mismatch'|'race_condition'|...
+ */
+async function _recordNonceHistory(nonceHash, userId, sessionId, ipHash, fpHash, expiresAt, outcome) {
+  try {
+    await sql(
+      `INSERT INTO nonce_history
+         (nonce_hash, user_id, session_id, ip_hash, fp_hash, action, outcome, expires_at, consumed_at)
+       VALUES ($1,$2,$3,$4,$5,'reward_ad',$6,$7,
+         CASE WHEN $6='consumed' THEN NOW() ELSE NULL END
+       )`,
+      [nonceHash, userId, sessionId, ipHash || null, fpHash || null, outcome, expiresAt]
+    );
+  } catch (_) {}
 }
 
 
@@ -1072,7 +1160,14 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body, session) 
   }
 
   // ── [5] Nonce verification ───────────────────────────────────────
-  // الأولوية: nonce من start_ad (server-issued) → atomic fallback
+  // ⛔ الـ nonce لا يُرسل للعميل في أي حالة (حتى عند الفشل)
+  // ✅ الأدمن فقط يرى sha256(nonce) في nonce_history endpoint
+  //
+  // الأولوية:
+  //   [A] nonce من start_ad (server-issued) — إذا أرسله العميل
+  //   [B] atomic internal nonce — إذا لم يرسل العميل شيئاً (الأكثر شيوعاً)
+  //       الـ nonce يُنشأ، يُتحقق منه، يُحذف — كل هذا داخل _atomicAdNonce
+  //       ويُسجَّل sha256(nonce) في nonce_history بعد الاستهلاك
   const clientAdNonce = body?.data?.ad_nonce || null;
   let nonceOk = false;
 
@@ -1437,6 +1532,41 @@ async function handleAdmin(action, body) {
 
     const rows = await sql(query, params);
     return { ok: true, logs: rows };
+  }
+
+  // ── Nonce History (للأدمن فقط — debug + تحليل هجمات) ─────────────
+  // ⚠️ هذا الـ endpoint للأدمن حصراً — يُظهر sha256(nonce) فقط وليس الـ raw
+  if (action === 'nonce_history') {
+    const limit = Math.min(parseInt(body?.limit) || 50, 200);
+    const filterUserId  = body?.user_id   ? parseInt(body.user_id)  : null;
+    const filterOutcome = body?.outcome   || null;  // 'consumed'|'mismatch'|'expired'|...
+    const filterSession = body?.session_id || null;
+
+    let query  = `SELECT * FROM nonce_history WHERE 1=1`;
+    const params = [];
+    if (filterUserId)  { params.push(filterUserId);  query += ` AND user_id=$${params.length}`; }
+    if (filterOutcome) { params.push(filterOutcome); query += ` AND outcome=$${params.length}`; }
+    if (filterSession) { params.push(filterSession); query += ` AND session_id=$${params.length}`; }
+    params.push(limit);
+    query += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+
+    const rows = await sql(query, params);
+
+    // إحصائيات سريعة
+    const stats = await sql(`
+      SELECT outcome, COUNT(*) AS cnt
+      FROM nonce_history
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+      GROUP BY outcome ORDER BY cnt DESC
+    `);
+
+    return {
+      ok: true,
+      // تنبيه واضح: nonce_hash فقط (sha256) — ليس الـ raw nonce
+      note: 'nonce_hash = sha256(raw_nonce). Raw nonce never stored or exposed.',
+      history: rows,
+      stats_24h: stats,
+    };
   }
 
   // ── Risk Events ───────────────────────────────────────────────────
