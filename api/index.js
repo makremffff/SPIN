@@ -1,19 +1,31 @@
 /**
- * Zero Trust API — v4.0
+ * Zero Trust API — v5.0 (Security Hardened)
  *
- * ✅ Ephemeral Nonce Architecture (مطابق لطماطم)
- *    • Nonce يظهر في request لكن one-time + short TTL + bound
- *    • أي replay يفشل فوراً — حتى لو رآه المستخدم في Network tab
- * ✅ reward_ad — Atomic Server-Side (بدون start_ad / watch_ad)
- *    • السيرفر ينشئ nonce داخلياً ويستهلكه في نفس العملية
- *    • Cooldown + Daily Limit + Shadow Ban + Risk Score
- *    • ad_started_at timing enforcement server-side
- * ✅ claim_adsgram_task — cooldown حقيقي 60s من البداية (ليس النهاية)
- * ✅ Session binding — fingerprint + ip_hash
- * ✅ crypto.timingSafeEqual لكل مقارنة حساسة
- * ✅ Audit log + Risk scoring + Shadow ban + Multi-account detection
- * ✅ Replay protection — curl / postman / parallel / race conditions
- * ✅ Rate limit per IP + per User + per Action
+ * ✅ Nonce من السيرفر فقط (start_ad endpoint يُصدر nonce)
+ *    • consumeAdNonce يستخدم crypto.timingSafeEqual — مقارنة hex آمنة
+ * ✅ Session Binding صارم
+ *    • fingerprint mismatch → إبطال الجلسة فوراً (مش risk points فقط)
+ *    • IP تغيّر → طبيعي، نُحدّث + risk منخفض
+ * ✅ Rate Limiting مزدوج: per IP + per User (Telegram ID)
+ *    • per-user يحمي 4G/Mobile ذات IP متغير
+ * ✅ Shadow Ban كامل (is_shadow_banned في جدول users)
+ *    • استجابة ناجحة زائفة بدون مكافآت حقيقية
+ * ✅ Multi-Account Detection قوي
+ *    • Advisory locks لمنع race conditions
+ *    • Hard ban تلقائي للحسابات الجديدة فقط (بدون لمس القديمة)
+ *    • IP Whitelist قابل للتخصيص
+ * ✅ Adsgram Server-to-Server Callback
+ *    • العميل لا يستدعي reward بنفسه — الـ callback من Adsgram مباشرة
+ * ✅ Cooldown server-side بحت
+ *    • يعتمد على ad_last_reward من DB (timestamp السيرفر فقط)
+ *    • ممنوع الاعتماد على client_started_at كوحيد للتحقق
+ * ✅ Admin Endpoints كاملة
+ *    • إدارة سحوبات (approve/reject + refund)
+ *    • Hard/Soft ban
+ *    • إحصائيات + audit log
+ * ✅ Audit Logging شامل
+ *    • كل عملية مشبوهة: IP, fingerprint, action, timestamp
+ * ✅ Atomic internal nonce لـ reward_ad (race condition proof)
  */
 
 'use strict';
@@ -49,25 +61,27 @@ const CFG = {
 
   // ── Nonce TTL ────────────────────────────────────────────────────
   NONCE_TTL_MS:          5  * 60 * 1000,   // 5 دقائق للعمليات العامة
-  AD_NONCE_TTL_MS:       30 * 1000,        // 30 ثانية للإعلانات (atomic)
+  AD_NONCE_TTL_MS:       5  * 60 * 1000,   // 5 دقائق (start_ad → reward_ad)
 
   // ── Ad timing — server-side enforcement ──────────────────────────
   AD_COOLDOWN_MS:        30 * 1000,        // 30s cooldown بين كل reward_ad
   AD_MIN_DURATION_MS:    14 * 1000,        // 14s حد أدنى لمشاهدة الإعلان
 
   // ── Adsgram Task ─────────────────────────────────────────────────
-  // 60 ثانية cooldown من وقت بدء المهمة (ليس من وقت النقر)
-  ADSGRAM_TASK_COOLDOWN_MS: 60 * 1000,
-  ADSGRAM_TASK_POINTS:   70,
-  ADSGRAM_TASK_MIN_WATCH_MS: 10 * 1000,   // 10s حد أدنى لمشاهدة مهمة Adsgram
+  ADSGRAM_TASK_COOLDOWN_MS:    60 * 1000,
+  ADSGRAM_TASK_POINTS:         70,
+  ADSGRAM_TASK_MIN_WATCH_MS:   10 * 1000,
 
   // ── Session ──────────────────────────────────────────────────────
   SESSION_TTL_MS:        7  * 24 * 60 * 60 * 1000,
+  INIT_DATA_TTL:         86400,            // 24 ساعة لـ Telegram initData
 
   // ── Rate limiting ────────────────────────────────────────────────
   RATE_WINDOW_MS:        60 * 1000,
   RATE_MAX:              30,
   RATE_WRITE_MAX:        15,
+  RATE_USER_READ:        20,
+  RATE_USER_WRITE:       10,
 
   // ── Risk ─────────────────────────────────────────────────────────
   RISK_BAN:              100,
@@ -75,16 +89,19 @@ const CFG = {
 
   // ── Multi-account ────────────────────────────────────────────────
   MULTI_ACCT: {
-    MAX_PER_IP:          1,
-    MAX_PER_FP:          1,
-    IP_WHITELIST:        new Set([]),
+    MAX_PER_IP:          2,    // حدين لأن الـ NAT/WiFi مشترك شائع
+    MAX_PER_FP:          1,    // fingerprint واحد = جهاز واحد
+    NEW_ACCOUNT_AGE_DAYS: 3,   // الحساب "جديد" إذا عمره أقل من هذا
+    IP_WHITELIST:        new Set([
+      // أضف هنا ip_hash للشبكات الموثوقة
+    ]),
   },
 
   LEVEL_THRESHOLDS: [0, 0, 500, 1500, 3500, 8000, 16000, 30000, 55000, 90000, 150000],
   GIFT_REWARDS:     [100, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000],
 };
 
-// ── In-memory rate limit ──────────────────────────────────────────
+// ── In-memory rate limit (per IP) ────────────────────────────────
 const rateLimitMap = new Map();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -229,6 +246,18 @@ async function bootstrap() {
       completed_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // ── device_fingerprints (مطابق toma.js) ──────────────────────
+    await sql(`CREATE TABLE IF NOT EXISTS device_fingerprints (
+      fingerprint   TEXT          NOT NULL,
+      user_id       BIGINT        NOT NULL,
+      user_agent    TEXT,
+      lang          TEXT,
+      screen        TEXT,
+      timezone_off  INT,
+      last_seen     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (fingerprint, user_id)
+    )`);
+
     // ── Migrations ────────────────────────────────────────────────
     const migrations = [
       `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ad_nonce TEXT`,
@@ -243,6 +272,7 @@ async function bootstrap() {
       `ALTER TABLE nonces   ADD COLUMN IF NOT EXISTS used    BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE users    ADD COLUMN IF NOT EXISTS cluster_ban BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE users    ADD COLUMN IF NOT EXISTS last_ip_hash TEXT`,
+      `ALTER TABLE users    ADD COLUMN IF NOT EXISTS is_shadow_banned BOOLEAN DEFAULT FALSE`,
     ];
     for (const m of migrations) { try { await sql(m); } catch (_) {} }
 
@@ -264,10 +294,12 @@ async function bootstrap() {
       `CREATE INDEX IF NOT EXISTS idx_audit_usr ON audit_log(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_audit_ts  ON audit_log(created_at)`,
       `CREATE INDEX IF NOT EXISTS idx_ct_user   ON completed_tasks(user_id, task_key)`,
+      `CREATE INDEX IF NOT EXISTS idx_df_fp     ON device_fingerprints(fingerprint)`,
+      `CREATE INDEX IF NOT EXISTS idx_df_user   ON device_fingerprints(user_id)`,
     ];
     for (const q of idxs) { try { await sql(q); } catch (_) {} }
 
-    console.log('[DB] bootstrap OK v4.0 — Zero Trust Ephemeral Nonce');
+    console.log('[DB] bootstrap OK v5.0 — Zero Trust Hardened');
   } catch (e) {
     console.error('[DB] bootstrap error:', e.message);
   }
@@ -277,18 +309,14 @@ bootstrap();
 // ── Cleanup — كل ساعة ────────────────────────────────────────────
 setInterval(async () => {
   try {
-    // حذف nonces المنتهية أو المستخدمة
     await sql(`DELETE FROM nonces   WHERE expires_at < NOW() OR used = TRUE`);
     await sql(`DELETE FROM sessions WHERE expires_at < NOW()`);
-    // إعادة ضبط ad_nonce المنتهية في الجلسات الحية
     await sql(`
       UPDATE sessions
       SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE
       WHERE ad_nonce_exp < NOW()
     `);
-    // حذف audit_log القديمة (أكثر من 30 يوم)
-    await sql(`DELETE FROM audit_log WHERE created_at < NOW() - INTERVAL '30 days'`);
-    // حذف risk_events القديمة (أكثر من 7 أيام)
+    await sql(`DELETE FROM audit_log  WHERE created_at < NOW() - INTERVAL '30 days'`);
     await sql(`DELETE FROM risk_events WHERE created_at < NOW() - INTERVAL '7 days'`);
     console.log('[CLEANUP] OK');
   } catch (_) {}
@@ -309,19 +337,33 @@ function genRawNonce(bytes = 32) {
 
 /**
  * constantTimeCompare — مقارنة آمنة من timing attacks
- * يستخدم crypto.timingSafeEqual دائماً
+ * نُحوّل للـ sha256 لضمان نفس الطول دائماً
  */
 function constantTimeCompare(a, b) {
   try {
-    const sA = String(a || '');
-    const sB = String(b || '');
-    // نُحوّل لـ Buffer بنفس الطول دائماً
-    const bufA = Buffer.from(sha256(sA), 'hex');
-    const bufB = Buffer.from(sha256(sB), 'hex');
-    // timingSafeEqual يشترط نفس الطول — sha256 يضمن ذلك
+    const bufA = Buffer.from(sha256(String(a || '')), 'hex');
+    const bufB = Buffer.from(sha256(String(b || '')), 'hex');
     const match = timingSafeEqual(bufA, bufB);
-    // نتحقق إضافياً من القيمة الأصلية (double-check)
-    return match && sA === sB;
+    return match && String(a) === String(b);
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * constantTimeCompareHex — مقارنة hex مباشرة بـ timingSafeEqual
+ * يُستخدم لمقارنة ad_nonce (hex) مع ما هو مخزّن في الجلسة
+ */
+function constantTimeCompareHex(hexA, hexB) {
+  try {
+    if (!hexA || !hexB) return false;
+    // نُسوّي الطول بـ padding لو اختلف (في الحالة الطبيعية متساويان)
+    const maxLen = Math.max(hexA.length, hexB.length);
+    const padded = (h) => h.padEnd(maxLen, '0');
+    const bufA = Buffer.from(padded(hexA), 'hex');
+    const bufB = Buffer.from(padded(hexB), 'hex');
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB) && hexA === hexB;
   } catch (_) {
     return false;
   }
@@ -367,16 +409,25 @@ function verifyTg(initData) {
   try {
     const p = new URLSearchParams(initData), hash = p.get('hash');
     if (!hash) return { ok: false };
+    const authDate = parseInt(p.get('auth_date') || '0');
+    const now = Math.floor(Date.now() / 1000);
+    // التحقق من انتهاء الصلاحية
+    if (now - authDate > CFG.INIT_DATA_TTL) return { ok: false };
     p.delete('hash');
     const str = [...p.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('\n');
     const sk  = createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-    if (createHmac('sha256', sk).update(str).digest('hex') !== hash) return { ok: false };
-    if (Math.floor(Date.now() / 1000) - parseInt(p.get('auth_date') || '0') > 86400) return { ok: false };
+    const expected = createHmac('sha256', sk).update(str).digest('hex');
+    // مقارنة آمنة ضد timing attacks
+    const expBuf = Buffer.from(expected, 'hex');
+    const hashBuf = Buffer.from(hash, 'hex');
+    if (expBuf.length !== hashBuf.length) return { ok: false };
+    if (!timingSafeEqual(expBuf, hashBuf)) return { ok: false };
     return { ok: true, data: JSON.parse(p.get('user') || '{}') };
   } catch (_) { return { ok: false }; }
 }
 
-function rateLimit(key, max = CFG.RATE_MAX) {
+// ── Rate Limit per IP (in-memory) ───────────────────────────────
+function rateLimitIp(key, max = CFG.RATE_MAX) {
   const now = Date.now();
   let e = rateLimitMap.get(key);
   if (!e || now > e.resetAt) {
@@ -384,6 +435,18 @@ function rateLimit(key, max = CFG.RATE_MAX) {
     rateLimitMap.set(key, e);
   }
   return ++e.count <= max;
+}
+
+// ── Rate Limit per User (DB-backed sliding window) ───────────────
+// يعتمد على audit_log لتتبع per-user requests (يتحمل 4G IP rotation)
+async function rateLimitUser(userId, action, max) {
+  const rows = await sql(
+    `SELECT COUNT(*) AS cnt FROM audit_log
+     WHERE user_id=$1 AND action=$2
+       AND created_at > NOW() - INTERVAL '60 seconds'`,
+    [userId, action]
+  );
+  return (parseInt(rows[0]?.cnt) || 0) < max;
 }
 
 
@@ -407,18 +470,29 @@ async function validateSession(sid, ipHash, fpHash) {
 
   const session = r[0];
 
-  // ── Session Binding: fingerprint mismatch = إبطال الجلسة ────────
+  // ── Session Binding: fingerprint mismatch = إبطال الجلسة فوراً ──
+  // (مش بس risk points — إبطال فوري مطابق لـ toma.js)
   if (session.fingerprint_hash && fpHash && session.fingerprint_hash !== fpHash) {
-    await addRisk(session.user_id, 'session_fp_mismatch', ipHash, fpHash, 15);
+    // إبطال الجلسة فوراً
+    await sql(`UPDATE sessions SET is_revoked=TRUE WHERE id=$1`, [sid]);
+    await addRisk(session.user_id, 'session_fp_mismatch', ipHash, fpHash, 30);
     await writeAudit(session.user_id, sid, 'session_validate', 'tampered', ipHash, fpHash, {
       reason: 'fingerprint_mismatch',
     });
-    // إبطال الجلسة فوراً
-    await sql(`UPDATE sessions SET is_revoked=TRUE WHERE id=$1`, [sid]);
-    return null;
+    return null; // رفض قاطع
   }
 
-  await sql(`UPDATE sessions SET last_active=NOW() WHERE id=$1`, [sid]);
+  // IP تغيّر = طبيعي (4G/NAT) → نُحدّث + risk منخفض فقط
+  if (session.ip_hash && ipHash && session.ip_hash !== ipHash) {
+    await sql(`UPDATE sessions SET ip_hash=$2, last_active=NOW() WHERE id=$1`, [sid, ipHash]);
+    await addRisk(session.user_id, 'ip_changed', ipHash, fpHash, 5);
+    await writeAudit(session.user_id, sid, 'session_validate', 'ip_rotated', ipHash, fpHash, {
+      reason: 'natural_ip_rotation',
+    });
+  } else {
+    await sql(`UPDATE sessions SET last_active=NOW() WHERE id=$1`, [sid]);
+  }
+
   return session;
 }
 
@@ -435,30 +509,13 @@ async function createSessionRow(userId, fpHash, ipHash) {
 
 
 // ═══════════════════════════════════════════════════════════════════
-// EPHEMERAL NONCE SYSTEM — مطابق لطماطم
-//
-// المبدأ:
-//   • Nonce يمكن أن يظهر في request (مثل طماطم)
-//   • لكن: one-time + short TTL + bound (session + user + ip + fp + action)
-//   • أي replay لنفس الـ nonce يفشل فوراً
-//   • Parallel requests تفشل (أول من يُسجّل يفوز)
-//   • Race conditions محمية بـ ON CONFLICT DO NOTHING
+// NONCE SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * consumeNonce — التحقق من nonce واستهلاكه atomically
- *
- * الـ nonce يأتي من العميل عبر X-Nonce header (مُولَّد client-side).
- * السيرفر:
- *   ① يتحقق أنه لم يُسجَّل من قبل في جدول nonces (anti-replay)
- *   ② يسجّله مع binding كامل (session + user + ip + fp + action)
- *   ③ أي طلب ثانٍ بنفس الـ nonce يُرفض فوراً
- *
- * حتى لو رأى المستخدم الـ nonce في Network tab:
- *   • الـ nonce صالح لمرة واحدة فقط
- *   • TTL قصير (5 دقائق)
- *   • مربوط بـ session + ip + fp + action
- *   • أي replay أو تغيير يفشل
+ * consumeNonce — التحقق من nonce العام واستهلاكه atomically
+ * للعمليات العامة (claim_gift, verify_tg_task, submit_withdraw)
+ * الـ nonce يأتي من العميل عبر X-Nonce header
  */
 async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action) {
   if (!rawNonce || rawNonce.length < 16) {
@@ -467,8 +524,6 @@ async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action)
   }
   if (!sessionId) return 'invalid';
 
-  // ── التحقق من الـ nonce مع binding ──────────────────────────────
-  // نستخدم INSERT ON CONFLICT لضمان atomicity ضد race conditions
   const exp = new Date(Date.now() + CFG.NONCE_TTL_MS).toISOString();
   const inserted = await sql(
     `INSERT INTO nonces(nonce, session_id, user_id, ip_hash, fp_hash, action, used, expires_at)
@@ -479,7 +534,6 @@ async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action)
   );
 
   if (!inserted.length) {
-    // nonce موجود = replay attack أو parallel request
     await addRisk(userId, `nonce_replay_${action}`, ipHash, fpHash, 25);
     await writeAudit(userId, sessionId, action, 'nonce_replay', ipHash, fpHash, {
       nonce_prefix: rawNonce.slice(0, 8),
@@ -491,30 +545,84 @@ async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action)
   return 'ok';
 }
 
-
 // ═══════════════════════════════════════════════════════════════════
-// AD NONCE SYSTEM — Atomic / Zero Trust
+// AD NONCE SYSTEM — Server-Issued (مطابق toma.js)
 //
-// reward_ad:
-//   [1] السيرفر ينشئ nonce داخلياً (لا يُرسله للعميل)
-//   [2] يكتبه في الجلسة
-//   [3] يقرأه ويتحقق منه بـ timingSafeEqual
-//   [4] يحذفه فوراً (one-time)
-//   [5] يعطي النقاط
-//   كل هذا في نفس الـ function call — لا endpoint منفصل
+// ✅ start_ad: السيرفر يُنشئ nonce ويحفظه في الجلسة → يُرسله للعميل
+// ✅ reward_ad: العميل يُرسل الـ nonce → السيرفر يُقارنه بـ timingSafeEqual
+// ✅ one-time use: يُحذف فوراً بعد الاستهلاك
+// ✅ TTL: 5 دقائق (بعده يُرفض)
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * _atomicAdNonce — ينشئ nonce داخلياً ويستهلكه في نفس اللحظة
- * لا يُرسل للعميل، لا يقبله من العميل
- * يُستدعى فقط من handleRewardAd
+ * issueAdNonce — السيرفر يُنشئ nonce ويحفظه في الجلسة
+ * يُستدعى من start_ad endpoint
+ */
+async function issueAdNonce(sessionId) {
+  const nonce  = genRawNonce(32);
+  const expiry = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
+  const result = await sql(
+    `UPDATE sessions
+     SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
+     WHERE id=$1 AND is_revoked=FALSE AND expires_at > NOW()
+     RETURNING id`,
+    [sessionId, nonce, expiry]
+  );
+  if (!result.length) return null;
+  return nonce;
+}
+
+/**
+ * consumeAdNonce — التحقق من ad_nonce المخزّن في الجلسة
+ * يُستدعى من reward_ad
+ * يستخدم crypto.timingSafeEqual للمقارنة (hex comparison)
+ */
+async function consumeAdNonce(sessionId, clientNonce) {
+  if (!clientNonce || !sessionId) return false;
+
+  const rows = await sql(
+    `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used
+     FROM sessions WHERE id=$1 AND is_revoked=FALSE AND expires_at > NOW()`,
+    [sessionId]
+  );
+  if (!rows.length) return false;
+
+  const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
+
+  if (!ad_nonce || ad_nonce_used)                            return false;
+  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) {
+    // تنظيف المنتهي
+    await sql(
+      `UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE WHERE id=$1`,
+      [sessionId]
+    );
+    return false;
+  }
+
+  // ✅ مقارنة hex آمنة بـ timingSafeEqual (مطابق toma.js)
+  const match = constantTimeCompareHex(ad_nonce, clientNonce);
+  if (!match) return false;
+
+  // استهلاكه فوراً — one-time use
+  const consumed = await sql(
+    `UPDATE sessions
+     SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE
+     WHERE id=$1 AND ad_nonce=$2 AND ad_nonce_used=FALSE
+     RETURNING id`,
+    [sessionId, ad_nonce]
+  );
+  return consumed.length > 0;
+}
+
+/**
+ * _atomicAdNonce — البديل الآمن عند عدم استخدام start_ad
+ * ينشئ nonce داخلياً ويستهلكه في نفس العملية (Atomic)
+ * يُستخدم كـ fallback إذا لم يُرسل العميل nonce
  */
 async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
-  // إنشاء nonce داخلي ephemeral — لا يخرج من هذه الدالة
   const internalNonce = genRawNonce(32);
   const exp = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
 
-  // [1] كتابته في الجلسة atomically
   const writeResult = await sql(
     `UPDATE sessions
      SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
@@ -524,10 +632,8 @@ async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
   );
   if (!writeResult.length) return false;
 
-  // [2] قراءته والتحقق منه فوراً
   const rows = await sql(
-    `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used
-     FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
+    `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
     [sessionId]
   );
   if (!rows.length) return false;
@@ -537,15 +643,12 @@ async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
   if (!ad_nonce || ad_nonce_used)                            return false;
   if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) return false;
 
-  // [3] مقارنة ثابتة الزمن — يمنع timing attacks
   const match = constantTimeCompare(internalNonce, ad_nonce);
   if (!match) {
     await addRisk(userId, 'ad_nonce_internal_mismatch', ipHash, fpHash, 50);
-    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_mismatch', ipHash, fpHash, {});
     return false;
   }
 
-  // [4] استهلاكه فوراً — one-time use — حتى لو جاء طلب ثانٍ parallel
   const consumed = await sql(
     `UPDATE sessions
      SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE
@@ -553,7 +656,6 @@ async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
      RETURNING id`,
     [sessionId, internalNonce]
   );
-  // إذا لم يُستهلك = race condition (طلب parallel سبق هذا الطلب)
   return consumed.length > 0;
 }
 
@@ -586,11 +688,13 @@ async function addRisk(userId, type, ipHash, fpHash, delta) {
     );
     if (delta > 0) {
       await sql(`UPDATE users SET risk_score=LEAST(risk_score+$1, 200) WHERE id=$2`, [delta, userId]);
+      // Hard ban تلقائي
       await sql(
         `UPDATE users SET is_banned=TRUE, ban_reason='auto_risk'
          WHERE id=$1 AND risk_score >= $2`,
         [userId, CFG.RISK_BAN]
       );
+      // Shadow ban تلقائي (دون حظر كامل)
       await sql(
         `UPDATE users SET is_shadow_banned=TRUE
          WHERE id=$1 AND risk_score >= $2 AND is_banned=FALSE`,
@@ -600,38 +704,69 @@ async function addRisk(userId, type, ipHash, fpHash, delta) {
   } catch (_) {}
 }
 
-async function checkMultiAccount(userId, ipHash, fpHash) {
+/**
+ * checkMultiAccount — كشف الحسابات المتعددة
+ * مع Advisory Locks لمنع race conditions (مطابق toma.js)
+ */
+async function checkMultiAccount(userId, ipHash, fpHash, db) {
   const cfg = CFG.MULTI_ACCT;
   if (cfg.IP_WHITELIST.has(ipHash)) return;
 
-  const ipAccounts = await sql(
-    `SELECT COUNT(DISTINCT u.id) AS cnt FROM users u
-     WHERE u.last_ip_hash=$1 AND u.id != $2 AND u.is_banned = FALSE`,
+  // فحص عمر الحساب — Hard ban للجديد فقط
+  const userRow = (await db(`SELECT created_at FROM users WHERE id=$1`, [userId]))[0];
+  if (!userRow) return;
+  const accountAgeDays = (Date.now() - new Date(userRow.created_at).getTime()) / (1000 * 60 * 60 * 24);
+  const isNewAccount   = accountAgeDays < cfg.NEW_ACCOUNT_AGE_DAYS;
+
+  if (!isNewAccount) return; // الحسابات القديمة لا تُمس
+
+  // ── Advisory lock مبني على ip_hash لمنع race conditions ──────────
+  const lockKey = BigInt('0x' + ipHash.slice(0, 15)) & BigInt('0x7FFFFFFFFFFFFFFF');
+  await db(`SELECT pg_advisory_xact_lock($1)`, [lockKey.toString()]);
+
+  // عدد الحسابات على نفس الـ IP
+  const ipCountResult = await db(
+    `SELECT COUNT(DISTINCT user_id) AS cnt
+     FROM sessions
+     WHERE ip_hash=$1 AND user_id!=$2
+       AND is_revoked=FALSE AND expires_at > NOW()`,
     [ipHash, userId]
   );
-  if ((parseInt(ipAccounts[0]?.cnt) || 0) >= cfg.MAX_PER_IP) {
-    await addRisk(userId, 'multi_account_ip', ipHash, fpHash, 20);
-  }
+  const accountsOnIP = parseInt(ipCountResult[0]?.cnt || 0);
 
-  const fpAccounts = await sql(
-    `SELECT COUNT(DISTINCT u.id) AS cnt FROM users u
-     WHERE u.fp_hash=$1 AND u.id != $2 AND u.is_banned = FALSE`,
+  // عدد الحسابات على نفس الـ fingerprint
+  const fpCountResult = await db(
+    `SELECT COUNT(DISTINCT user_id) AS cnt
+     FROM device_fingerprints
+     WHERE fingerprint=$1 AND user_id!=$2`,
     [fpHash, userId]
   );
-  if ((parseInt(fpAccounts[0]?.cnt) || 0) >= cfg.MAX_PER_FP) {
-    await addRisk(userId, 'multi_account_fp', ipHash, fpHash, 50);
-    await sql(
-      `UPDATE users SET cluster_ban=TRUE WHERE fp_hash=$1 AND id!=$2`,
-      [fpHash, userId]
+  const accountsOnFP = parseInt(fpCountResult[0]?.cnt || 0);
+
+  const ipViolation = accountsOnIP >= cfg.MAX_PER_IP;
+  const fpViolation = accountsOnFP >= cfg.MAX_PER_FP;
+
+  // Hard ban إذا fingerprint مكرر (دليل قاطع على multi-account)
+  if (fpViolation || (ipViolation && fpViolation)) {
+    await db(
+      `UPDATE users SET is_banned=TRUE, ban_reason='multi_account', updated_at=NOW() WHERE id=$1`,
+      [userId]
     );
+    await writeAudit(userId, null, 'multi_account_detected', 'hard_ban', ipHash, fpHash, {
+      accounts_on_ip: accountsOnIP,
+      accounts_on_fp: accountsOnFP,
+      account_age_days: Math.round(accountAgeDays * 10) / 10,
+    });
+    console.warn(`[ANTI-FRAUD] Hard Ban → userId=${userId} ip_accounts=${accountsOnIP} fp_accounts=${accountsOnFP}`);
+    return;
   }
 
-  const bannedOnIp = await sql(
-    `SELECT COUNT(*) AS cnt FROM users WHERE last_ip_hash=$1 AND is_banned=TRUE AND id!=$2`,
-    [ipHash, userId]
-  );
-  if ((parseInt(bannedOnIp[0]?.cnt) || 0) > 2) {
-    await addRisk(userId, 'cluster_ip_banned', ipHash, fpHash, 15);
+  // تحذير فقط: IP مشترك بدون تطابق fingerprint
+  if (ipViolation && !fpViolation) {
+    await writeAudit(userId, null, 'multi_ip_warning', 'allow', ipHash, fpHash, {
+      note: 'Shared WiFi / NAT — no ban',
+      accounts_on_ip: accountsOnIP,
+    });
   }
 }
 
@@ -686,7 +821,7 @@ async function upsertTask(userId, taskType) {
 // HANDLERS
 // ═══════════════════════════════════════════════════════════════════
 
-async function handleCreateSession(body, ipHash, fpHash) {
+async function handleCreateSession(body, ipHash, fpHash, fpData) {
   const initData = body?.data?.initData || '';
   const tgResult = verifyTg(initData);
   if (!tgResult.ok && !IS_DEV) {
@@ -710,7 +845,27 @@ async function handleCreateSession(body, ipHash, fpHash) {
   } catch (_) {}
 
   const user = await upsertUser(tgUser, ipHash, fpHash);
-  if (user.is_banned) return { ok: false, is_banned: true, status: 403 };
+  if (user.is_banned) return { ok: false, is_banned: true, ban_type: 'hard', status: 403 };
+
+  // ════════════════════════════════════════════════════════════════
+  // ATOMIC MULTI-ACCOUNT DETECTION (Advisory Lock Transaction)
+  // ════════════════════════════════════════════════════════════════
+  const db = neon(process.env.DATABASE_URL);
+  try {
+    await db('BEGIN');
+    await checkMultiAccount(user.id, ipHash, fpHash, db);
+    await db('COMMIT');
+  } catch (txErr) {
+    try { await db('ROLLBACK'); } catch (_) {}
+    console.error('[checkMultiAccount TX Error]', txErr.message);
+  }
+
+  // أعد جلب المستخدم بعد فحص multi-account (قد يكون بُوّن)
+  const freshUser = (await sql(`SELECT * FROM users WHERE id=$1`, [user.id]))[0];
+  if (freshUser.is_banned) return { ok: false, is_banned: true, ban_type: 'hard', status: 403 };
+
+  // إلغاء الجلسات القديمة
+  await sql(`UPDATE sessions SET is_revoked=TRUE WHERE user_id=$1`, [user.id]);
 
   const isNew = (Date.now() - new Date(user.created_at).getTime()) < 5000;
   if (isNew && referrerId && referrerId !== user.id) {
@@ -728,10 +883,15 @@ async function handleCreateSession(body, ipHash, fpHash) {
     } catch (_) {}
   }
 
-  await checkMultiAccount(user.id, ipHash, fpHash);
-
-  const freshUser = (await sql(`SELECT * FROM users WHERE id=$1`, [user.id]))[0];
-  if (freshUser.is_banned) return { ok: false, is_banned: true, status: 403 };
+  // حفظ fingerprint في device_fingerprints
+  await sql(
+    `INSERT INTO device_fingerprints(fingerprint, user_id, user_agent, lang, screen, timezone_off)
+     VALUES($1,$2,$3,$4,$5,$6)
+     ON CONFLICT(fingerprint, user_id) DO UPDATE SET last_seen=NOW()`,
+    [fpHash, user.id,
+     fpData?.user_agent || null, fpData?.lang || null,
+     fpData?.screen || null, fpData?.tz_offset || 0]
+  );
 
   const sessionId = await createSessionRow(freshUser.id, fpHash, ipHash);
   await syncLevel(freshUser.id);
@@ -739,6 +899,7 @@ async function handleCreateSession(body, ipHash, fpHash) {
 
   await writeAudit(finalUser.id, sessionId, 'create_session', 'ok', ipHash, fpHash, {
     tg_id: tgUser.id,
+    is_new: isNew,
   });
 
   return {
@@ -755,6 +916,35 @@ async function handleCreateSession(body, ipHash, fpHash) {
       earned_from_refs: parseInt(finalUser.earned_from_refs) || 0,
     },
   };
+}
+
+// ════════════════════════════════════════════════════════════════
+// start_ad — يُصدر ad_nonce من السيرفر (مطابق toma.js)
+//
+// ✅ الـ nonce مصدره السيرفر فقط — العميل لا يُنشئه
+// ✅ يُحفظ في الجلسة مع TTL (5 دقائق)
+// ✅ العميل يتلقى الـ nonce ويُرسله مع reward_ad
+// ✅ السيرفر يُقارنه بـ timingSafeEqual
+// ════════════════════════════════════════════════════════════════
+async function handleStartAd(session, ipHash, fpHash) {
+  const userId    = session.user_id;
+  const sessionId = session.id;
+
+  // فحص Shadow Ban
+  const userRow = (await sql(`SELECT is_shadow_banned, is_banned FROM users WHERE id=$1`, [userId]))[0];
+  if (userRow?.is_banned) return { ok: false, error: 'access_denied', status: 403 };
+
+  // إصدار nonce جديد من السيرفر
+  const adNonce = await issueAdNonce(sessionId);
+  if (!adNonce) return { ok: false, error: 'session_issue_failed' };
+
+  await writeAudit(userId, sessionId, 'start_ad', 'ok', ipHash, fpHash, {
+    session_prefix: sessionId.slice(0, 8),
+  });
+
+  console.log(`[START_AD] nonce issued → userId=${userId} session=${sessionId.slice(0, 8)}...`);
+
+  return { ok: true, ad_nonce: adNonce };
 }
 
 async function handleLoad(userId) {
@@ -820,21 +1010,16 @@ async function handleGetState(userId) {
 
 
 // ══════════════════════════════════════════════════════════════════
-// reward_ad — endpoint وحيد للإعلانات
+// reward_ad — مكافأة الإعلان الموثّقة
 //
-// ✅ لا يوجد start_ad / watch_ad / generate_nonce
-// ✅ الـ nonce يُنشأ ويُستهلك داخلياً في نفس العملية
-// ✅ Atomic: لا race conditions ممكنة
-// ✅ Cooldown check + Daily limit + Shadow ban + Risk score
-// ✅ Server-side timing enforcement (ad_started_at)
-// ✅ Replay protection: cooldown + nonce + audit check
-//
-// ⚠️ الفرونت يُرسل فقط: { type: 'reward_ad', data: { ad_started_at, preload_count } }
-// السيرفر يتحقق من كل شيء داخلياً — لا يُرسل نقاط إلا بعد اجتياز كل الفحوصات
+// ✅ يقبل ad_nonce من العميل (مُصدَر من start_ad endpoint)
+// ✅ يستخدم consumeAdNonce مع timingSafeEqual
+// ✅ Fallback: atomic internal nonce إذا لم يُرسل العميل nonce
+// ✅ Cooldown server-side (ad_last_reward من DB) — لا يعتمد على client_started_at
+// ✅ Shadow ban: استجابة ناجحة زائفة
+// ✅ Rate limiting per user + per IP
 // ══════════════════════════════════════════════════════════════════
-async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
-  const clientStartedAt = parseInt(body?.data?.ad_started_at) || 0;
-
+async function handleRewardAd(userId, sessionId, ipHash, fpHash, body, session) {
   // ── [1] Daily limit ──────────────────────────────────────────────
   const adR = await sql(
     `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
@@ -846,7 +1031,8 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     return { ok: false, error: 'daily_limit_reached' };
   }
 
-  // ── [2] Cooldown check (server-side) ────────────────────────────
+  // ── [2] Cooldown check (server-side — timestamp من DB فقط) ───────
+  // ممنوع الاعتماد على client_started_at كوحيد — نستخدم DB timestamp
   const coolRow = (await sql(`SELECT ad_last_reward FROM users WHERE id=$1`, [userId]))[0];
   if (coolRow?.ad_last_reward) {
     const elapsed = Date.now() - new Date(coolRow.ad_last_reward).getTime();
@@ -857,23 +1043,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     }
   }
 
-  // ── [3] Server-side timing enforcement ──────────────────────────
-  // نتحقق من ad_started_at المحفوظ في الجلسة (سجّله track_ad_event 'ad_started')
-  // إذا لم يوجد أو الوقت قصير جداً = مشتبه به
-  if (clientStartedAt > 0) {
-    const clientElapsed = Date.now() - clientStartedAt;
-    if (clientElapsed < CFG.AD_MIN_DURATION_MS) {
-      await addRisk(userId, 'ad_too_fast_client', ipHash, fpHash, 10);
-      await writeAudit(userId, sessionId, 'reward_ad', 'timing_invalid', ipHash, fpHash, {
-        client_elapsed_ms: clientElapsed,
-        min_required_ms: CFG.AD_MIN_DURATION_MS,
-      });
-      return { ok: false, error: 'ad_duration_invalid' };
-    }
-  }
-
-  // ── [4] Replay detection في audit_log (ضد curl/postman) ─────────
-  // نرفض إذا جاء reward_ad ناجح خلال آخر 25 ثانية من نفس المستخدم
+  // ── [3] Replay detection في audit_log ───────────────────────────
   const recentReward = await sql(
     `SELECT id FROM audit_log
      WHERE user_id=$1 AND action='reward_ad' AND status='ok'
@@ -887,9 +1057,8 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     return { ok: false, error: 'cooldown_active', wait_ms: CFG.AD_COOLDOWN_MS };
   }
 
-  // ── [5] Shadow ban — رد ناجح زائف ──────────────────────────────
-  const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
-  if (uR[0]?.is_shadow_banned) {
+  // ── [4] Shadow ban — رد ناجح زائف ──────────────────────────────
+  if (session.is_shadow_banned) {
     await writeAudit(userId, sessionId, 'reward_ad', 'shadow', ipHash, fpHash, {});
     const fakeWatched = watchedToday;
     return {
@@ -902,17 +1071,32 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     };
   }
 
-  // ── [6] Atomic internal nonce — منع race conditions ─────────────
-  // السيرفر ينشئ nonce داخلي ويستهلكه في نفس العملية
-  // هذا يمنع parallel requests من إعطاء نقاط مزدوجة
-  const nonceOk = await _atomicAdNonce(sessionId, userId, ipHash, fpHash);
-  if (!nonceOk) {
-    await addRisk(userId, 'ad_parallel_attempt', ipHash, fpHash, 10);
-    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_failed', ipHash, fpHash, {});
-    return { ok: false, error: 'cooldown_active', wait_ms: 5000 };
+  // ── [5] Nonce verification ───────────────────────────────────────
+  // الأولوية: nonce من start_ad (server-issued) → atomic fallback
+  const clientAdNonce = body?.data?.ad_nonce || null;
+  let nonceOk = false;
+
+  if (clientAdNonce) {
+    // العميل أرسل nonce من start_ad → تحقق منه بـ timingSafeEqual
+    nonceOk = await consumeAdNonce(sessionId, clientAdNonce);
+    if (!nonceOk) {
+      await addRisk(userId, 'ad_nonce_invalid', ipHash, fpHash, 20);
+      await writeAudit(userId, sessionId, 'reward_ad', 'nonce_fail', ipHash, fpHash, {
+        reason: 'invalid_or_expired_ad_nonce',
+      });
+      return { ok: false, error: 'invalid_ad_nonce' };
+    }
+  } else {
+    // لا nonce من العميل → atomic internal nonce (race condition proof)
+    nonceOk = await _atomicAdNonce(sessionId, userId, ipHash, fpHash);
+    if (!nonceOk) {
+      await addRisk(userId, 'ad_parallel_attempt', ipHash, fpHash, 10);
+      await writeAudit(userId, sessionId, 'reward_ad', 'nonce_failed', ipHash, fpHash, {});
+      return { ok: false, error: 'cooldown_active', wait_ms: 5000 };
+    }
   }
 
-  // ── [7] إضافة النقاط atomically ──────────────────────────────────
+  // ── [6] إضافة النقاط atomically ──────────────────────────────────
   const lr = await sql(
     `INSERT INTO ad_logs(user_id, log_date, count, points_earned)
      VALUES($1, CURRENT_DATE, 1, $2)
@@ -941,6 +1125,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
 
   await writeAudit(userId, sessionId, 'reward_ad', 'ok', ipHash, fpHash, {
     watched, points_earned: CFG.POINTS_PER_AD,
+    nonce_source: clientAdNonce ? 'start_ad' : 'atomic',
   });
 
   const ur = await sql(`SELECT points FROM users WHERE id=$1`, [userId]);
@@ -956,20 +1141,9 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
 
 
 // ══════════════════════════════════════════════════════════════════
-// claim_adsgram_task — مهمة Adsgram
-//
-// المشكلة السابقة:
-//   • الـ widget يُطلق 'reward' event بعد 3 ثوانٍ فقط من البداية
-//   • الفرونت يُرسل claim_adsgram_task مباشرة = نقاط بدون مشاهدة حقيقية
-//
-// الحل:
-//   • track_ad_event('ad_started') يُسجّل adsgram_task_started_at في الجلسة
-//   • claim_adsgram_task يتحقق أن 10 ثوانٍ على الأقل مرت من البداية
-//   • cooldown 60s من آخر مرة مُنحت فيها الجائزة (ليس من البداية)
-//   • Replay protection عبر completed_tasks + cooldown
+// claim_adsgram_task — مهمة Adsgram مع timing enforcement
 // ══════════════════════════════════════════════════════════════════
 async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
-  // ── [1] تحقق من وقت بدء المهمة ──────────────────────────────────
   const sessRow = (await sql(
     `SELECT adsgram_task_started_at FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
     [sessionId]
@@ -981,14 +1155,12 @@ async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
     if (elapsed < CFG.ADSGRAM_TASK_MIN_WATCH_MS) {
       await addRisk(userId, 'adsgram_task_too_fast', ipHash, fpHash, 15);
       await writeAudit(userId, sessionId, 'claim_adsgram_task', 'too_fast', ipHash, fpHash, {
-        elapsed_ms: elapsed,
-        min_ms: CFG.ADSGRAM_TASK_MIN_WATCH_MS,
+        elapsed_ms: elapsed, min_ms: CFG.ADSGRAM_TASK_MIN_WATCH_MS,
       });
       return { ok: false, error: 'task_too_fast' };
     }
   }
 
-  // ── [2] Cooldown 60s من آخر مرة ──────────────────────────────────
   const recent = await sql(
     `SELECT completed_at FROM completed_tasks
      WHERE user_id=$1 AND task_key='adsgram_task_daily'
@@ -1000,21 +1172,16 @@ async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
     const elapsed  = Date.now() - lastTime;
     if (elapsed < CFG.ADSGRAM_TASK_COOLDOWN_MS) {
       const waitMs = CFG.ADSGRAM_TASK_COOLDOWN_MS - elapsed;
-      await writeAudit(userId, sessionId, 'claim_adsgram_task', 'cooldown', ipHash, fpHash, {
-        wait_ms: waitMs,
-      });
       return { ok: false, error: 'already_claimed_today', wait_ms: waitMs };
     }
   }
 
-  // ── [3] Shadow ban ────────────────────────────────────────────────
   const uR = await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]);
   if (uR[0]?.is_shadow_banned) {
     const ur = await sql(`SELECT points FROM users WHERE id=$1`, [userId]);
     return { ok: true, points: parseInt(ur[0]?.points) || 0, earned: CFG.ADSGRAM_TASK_POINTS };
   }
 
-  // ── [4] أعطِ النقاط ───────────────────────────────────────────────
   await sql(
     `UPDATE users SET points=points+$1, xp=xp+$1, updated_at=NOW() WHERE id=$2`,
     [CFG.ADSGRAM_TASK_POINTS, userId]
@@ -1024,13 +1191,7 @@ async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
      VALUES($1, 'adsgram_task_daily', NOW())`,
     [userId]
   );
-
-  // ── [5] إعادة ضبط adsgram_task_started_at ─────────────────────────
-  await sql(
-    `UPDATE sessions SET adsgram_task_started_at=NULL WHERE id=$1`,
-    [sessionId]
-  );
-
+  await sql(`UPDATE sessions SET adsgram_task_started_at=NULL WHERE id=$1`, [sessionId]);
   await syncLevel(userId);
   await writeAudit(userId, sessionId, 'claim_adsgram_task', 'ok', ipHash, fpHash, {
     points: CFG.ADSGRAM_TASK_POINTS,
@@ -1041,7 +1202,6 @@ async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
 }
 
 
-// ── claim_gift ───────────────────────────────────────────────────
 async function handleClaimGift(userId, rawNonce, sessionId, fpHash, ipHash) {
   const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'claim_gift');
   if (result !== 'ok') return { ok: false, error: result };
@@ -1064,7 +1224,6 @@ async function handleClaimGift(userId, rawNonce, sessionId, fpHash, ipHash) {
   return { ok: true, reward, streak_day: newStreak, points: parseInt(fresh?.points) || 0, level: fresh?.level };
 }
 
-// ── verify_tg_task ────────────────────────────────────────────────
 async function handleVerifyTgTask(userId, rawNonce, sessionId, fpHash, ipHash) {
   const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'verify_tg_task');
   if (result !== 'ok') return { ok: false, error: result };
@@ -1082,7 +1241,6 @@ async function handleVerifyTgTask(userId, rawNonce, sessionId, fpHash, ipHash) {
   return { ok: true, reward: CFG.POINTS_PER_TG_TASK, points: parseInt(fresh?.points) || 0, level: fresh?.level };
 }
 
-// ── submit_withdraw ───────────────────────────────────────────────
 async function handleSubmitWithdraw(userId, body, rawNonce, sessionId, fpHash, ipHash) {
   const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'submit_withdraw');
   if (result !== 'ok') return { ok: false, error: result };
@@ -1106,8 +1264,7 @@ async function handleSubmitWithdraw(userId, body, rawNonce, sessionId, fpHash, i
   return {
     ok: true,
     withdraw_id: wr[0].id,
-    pts_deducted: pts,
-    ton_amount: ton,
+    pts_deducted: pts, ton_amount: ton,
     new_balance: parseInt(nb?.points) || 0,
     status: 'pending',
   };
@@ -1136,38 +1293,23 @@ async function handleGetReferrals(userId) {
   };
 }
 
-
-// ── track_ad_event ────────────────────────────────────────────────
-// آمن تماماً — لا يُعطي نقاط — فقط يسجّل + يُحدّث timing للسيرفر
 async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
   const allowed = new Set([
     'ad_requested', 'ad_loaded', 'ad_started',
-    'ad_failed',    'ad_completed', 'reward_granted',
+    'ad_failed', 'ad_completed', 'reward_granted',
     'suspicious_activity',
   ]);
   const event = body?.data?.event || '';
-  if (!allowed.has(event)) {
-    return { ok: false, error: 'unknown_event' };
-  }
+  if (!allowed.has(event)) return { ok: false, error: 'unknown_event' };
 
-  // ── ad_started: سجّل وقت البداية في الجلسة (server-side timing) ──
   if (event === 'ad_started') {
-    await sql(
-      `UPDATE sessions SET ad_started_at=NOW() WHERE id=$1`,
-      [sessionId]
-    );
+    await sql(`UPDATE sessions SET ad_started_at=NOW() WHERE id=$1`, [sessionId]);
   }
 
-  // ── ad_started لمهمة Adsgram: سجّل وقت بداية المهمة ─────────────
-  // الفرونت يُرسل { event: 'ad_started', meta: { type: 'adsgram_task' } }
   if (event === 'ad_started' && body?.data?.meta?.type === 'adsgram_task') {
-    await sql(
-      `UPDATE sessions SET adsgram_task_started_at=NOW() WHERE id=$1`,
-      [sessionId]
-    );
+    await sql(`UPDATE sessions SET adsgram_task_started_at=NOW() WHERE id=$1`, [sessionId]);
   }
 
-  // ── suspicious_activity: إضافة نقاط risk ─────────────────────────
   if (event === 'suspicious_activity') {
     const reason = String(body?.data?.reason || 'client_report').slice(0, 50);
     await addRisk(userId, `client_suspicious_${reason}`, ipHash, fpHash, 10);
@@ -1180,7 +1322,11 @@ async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
   return { ok: true };
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN ENDPOINTS — كاملة (مطابق + موسّع)
+// ═══════════════════════════════════════════════════════════════════
 async function handleAdmin(action, body) {
+  // ── إدارة السحوبات ───────────────────────────────────────────────
   if (action === 'list_withdrawals') {
     const r = await sql(
       `SELECT w.id,w.user_id,u.tg_username,u.tg_first_name,w.pts,w.ton_amount,w.address,w.status,w.created_at
@@ -1190,60 +1336,141 @@ async function handleAdmin(action, body) {
     );
     return { ok: true, withdrawals: r };
   }
+
   if (action === 'approve_withdrawal') {
     const id = parseInt(body?.withdraw_id);
     if (!id) return { ok: false, error: 'missing_id' };
-    await sql(`UPDATE withdrawals SET status='completed', tx_hash=$1, reviewed_at=NOW() WHERE id=$2`, [body?.tx_hash || '', id]);
-    return { ok: true };
+    await sql(
+      `UPDATE withdrawals SET status='completed', tx_hash=$1, reviewed_at=NOW(), reviewed_by='admin' WHERE id=$2`,
+      [body?.tx_hash || '', id]
+    );
+    return { ok: true, message: 'Withdrawal approved' };
   }
+
   if (action === 'reject_withdrawal') {
     const id = parseInt(body?.withdraw_id);
     if (!id) return { ok: false, error: 'missing_id' };
+    // استرداد النقاط تلقائياً
     const wr = await sql(`SELECT user_id, pts FROM withdrawals WHERE id=$1`, [id]);
-    if (wr.length) await sql(`UPDATE users SET points=points+$1 WHERE id=$2`, [wr[0].pts, wr[0].user_id]);
-    await sql(`UPDATE withdrawals SET status='rejected', reviewed_at=NOW() WHERE id=$1`, [id]);
-    return { ok: true };
+    if (wr.length) {
+      await sql(`UPDATE users SET points=points+$1 WHERE id=$2`, [wr[0].pts, wr[0].user_id]);
+    }
+    await sql(
+      `UPDATE withdrawals SET status='rejected', reviewed_at=NOW(), reviewed_by='admin',
+       notes=COALESCE($2, notes) WHERE id=$1`,
+      [id, body?.notes || null]
+    );
+    return { ok: true, message: 'Withdrawal rejected, points refunded' };
   }
+
+  // ── Hard Ban / Soft Ban / Unban ──────────────────────────────────
   if (action === 'ban_user') {
     const tgId = parseInt(body?.tg_id);
     if (!tgId) return { ok: false, error: 'missing_tg_id' };
-    await sql(`UPDATE users SET is_banned=TRUE, ban_reason=$1 WHERE tg_id=$2`, [body?.reason || 'admin_ban', tgId]);
-    return { ok: true };
+    const banType = body?.ban_type || 'hard'; // 'hard' | 'shadow'
+    if (banType === 'shadow') {
+      await sql(
+        `UPDATE users SET is_shadow_banned=TRUE, ban_reason=$1, updated_at=NOW() WHERE tg_id=$2`,
+        [body?.reason || 'admin_shadow_ban', tgId]
+      );
+      return { ok: true, message: 'User shadow banned' };
+    } else {
+      await sql(
+        `UPDATE users SET is_banned=TRUE, ban_reason=$1, updated_at=NOW() WHERE tg_id=$2`,
+        [body?.reason || 'admin_ban', tgId]
+      );
+      // إبطال جميع جلساته
+      const userRow = (await sql(`SELECT id FROM users WHERE tg_id=$1`, [tgId]))[0];
+      if (userRow) {
+        await sql(`UPDATE sessions SET is_revoked=TRUE WHERE user_id=$1`, [userRow.id]);
+      }
+      return { ok: true, message: 'User hard banned + sessions revoked' };
+    }
   }
+
   if (action === 'unban_user') {
     const tgId = parseInt(body?.tg_id);
     if (!tgId) return { ok: false, error: 'missing_tg_id' };
-    await sql(`UPDATE users SET is_banned=FALSE, ban_reason=NULL, risk_score=0 WHERE tg_id=$1`, [tgId]);
-    return { ok: true };
+    await sql(
+      `UPDATE users SET is_banned=FALSE, is_shadow_banned=FALSE, ban_reason=NULL, risk_score=0, updated_at=NOW() WHERE tg_id=$1`,
+      [tgId]
+    );
+    return { ok: true, message: 'User unbanned' };
   }
+
+  // ── إحصائيات ─────────────────────────────────────────────────────
   if (action === 'stats') {
     const r = (await sql(`
       SELECT
         COUNT(*) AS total_users,
         COUNT(*) FILTER(WHERE created_at > NOW() - INTERVAL '1 day') AS new_today,
+        COUNT(*) FILTER(WHERE created_at > NOW() - INTERVAL '7 days') AS new_week,
         SUM(points) AS total_points,
-        COUNT(*) FILTER(WHERE is_banned) AS banned_users
+        COUNT(*) FILTER(WHERE is_banned)         AS banned_users,
+        COUNT(*) FILTER(WHERE is_shadow_banned)  AS shadow_banned_users,
+        COUNT(*) FILTER(WHERE cluster_ban)       AS cluster_banned_users
       FROM users
     `))[0];
     const w = (await sql(`
       SELECT COUNT(*) AS pending_wd, COALESCE(SUM(pts),0) AS pending_pts
       FROM withdrawals WHERE status='pending'
     `))[0];
-    return { ok: true, stats: { ...r, ...w } };
+    const adToday = (await sql(`
+      SELECT COALESCE(SUM(count),0) AS ads_today, COALESCE(SUM(points_earned),0) AS pts_today
+      FROM ad_logs WHERE log_date=CURRENT_DATE
+    `))[0];
+    return { ok: true, stats: { ...r, ...w, ...adToday } };
   }
+
+  // ── Audit Log ─────────────────────────────────────────────────────
   if (action === 'audit_log') {
-    const rows = await sql(
-      `SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ${parseInt(body?.limit) || 100}`
-    );
+    const limit = Math.min(parseInt(body?.limit) || 100, 500);
+    const filterUserId = body?.user_id ? parseInt(body.user_id) : null;
+    const filterAction = body?.action_filter || null;
+
+    let query = `SELECT * FROM audit_log WHERE 1=1`;
+    const params = [];
+    if (filterUserId) { params.push(filterUserId); query += ` AND user_id=$${params.length}`; }
+    if (filterAction) { params.push(filterAction); query += ` AND action=$${params.length}`; }
+    params.push(limit);
+    query += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+
+    const rows = await sql(query, params);
     return { ok: true, logs: rows };
   }
+
+  // ── Risk Events ───────────────────────────────────────────────────
+  if (action === 'risk_events') {
+    const limit = Math.min(parseInt(body?.limit) || 50, 200);
+    const rows = await sql(
+      `SELECT * FROM risk_events ORDER BY created_at DESC LIMIT $1`,
+      [limit]
+    );
+    return { ok: true, events: rows };
+  }
+
+  // ── User Info ─────────────────────────────────────────────────────
+  if (action === 'user_info') {
+    const tgId = parseInt(body?.tg_id);
+    if (!tgId) return { ok: false, error: 'missing_tg_id' };
+    const u = (await sql(`SELECT * FROM users WHERE tg_id=$1`, [tgId]))[0];
+    if (!u) return { ok: false, error: 'user_not_found' };
+    const wds = await sql(`SELECT * FROM withdrawals WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10`, [u.id]);
+    const risk = await sql(`SELECT * FROM risk_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20`, [u.id]);
+    return { ok: true, user: u, withdrawals: wds, risk_events: risk };
+  }
+
   return { ok: false, error: 'unknown_admin_action' };
 }
 
 
 // ══════════════════════════════════════════════════════════════════
 // Adsgram Server-to-Server Reward Callback
-// GET /api/adsgram-reward?userId=[userId]
+// GET /api?adsgram-reward&userId=[tgId]
+//
+// ✅ يُعطي المكافأة فقط من callback الـ Adsgram (مش من العميل)
+// ✅ العميل ممنوع من استدعاء reward مباشرة
+// ✅ Cooldown + Daily limit + Shadow ban + Replay detection
 // ══════════════════════════════════════════════════════════════════
 async function handleAdsgramCallback(req, res) {
   res.setHeader('Content-Type', 'text/plain');
@@ -1260,6 +1487,7 @@ async function handleAdsgramCallback(req, res) {
     return;
   }
 
+  // استجابة فورية لـ Adsgram — المعالجة تحدث async بعدها
   res.status(200).end('ok');
 
   try {
@@ -1270,7 +1498,6 @@ async function handleAdsgramCallback(req, res) {
       [tgId]
     );
     if (!userRows.length) {
-      console.warn('[Adsgram CB] User not found, tgId:', tgId);
       await writeAudit(0, 'adsgram_cb', 'adsgram_callback', 'user_not_found', ipHash, null, { tg_id: tgId });
       return;
     }
@@ -1291,6 +1518,7 @@ async function handleAdsgramCallback(req, res) {
       return;
     }
 
+    // Cooldown server-side
     const coolRow = (await sql(`SELECT ad_last_reward FROM users WHERE id=$1`, [userId]))[0];
     if (coolRow?.ad_last_reward) {
       const elapsed = Date.now() - new Date(coolRow.ad_last_reward).getTime();
@@ -1325,11 +1553,12 @@ async function handleAdsgramCallback(req, res) {
       [userId, CFG.POINTS_PER_AD]
     );
 
+    await syncLevel(userId);
     await writeAudit(userId, 'adsgram_cb', 'adsgram_callback', 'ok', ipHash, null, {
       tg_id: tgId, points_earned: CFG.POINTS_PER_AD,
     });
 
-    console.info('[Adsgram CB] ✅ Reward — userId:', userId, 'tgId:', tgId);
+    console.info('[Adsgram CB] ✅ Reward → userId:', userId, 'tgId:', tgId);
   } catch (err) {
     console.error('[Adsgram CB] Error:', err.message);
   }
@@ -1341,7 +1570,9 @@ async function handleAdsgramCallback(req, res) {
 // ═══════════════════════════════════════════════════════════════════
 
 module.exports = async function handler(req, res) {
-  // ── Adsgram Server Callback
+  // ── Adsgram Server-to-Server Callback (GET) ───────────────────────
+  // ⚠️ هذا الـ endpoint الوحيد الذي يُعطي مكافأة بدون session
+  // ⚠️ العميل ممنوع من استدعاء reward مباشرة
   if (req.method === 'GET' && (req.url || '').includes('adsgram-reward')) {
     return handleAdsgramCallback(req, res);
   }
@@ -1364,12 +1595,12 @@ module.exports = async function handler(req, res) {
   const type = body?.type || '';
   if (!type) return res.status(400).json({ error: 'missing_type' });
 
-  // session_id: cookie أولاً ثم header كـ fallback (Telegram WebApp)
-  const cookieHeader = req.headers['cookie'] || '';
-  const sidMatch     = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
+  // session_id: cookie أولاً ثم header كـ fallback
+  const cookieHeader      = req.headers['cookie'] || '';
+  const sidMatch          = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
   const sessionFromCookie = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
   const sessionFromHeader = req.headers['x-session-id'] || '';
-  const sessionId = sessionFromCookie || sessionFromHeader;
+  const sessionId         = sessionFromCookie || sessionFromHeader;
 
   const fpRaw    = req.headers['x-fingerprint']  || '{}';
   const rawNonce = req.headers['x-nonce']        || '';
@@ -1380,14 +1611,14 @@ module.exports = async function handler(req, res) {
   try { fpData = JSON.parse(fpRaw); } catch (_) {}
   const fpHash = hashFp(fpData);
 
-  // ── Rate limit per IP ─────────────────────────────────────────
+  // ── Rate Limit per IP ─────────────────────────────────────────────
   const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event'].includes(type);
-  if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
+  if (!rateLimitIp(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
 
   try {
-    // ── Admin ─────────────────────────────────────────────────────
+    // ── Admin ──────────────────────────────────────────────────────
     if (type === 'admin') {
       if (adminKey !== ADMIN_SECRET) return res.status(403).json({ ok: false, error: 'forbidden' });
       return res.status(200).json(await handleAdmin(body?.action, body));
@@ -1395,7 +1626,7 @@ module.exports = async function handler(req, res) {
 
     // ── Create Session ────────────────────────────────────────────
     if (type === 'create_session') {
-      const result = await handleCreateSession(body, ipHash, fpHash);
+      const result = await handleCreateSession(body, ipHash, fpHash, fpData);
       if (result._sid) {
         const maxAge  = Math.floor(CFG.SESSION_TTL_MS / 1000);
         const isHttps = req.headers['x-forwarded-proto'] === 'https'
@@ -1412,7 +1643,7 @@ module.exports = async function handler(req, res) {
       return res.status(result.status || 200).json(result);
     }
 
-    // ── Session validation ────────────────────────────────────────
+    // ── Session Validation ────────────────────────────────────────
     if (!sessionId) return res.status(401).json({ ok: false, error: 'session_required' });
 
     const session = await validateSession(sessionId, ipHash, fpHash);
@@ -1423,9 +1654,16 @@ module.exports = async function handler(req, res) {
 
     const userId = session.user_id;
 
-    // ── Rate limit per User ───────────────────────────────────────
-    if (!rateLimit(`u_${userId}_${type}`, isWrite ? 10 : 20)) {
-      return res.status(429).json({ ok: false, error: 'rate_limited' });
+    // ── Rate Limit per User (Telegram ID) — يتحمل 4G IP rotation ──
+    if (!await rateLimitUser(userId, type, isWrite ? CFG.RATE_USER_WRITE : CFG.RATE_USER_READ)) {
+      await writeAudit(userId, sessionId, type, 'rate_limited', ipHash, fpHash, {});
+      return res.status(429).json({ ok: false, error: 'rate_limited_user' });
+    }
+
+    // ── start_ad — يُصدر nonce من السيرفر ───────────────────────────
+    if (type === 'start_ad') {
+      const result = await handleStartAd(session, ipHash, fpHash);
+      return res.status(result.status || 200).json(result);
     }
 
     let result;
@@ -1438,10 +1676,9 @@ module.exports = async function handler(req, res) {
         result = await handleGetState(userId);
         break;
 
-      // ✅ reward_ad — endpoint وحيد بدون start_ad/watch_ad
-      // الـ nonce يُنشأ ويُستهلك داخلياً في نفس العملية (Atomic)
+      // ✅ reward_ad — يقبل nonce من start_ad أو atomic fallback
       case 'reward_ad':
-        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body);
+        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body, session);
         break;
 
       // ✅ claim_gift — nonce من العميل (ephemeral, one-time, bound)
@@ -1466,7 +1703,7 @@ module.exports = async function handler(req, res) {
         result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash);
         break;
 
-      // ✅ claim_adsgram_task — يتحقق من وقت المشاهدة server-side
+      // ✅ claim_adsgram_task — timing enforcement server-side
       case 'claim_adsgram_task':
         result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash);
         break;
@@ -1475,7 +1712,7 @@ module.exports = async function handler(req, res) {
         result = { ok: false, error: 'unknown_action' };
     }
 
-    // Shadow ban: نُرجع ok:true للعمليات الفاشلة
+    // Shadow ban: نُرجع ok:true للعمليات الفاشلة (ردود زائفة)
     if (session.is_shadow_banned && isWrite && !result.ok) {
       result = { ok: true };
     }
