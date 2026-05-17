@@ -3727,7 +3727,7 @@
         }
 
         // ── Central request function (Zero Trust) — مطابق لـ toma ──
-        async function _dbCall(action, data = {}) {
+        async function _dbCall(action, data = {}, _externalNonce = null) {
             if (!_sessionId && !['create_session'].includes(action)) {
                 const ok = await _createSession();
                 if (!ok) {
@@ -3735,8 +3735,7 @@
                 }
             }
 
-            // actions لا تحتاج nonce (read-only أو atomic server-side)
-            const SKIP_NONCE = new Set(['get_state', 'load', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event', 'claim_adsgram_task']);
+            const SKIP_NONCE = new Set(['get_state', 'load', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event', 'claim_adsgram_task', 'start_ad']);
             const needsNonce = !SKIP_NONCE.has(action);
 
             try {
@@ -3751,7 +3750,8 @@
                 if (initData) headers['X-Init-Data'] = initData;
                 if (_sessionId) headers['X-Session-Id'] = _sessionId;
 
-                const nonce = needsNonce ? _genNonce() : null;
+                // نونس خارجي (مثل ad_nonce من start_ad) يأخذ الأولوية
+                const nonce = _externalNonce || (needsNonce ? _genNonce() : null);
                 if (nonce) headers['X-Nonce'] = nonce;
 
                 console.log(`[ZT] ${action} | session=${_sessionId?.slice(0,8) || 'none'} | nonce=${nonce?.slice(0,8) || 'skip'}`);
@@ -3762,19 +3762,17 @@
                     body: JSON.stringify({ type: action, data }),
                 });
 
-                // 401 → renew session و retry تلقائي
                 if (res.status === 401) {
                     console.warn('[ZT] 401 — renewing session for:', action);
                     _sessionId = null;
                     const renewed = await _createSession();
-                    if (renewed) return _dbCall(action, data);
+                    if (renewed) return _dbCall(action, data, _externalNonce);
                     return { ok: false, error: 'auth_failed' };
                 }
 
                 const json = await res.json();
                 console.log(`[ZT] ${action} response:`, json);
 
-                // فحص حظر من أي response
                 if (json.shadow_banned === true || json.is_banned === true) {
                     showSecurityWall();
                 }
@@ -3785,8 +3783,8 @@
             }
         }
 
-        // ── wrappers للتوافق مع الكود القديم ──────────────────────
-        async function fetchApi({ type, data = {} }) { return _dbCall(type, data); }
+        // wrappers للتوافق مع الكود القديم
+        async function fetchApi({ type, data = {}, _nonce = null }) { return _dbCall(type, data, _nonce); }
         async function createSession() { return _createSession(); }
 
         /* ─── Ad System ─── */
@@ -4194,13 +4192,36 @@
             }
 
             // ══════════════════════════════════════════════════════════
-            // ✅ كل الإعلانات اكتملت — أرسل reward_ad
+            // ✅ كل الإعلانات اكتملت — start_ad → احصل على nonce → reward_ad
             // ══════════════════════════════════════════════════════════
             _updatePreloadBar(preloadBar, AD_PRELOAD_REQUIRED, AD_PRELOAD_REQUIRED);
 
+            // [1] طلب nonce من السيرفر
+            const startRes = await _dbCall('start_ad', {});
+            if (!startRes.ok) {
+                _adReset(adBtn);
+                _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
+                if (startRes.error === 'daily_limit_reached') {
+                    AD_STATE.remaining = 0;
+                    updateAdUI();
+                } else if (startRes.error === 'cooldown_active') {
+                    const waitMs = startRes.wait_ms || 30000;
+                    AD_STATE.cooldownUntil = Date.now() + waitMs;
+                    showToast('coin', 'انتظر قليلاً ⏳', `${Math.ceil(waitMs/1000)}s`, 'red', '');
+                } else {
+                    showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
+                }
+                return;
+            }
+
+            // [2] حفظ nonce مؤقتاً في الذاكرة فقط
+            const _adNonce = startRes.ad_nonce;
+
+            // [3] إرسال reward_ad مع nonce في X-Nonce header
             const result = await fetchApi({
                 type: 'reward_ad',
                 data: { ad_started_at: _adWatchStartedAt, preload_count: successCount },
+                _nonce: _adNonce,  // يُمرَّر لـ fetchApi ليُرسله في X-Nonce
             });
 
             _adReset(adBtn);
