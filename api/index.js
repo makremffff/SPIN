@@ -566,8 +566,15 @@ async function issueAdNonce(sessionId) {
  *    (أي parallel request يفشل لأن ad_nonce_used سيكون TRUE)
  */
 async function consumeAdNonce(sessionId, clientNonce, userId, ipHash, fpHash) {
-  if (!clientNonce || !sessionId) {
+  if (!clientNonce) {
     await addRisk(userId, 'reward_ad_missing_nonce', ipHash, fpHash, 20);
+    await writeAudit(userId, sessionId || null, 'reward_ad', 'nonce_missing', ipHash, fpHash, {
+      reason: 'empty_nonce_header',
+    });
+    return 'missing';
+  }
+  if (!sessionId) {
+    await addRisk(userId, 'reward_ad_missing_session', ipHash, fpHash, 10);
     return 'missing';
   }
 
