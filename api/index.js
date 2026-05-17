@@ -75,8 +75,8 @@ const CFG = {
 
   // ── Multi-account ────────────────────────────────────────────────
   MULTI_ACCT: {
-    MAX_PER_IP:          3,
-    MAX_PER_FP:          3,
+    MAX_PER_IP:          1,
+    MAX_PER_FP:          1,
     IP_WHITELIST:        new Set([]),
   },
 
