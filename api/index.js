@@ -86,7 +86,7 @@ const CONFIG = Object.freeze({
     channel_url: 'https://t.me/botbababab',
   },
   ads: {
-    daily_limit:       15,
+    daily_limit:       12,
     cooldown_ms:       30 * 1000,
     min_duration_ms:   14 * 1000,
   },
@@ -1703,7 +1703,9 @@ async function handleVerifyChannelTask(userId, body, rawNonce, sessionId, fpHash
   const channelId = parseInt(body?.data?.channel_id);
   if (!channelId) return { ok: false, error: 'missing_channel_id' };
 
-  const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'verify_tg_task');
+  // ✅ action مطابق للـ get_nonce الذي يرسله الكليانت: 'verify_channel_task'
+  // كان 'verify_tg_task' خطأ → يسبب nonce_action_mismatch → 500
+  const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'verify_channel_task');
   if (result !== 'ok') return { ok: false, error: result };
 
   const uCheck = (await sql(
