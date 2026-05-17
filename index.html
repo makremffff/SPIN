@@ -2786,77 +2786,16 @@
                 <div class="section-badge" style="background:rgba(37,178,248,0.1);border:1px solid rgba(37,178,248,0.22);color:rgba(37,178,248,0.85);">حصري</div>
             </div>
 
-            <!-- Channel Card — نظيف وبسيط -->
-            <div id="channel-tasks-wrap" class="glass" style="border-radius:var(--radius-xl);margin-bottom:14px;overflow:hidden;">
-
-                <!-- مهمة الانضمام -->
-                <div id="tg-task-card" style="display:flex;align-items:center;gap:14px;padding:16px 18px;position:relative;transition:background 0.2s ease;">
-
-                    <!-- glow overlay (مكتمل) -->
-                    <div id="tg-done-overlay" style="display:none;position:absolute;inset:0;background:rgba(52,211,153,0.04);pointer-events:none;border-bottom:1px solid rgba(52,211,153,0.12);"></div>
-
-                    <!-- أيقونة تلغرام -->
-                    <div style="width:46px;height:46px;border-radius:14px;background:rgba(37,178,248,0.1);border:1px solid rgba(37,178,248,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 16px rgba(37,178,248,0.1);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(37,178,248,0.12)" stroke="rgba(37,178,248,0.5)" stroke-width="1.2"/>
-                            <path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#29b6f6"/>
-                            <path d="M12 13.5l-2 2-1-4 3 2z" fill="rgba(255,255,255,0.4)"/>
-                        </svg>
-                    </div>
-
-                    <!-- النص -->
-                    <div style="flex:1;min-width:0;">
-                        <div id="tg-task-title" style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;color:rgba(255,255,255,0.92);margin-bottom:5px;line-height:1.2;">انضم لقناة الربح عربي</div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.7));">
-                            <span style="font-family:'Readex Pro',sans-serif;font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+2,500 نقطة</span>
-                        </div>
-                    </div>
-
-                    <!-- الزر -->
-                    <div id="tg-action-wrap" style="flex-shrink:0;">
-
-                        <!-- انضم -->
-                        <button id="tg-join-btn" onclick="handleTelegramTask()"
-                            style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;border:1px solid rgba(37,178,248,0.45);background:linear-gradient(135deg,rgba(37,178,248,0.22),rgba(37,178,248,0.08));color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;position:relative;overflow:hidden;box-shadow:0 4px 14px rgba(37,178,248,0.13);">
-                            <div class="btn-shimmer"></div>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(41,182,246,0.2)" stroke="rgba(41,182,246,0.8)" stroke-width="1.4"/>
-                                <path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#fff"/>
-                            </svg>
-                            <span id="tg-btn-text">انضم</span>
-                        </button>
-
-                        <!-- تحقق (مخفي) -->
-                        <button id="tg-verify-btn-compact" onclick="verifyTelegramTask()"
-                            style="display:none;align-items:center;gap:7px;padding:10px 16px;border-radius:12px;border:1px solid rgba(52,211,153,0.38);background:rgba(52,211,153,0.1);color:#34d399;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.22s ease;white-space:nowrap;">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.4">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            تحقق
-                        </button>
-
-                        <!-- مكتمل (مخفي) -->
-                        <div id="tg-done-state" style="display:none;">
-                            <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.28);padding:9px 14px;border-radius:12px;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                                </svg>
-                                <span style="font-size:12px;font-weight:800;color:#34d399;font-family:'Tajawal',sans-serif;">مكتمل</span>
-                            </div>
-                        </div>
+            <!-- Channel Cards — يُملأ ديناميكياً من السيرفر -->
+            <div id="channel-tasks-wrap" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                <!-- Loading skeleton -->
+                <div id="channel-tasks-loading" class="glass" style="border-radius:var(--radius-xl);padding:16px 18px;display:flex;align-items:center;gap:14px;">
+                    <div style="width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,0.06);flex-shrink:0;"></div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+                        <div style="height:12px;border-radius:6px;background:rgba(255,255,255,0.06);width:60%;"></div>
+                        <div style="height:10px;border-radius:6px;background:rgba(255,255,255,0.04);width:40%;"></div>
                     </div>
                 </div>
-
-                <!-- تلميح التحقق (يظهر بعد الانضمام) -->
-                <div id="tg-verify-hint" style="display:none;margin:0 18px 14px;padding:9px 13px;border-radius:10px;background:rgba(37,178,248,0.05);border:1px solid rgba(37,178,248,0.13);">
-                    <div style="display:flex;align-items:center;gap:7px;">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(37,178,248,0.65)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                        <span style="font-size:11px;color:rgba(37,178,248,0.65);font-weight:600;font-family:'Readex Pro',sans-serif;">اضغط «تحقق» بعد الانضمام للقناة</span>
-                    </div>
-                </div>
-
-                <!-- أضف مهام قناة إضافية هنا لاحقاً -->
             </div>
 
             </div>
@@ -2871,38 +2810,45 @@
                 <!-- Card wrapper -->
                 <div id="adsgram-task-card" class="glass" style="
                     border-radius:var(--radius-xl);
-                    border:1px solid rgba(251,191,36,0.15);
-                    background:linear-gradient(135deg,rgba(251,191,36,0.05),rgba(251,191,36,0.01));
+                    border:1px solid rgba(251,191,36,0.18);
+                    background:linear-gradient(135deg,rgba(251,191,36,0.07),rgba(20,10,0,0.4));
                     overflow:hidden;
                     transition:opacity 0.3s ease,transform 0.3s ease;
                 ">
                     <!-- header -->
-                    <div style="display:flex;align-items:center;gap:13px;padding:13px 15px 8px;">
-                        <div style="width:43px;height:43px;border-radius:13px;flex-shrink:0;
-                            background:linear-gradient(135deg,rgba(251,191,36,0.16),rgba(251,191,36,0.05));
-                            border:1px solid rgba(251,191,36,0.25);
-                            display:flex;align-items:center;justify-content:center;">
-                            <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                    <div style="display:flex;align-items:center;gap:14px;padding:16px 16px 12px;">
+                        <!-- icon -->
+                        <div style="width:50px;height:50px;border-radius:15px;flex-shrink:0;
+                            background:linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.06));
+                            border:1px solid rgba(251,191,36,0.3);
+                            display:flex;align-items:center;justify-content:center;
+                            box-shadow:0 0 20px rgba(251,191,36,0.15);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                                 <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                                      stroke="rgba(251,191,36,0.85)" stroke-width="1.8" stroke-linecap="round"/>
+                                      stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/>
+                                <circle cx="9" cy="12" r="2" fill="rgba(251,191,36,0.4)"/>
                             </svg>
                         </div>
-                        <div style="flex:1;">
-                            <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;
-                                        color:rgba(255,255,255,0.9);margin-bottom:3px;">مهمة إعلانية</div>
-                            <div style="display:flex;align-items:center;gap:5px;">
-                                <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
-                                <span style="font-family:'DynaPuff',sans-serif;font-size:12px;
-                                             font-weight:700;color:rgba(251,191,36,0.85);">+<span id="adsgram-reward-badge">30</span> نقطة</span>
+                        <!-- info -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:900;
+                                        color:rgba(255,255,255,0.95);margin-bottom:5px;line-height:1.2;">مهمة إعلانية يومية</div>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.8));">
+                                <span style="font-family:'DynaPuff',sans-serif;font-size:12px;font-weight:700;
+                                             color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span> نقطة</span>
+                                <span style="font-size:10px;color:rgba(255,255,255,0.3);margin-right:2px;">· تجدد كل 60 ثانية</span>
                             </div>
                         </div>
                     </div>
+                    <!-- divider -->
+                    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.12),transparent);margin:0 16px;"></div>
                     <!-- widget داخل الكارد -->
-                    <div style="padding:0 12px 13px;">
+                    <div style="padding:12px 14px 14px;">
                         <adsgram-task id="adsgram-task-widget" data-block-id="task-30166">
-                            <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
-                                <img src="asesst/coins.png" alt="" style="width:11px;height:11px;object-fit:contain;">
-                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+<span id="adsgram-reward-badge">30</span> نقطة</span>
+                            <div slot="reward" style="display:inline-flex;align-items:center;gap:5px;">
+                                <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
+                                <span style="font-size:12px;font-weight:700;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span> نقطة</span>
                             </div>
                         </adsgram-task>
                     </div>
@@ -3863,13 +3809,13 @@
 
             // Actions that use server-issued nonces (get_nonce endpoint)
             const SERVER_NONCE_ACTIONS = new Set([
-                'claim_gift', 'verify_tg_task', 'submit_withdraw', 'claim_daily_mission'
+                'claim_gift', 'verify_tg_task', 'submit_withdraw', 'claim_daily_mission', 'verify_channel_task'
             ]);
             // Actions that skip nonce entirely
             const SKIP_NONCE = new Set([
                 'get_state', 'load', 'reward_ad', 'get_referrals', 'create_session',
                 'track_ad_event', 'claim_adsgram_task', 'start_ad', 'start_adsgram_task',
-                'get_nonce'
+                'get_nonce', 'get_channels'
             ]);
             const needsServerNonce = SERVER_NONCE_ACTIONS.has(action) && !_externalNonce;
             const needsNonce = !SKIP_NONCE.has(action) && !SERVER_NONCE_ACTIONS.has(action);
@@ -5352,7 +5298,7 @@
                     }
                     if (hasType('daily_refs_3')) {
                         TASKS_STATE.invite3Done = true;
-                        markDailyTaskDone('dtask-refs3', isClaimed('daily_refs_3'));
+                        markDailyTaskDone('dtask-invite3', isClaimed('daily_refs_3'));
                     }
                 }
 
@@ -5422,6 +5368,8 @@
             // ── إخفاء loading screen بعد تحميل البيانات ──────────────
             _hideLoadingScreen();
             setTimeout(_initAdsgramTask, 1000);
+            // ── جلب قائمة القنوات من السيرفر ────────────────────────
+            _loadChannels();
 
             // ══════════════════════════════════════════════════════
             // ✅ Auto-refresh — يحدث كل البيانات كل 5 ثواني
@@ -5662,6 +5610,152 @@
         ══════════════════════════════════════════ */
         const WITHDRAW_HISTORY = [];
         const NOTIF_LIST_DATA = [];
+
+        /* ═══ Render Channels from server data ═══ */
+        const _channelJoined = {}; // channelId → true (تم الضغط على انضم)
+
+        function renderChannels(channels) {
+            const wrap = document.getElementById('channel-tasks-wrap');
+            if (!wrap) return;
+
+            if (!channels || !channels.length) {
+                wrap.innerHTML = '';
+                return;
+            }
+
+            wrap.innerHTML = channels.map(ch => {
+                const isDone = !!ch.verified;
+                const id = ch.id;
+                const membersText = ch.max_members > 0
+                    ? `<span style="font-size:10px;color:rgba(37,178,248,0.5);font-weight:500;">أقصى ${ch.max_members.toLocaleString()} عضو</span>`
+                    : '';
+
+                return `
+                <div class="glass" style="border-radius:var(--radius-xl);overflow:hidden;${isDone ? 'border:1px solid rgba(52,211,153,0.2)!important;' : ''}">
+                    <div id="ch-card-${id}" style="display:flex;align-items:center;gap:14px;padding:16px 18px;position:relative;transition:background 0.2s ease;">
+                        ${isDone ? '<div style="position:absolute;inset:0;background:rgba(52,211,153,0.04);pointer-events:none;"></div>' : ''}
+                        <!-- أيقونة تلغرام -->
+                        <div style="width:46px;height:46px;border-radius:14px;background:rgba(37,178,248,0.1);border:1px solid rgba(37,178,248,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 16px rgba(37,178,248,0.08);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(37,178,248,0.12)" stroke="rgba(37,178,248,0.5)" stroke-width="1.2"/>
+                                <path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#29b6f6"/>
+                                <path d="M12 13.5l-2 2-1-4 3 2z" fill="rgba(255,255,255,0.4)"/>
+                            </svg>
+                        </div>
+                        <!-- النص -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;color:rgba(255,255,255,0.92);margin-bottom:4px;line-height:1.2;">${ch.title}</div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <img src="asesst/coins.png" alt="" style="width:11px;height:11px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.7));">
+                                    <span style="font-family:'Readex Pro',sans-serif;font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+${(ch.reward||2500).toLocaleString()} نقطة</span>
+                                </div>
+                                ${membersText}
+                            </div>
+                        </div>
+                        <!-- الزر -->
+                        <div id="ch-action-${id}" style="flex-shrink:0;">
+                            ${isDone
+                                ? `<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.28);padding:9px 14px;border-radius:12px;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    <span style="font-size:12px;font-weight:800;color:#34d399;font-family:'Tajawal',sans-serif;">مكتمل</span>
+                                   </div>`
+                                : `<button id="ch-join-btn-${id}" onclick="handleChannelJoin(${id}, '${ch.url}')"
+                                        style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;border:1px solid rgba(37,178,248,0.45);background:linear-gradient(135deg,rgba(37,178,248,0.22),rgba(37,178,248,0.08));color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;box-shadow:0 4px 14px rgba(37,178,248,0.13);">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(41,182,246,0.2)" stroke="rgba(41,182,246,0.8)" stroke-width="1.4"/><path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#fff"/></svg>
+                                        انضم
+                                   </button>
+                                   <button id="ch-verify-btn-${id}" onclick="verifyChannelTask(${id})"
+                                        style="display:none;align-items:center;gap:7px;padding:10px 16px;border-radius:12px;border:1px solid rgba(52,211,153,0.38);background:rgba(52,211,153,0.1);color:#34d399;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.22s ease;white-space:nowrap;">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        تحقق
+                                   </button>`
+                            }
+                        </div>
+                    </div>
+                    ${!isDone ? `
+                    <div id="ch-hint-${id}" style="display:none;margin:0 18px 14px;padding:9px 13px;border-radius:10px;background:rgba(37,178,248,0.05);border:1px solid rgba(37,178,248,0.13);">
+                        <div style="display:flex;align-items:center;gap:7px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(37,178,248,0.65)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                            <span style="font-size:11px;color:rgba(37,178,248,0.65);font-weight:600;font-family:'Readex Pro',sans-serif;">اضغط «تحقق» بعد الانضمام للقناة</span>
+                        </div>
+                    </div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function handleChannelJoin(channelId, url) {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.openTelegramLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+            _channelJoined[channelId] = true;
+            const joinBtn   = document.getElementById('ch-join-btn-' + channelId);
+            const verifyBtn = document.getElementById('ch-verify-btn-' + channelId);
+            const hint      = document.getElementById('ch-hint-' + channelId);
+            if (joinBtn)   joinBtn.style.display   = 'none';
+            if (verifyBtn) { verifyBtn.style.display = 'inline-flex'; }
+            if (hint)      hint.style.display      = 'block';
+        }
+
+        async function verifyChannelTask(channelId) {
+            const verifyBtn = document.getElementById('ch-verify-btn-' + channelId);
+            if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
+
+            const result = await fetchApi({ type: 'verify_channel_task', data: { channel_id: channelId } });
+
+            if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
+
+            if (!result.ok) {
+                if (result.error === 'not_in_channel') {
+                    showToast('coin', 'لم تنضم للقناة بعد ❌', 'اضغط «انضم» أولاً ثم حاول مجدداً', 'red', '!');
+                    const joinBtn = document.getElementById('ch-join-btn-' + channelId);
+                    if (joinBtn)   { joinBtn.style.display = 'inline-flex'; }
+                    if (verifyBtn) verifyBtn.style.display = 'none';
+                } else if (result.error === 'already_verified') {
+                    showToast('coin', 'تم التحقق مسبقاً ✓', '', 'green', '✓');
+                    _markChannelDone(channelId, 0, '');
+                } else if (result.error === 'account_review') {
+                    showToast('coin', 'الحساب قيد المراجعة', 'تواصل مع الدعم', 'red', '!');
+                } else {
+                    showToast('coin', 'تأكد من انضمامك للقناة ثم أعد المحاولة', '', 'gold', '!');
+                }
+                return;
+            }
+
+            if (result.points !== undefined) {
+                animateBalance(USER_STATE.points, result.points);
+                USER_STATE.points = result.points;
+            }
+
+            const reward = result.reward || 2500;
+            showToast('trophy', 'انضممت للقناة! 🎉', `+${reward.toLocaleString()} نقطة أضيفت لرصيدك`, 'gold', `+${reward}`);
+            _markChannelDone(channelId, reward, '');
+        }
+
+        function _markChannelDone(channelId) {
+            const action = document.getElementById('ch-action-' + channelId);
+            const hint   = document.getElementById('ch-hint-' + channelId);
+            const card   = document.getElementById('ch-card-' + channelId);
+
+            if (hint)  hint.style.display = 'none';
+            if (action) action.innerHTML = `
+                <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.28);padding:9px 14px;border-radius:12px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                    <span style="font-size:12px;font-weight:800;color:#34d399;font-family:'Tajawal',sans-serif;">مكتمل</span>
+                </div>`;
+            if (card) card.style.background = 'rgba(52,211,153,0.04)';
+        }
+
+        async function _loadChannels() {
+            const result = await fetchApi({ type: 'get_channels', data: {} });
+            const loading = document.getElementById('channel-tasks-loading');
+            if (loading) loading.remove();
+            if (result.ok && Array.isArray(result.channels)) {
+                renderChannels(result.channels);
+            }
+        }
 
         /* ═══ Render Referral List from server data ═══ */
         function renderReferralList(list, total) {
