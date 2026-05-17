@@ -521,68 +521,115 @@ async function consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, action)
 
 
 // ═══════════════════════════════════════════════════════════════════
-// AD NONCE SYSTEM — Atomic / Zero Trust
+// AD NONCE SYSTEM — toma-style (server issues → client sends back)
 //
-// reward_ad:
-//   [1] السيرفر ينشئ nonce داخلياً (لا يُرسله للعميل)
-//   [2] يكتبه في الجلسة
-//   [3] يقرأه ويتحقق منه بـ timingSafeEqual
-//   [4] يحذفه فوراً (one-time)
-//   [5] يعطي النقاط
-//   كل هذا في نفس الـ function call — لا endpoint منفصل
+// Flow:
+//   [1] start_ad  → السيرفر ينشئ nonce ويحفظه في session → يُرسله للعميل
+//   [2] reward_ad → العميل يُرسل nonce في X-Nonce header
+//                → السيرفر يتحقق بـ timingSafeEqual → يستهلكه فوراً
+//
+// الـ nonce:
+//   • server-generated (العميل لا يُنشئه)
+//   • one-time use (يُحذف بعد الاستهلاك)
+//   • short TTL: AD_NONCE_TTL_MS (30 ثانية)
+//   • bound to session فقط
+//   • أي replay → reject فوراً
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * _atomicAdNonce — ينشئ nonce داخلياً ويستهلكه في نفس اللحظة
- * لا يُرسل للعميل، لا يقبله من العميل
- * يُستدعى فقط من handleRewardAd
+ * issueAdNonce — ينشئ nonce ويحفظه في الجلسة ويُرجعه للعميل
+ * يُستدعى من handleStartAd فقط
  */
-async function _atomicAdNonce(sessionId, userId, ipHash, fpHash) {
-  // إنشاء nonce داخلي ephemeral — لا يخرج من هذه الدالة
-  const internalNonce = genRawNonce(32);
-  const exp = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
+async function issueAdNonce(sessionId) {
+  const nonce = genRawNonce(32);
+  const exp   = new Date(Date.now() + CFG.AD_NONCE_TTL_MS).toISOString();
 
-  // [1] كتابته في الجلسة atomically
-  const writeResult = await sql(
+  const r = await sql(
     `UPDATE sessions
      SET ad_nonce=$2, ad_nonce_exp=$3, ad_nonce_used=FALSE
      WHERE id=$1 AND is_revoked=FALSE AND expires_at > NOW()
      RETURNING id`,
-    [sessionId, internalNonce, exp]
+    [sessionId, nonce, exp]
   );
-  if (!writeResult.length) return false;
+  if (!r.length) return null;
+  return nonce;
+}
 
-  // [2] قراءته والتحقق منه فوراً
+/**
+ * consumeAdNonce — يتحقق من nonce القادم من العميل ويستهلكه atomically
+ * يُستدعى من handleRewardAd فقط
+ *
+ * ① يجلب ad_nonce المخزون في الجلسة
+ * ② يقارن بـ timingSafeEqual
+ * ③ يتحقق من TTL
+ * ④ يستهلكه atomically بـ UPDATE ... WHERE ad_nonce_used=FALSE
+ *    (أي parallel request يفشل لأن ad_nonce_used سيكون TRUE)
+ */
+async function consumeAdNonce(sessionId, clientNonce, userId, ipHash, fpHash) {
+  if (!clientNonce || !sessionId) {
+    await addRisk(userId, 'reward_ad_missing_nonce', ipHash, fpHash, 20);
+    return 'missing';
+  }
+
   const rows = await sql(
     `SELECT ad_nonce, ad_nonce_exp, ad_nonce_used
      FROM sessions WHERE id=$1 AND is_revoked=FALSE`,
     [sessionId]
   );
-  if (!rows.length) return false;
+  if (!rows.length) return 'invalid';
 
   const { ad_nonce, ad_nonce_exp, ad_nonce_used } = rows[0];
 
-  if (!ad_nonce || ad_nonce_used)                            return false;
-  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) return false;
-
-  // [3] مقارنة ثابتة الزمن — يمنع timing attacks
-  const match = constantTimeCompare(internalNonce, ad_nonce);
-  if (!match) {
-    await addRisk(userId, 'ad_nonce_internal_mismatch', ipHash, fpHash, 50);
-    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_mismatch', ipHash, fpHash, {});
-    return false;
+  // لا يوجد nonce = لم يطلب start_ad
+  if (!ad_nonce) {
+    await addRisk(userId, 'reward_ad_no_nonce_issued', ipHash, fpHash, 15);
+    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_not_issued', ipHash, fpHash, {});
+    return 'not_issued';
   }
 
-  // [4] استهلاكه فوراً — one-time use — حتى لو جاء طلب ثانٍ parallel
+  // nonce مستهلك = replay أو parallel
+  if (ad_nonce_used) {
+    await addRisk(userId, 'reward_ad_nonce_reuse', ipHash, fpHash, 30);
+    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_replay', ipHash, fpHash, {});
+    return 'replay';
+  }
+
+  // TTL منتهي
+  if (!ad_nonce_exp || new Date(ad_nonce_exp) < new Date()) {
+    await sql(
+      `UPDATE sessions SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE WHERE id=$1`,
+      [sessionId]
+    );
+    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_expired', ipHash, fpHash, {});
+    return 'expired';
+  }
+
+  // timingSafeEqual — يمنع timing attacks
+  const match = constantTimeCompare(clientNonce, ad_nonce);
+  if (!match) {
+    await addRisk(userId, 'reward_ad_nonce_mismatch', ipHash, fpHash, 40);
+    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_mismatch', ipHash, fpHash, {
+      prefix: clientNonce.slice(0, 8),
+    });
+    return 'mismatch';
+  }
+
+  // استهلاك atomic — WHERE ad_nonce_used=FALSE يمنع double-consume
   const consumed = await sql(
     `UPDATE sessions
      SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=TRUE
      WHERE id=$1 AND ad_nonce=$2 AND ad_nonce_used=FALSE
      RETURNING id`,
-    [sessionId, internalNonce]
+    [sessionId, ad_nonce]
   );
-  // إذا لم يُستهلك = race condition (طلب parallel سبق هذا الطلب)
-  return consumed.length > 0;
+  if (!consumed.length) {
+    // race condition — طلب parallel استهلك الـ nonce أولاً
+    await addRisk(userId, 'reward_ad_race_condition', ipHash, fpHash, 10);
+    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_race', ipHash, fpHash, {});
+    return 'race';
+  }
+
+  return 'ok';
 }
 
 
@@ -975,10 +1022,45 @@ async function handleGetState(userId) {
 // ⚠️ الفرونت يُرسل فقط: { type: 'reward_ad', data: { ad_started_at, preload_count } }
 // السيرفر يتحقق من كل شيء داخلياً — لا يُرسل نقاط إلا بعد اجتياز كل الفحوصات
 // ══════════════════════════════════════════════════════════════════
-async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
+// ── start_ad — يُصدر nonce للعميل قبل بدء الإعلان ────────────────
+async function handleStartAd(userId, sessionId, ipHash, fpHash) {
+  // Daily limit check
+  const adR = await sql(
+    `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
+    [userId]
+  );
+  if ((parseInt(adR[0]?.count) || 0) >= CFG.ADS_DAILY_LIMIT) {
+    return { ok: false, error: 'daily_limit_reached' };
+  }
+
+  // Cooldown check
+  const coolRow = (await sql(`SELECT ad_last_reward FROM users WHERE id=$1`, [userId]))[0];
+  if (coolRow?.ad_last_reward) {
+    const elapsed = Date.now() - new Date(coolRow.ad_last_reward).getTime();
+    if (elapsed < CFG.AD_COOLDOWN_MS) {
+      return { ok: false, error: 'cooldown_active', wait_ms: CFG.AD_COOLDOWN_MS - elapsed };
+    }
+  }
+
+  const nonce = await issueAdNonce(sessionId);
+  if (!nonce) {
+    return { ok: false, error: 'session_invalid' };
+  }
+
+  await writeAudit(userId, sessionId, 'start_ad', 'ok', ipHash, fpHash, {});
+  return { ok: true, ad_nonce: nonce };
+}
+
+async function handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce) {
   const clientStartedAt = parseInt(body?.data?.ad_started_at) || 0;
 
-  // ── [1] Daily limit ──────────────────────────────────────────────
+  // ── [1] Nonce check — أول خطوة قبل أي شيء ──────────────────────
+  const nonceResult = await consumeAdNonce(sessionId, rawNonce, userId, ipHash, fpHash);
+  if (nonceResult !== 'ok') {
+    return { ok: false, error: `nonce_${nonceResult}` };
+  }
+
+  // ── [2] Daily limit ──────────────────────────────────────────────
   const adR = await sql(
     `SELECT count FROM ad_logs WHERE user_id=$1 AND log_date=CURRENT_DATE`,
     [userId]
@@ -989,7 +1071,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     return { ok: false, error: 'daily_limit_reached' };
   }
 
-  // ── [2] Cooldown check (server-side) ────────────────────────────
+  // ── [3] Cooldown check (server-side) ────────────────────────────
   const coolRow = (await sql(`SELECT ad_last_reward FROM users WHERE id=$1`, [userId]))[0];
   if (coolRow?.ad_last_reward) {
     const elapsed = Date.now() - new Date(coolRow.ad_last_reward).getTime();
@@ -1045,17 +1127,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body) {
     };
   }
 
-  // ── [6] Atomic internal nonce — منع race conditions ─────────────
-  // السيرفر ينشئ nonce داخلي ويستهلكه في نفس العملية
-  // هذا يمنع parallel requests من إعطاء نقاط مزدوجة
-  const nonceOk = await _atomicAdNonce(sessionId, userId, ipHash, fpHash);
-  if (!nonceOk) {
-    await addRisk(userId, 'ad_parallel_attempt', ipHash, fpHash, 10);
-    await writeAudit(userId, sessionId, 'reward_ad', 'nonce_failed', ipHash, fpHash, {});
-    return { ok: false, error: 'cooldown_active', wait_ms: 5000 };
-  }
-
-  // ── [7] إضافة النقاط atomically ──────────────────────────────────
+  // ── [6] إضافة النقاط atomically ──────────────────────────────────
   const lr = await sql(
     `INSERT INTO ad_logs(user_id, log_date, count, points_earned)
      VALUES($1, CURRENT_DATE, 1, $2)
@@ -1524,7 +1596,7 @@ module.exports = async function handler(req, res) {
   const fpHash = hashFp(fpData);
 
   // ── Rate limit per IP ─────────────────────────────────────────
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -1581,10 +1653,14 @@ module.exports = async function handler(req, res) {
         result = await handleGetState(userId);
         break;
 
-      // ✅ reward_ad — endpoint وحيد بدون start_ad/watch_ad
-      // الـ nonce يُنشأ ويُستهلك داخلياً في نفس العملية (Atomic)
+      // ✅ start_ad — يُصدر nonce للعميل قبل بدء الإعلان
+      case 'start_ad':
+        result = await handleStartAd(userId, sessionId, ipHash, fpHash);
+        break;
+
+      // ✅ reward_ad — يتحقق من nonce القادم من العميل (X-Nonce header)
       case 'reward_ad':
-        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body);
+        result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce);
         break;
 
       // ✅ claim_gift — nonce من العميل (ephemeral, one-time, bound)
