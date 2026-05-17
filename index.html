@@ -3739,19 +3739,21 @@
             _pendingSession = (async () => {
                 const tg       = window?.Telegram?.WebApp;
                 const initData = tg?.initData || '';
+                // ✅ إذا لم يكن initData موجوداً، نُرسل الطلب للسيرفر
+                // السيرفر في IS_DEV=true يقبل ذلك ويولّد مستخدم dev تلقائياً
                 if (!initData) {
-                    console.warn('[ZT] No initData — dev mode');
-                    return false;
+                    console.warn('[ZT] No initData — attempting dev session creation');
                 }
                 try {
                     const fpStr = await _buildFingerprint();
+                    const headers = {
+                        'Content-Type':  'application/json',
+                        'X-Fingerprint': fpStr,
+                    };
+                    if (initData) headers['X-Init-Data'] = initData;
                     const res = await fetch(API_BASE, {
                         method:  'POST',
-                        headers: {
-                            'Content-Type':  'application/json',
-                            'X-Init-Data':   initData,
-                            'X-Fingerprint': fpStr,
-                        },
+                        headers,
                         body: JSON.stringify({ type: 'create_session', data: { initData, fp: JSON.parse(fpStr) } }),
                     });
                     const result = await res.json();
@@ -3844,6 +3846,7 @@
                 const res = await fetch(API_BASE, {
                     method: 'POST',
                     headers,
+                    credentials: 'include',   // ✅ يُرسل الـ cookie (sid=) مع كل طلب
                     body: JSON.stringify({ type: action, data }),
                 });
 
@@ -4489,7 +4492,10 @@
                 AD_STATE.remaining    = result.remaining;
                 AD_STATE.watchedToday = result.watchedToday;
                 AD_STATE.earnedToday  = result.earnedToday;
-                if (result.cooldown_ms) AD_STATE.cooldownUntil = Date.now() + result.cooldown_ms;
+                // ✅ دائماً طبّق cooldown بعد نجاح الجائزة
+                // السيرفر قد يُرسل cooldown_ms أو نأخذه من APP_CONFIG
+                const cdMs = result.cooldown_ms || APP_CONFIG.ads?.cooldown_ms || 30000;
+                AD_STATE.cooldownUntil = Date.now() + cdMs;
                 if (result.points !== undefined) {
                     animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
