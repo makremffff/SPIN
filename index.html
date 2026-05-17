@@ -3754,6 +3754,7 @@
                     const res = await fetch(API_BASE, {
                         method:  'POST',
                         headers,
+                        credentials: 'include',
                         body: JSON.stringify({ type: 'create_session', data: { initData, fp: JSON.parse(fpStr) } }),
                     });
                     const result = await res.json();
@@ -3829,6 +3830,7 @@
                     try {
                         const nonceRes = await fetch(API_BASE, {
                             method: 'POST',
+                            credentials: 'include',
                             headers: { 'Content-Type': 'application/json', 'X-Fingerprint': fpStr, 'X-Session-Id': _sessionId },
                             body: JSON.stringify({ type: 'get_nonce', data: { action } }),
                         });
@@ -4140,7 +4142,13 @@
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) { _adsgramTaskInProgress = false; return; }
 
-            // [1] أخبر السيرفر بالبدء — يُسجَّل adsgram_started_at في DB
+            // التسلسل الصحيح لـ Adsgram Task:
+            //  1. start_adsgram_task  → يُسجَّل started_at في DB
+            //  2. track(ad_started, type=adsgram_task)
+            //  3. widget.show()       → يعرض الإعلان
+            //  (event 'reward' يُطلق claim_adsgram_task تلقائياً)
+
+            // [1] start_adsgram_task أولاً
             try {
                 const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
                 if (!startRes.ok && startRes.error === 'cooldown_active') {
@@ -4148,17 +4156,16 @@
                     _adsgramTaskInProgress = false;
                     return;
                 }
-                // إذا already_watching → السيرفر سجّل بالفعل، نكمل
-            } catch (_) {
-                // non-fatal — continue with widget
-            }
+            } catch (_) {}
 
-            // [2] شغّل الـ widget — Adsgram يعرض الإعلان
+            // [2] track ad_started قبل عرض الإعلان
+            await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, type: 'adsgram_task' });
+
+            // [3] شغّل الـ widget
             try {
                 if (typeof widget.show === 'function') {
                     widget.show();
                 } else {
-                    // fallback: trigger click on internal button if exists
                     const inner = widget.querySelector('button');
                     if (inner) inner.click();
                 }
@@ -4194,7 +4201,8 @@
             });
 
             widget.addEventListener('reward', async () => {
-                // ✅ Server verifies timing from DB — not session
+                // [3] track ad_completed قبل claim — نفس تسلسل الإعلان العادي
+                await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _taskStartedAt });
                 await claimAdsgramTaskReward();
             });
 
@@ -4294,7 +4302,6 @@
         async function watchAd() {
             if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
 
-            // ── Cooldown check ────────────────────────────────────────
             if (AD_STATE.cooldownUntil && Date.now() < AD_STATE.cooldownUntil) {
                 const waitSec = Math.ceil((AD_STATE.cooldownUntil - Date.now()) / 1000);
                 showToast('coin', 'انتظر قليلاً ⏳', `${waitSec} ثانية`, 'red', '');
@@ -4302,96 +4309,81 @@
             }
 
             AD_STATE.isWatching = true;
-
-            const overlay = document.getElementById('ad-watch-overlay');
-            const countEl = document.getElementById('overlay-count');
-            const adBtn   = document.getElementById('ad-watch-btn');
+            const overlay    = document.getElementById('ad-watch-overlay');
+            const countEl    = document.getElementById('overlay-count');
+            const adBtn      = document.getElementById('ad-watch-btn');
             const preloadBar = document.getElementById('ad-preload-bar');
-
             if (adBtn) adBtn.classList.add('disabled');
 
-            // ── تحقق من SDK ───────────────────────────────────────────
+            // ── تحقق SDK ──────────────────────────────────────────────
             if (!window.Adsgram || window._adsgramLoadStatus !== 'loaded') {
                 if (window._adsgramLoadStatus === 'failed') {
                     _adReset(adBtn);
-                    showToast('coin', 'تعذّر تحميل الإعلان', 'تحقق من اتصالك وحاول مرة أخرى', 'red', '');
                     await trackAdEvent('ad_failed', { reason: 'sdk_failed_to_load' });
+                    showToast('coin', 'تعذّر تحميل الإعلان', 'تحقق من اتصالك', 'red', '');
                     return;
                 }
                 if (overlay) { if (countEl) countEl.textContent = '⏳'; overlay.classList.add('visible'); }
-                const sdkLoaded = await new Promise((res) => {
+                const sdkLoaded = await new Promise(res => {
                     const t = setTimeout(() => res(false), 8000);
-                    window.onAdsgramLoaded((s) => { clearTimeout(t); res(s !== 'failed'); });
+                    window.onAdsgramLoaded(s => { clearTimeout(t); res(s !== 'failed'); });
                 });
                 if (overlay) overlay.classList.remove('visible');
                 if (!sdkLoaded) {
                     _adReset(adBtn);
-                    showToast('coin', 'تعذّر تحميل الإعلان', 'تحقق من اتصالك وحاول مرة أخرى', 'red', '');
+                    showToast('coin', 'تعذّر تحميل الإعلان', 'تحقق من اتصالك', 'red', '');
                     return;
                 }
             }
 
             // ══════════════════════════════════════════════════════════
-            // ✅ PRELOAD LOOP — نُحمّل AD_PRELOAD_REQUIRED إعلانات
-            // نُنقص واحد من progress عند كل تحميل ناجح
-            // نُعطي reward فقط بعد اكتمال الـ 3
+            // التسلسل الصحيح (مطابق للـ curl):
+            //  لكل إعلان:
+            //    1. track_ad_event(ad_started)
+            //    2. تشغيل الإعلان عبر Adsgram
+            //    3. track_ad_event(ad_completed)
+            //  بعد كل الإعلانات:
+            //    4. start_ad  → يرجع { ok, ad_nonce }
+            //    5. reward_ad مع X-Nonce = ad_nonce
             // ══════════════════════════════════════════════════════════
             let successCount = 0;
 
             for (let i = 0; i < AD_PRELOAD_REQUIRED; i++) {
-                // ══════════════════════════════════════════════════
-                // الخطوة 1: overlay "تجهيز" يظهر ثم يختفي فوراً
-                // حتى لا يحجب واجهة Adsgram
-                // ══════════════════════════════════════════════════
                 if (overlay) {
-                    if (countEl) {
-                        countEl.textContent = `${i + 1} / ${AD_PRELOAD_REQUIRED}`;
-                    }
+                    if (countEl) countEl.textContent = `${i + 1} / ${AD_PRELOAD_REQUIRED}`;
                     const labelEl = document.getElementById('overlay-label');
                     if (labelEl) labelEl.textContent = 'جاري تحميل الإعلان...';
                     overlay.classList.add('visible');
                 }
                 _updatePreloadBar(preloadBar, i, AD_PRELOAD_REQUIRED);
-
-                // أخفِ الـ overlay بعد 600ms — قبل ما يظهر Adsgram
                 await new Promise(r => setTimeout(r, 600));
                 if (overlay) overlay.classList.remove('visible');
 
+                // [1] track قبل تشغيل الإعلان
                 await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, attempt: i + 1 });
 
-                // ══════════════════════════════════════════════════
-                // الخطوة 2: شغّل الإعلان — Adsgram يعرض واجهته
-                // ══════════════════════════════════════════════════
+                // [2] تشغيل الإعلان
                 const adShown = await _showAdsgramAd();
 
                 if (!adShown) {
-                    // ── تحديد سبب الفشل وإشعار المستخدم ──────────
                     const elapsed = Date.now() - _adWatchStartedAt;
-                    let failTitle, failSub;
-
-                    if (elapsed < 1000) {
-                        // أُغلق فوراً — لم يضغط أصلاً
-                        failTitle = '❌ لم تبدأ مشاهدة الإعلان';
-                        failSub   = 'يجب الضغط على الإعلان لبدء المشاهدة';
-                    } else if (elapsed < 6000) {
-                        // أُغلق مبكراً — لم يكمل
-                        failTitle = `⚠️ الإعلان ${i + 1} لم يكتمل`;
-                        failSub   = `شاهده حتى النهاية (${successCount}/${AD_PRELOAD_REQUIRED} مكتمل)`;
-                    } else {
-                        // خطأ تقني
-                        failTitle = '⚠️ تعذّر تشغيل الإعلان';
-                        failSub   = 'حاول مرة أخرى';
-                    }
-
+                    const failTitle = elapsed < 1000 ? '❌ لم تبدأ مشاهدة الإعلان'
+                                    : elapsed < 6000 ? `⚠️ الإعلان ${i+1} لم يكتمل`
+                                    : '⚠️ تعذّر تشغيل الإعلان';
+                    const failSub = elapsed < 6000
+                        ? `شاهده حتى النهاية (${successCount}/${AD_PRELOAD_REQUIRED} مكتمل)`
+                        : 'حاول مرة أخرى';
                     showToast('coin', failTitle, failSub, 'red', '');
                     _adReset(adBtn);
                     _updatePreloadBar(preloadBar, successCount, AD_PRELOAD_REQUIRED);
                     return;
                 }
 
+                // [3] track بعد اكتمال الإعلان
+                await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _adWatchStartedAt });
+
                 successCount++;
 
-                // ✅ نُنقص من progress اليومي عند كل إعلان ناجح
                 if (AD_STATE.remaining > 0) {
                     AD_STATE.remaining--;
                     AD_STATE.watchedToday++;
@@ -4404,85 +4396,56 @@
                         (((AD_STATE.total - AD_STATE.remaining) / AD_STATE.total) * 100) + '%';
                 }
 
-                // ══════════════════════════════════════════════════
-                // الخطوة 3: بعد كل إعلان (ما عدا الأخير) → انتظر 6s
-                // مع عداد مرئي في الـ overlay
-                // ══════════════════════════════════════════════════
                 if (i < AD_PRELOAD_REQUIRED - 1) {
                     const left = AD_PRELOAD_REQUIRED - successCount;
-                    const nextNum = i + 2;
                     const WAIT_SEC = 6;
-
-                    // أظهر overlay العداد
                     if (overlay) overlay.classList.add('visible');
                     const labelEl = document.getElementById('overlay-label');
-
                     await new Promise(resolve => {
-                        let remaining = WAIT_SEC;
-                        if (countEl) countEl.textContent = `${remaining}s`;
-                        if (labelEl) labelEl.textContent =
-                            `إعلان ${successCount} مكتمل ✓ — الإعلان ${nextNum} يبدأ بعد ${remaining}s`;
-
+                        let rem = WAIT_SEC;
+                        if (countEl) countEl.textContent = `${rem}s`;
+                        if (labelEl) labelEl.textContent = `إعلان ${successCount} ✓ — التالي بعد ${rem}s`;
                         const tick = setInterval(() => {
-                            remaining--;
-                            if (countEl) countEl.textContent = `${remaining}s`;
-                            if (labelEl) labelEl.textContent =
-                                `إعلان ${successCount} مكتمل ✓ — الإعلان ${nextNum} يبدأ بعد ${remaining}s`;
-                            if (remaining <= 0) {
-                                clearInterval(tick);
-                                if (overlay) overlay.classList.remove('visible');
-                                resolve();
-                            }
+                            rem--;
+                            if (countEl) countEl.textContent = `${rem}s`;
+                            if (labelEl) labelEl.textContent = `إعلان ${successCount} ✓ — التالي بعد ${rem}s`;
+                            if (rem <= 0) { clearInterval(tick); if (overlay) overlay.classList.remove('visible'); resolve(); }
                         }, 1000);
                     });
-
-                    showToast('coin',
-                        `إعلان ${successCount} مكتمل ✓`,
-                        `${left} ${left === 1 ? 'إعلان متبقي' : 'إعلانات متبقية'} للمكافأة`,
-                        'gold', '');
+                    showToast('coin', `إعلان ${successCount} مكتمل ✓`,
+                        `${left} ${left===1?'إعلان متبقي':'إعلانات متبقية'} للمكافأة`, 'gold', '');
                 }
             }
 
-            // ══════════════════════════════════════════════════════════
-            // ✅ كل الإعلانات اكتملت — start_ad → احصل على nonce → reward_ad
-            // ══════════════════════════════════════════════════════════
             _updatePreloadBar(preloadBar, AD_PRELOAD_REQUIRED, AD_PRELOAD_REQUIRED);
 
-            // [1] طلب nonce من السيرفر
+            // [4] start_ad → يرجع ad_nonce
             const startRes = await _dbCall('start_ad', {});
             if (!startRes.ok) {
                 _adReset(adBtn);
                 _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
-                if (startRes.error === 'daily_limit_reached') {
-                    AD_STATE.remaining = 0;
-                    updateAdUI();
-                } else if (startRes.error === 'cooldown_active') {
+                if (startRes.error === 'daily_limit_reached') { AD_STATE.remaining = 0; updateAdUI(); }
+                else if (startRes.error === 'cooldown_active') {
                     const waitMs = startRes.wait_ms || 30000;
                     AD_STATE.cooldownUntil = Date.now() + waitMs;
                     showToast('coin', 'انتظر قليلاً ⏳', `${Math.ceil(waitMs/1000)}s`, 'red', '');
-                } else {
-                    showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
-                }
+                } else { showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', ''); }
                 return;
             }
 
-            // [2] حفظ nonce مؤقتاً في الذاكرة فقط
             const _adNonce = startRes.ad_nonce;
-
-            // Guard: يجب أن يكون nonce موجوداً قبل إرسال reward_ad
             if (!_adNonce) {
-                console.error('[Ad] start_ad succeeded but ad_nonce missing in response:', startRes);
                 _adReset(adBtn);
                 _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
                 showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
                 return;
             }
 
-            // [3] إرسال reward_ad مع nonce في X-Nonce header
+            // [5] reward_ad مع X-Nonce = ad_nonce
             const result = await fetchApi({
                 type: 'reward_ad',
                 data: { ad_started_at: _adWatchStartedAt, preload_count: successCount },
-                _nonce: _adNonce,  // يُمرَّر لـ fetchApi ليُرسله في X-Nonce
+                _nonce: _adNonce,
             });
 
             _adReset(adBtn);
@@ -4492,8 +4455,6 @@
                 AD_STATE.remaining    = result.remaining;
                 AD_STATE.watchedToday = result.watchedToday;
                 AD_STATE.earnedToday  = result.earnedToday;
-                // ✅ دائماً طبّق cooldown بعد نجاح الجائزة
-                // السيرفر قد يُرسل cooldown_ms أو نأخذه من APP_CONFIG
                 const cdMs = result.cooldown_ms || APP_CONFIG.ads?.cooldown_ms || 30000;
                 AD_STATE.cooldownUntil = Date.now() + cdMs;
                 if (result.points !== undefined) {
@@ -4508,13 +4469,11 @@
                     AD_STATE.cooldownUntil = Date.now() + waitMs;
                     showToast('coin', 'انتظر قليلاً', `${Math.ceil(waitMs/1000)}s`, 'red', '');
                 } else if (result.error === 'ad_duration_invalid') {
-                    showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل للحصول على المكافأة', 'red', '');
+                    showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل', 'red', '');
                 } else if (result.error === 'daily_limit_reached') {
                     AD_STATE.remaining = 0;
-                } else if (result.error === 'nonce_missing' || result.error === 'nonce_not_issued' || result.error === 'nonce_expired') {
-                    // nonce غير صالح — يحدث عند انتهاء الجلسة بين start_ad و reward_ad
-                    console.warn('[Ad] nonce invalid:', result.error, '— retrying start_ad on next attempt');
-                    showToast('coin', 'انتهت الجلسة', 'اضغط مرة أخرى للمحاولة', 'red', '');
+                } else if (['nonce_missing','nonce_not_issued','nonce_expired'].includes(result.error)) {
+                    showToast('coin', 'انتهت الجلسة', 'اضغط مرة أخرى', 'red', '');
                 } else {
                     showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
                 }
@@ -4944,7 +4903,9 @@
             const verifyBtn = document.getElementById('tg-verify-btn-compact');
             if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
 
+            // التسلسل الصحيح: get_nonce(verify_tg_task) أولاً → ثم verify_tg_task + X-Nonce
             const result = await fetchApi({ type: 'verify_tg_task', data: {} });
+            // fetchApi يستدعي get_nonce تلقائياً لـ SERVER_NONCE_ACTIONS
 
             if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
 
@@ -5737,7 +5698,9 @@
             const verifyBtn = document.getElementById('ch-verify-btn-' + channelId);
             if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.style.opacity = '0.6'; }
 
+            // التسلسل الصحيح: get_nonce(verify_tg_task) أولاً → ثم verify_channel_task + X-Nonce
             const result = await fetchApi({ type: 'verify_channel_task', data: { channel_id: channelId } });
+            // fetchApi يستدعي get_nonce تلقائياً لأن verify_channel_task ضمن SERVER_NONCE_ACTIONS
 
             if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.style.opacity = '1'; }
 
