@@ -4217,6 +4217,15 @@
             // [2] حفظ nonce مؤقتاً في الذاكرة فقط
             const _adNonce = startRes.ad_nonce;
 
+            // Guard: يجب أن يكون nonce موجوداً قبل إرسال reward_ad
+            if (!_adNonce) {
+                console.error('[Ad] start_ad succeeded but ad_nonce missing in response:', startRes);
+                _adReset(adBtn);
+                _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
+                showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
+                return;
+            }
+
             // [3] إرسال reward_ad مع nonce في X-Nonce header
             const result = await fetchApi({
                 type: 'reward_ad',
@@ -4247,6 +4256,12 @@
                     showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل للحصول على المكافأة', 'red', '');
                 } else if (result.error === 'daily_limit_reached') {
                     AD_STATE.remaining = 0;
+                } else if (result.error === 'nonce_missing' || result.error === 'nonce_not_issued' || result.error === 'nonce_expired') {
+                    // nonce غير صالح — يحدث عند انتهاء الجلسة بين start_ad و reward_ad
+                    console.warn('[Ad] nonce invalid:', result.error, '— retrying start_ad on next attempt');
+                    showToast('coin', 'انتهت الجلسة', 'اضغط مرة أخرى للمحاولة', 'red', '');
+                } else {
+                    showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
                 }
             }
 
