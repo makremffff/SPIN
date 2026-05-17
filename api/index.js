@@ -86,7 +86,7 @@ const CONFIG = Object.freeze({
     channel_url: 'https://t.me/botbababab',
   },
   ads: {
-    daily_limit:       12,
+    daily_limit:       15,
     cooldown_ms:       30 * 1000,
     min_duration_ms:   14 * 1000,
   },
@@ -112,7 +112,7 @@ const CFG = {
   PTS_PER_TON:           100000,
 
   NONCE_TTL_MS:          5  * 60 * 1000,
-  AD_NONCE_TTL_MS:       30 * 1000,
+  AD_NONCE_TTL_MS:       3  * 60 * 1000,  // ✅ رُفع من 30s إلى 3 دقائق — يكفي لأي إعلان
   AD_COOLDOWN_MS:        CONFIG.ads.cooldown_ms,
   AD_MIN_DURATION_MS:    CONFIG.ads.min_duration_ms,
   ADSGRAM_TASK_COOLDOWN_MS:  CONFIG.adsgram_task.cooldown_ms,
@@ -1360,6 +1360,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce)
     earnedToday:  parseInt(lr[0].points_earned) || 0,
     points:       parseInt(ur[0]?.points) || 0,
     all_done:     watched >= CFG.ADS_DAILY_LIMIT,
+    cooldown_ms:  CFG.AD_COOLDOWN_MS,
   };
 }
 
