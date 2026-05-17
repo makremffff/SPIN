@@ -514,12 +514,19 @@ async function validateSession(sid, ipHash, fpHash) {
       // Soft risk increment — not immediate ban
       await addRisk(session.user_id, 'session_fp_change', ipHash, fpHash, 8,
         { old_fp: session.fingerprint_hash?.slice(0,8), new_fp: fpHash?.slice(0,8) });
-      await writeAudit(session.user_id, sid, 'session_fp_change', 'risk_increment', ipHash, fpHash, {
+      await writeAudit(session.user_id, sid, 'session_validate', 'fp_mismatch_risk', ipHash, fpHash, {
         fingerprint_change_reason: 'fp_changed_soft_verify',
+        old_fp: session.fingerprint_hash?.slice(0,8),
+        new_fp: fpHash?.slice(0,8),
         is_new_account: false,
       });
     } else {
       console.info(`[FP_CHANGE] New account grace — no risk for userId=${session.user_id}`);
+      await writeAudit(session.user_id, sid, 'session_validate', 'fp_mismatch_grace', ipHash, fpHash, {
+        fingerprint_change_reason: 'new_account_grace_period',
+        is_new_account: true,
+        account_age_ms: accountAgeMs,
+      });
     }
     // Do NOT revoke session — just increment risk
   }
@@ -889,19 +896,38 @@ async function handleCreateSession(body, ipHash, fpHash) {
           })]
         );
       } catch (_) {}
+      await writeAudit(user.id, null, 'create_session', 'multi_account_banned', ipHash, fpHash, { tg_id: tid });
       return { ok: false, is_banned: true, ban_type: 'hard', status: 200 };
     }
-  } catch (_) {}
 
-  // ── Revoke old sessions + create new ──────────────────────────
-  await sql(`UPDATE sessions SET is_revoked=TRUE WHERE user_id=$1`, [user.id]);
-  const sessionId = genRawNonce(32);
-  const exp = new Date(Date.now() + CFG.SESSION_TTL_MS).toISOString();
-  await sql(
-    `INSERT INTO sessions(id, user_id, fingerprint_hash, ip_hash, expires_at)
-     VALUES($1,$2,$3,$4,$5)`,
-    [sessionId, user.id, fpHash, ipHash, exp]
-  );
+    if (multiResult.warned) {
+      await writeAudit(user.id, null, 'create_session', 'multi_account_warned', ipHash, fpHash, {
+        tg_id: tid, is_new: isNewAccount,
+      });
+    }
+  } catch (multiErr) {
+    console.warn('[CREATE_SESSION] Multi-account check error (non-fatal):', multiErr.message);
+  }
+  // ── Revoke old sessions + create new (atomic) ─────────────────
+  let sessionId;
+  try {
+    await sql(`UPDATE sessions SET is_revoked=TRUE WHERE user_id=$1`, [user.id]);
+    sessionId = genRawNonce(32);
+    const exp = new Date(Date.now() + CFG.SESSION_TTL_MS).toISOString();
+    await sql(
+      `INSERT INTO sessions(id, user_id, fingerprint_hash, ip_hash, expires_at)
+       VALUES($1,$2,$3,$4,$5)
+       ON CONFLICT(id) DO NOTHING`,
+      [sessionId, user.id, fpHash, ipHash, exp]
+    );
+    console.info(`[CREATE_SESSION] Session created for userId=${user.id} tgId=${tid} isNew=${isNewAccount}`);
+  } catch (sessionErr) {
+    console.error('[CREATE_SESSION] Failed to create session:', sessionErr.message);
+    await writeAudit(user.id, null, 'create_session', 'session_insert_error', ipHash, fpHash, {
+      error: sessionErr.message, tg_id: tid,
+    });
+    return { ok: false, error: 'session_creation_failed', status: 500 };
+  }
 
   // ── Save device fingerprint ───────────────────────────────────
   const fpObj = typeof fpData === 'object' ? fpData : {};
@@ -914,21 +940,26 @@ async function handleCreateSession(body, ipHash, fpHash) {
        fpObj.user_agent || null, fpObj.lang || null,
        fpObj.screen || null, parseInt(fpObj.tz_offset) || 0]
     );
-  } catch (_) {}
-
+  } catch (fpErr) {
+    // Non-fatal — session still valid
+    console.warn('[CREATE_SESSION] FP save error (non-fatal):', fpErr.message);
+  }
   await writeAudit(user.id, sessionId, 'create_session', 'ok', ipHash, fpHash, {
     tg_id: tid, is_new_account: isNewAccount,
   });
 
-  await syncLevel(user.id);
+  try { await syncLevel(user.id); } catch (lvlErr) {
+    console.warn('[CREATE_SESSION] syncLevel error (non-fatal):', lvlErr.message);
+  }
 
   // ── Try to activate pending referral for this user ────────────
   try {
     if (await isReferralActive(user.id)) {
       await activatePendingReferral(user.id);
     }
-  } catch (_) {}
-
+  } catch (refErr) {
+    console.warn('[CREATE_SESSION] Referral activation error (non-fatal):', refErr.message);
+  }
   const finalUser = (await sql(`SELECT * FROM users WHERE id=$1`, [user.id]))[0];
 
   return {
@@ -2027,6 +2058,8 @@ module.exports = async function handler(req, res) {
         result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash);
         break;
       default:
+        console.warn(`[UNKNOWN_ACTION] type=${type} userId=${userId}`);
+        await writeAudit(userId, sessionId, type, 'unknown_action', ipHash, fpHash, { type });
         result = { ok: false, error: 'unknown_action' };
     }
 
