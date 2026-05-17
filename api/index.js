@@ -289,6 +289,25 @@ async function bootstrap() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`);
 
+    // ── channels ─────────────────────────────────────────────────
+    await sql(`CREATE TABLE IF NOT EXISTS channels (
+      id BIGSERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      reward INT DEFAULT 2500,
+      max_members INT DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    // ── seed default channel if empty ─────────────────────────────
+    await sql(`
+      INSERT INTO channels(title, url, reward, max_members, is_active, sort_order)
+      SELECT 'قناة الربح عربي', 'https://t.me/botbababab', 2500, 0, TRUE, 0
+      WHERE NOT EXISTS (SELECT 1 FROM channels LIMIT 1)
+    `);
+
     // ── completed_tasks ───────────────────────────────────────────
     await sql(`CREATE TABLE IF NOT EXISTS completed_tasks (
       id SERIAL PRIMARY KEY,
@@ -1621,6 +1640,100 @@ async function handleClaimGift(userId, rawNonce, sessionId, fpHash, ipHash) {
 
 
 // ═══════════════════════════════════════════════════════════════════
+// GET CHANNELS — Dynamic channel list from DB
+// ═══════════════════════════════════════════════════════════════════
+async function handleGetChannels(userId) {
+  const channels = await sql(
+    `SELECT id, title, url, reward, max_members FROM channels
+     WHERE is_active=TRUE ORDER BY sort_order ASC, id ASC`
+  );
+
+  // Check which channels this user has already verified
+  const verified = await sql(
+    `SELECT task_type FROM user_tasks
+     WHERE user_id=$1 AND completed=TRUE
+       AND task_type LIKE 'channel_%'`,
+    [userId]
+  );
+  const verifiedSet = new Set(verified.map(r => r.task_type));
+
+  return {
+    ok: true,
+    channels: channels.map(c => ({
+      id:          c.id,
+      title:       c.title,
+      url:         c.url,
+      reward:      c.reward,
+      max_members: parseInt(c.max_members) || 0,
+      verified:    verifiedSet.has('channel_' + c.id),
+    })),
+  };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// VERIFY CHANNEL TASK — verify membership for a specific channel
+// ═══════════════════════════════════════════════════════════════════
+async function handleVerifyChannelTask(userId, body, rawNonce, sessionId, fpHash, ipHash) {
+  const channelId = parseInt(body?.data?.channel_id);
+  if (!channelId) return { ok: false, error: 'missing_channel_id' };
+
+  const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'verify_tg_task');
+  if (result !== 'ok') return { ok: false, error: result };
+
+  const uCheck = (await sql(
+    `SELECT is_shadow_banned, tg_id FROM users WHERE id=$1`,
+    [userId]
+  ))[0];
+  if (!uCheck) return { ok: false, error: 'user_not_found' };
+  if (uCheck.is_shadow_banned) {
+    logShadow('channel_task_blocked', userId, {});
+    return { ok: false, error: 'account_review' };
+  }
+
+  const taskKey = 'channel_' + channelId;
+
+  // Already verified?
+  const existing = (await sql(
+    `SELECT id FROM user_tasks
+     WHERE user_id=$1 AND task_type=$2 AND completed=TRUE`,
+    [userId, taskKey]
+  ));
+  if (existing.length) return { ok: false, error: 'already_verified' };
+
+  // Get channel info
+  const ch = (await sql(`SELECT url, reward FROM channels WHERE id=$1 AND is_active=TRUE`, [channelId]))[0];
+  if (!ch) return { ok: false, error: 'channel_not_found' };
+
+  // Telegram membership check — extract username from URL
+  const telegramId = uCheck.tg_id;
+  if (telegramId && !IS_DEV && BOT_TOKEN && CHANNEL_ID) {
+    // Use global CHANNEL_ID for now; can be extended per-channel
+    const membership = await checkTelegramMembership(telegramId);
+    if (!membership.ok && !membership.skipped) {
+      return { ok: false, error: 'not_in_channel' };
+    }
+  }
+
+  const reward = parseInt(ch.reward) || 2500;
+
+  await sql(
+    `UPDATE users SET points=points+$1, xp=xp+$1, updated_at=NOW() WHERE id=$2`,
+    [reward, userId]
+  );
+  await upsertTask(userId, taskKey);
+  await syncLevel(userId);
+
+  const fresh = (await sql(`SELECT points FROM users WHERE id=$1`, [userId]))[0];
+  await writeAudit(userId, sessionId, 'verify_channel_task', 'ok', ipHash, fpHash, {
+    channel_id: channelId, reward,
+  });
+
+  return { ok: true, reward, points: parseInt(fresh?.points) || 0 };
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
 // VERIFY TG TASK
 // ═══════════════════════════════════════════════════════════════════
 async function handleVerifyTgTask(userId, rawNonce, sessionId, fpHash, ipHash) {
@@ -2084,6 +2197,12 @@ module.exports = async function handler(req, res) {
         break;
       case 'submit_withdraw':
         result = await handleSubmitWithdraw(userId, body, rawNonce, sessionId, fpHash, ipHash);
+        break;
+      case 'get_channels':
+        result = await handleGetChannels(userId);
+        break;
+      case 'verify_channel_task':
+        result = await handleVerifyChannelTask(userId, body, rawNonce, sessionId, fpHash, ipHash);
         break;
       case 'get_referrals':
         result = await handleGetReferrals(userId);
