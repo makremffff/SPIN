@@ -86,7 +86,7 @@ const CONFIG = Object.freeze({
     channel_url: 'https://t.me/botbababab',
   },
   ads: {
-    daily_limit:       10,
+    daily_limit:       12,
     cooldown_ms:       30 * 1000,
     min_duration_ms:   14 * 1000,
   },
@@ -143,6 +143,9 @@ const CFG = {
 
 // ── In-memory rate limit ──────────────────────────────────────────
 const rateLimitMap = new Map();
+
+// ── Bootstrap ready promise ───────────────────────────────────────
+let _bootstrapPromise = null;
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOTSTRAP — DB Schema
@@ -399,7 +402,7 @@ async function bootstrap() {
     console.error('[DB] bootstrap error:', e.message);
   }
 }
-bootstrap();
+_bootstrapPromise = bootstrap();
 
 // ── Cleanup — كل ساعة ────────────────────────────────────────────
 setInterval(async () => {
@@ -1368,15 +1371,36 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce)
 
 async function handleStartAdsgramTask(userId, sessionId, ipHash, fpHash) {
   const u = (await sql(
-    `SELECT adsgram_status, adsgram_claimed, adsgram_last_claimed_at FROM users WHERE id=$1`,
+    `SELECT adsgram_status, adsgram_claimed, adsgram_last_claimed_at, adsgram_expires_at FROM users WHERE id=$1`,
     [userId]
   ))[0];
 
   if (!u) return { ok: false, error: 'user_not_found' };
 
+  const now = Date.now();
+
+  // If already in watching state and timer still active → return current state (idempotent)
+  if (u.adsgram_status === 'watching' && u.adsgram_expires_at) {
+    const expiresAt = new Date(u.adsgram_expires_at).getTime();
+    if (now < expiresAt) {
+      const remaining = Math.ceil((expiresAt - now) / 1000);
+      logAdsgramState(userId, 'already_watching', { remaining });
+      return {
+        ok: true,
+        already_watching: true,
+        adsgram_task: {
+          status: 'watching',
+          remaining_seconds: remaining,
+          reward: CONFIG.rewards.adsgram_task,
+          claimed: false,
+        },
+      };
+    }
+  }
+
   // Check cooldown from last claim
   if (u.adsgram_claimed && u.adsgram_last_claimed_at) {
-    const elapsed = Date.now() - new Date(u.adsgram_last_claimed_at).getTime();
+    const elapsed = now - new Date(u.adsgram_last_claimed_at).getTime();
     if (elapsed < CFG.ADSGRAM_TASK_COOLDOWN_MS) {
       const waitMs = CFG.ADSGRAM_TASK_COOLDOWN_MS - elapsed;
       return {
@@ -1388,8 +1412,8 @@ async function handleStartAdsgramTask(userId, sessionId, ipHash, fpHash) {
     }
   }
 
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + CFG.ADSGRAM_TASK_MIN_WATCH_MS);
+  const nowDate = new Date();
+  const expiresAt = new Date(nowDate.getTime() + CFG.ADSGRAM_TASK_MIN_WATCH_MS);
 
   // Set state to watching — DB persistent
   await sql(
@@ -1401,7 +1425,7 @@ async function handleStartAdsgramTask(userId, sessionId, ipHash, fpHash) {
          adsgram_claimed=FALSE,
          updated_at=NOW()
      WHERE id=$3`,
-    [now.toISOString(), expiresAt.toISOString(), userId]
+    [nowDate.toISOString(), expiresAt.toISOString(), userId]
   );
 
   // Also update session for backward compat
@@ -1885,6 +1909,14 @@ async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
 
   if (event === 'ad_started' && body?.data?.meta?.type === 'adsgram_task') {
     await sql(`UPDATE sessions SET adsgram_task_started_at=NOW() WHERE id=$1`, [sessionId]);
+    // Also update users table directly — used by handleStartAdsgramTask as backup
+    await sql(
+      `UPDATE users SET adsgram_started_at=NOW(), adsgram_status='watching',
+       adsgram_expires_at=NOW() + INTERVAL '${Math.ceil(CFG.ADSGRAM_TASK_MIN_WATCH_MS / 1000)} seconds',
+       adsgram_completed=FALSE, updated_at=NOW()
+       WHERE id=$1 AND (adsgram_status != 'watching' OR adsgram_expires_at < NOW())`,
+      [userId]
+    );
   }
 
   if (event === 'suspicious_activity') {
@@ -2063,6 +2095,9 @@ async function handleAdsgramCallback(req, res) {
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════
 module.exports = async function handler(req, res) {
+  // ── Ensure DB is bootstrapped before handling any request ─────
+  if (_bootstrapPromise) { try { await _bootstrapPromise; } catch (_) {} }
+
   // ── GET /config — Dynamic Config ──────────────────────────────
   if (req.method === 'GET' && (req.url || '').includes('/config')) {
     res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
