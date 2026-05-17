@@ -5771,6 +5771,23 @@
         /* ══════════════════════════════════════════
            TON WITHDRAW LOGIC
         ══════════════════════════════════════════ */
+        // ✅ _SERVER_CONFIG — قيم ابتدائية، تُحدَّث من السيرفر عند load
+        // مُعرَّف أولاً لأن TON_CONFIG يعتمد عليه
+        let _SERVER_CONFIG = {
+            withdraw_min_pts:   20000,
+            withdraw_min_level: 5,
+            pts_per_ton:        100000,
+            pts_per_referral:   100,
+            ads_daily_limit:    10,
+        };
+
+        // ✅ USER_STATE — قيم ابتدائية صفر، تُحدَّث من السيرفر عند load
+        const USER_STATE = {
+            points: 0,
+            level:  1,
+            first_withdraw_done: false,
+        };
+
         // ✅ TON_CONFIG — Dynamic from APP_CONFIG + first withdraw support
         const TON_CONFIG = new Proxy({}, {
             get(_, k) {
@@ -5785,22 +5802,6 @@
                 if (k === 'isFirstWithdraw') return !fw;
             }
         });
-
-        // ✅ قيم ابتدائية صفر — تُحدَّث من السيرفر عند load
-        const USER_STATE = {
-            points: 0,
-            level:  1,
-            first_withdraw_done: false,
-        };
-
-        // ✅ config يأتي من السيرفر — لا قيم hardcoded
-        let _SERVER_CONFIG = {
-            withdraw_min_pts:   20000,
-            withdraw_min_level: 5,
-            pts_per_ton:        100000,
-            pts_per_referral:   100,
-            ads_daily_limit:    10,
-        };
 
         function openTonWithdraw() {
             const overlay = document.getElementById('ton-withdraw-overlay');
@@ -5826,13 +5827,25 @@
             levelWarn.style.display = 'none';
             ptsWarn.style.display   = 'none';
 
-            // Show first withdraw offer banner if applicable
+            // ── تحديث شريحة "الحد الأدنى" ديناميكياً ──────────────
+            const minChipVal = document.getElementById('ton-min-chip-val');
+            if (minChipVal) {
+                minChipVal.textContent = TON_CONFIG.minPts.toLocaleString() + ' نقطة';
+                // لون أخضر للسحب الأول (3000) وعادي بعدها
+                minChipVal.style.color = isFirst ? 'var(--green)' : 'var(--gold)';
+            }
+
+            // Show first withdraw offer banner
             const firstOfferEl = document.getElementById('first-withdraw-offer');
-            if (firstOfferEl) firstOfferEl.style.display = isFirst ? 'block' : 'none';
+            if (firstOfferEl) firstOfferEl.style.display = isFirst ? 'flex' : 'none';
 
             // Update minimum required display
             const minPtsEl = document.getElementById('ton-min-pts');
             if (minPtsEl) minPtsEl.textContent = TON_CONFIG.minPts.toLocaleString();
+
+            // تحديث نص التحذير بالحد الأدنى الفعلي
+            const ptsWarnMin = document.getElementById('ton-pts-warn-min');
+            if (ptsWarnMin) ptsWarnMin.textContent = TON_CONFIG.minPts.toLocaleString();
 
             if (!hasLevel) {
                 levelWarn.style.display = '';
@@ -5904,6 +5917,17 @@
             if (result.new_balance !== undefined) {
                 animateBalance(USER_STATE.points, result.new_balance);
                 USER_STATE.points = result.new_balance;
+            }
+
+            // ✅ بعد أول سحبة — تحديث state وإعادة رسم الحد الأدنى
+            if (result.first_withdraw === true) {
+                USER_STATE.first_withdraw_done = true;
+                // إعادة تحميل chip الحد الأدنى لتعكس 20,000 بدل 3,000
+                const minChipVal = document.getElementById('ton-min-chip-val');
+                if (minChipVal) {
+                    minChipVal.textContent = (APP_CONFIG.withdraw.normal_min || 20000).toLocaleString() + ' نقطة';
+                    minChipVal.style.color = 'var(--gold)';
+                }
             }
 
             // ✅ بيانات history من السيرفر
@@ -6016,6 +6040,28 @@
             <div class="ton-sheet-divider"></div>
             <div class="ton-sheet-body">
 
+                <!-- First Withdraw Special Offer Banner -->
+                <div id="first-withdraw-offer" style="
+                    display:none;
+                    align-items:center;gap:12px;
+                    margin-bottom:16px;
+                    padding:12px 14px;
+                    border-radius:14px;
+                    background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(52,211,153,0.05));
+                    border:1px solid rgba(52,211,153,0.28);
+                ">
+                    <div style="font-size:22px;flex-shrink:0;">🎉</div>
+                    <div>
+                        <div style="font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;color:#34d399;margin-bottom:2px;">
+                            عرض السحب الأول!
+                        </div>
+                        <div style="font-family:'Readex Pro',sans-serif;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5;">
+                            الحد الأدنى لأول سحبة
+                            <span id="ton-min-pts" style="color:#34d399;font-weight:700;">3,000</span> نقطة فقط — بدون متطلب مستوى
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Balance row -->
                 <div class="ton-balance-row">
                     <div class="ton-balance-label">رصيدك المتاح</div>
@@ -6031,7 +6077,7 @@
                     <div class="ton-info-chip">
                         <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
                             <span class="ton-info-chip-label">الحد الأدنى</span>
-                            <span class="ton-info-chip-val gold">50,000 نقطة</span>
+                            <span class="ton-info-chip-val gold" id="ton-min-chip-val">3,000 نقطة</span>
                         </div>
                     </div>
                     <div class="ton-info-chip">
@@ -6045,10 +6091,10 @@
                 <!-- Level requirement notice -->
                 <div id="ton-level-warn" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:var(--radius-md);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.22);text-align:right;">
                     <div style="font-size:12px;font-weight:700;color:rgba(248,113,113,0.9);">
-                        🔒 يتطلب المستوى 5 لفتح السحب
+                        🔒 يتطلب المستوى <span id="ton-req-level">5</span> لفتح السحب
                     </div>
                     <div style="font-size:10px;color:rgba(248,113,113,0.55);margin-top:3px;font-weight:500;">
-                        مستواك الحالي: <span id="ton-current-level">7</span> — يمكنك السحب!
+                        مستواك الحالي: <span id="ton-current-level">1</span>
                     </div>
                 </div>
 
@@ -6058,7 +6104,7 @@
                         ⚠️ رصيدك أقل من الحد الأدنى للسحب
                     </div>
                     <div style="font-size:10px;color:rgba(248,113,113,0.55);margin-top:3px;font-weight:500;">
-                        تحتاج على الأقل 50,000 نقطة للسحب
+                        تحتاج على الأقل <span id="ton-pts-warn-min">3,000</span> نقطة للسحب
                     </div>
                 </div>
 
