@@ -761,34 +761,22 @@ async function handleCreateSession(body, ipHash, fpHash) {
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  ATOMIC MULTI-ACCOUNT DETECTION — Advisory Lock + Transaction
-  //  نفس منطق toma: advisory lock على ip_hash لمنع race conditions
-  //  لو جاء طلبان بنفس IP في نفس الوقت → يُسلسلان
+  //  MULTI-ACCOUNT DETECTION — Atomic SQL (neon HTTP compatible)
+  //  بدون BEGIN/COMMIT — كل عملية atomic بمفردها
   // ════════════════════════════════════════════════════════════════
-  const db = neon(process.env.DATABASE_URL);
-
   try {
-    await db('BEGIN');
-
-    // Advisory lock على ip_hash — يمنع race conditions على نفس IP
-    const lockKey = BigInt('0x' + ipHash.slice(0, 15)) & BigInt('0x7FFFFFFFFFFFFFFF');
-    await db(`SELECT pg_advisory_xact_lock($1)`, [lockKey.toString()]);
-
     // ── فحص Hard Ban / Shadow Ban ──────────────────────────────
-    const banCheck = await db(
+    const userRow = (await sql(
       `SELECT is_banned, is_shadow_banned, risk_score, created_at FROM users WHERE id=$1`,
       [user.id]
-    );
-    const userRow = banCheck[0];
+    ))[0];
 
     if (userRow?.is_banned) {
-      await db('ROLLBACK');
       await writeAudit(user.id, null, 'create_session', 'hard_banned', ipHash, fpHash, { tg_id: tid });
       return { ok: false, is_banned: true, ban_type: 'hard', status: 403 };
     }
 
     if (userRow?.is_shadow_banned) {
-      await db('ROLLBACK');
       await writeAudit(user.id, null, 'create_session', 'shadow_banned', ipHash, fpHash, { tg_id: tid });
       return { ok: false, is_banned: true, status: 200 };
     }
@@ -796,84 +784,76 @@ async function handleCreateSession(body, ipHash, fpHash) {
     // ── تحديد عمر الحساب ────────────────────────────────────────
     const accountCreatedAt = userRow?.created_at ? new Date(userRow.created_at) : new Date();
     const accountAgeDays   = (Date.now() - accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24);
-    const isNewAccount     = accountAgeDays < 3; // NEW_ACCOUNT_AGE_DAYS
+    const isNewAccount     = accountAgeDays < 3;
     const isWhitelisted    = CFG.MULTI_ACCT.IP_WHITELIST.has(ipHash);
 
     if (!isWhitelisted && isNewAccount) {
       // ── عدد الحسابات لكل IP ──────────────────────────────────
-      const ipCountResult = await db(
-        `SELECT COUNT(DISTINCT u.id) AS cnt FROM users u
-         WHERE u.last_ip_hash=$1 AND u.id!=$2 AND u.is_banned=FALSE`,
+      const ipCnt = parseInt((await sql(
+        `SELECT COUNT(DISTINCT id) AS cnt FROM users
+         WHERE last_ip_hash=$1 AND id!=$2 AND is_banned=FALSE`,
         [ipHash, user.id]
-      );
-      const activeAccountsOnIP = parseInt(ipCountResult[0]?.cnt || 0);
+      ))[0]?.cnt || 0);
 
       // ── عدد الحسابات لكل fingerprint ────────────────────────
-      const fpCountResult = await db(
+      const fpCnt = parseInt((await sql(
         `SELECT COUNT(DISTINCT user_id) AS cnt FROM device_fingerprints
          WHERE fingerprint=$1 AND user_id!=$2`,
         [fpHash, user.id]
-      );
-      const accountsOnFP = parseInt(fpCountResult[0]?.cnt || 0);
+      ))[0]?.cnt || 0);
 
-      const ipViolation = activeAccountsOnIP >= CFG.MULTI_ACCT.MAX_PER_IP;
-      const fpViolation  = accountsOnFP >= CFG.MULTI_ACCT.MAX_PER_FP;
+      const ipViolation = ipCnt >= CFG.MULTI_ACCT.MAX_PER_IP;
+      const fpViolation = fpCnt >= CFG.MULTI_ACCT.MAX_PER_FP;
 
-      // منطق الحظر المزدوج: fp وحده كافٍ، أو ip+fp معاً
-      if (fpViolation || (ipViolation && fpViolation)) {
-        await db(
+      if (fpViolation) {
+        // Atomic ban — لا يضر لو تسابق طلبان
+        await sql(
           `UPDATE users SET is_banned=TRUE, ban_reason='multi_account', updated_at=NOW() WHERE id=$1`,
           [user.id]
         );
-        await db(
-          `INSERT INTO security_logs(user_id, ip_hash, fingerprint, action, risk_score, verdict, detail)
-           VALUES($1,$2,$3,'multi_account_detected',100,'deny',$4)`,
-          [user.id, ipHash, fpHash, JSON.stringify({
-            reason: 'multi_account_hard_ban',
-            ip_accounts: activeAccountsOnIP, fp_accounts: accountsOnFP,
-            ip_violation: ipViolation, fp_violation: fpViolation,
-            account_age_days: Math.round(accountAgeDays * 10) / 10,
-            tg_id: tid,
-          })]
-        );
-        await db('COMMIT');
-        console.warn(`[ANTI-FRAUD] Hard Ban → tg_id=${tid} ip=${activeAccountsOnIP} fp=${accountsOnFP}`);
+        try {
+          await sql(
+            `INSERT INTO security_logs(user_id,ip_hash,fingerprint,action,risk_score,verdict,detail)
+             VALUES($1,$2,$3,'multi_account_detected',100,'deny',$4)`,
+            [user.id, ipHash, fpHash, JSON.stringify({
+              reason: 'multi_account_hard_ban',
+              ip_accounts: ipCnt, fp_accounts: fpCnt,
+              account_age_days: Math.round(accountAgeDays * 10) / 10,
+              tg_id: tid,
+            })]
+          );
+        } catch (_) {}
+        console.warn(`[ANTI-FRAUD] Hard Ban → tg_id=${tid} ip=${ipCnt} fp=${fpCnt}`);
         return { ok: false, is_banned: true, ban_type: 'hard', status: 200 };
       }
 
-      // تحذير فقط: IP مشترك بدون fp تطابق
-      if (ipViolation && !fpViolation) {
-        await db(
-          `INSERT INTO security_logs(user_id, ip_hash, fingerprint, action, risk_score, verdict, detail)
-           VALUES($1,$2,$3,'multi_ip_warning',30,'allow',$4)`,
-          [user.id, ipHash, fpHash, JSON.stringify({
-            reason: 'shared_ip', ip_accounts: activeAccountsOnIP,
-            note: 'Shared WiFi/NAT — no ban',
-          })]
-        );
+      if (ipViolation) {
+        try {
+          await sql(
+            `INSERT INTO security_logs(user_id,ip_hash,fingerprint,action,risk_score,verdict,detail)
+             VALUES($1,$2,$3,'multi_ip_warning',30,'allow',$4)`,
+            [user.id, ipHash, fpHash, JSON.stringify({
+              reason: 'shared_ip', ip_accounts: ipCnt,
+              note: 'Shared WiFi/NAT — no ban',
+            })]
+          );
+        } catch (_) {}
       }
     }
 
     // ── Reset risk_score مرتفع ───────────────────────────────────
     if ((userRow?.risk_score || 0) >= CFG.RISK_SHADOW) {
-      await db(
-        `UPDATE users SET risk_score=0, updated_at=NOW() WHERE id=$1`,
-        [user.id]
-      );
-      await db(`DELETE FROM device_fingerprints WHERE user_id=$1`, [user.id]);
-      await db(
-        `DELETE FROM security_logs WHERE user_id=$1 AND verdict='deny'`,
-        [user.id]
-      );
+      await sql(`UPDATE users SET risk_score=0, updated_at=NOW() WHERE id=$1`, [user.id]);
+      try { await sql(`DELETE FROM device_fingerprints WHERE user_id=$1`, [user.id]); } catch (_) {}
+      try { await sql(`DELETE FROM security_logs WHERE user_id=$1 AND verdict='deny'`, [user.id]); } catch (_) {}
     }
 
-    // ── إلغاء الجلسات القديمة ────────────────────────────────────
-    await db(`UPDATE sessions SET is_revoked=TRUE WHERE user_id=$1`, [user.id]);
+    // ── إلغاء الجلسات القديمة + إنشاء جلسة جديدة (atomic) ──────
+    await sql(`UPDATE sessions SET is_revoked=TRUE WHERE user_id=$1`, [user.id]);
 
-    // ── إنشاء جلسة جديدة ─────────────────────────────────────────
     const sessionId = genRawNonce(32);
     const exp = new Date(Date.now() + CFG.SESSION_TTL_MS).toISOString();
-    await db(
+    await sql(
       `INSERT INTO sessions(id, user_id, fingerprint_hash, ip_hash, expires_at)
        VALUES($1,$2,$3,$4,$5)`,
       [sessionId, user.id, fpHash, ipHash, exp]
@@ -881,16 +861,16 @@ async function handleCreateSession(body, ipHash, fpHash) {
 
     // ── حفظ device_fingerprints ───────────────────────────────────
     const fpObj = typeof fpData === 'object' ? fpData : {};
-    await db(
-      `INSERT INTO device_fingerprints(fingerprint, user_id, user_agent, lang, screen, timezone_off)
-       VALUES($1,$2,$3,$4,$5,$6)
-       ON CONFLICT(fingerprint, user_id) DO UPDATE SET last_seen=NOW()`,
-      [fpHash, user.id,
-       fpObj.user_agent || null, fpObj.lang || null,
-       fpObj.screen || null, fpObj.tz_offset || 0]
-    );
-
-    await db('COMMIT');
+    try {
+      await sql(
+        `INSERT INTO device_fingerprints(fingerprint, user_id, user_agent, lang, screen, timezone_off)
+         VALUES($1,$2,$3,$4,$5,$6)
+         ON CONFLICT(fingerprint, user_id) DO UPDATE SET last_seen=NOW()`,
+        [fpHash, user.id,
+         fpObj.user_agent || null, fpObj.lang || null,
+         fpObj.screen || null, parseInt(fpObj.tz_offset) || 0]
+      );
+    } catch (_) {}
 
     await writeAudit(user.id, sessionId, 'create_session', 'ok', ipHash, fpHash, {
       tg_id: tid, is_new_account: isNewAccount,
@@ -914,9 +894,8 @@ async function handleCreateSession(body, ipHash, fpHash) {
       },
     };
 
-  } catch (txErr) {
-    try { await db('ROLLBACK'); } catch (_) {}
-    console.error('[create_session TX Error]', txErr.message);
+  } catch (err) {
+    console.error('[create_session Error]', err.message);
     return { ok: false, error: 'session_creation_failed', status: 500 };
   }
 }
