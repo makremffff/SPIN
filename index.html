@@ -2798,8 +2798,6 @@
                 </div>
             </div>
 
-            </div>
-
             <!-- ═══ ADSGRAM TASK ═══ -->
             <div class="section-header" style="margin-bottom:10px;margin-top:4px;">
                 <div class="section-title">مهام إعلانية</div>
@@ -2807,56 +2805,47 @@
             </div>
 
             <div id="adsgram-task-outer" style="margin-bottom:14px;">
-                <!-- Card wrapper -->
+                <!-- Compact card -->
                 <div id="adsgram-task-card" class="glass" style="
                     border-radius:var(--radius-xl);
                     border:1px solid rgba(251,191,36,0.18);
-                    background:linear-gradient(135deg,rgba(251,191,36,0.07),rgba(20,10,0,0.4));
-                    overflow:hidden;
-                    transition:opacity 0.3s ease,transform 0.3s ease;
+                    background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(10,5,0,0.35));
+                    padding:14px 15px;
+                    display:flex;align-items:center;gap:13px;
+                    transition:opacity 0.3s ease;
                 ">
-                    <!-- header -->
-                    <div style="display:flex;align-items:center;gap:14px;padding:16px 16px 12px;">
-                        <!-- icon -->
-                        <div style="width:50px;height:50px;border-radius:15px;flex-shrink:0;
-                            background:linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.06));
-                            border:1px solid rgba(251,191,36,0.3);
-                            display:flex;align-items:center;justify-content:center;
-                            box-shadow:0 0 20px rgba(251,191,36,0.15);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                                      stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/>
-                                <circle cx="9" cy="12" r="2" fill="rgba(251,191,36,0.4)"/>
-                            </svg>
-                        </div>
-                        <!-- info -->
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:900;
-                                        color:rgba(255,255,255,0.95);margin-bottom:5px;line-height:1.2;">مهمة إعلانية يومية</div>
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.8));">
-                                <span style="font-family:'DynaPuff',sans-serif;font-size:12px;font-weight:700;
-                                             color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span> نقطة</span>
-                                <span style="font-size:10px;color:rgba(255,255,255,0.3);margin-right:2px;">· تجدد كل 60 ثانية</span>
-                            </div>
+                    <!-- icon -->
+                    <div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;
+                        background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.28);
+                        display:flex;align-items:center;justify-content:center;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
+                                  stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <!-- info -->
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
+                                    color:rgba(255,255,255,0.95);margin-bottom:3px;line-height:1.2;">مهمة إعلانية يومية</div>
+                        <div style="display:flex;align-items:center;gap:5px;">
+                            <span style="font-family:'DynaPuff',sans-serif;font-size:11px;font-weight:700;
+                                         color:rgba(251,191,36,0.85);">+<span class="adsgram-reward-badge">30</span> نقطة</span>
+                            <span style="font-size:9px;color:rgba(255,255,255,0.25);">· كل 60 ثانية</span>
                         </div>
                     </div>
-                    <!-- divider -->
-                    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.12),transparent);margin:0 16px;"></div>
-                    <!-- widget داخل الكارد -->
-                    <div style="padding:12px 14px 14px;">
+                    <!-- action: Adsgram widget -->
+                    <div style="flex-shrink:0;">
                         <adsgram-task id="adsgram-task-widget" data-block-id="task-30166">
-                            <div slot="reward" style="display:inline-flex;align-items:center;gap:5px;">
-                                <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
-                                <span style="font-size:12px;font-weight:700;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span> نقطة</span>
+                            <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
+                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span></span>
                             </div>
                         </adsgram-task>
                     </div>
                 </div>
 
-                <!-- حالة الإكمال + عداد 60s -->
+                <!-- حالة الإكمال + عداد -->
                 <div id="adsgram-task-done" style="display:none;border-radius:var(--radius-xl);
-                     border:1px solid rgba(52,211,153,0.2);padding:14px 15px;
+                     border:1px solid rgba(52,211,153,0.2);padding:12px 14px;
                      background:linear-gradient(135deg,rgba(52,211,153,0.06),rgba(52,211,153,0.01));">
                 </div>
             </div>
@@ -4137,21 +4126,64 @@
             }
         }
 
+        // ✅ watchAdsgramTask — يُستدعى عند ضغط المستخدم على زر Adsgram
+        // المنطق الصحيح: start_adsgram_task أولاً → ثم widget.show()
+        let _adsgramTaskInProgress = false;
+
+        async function watchAdsgramTask() {
+            if (_adsgramTaskInProgress) return;
+            _adsgramTaskInProgress = true;
+
+            const widget = document.getElementById('adsgram-task-widget');
+            if (!widget) { _adsgramTaskInProgress = false; return; }
+
+            // [1] أخبر السيرفر بالبدء — يُسجَّل adsgram_started_at في DB
+            try {
+                const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+                if (!startRes.ok && startRes.error === 'cooldown_active') {
+                    showToast('coin', 'انتظر قليلاً ⏳', `${Math.ceil((startRes.wait_ms||60000)/1000)}s`, 'red', '');
+                    _adsgramTaskInProgress = false;
+                    return;
+                }
+                // إذا already_watching → السيرفر سجّل بالفعل، نكمل
+            } catch (_) {
+                // non-fatal — continue with widget
+            }
+
+            // [2] شغّل الـ widget — Adsgram يعرض الإعلان
+            try {
+                if (typeof widget.show === 'function') {
+                    widget.show();
+                } else {
+                    // fallback: trigger click on internal button if exists
+                    const inner = widget.querySelector('button');
+                    if (inner) inner.click();
+                }
+            } catch (e) {
+                console.warn('[AdsgramTask] show() error:', e.message);
+            }
+
+            _adsgramTaskInProgress = false;
+        }
+
         // ── Adsgram Task — DB state driven, refresh-safe ─────────────
         let _taskCountdown = null;
         let _taskStartedAt = 0;
 
         function _initAdsgramTask() {
             // ✅ State now comes from DB via load/get_state — not session only
-            // The widget is only used to actually show the ad
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
+            // 'start' event: Adsgram widget started showing
             widget.addEventListener('start', async () => {
                 _taskStartedAt = Date.now();
-                // ✅ Tell server we started — DB persistent
+                // Backup: ensure server knows task started (in case button wasn't used)
                 try {
-                    await fetchApi({ type: 'start_adsgram_task', data: {} });
+                    const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+                    if (startRes.ok || startRes.already_watching) {
+                        console.info('[AdsgramTask] start_adsgram_task confirmed via event');
+                    }
                 } catch (_) {}
                 try {
                     await fetchApi({ type: 'track_ad_event', data: { event: 'ad_started', meta: { type: 'adsgram_task' } } });
@@ -4164,8 +4196,9 @@
             });
 
             widget.addEventListener('error', () => {
+                console.warn('[AdsgramTask] widget error event');
                 const outer = document.getElementById('adsgram-task-outer');
-                if (outer) outer.style.display = 'none';
+                // don't hide — just log
             });
         }
 
@@ -5227,19 +5260,14 @@
                 // ✅ config من السيرفر — Dynamic CONFIG
                 if (loadResult.config) {
                     const cfg = loadResult.config;
-                    // Merge into _SERVER_CONFIG for backward compat
-                    if (cfg.config) Object.assign(_SERVER_CONFIG, cfg.config);
-                    // Also update APP_CONFIG from nested config
+                    // cfg IS the config object directly (not nested)
                     if (cfg.withdraw) APP_CONFIG.withdraw = cfg.withdraw;
                     if (cfg.rewards)  APP_CONFIG.rewards  = cfg.rewards;
                     if (cfg.telegram) APP_CONFIG.telegram = cfg.telegram;
                     if (cfg.ads)      APP_CONFIG.ads       = cfg.ads;
                     // flat keys for backward compat
-                    if (cfg.ads_daily_limit)    _SERVER_CONFIG.ads_daily_limit    = cfg.ads_daily_limit;
-                    if (cfg.pts_per_ton)        _SERVER_CONFIG.pts_per_ton        = cfg.pts_per_ton;
-                    if (cfg.withdraw_min_pts)   _SERVER_CONFIG.withdraw_min_pts   = cfg.withdraw_min_pts;
-                    if (cfg.withdraw_min_level) _SERVER_CONFIG.withdraw_min_level = cfg.withdraw_min_level;
-                    if (cfg.pts_per_referral)   _SERVER_CONFIG.pts_per_referral   = cfg.pts_per_referral;
+                    if (cfg.ads?.daily_limit)       _SERVER_CONFIG.ads_daily_limit    = cfg.ads.daily_limit;
+                    if (cfg.rewards?.points_per_ad) _SERVER_CONFIG.pts_per_ton        = _SERVER_CONFIG.pts_per_ton; // unchanged
                     _applyConfigToUI();
                 }
 
