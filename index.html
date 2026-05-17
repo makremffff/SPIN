@@ -2809,7 +2809,7 @@
                         <div id="tg-task-title" style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;color:rgba(255,255,255,0.92);margin-bottom:5px;line-height:1.2;">انضم لقناة الربح عربي</div>
                         <div style="display:flex;align-items:center;gap:6px;">
                             <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.7));">
-                            <span style="font-family:'Readex Pro',sans-serif;font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+2,500 نقطة</span>
+                            <span style="font-family:'Readex Pro',sans-serif;font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+<span data-reward="telegram_task">200</span> نقطة</span>
                         </div>
                     </div>
 
@@ -2889,11 +2889,11 @@
                         </div>
                         <div style="flex:1;">
                             <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;
-                                        color:rgba(255,255,255,0.9);margin-bottom:3px;">مهمة إعلانية</div>
+                                        color:rgba(255,255,255,0.9);margin-bottom:3px;">مهمة Adsgram</div>
                             <div style="display:flex;align-items:center;gap:5px;">
                                 <img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;">
                                 <span style="font-family:'DynaPuff',sans-serif;font-size:12px;
-                                             font-weight:700;color:rgba(251,191,36,0.85);">+70 نقطة</span>
+                                             font-weight:700;color:rgba(251,191,36,0.85);">+<span data-reward="adsgram_task">30</span> نقطة</span>
                             </div>
                         </div>
                     </div>
@@ -2902,10 +2902,23 @@
                         <adsgram-task id="adsgram-task-widget" data-block-id="task-30166">
                             <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
                                 <img src="asesst/coins.png" alt="" style="width:11px;height:11px;object-fit:contain;">
-                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+70 نقطة</span>
+                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+<span data-reward="adsgram_task">30</span> نقطة</span>
                             </div>
                         </adsgram-task>
                     </div>
+                    <!-- ✅ v5.0: عداد المشاهدة (watching state) -->
+                    <div id="adsgram-timer" style="display:none;padding:0 12px 10px;"></div>
+                    <!-- ✅ v5.0: زر جمع المكافأة (claim state) -->
+                    <button id="adsgram-claim-btn" onclick="doClaimAdsgramTask()"
+                        style="display:none;width:calc(100% - 24px);margin:0 12px 13px;
+                               background:linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.07));
+                               border:1px solid rgba(251,191,36,0.35);border-radius:12px;
+                               padding:13px;color:#fbbf24;font-family:'Tajawal',sans-serif;
+                               font-size:14px;font-weight:800;cursor:pointer;
+                               align-items:center;justify-content:center;gap:8px;
+                               transition:all 0.22s ease;box-shadow:0 4px 16px rgba(251,191,36,0.12);">
+                        🎁 جمع المكافأة
+                    </button>
                 </div>
 
                 <!-- حالة الإكمال + عداد 60s -->
@@ -2924,8 +2937,8 @@
             <div class="daily-tasks-wrap glass" style="border-radius:var(--radius-xl);padding:6px;margin-bottom:18px;">
 
                 <!-- Task 1: Watch 10 Ads -->
-                <div class="dtask-card" id="dtask-ads10" onclick="handleDailyTask('ads10', this)">
-                    <div class="dtask-left">
+                <div class="dtask-card" id="dtask-ads10">
+                    <div class="dtask-left" onclick="handleDailyTask('ads10', this.closest('.dtask-card'))">
                         <div class="dtask-icon" style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.22);">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                 <path d="M12 2C12 2 7 7.5 7 12a5 5 0 0010 0c0-1.5-.5-3-1.5-4.5C14.5 9 14 10 14 10s-1-2-2-8z" fill="rgba(251,191,36,0.85)"/>
@@ -2942,17 +2955,24 @@
                             </div>
                         </div>
                     </div>
-                    <div class="dtask-reward">
-                        <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
-                        <span class="dtask-reward-num">+1,000</span>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+                        <div class="dtask-reward">
+                            <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(251,191,36,0.6));">
+                            <span class="dtask-reward-num">+<span data-reward="daily_ads_10">200</span></span>
+                        </div>
+                        <button id="claim-btn-ads10" style="display:none;font-size:11px;font-weight:800;
+                            padding:6px 12px;border-radius:8px;border:1px solid rgba(251,191,36,0.35);
+                            background:rgba(251,191,36,0.1);color:#fbbf24;cursor:pointer;white-space:nowrap;
+                            font-family:'Tajawal',sans-serif;"
+                            onclick="claimDailyTask('ads_10', this)">🎁 جمع</button>
                     </div>
                 </div>
 
                 <div class="dtask-divider"></div>
 
                 <!-- Task 2: Watch 25 Ads -->
-                <div class="dtask-card" id="dtask-ads25" onclick="handleDailyTask('ads25', this)">
-                    <div class="dtask-left">
+                <div class="dtask-card" id="dtask-ads25">
+                    <div class="dtask-left" onclick="handleDailyTask('ads25', this.closest('.dtask-card'))">
                         <div class="dtask-icon" style="background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.22);">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                 <circle cx="12" cy="12" r="9" stroke="#60a5fa" stroke-width="1.6"/>
@@ -2969,17 +2989,24 @@
                             </div>
                         </div>
                     </div>
-                    <div class="dtask-reward">
-                        <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(96,165,250,0.6));">
-                        <span class="dtask-reward-num blue">+2,200</span>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+                        <div class="dtask-reward">
+                            <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(96,165,250,0.6));">
+                            <span class="dtask-reward-num blue">+<span data-reward="daily_ads_25">300</span></span>
+                        </div>
+                        <button id="claim-btn-ads25" style="display:none;font-size:11px;font-weight:800;
+                            padding:6px 12px;border-radius:8px;border:1px solid rgba(96,165,250,0.35);
+                            background:rgba(96,165,250,0.1);color:#60a5fa;cursor:pointer;white-space:nowrap;
+                            font-family:'Tajawal',sans-serif;"
+                            onclick="claimDailyTask('ads_25', this)">🎁 جمع</button>
                     </div>
                 </div>
 
                 <div class="dtask-divider"></div>
 
                 <!-- Task 3: Invite 3 Friends -->
-                <div class="dtask-card" id="dtask-invite3" onclick="handleDailyTask('invite3', this)">
-                    <div class="dtask-left">
+                <div class="dtask-card" id="dtask-invite3">
+                    <div class="dtask-left" onclick="handleDailyTask('invite3', this.closest('.dtask-card'))">
                         <div class="dtask-icon" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.22);">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
@@ -2995,9 +3022,16 @@
                             </div>
                         </div>
                     </div>
-                    <div class="dtask-reward">
-                        <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(167,139,250,0.6));">
-                        <span class="dtask-reward-num purple">+3,000</span>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+                        <div class="dtask-reward">
+                            <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(167,139,250,0.6));">
+                            <span class="dtask-reward-num purple">+<span data-reward="daily_referrals_3">1,000</span></span>
+                        </div>
+                        <button id="claim-btn-invite3" style="display:none;font-size:11px;font-weight:800;
+                            padding:6px 12px;border-radius:8px;border:1px solid rgba(167,139,250,0.35);
+                            background:rgba(167,139,250,0.1);color:#a78bfa;cursor:pointer;white-space:nowrap;
+                            font-family:'Tajawal',sans-serif;"
+                            onclick="claimDailyTask('referrals_3', this)">🎁 جمع</button>
                     </div>
                 </div>
 
@@ -3363,6 +3397,30 @@
 
                 <div style="display:flex; flex-direction:column; gap:8px;">
 
+                    <!-- ✅ v5.0: First Withdraw Offer Banner -->
+                    <div id="first-withdraw-offer-banner" style="display:none;
+                        background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(52,211,153,0.04));
+                        border:1px solid rgba(52,211,153,0.28);border-radius:14px;
+                        padding:14px 16px;margin-bottom:4px;">
+                        <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
+                            color:#34d399;margin-bottom:5px;">🎉 عرض أول سحبة خاص!</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6;">
+                            اسحب أول أرباحك بـ
+                            <strong style="color:#34d399;" id="ton-min-pts-display">3,000</strong>
+                            نقطة فقط — بدون شرط المستوى
+                        </div>
+                    </div>
+                    <div id="normal-withdraw-info-banner" style="display:block;
+                        background:rgba(83,147,255,0.05);border:1px solid rgba(83,147,255,0.15);
+                        border-radius:12px;padding:10px 14px;margin-bottom:4px;font-size:12px;
+                        color:rgba(255,255,255,0.5);">
+                        <span>الحد الأدنى للسحب: </span>
+                        <strong style="color:#7eb8ff;" id="ton-min-level-display">5</strong>
+                        <span> المستوى + </span>
+                        <strong style="color:#7eb8ff;" id="ton-min-pts-display-normal">20,000</strong>
+                        <span> نقطة</span>
+                    </div>
+
                     <!-- ① TON Wallet — active -->
                     <div class="method-item" style="background:rgba(83,147,255,0.06);border:1px solid rgba(83,147,255,0.2);border-radius:var(--radius-md);padding:14px 16px;cursor:pointer;transition:all 0.22s ease;" onmouseenter="this.style.background='rgba(83,147,255,0.11)'" onmouseleave="this.style.background='rgba(83,147,255,0.06)'" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform=''" onclick="openTonWithdraw()">
                         <!-- TON logo image -->
@@ -3537,6 +3595,28 @@
     <script>
         const API_BASE = '/api';
 
+        // ═══════════════════════════════════════════════════════════
+        // ✅ v5.0 — DYNAMIC SERVER CONFIG
+        // لا توجد قيم ثابتة — كل شيء يأتي من السيرفر
+        // ═══════════════════════════════════════════════════════════
+        const _SERVER_CONFIG = {
+            ads_daily_limit:    25,
+            pts_per_ton:        100000,
+            withdraw_min_pts:   20000,
+            withdraw_min_level: 5,
+            pts_per_referral:   100,
+            rewards: {
+                referral:          100,
+                telegram_task:     200,
+                adsgram_task:      30,
+                daily_ads_10:      200,
+                daily_ads_25:      300,
+                daily_referrals_3: 1000,
+            },
+            telegram: { channel_url: '' },
+            withdraw: { first_min: 3000, normal_min: 20000, normal_level: 5 },
+        };
+
         // ══════════════════════════════════════════════════════════
         //  ZERO TRUST CLIENT — مطابق لنظام toma
         //  ✅ _sessionId in-memory (لا cookies، لا localStorage)
@@ -3584,7 +3664,7 @@
                 ">
                     <!-- GIF -->
                     <div style="margin-bottom:28px;">
-                        <img src="assets/baned.gif" alt="banned"
+                        <img src="asesst/baned.gif" alt="banned"
                              style="width:140px;height:140px;object-fit:contain;
                                     filter:drop-shadow(0 0 32px rgba(239,68,68,0.4));" />
                     </div>
@@ -3739,6 +3819,9 @@
                             if (result.user.points      !== undefined) USER_STATE.points = parseInt(result.user.points) || 0;
                             if (result.user.level       !== undefined) USER_STATE.level  = parseInt(result.user.level)  || 1;
                             if (result.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!result.user.tg_verified;
+                            // ✅ v5.0: new fields
+                            if (result.user.usdt_balance       !== undefined) USER_STATE.usdt_balance       = parseFloat(result.user.usdt_balance) || 0;
+                            if (result.user.first_withdraw_done !== undefined) USER_STATE.first_withdraw_done = !!result.user.first_withdraw_done;
                             if (result.user.streak_day  !== undefined)
                                 DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(result.user.streak_day) || 0) + 1);
                             const today = new Date().toISOString().slice(0, 10);
@@ -3767,7 +3850,9 @@
                 }
             }
 
-            const SKIP_NONCE = new Set(['get_state', 'load', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event', 'claim_adsgram_task', 'start_ad']);
+            const SKIP_NONCE = new Set(['get_state', 'load', 'reward_ad', 'get_referrals', 'create_session',
+                'track_ad_event', 'claim_adsgram_task', 'start_ad', 'get_nonce', 'get_adsgram_state',
+                'start_adsgram_task']);
             const needsNonce = !SKIP_NONCE.has(action);
 
             try {
@@ -3805,8 +3890,13 @@
                 const json = await res.json();
                 console.log(`[ZT] ${action} response:`, json);
 
-                if (json.shadow_banned === true || json.is_banned === true) {
+                // ✅ v5.0: is_banned فقط يُظهر security wall
+                // account_review = مراجعة عادية — لا نُغلق التطبيق
+                if (json.is_banned === true) {
                     showSecurityWall();
+                } else if (json.error === 'account_review') {
+                    // فقط log — لا تُعطل التطبيق
+                    console.warn('[ZT] Account under review — continuing normally');
                 }
                 return json;
             } catch (e) {
@@ -3820,7 +3910,235 @@
         async function createSession() { return _createSession(); }
 
         /* ─── Ad System ─── */
-        /* ─── Deposit via Telegram Support ─── */
+        /* ─── v5.0: Dynamic Config Functions ─── */
+
+        // ✅ تحميل Dynamic Config من GET /config
+        async function loadServerConfig() {
+            try {
+                const base = API_BASE.replace(/\/api$/, '');
+                const res  = await fetch(base + '/config', { method: 'GET' });
+                if (!res.ok) return;
+                const cfg = await res.json();
+                if (!cfg.ok) return;
+                if (cfg.withdraw)  _SERVER_CONFIG.withdraw  = { ..._SERVER_CONFIG.withdraw,  ...cfg.withdraw  };
+                if (cfg.rewards)   _SERVER_CONFIG.rewards   = { ..._SERVER_CONFIG.rewards,   ...cfg.rewards   };
+                if (cfg.telegram)  _SERVER_CONFIG.telegram  = { ..._SERVER_CONFIG.telegram,  ...cfg.telegram  };
+                if (cfg.ads?.daily_limit) _SERVER_CONFIG.ads_daily_limit = cfg.ads.daily_limit;
+                if (cfg.rewards?.referral) _SERVER_CONFIG.pts_per_referral = cfg.rewards.referral;
+                _applyDynamicConfigToUI();
+                console.info('[CONFIG] ✅ Server config loaded:', cfg);
+            } catch (e) {
+                console.warn('[CONFIG] Failed:', e.message);
+            }
+        }
+
+        // ✅ تطبيق القيم الديناميكية على الـ UI
+        function _applyDynamicConfigToUI() {
+            const r = _SERVER_CONFIG.rewards || {};
+            // تحديث عناصر data-reward
+            const rewMap = {
+                'adsgram_task':      r.adsgram_task      || 30,
+                'telegram_task':     r.telegram_task     || 200,
+                'referral':          r.referral          || 100,
+                'daily_ads_10':      r.daily_ads_10      || 200,
+                'daily_ads_25':      r.daily_ads_25      || 300,
+                'daily_referrals_3': r.daily_referrals_3 || 1000,
+            };
+            Object.entries(rewMap).forEach(([key, val]) => {
+                document.querySelectorAll(`[data-reward="${key}"]`).forEach(el => {
+                    el.textContent = val.toLocaleString('en-US');
+                });
+            });
+            // رابط القناة
+            const ch = _SERVER_CONFIG.telegram?.channel_url || '';
+            if (ch) {
+                document.querySelectorAll('[data-channel-link]').forEach(el => { el.href = ch; });
+            }
+            // ADSGRAM_STATE.reward من السيرفر
+            ADSGRAM_STATE.reward = r.adsgram_task || ADSGRAM_STATE.reward;
+        }
+
+        // ✅ v5.0: Adsgram Persistent UI
+        function updateAdsgramUI() {
+            const st     = ADSGRAM_STATE;
+            const cardEl = document.getElementById('adsgram-task-card');
+            const doneEl = document.getElementById('adsgram-task-done');
+            const claimBtn = document.getElementById('adsgram-claim-btn');
+            const timerEl  = document.getElementById('adsgram-timer');
+
+            if (st._countdownTimer) { clearInterval(st._countdownTimer); st._countdownTimer = null; }
+
+            switch (st.status) {
+                case 'ready':
+                    if (cardEl) { cardEl.style.display = 'block'; cardEl.style.opacity = '1'; }
+                    if (doneEl) doneEl.style.display = 'none';
+                    if (claimBtn) claimBtn.style.display = 'none';
+                    if (timerEl) timerEl.style.display = 'none';
+                    break;
+                case 'watching':
+                    if (cardEl) { cardEl.style.display = 'block'; cardEl.style.opacity = '1'; }
+                    if (doneEl) doneEl.style.display = 'none';
+                    if (claimBtn) claimBtn.style.display = 'none';
+                    if (timerEl) { timerEl.style.display = 'block'; _startAdsgramCountdown(st.remaining_seconds); }
+                    break;
+                case 'cooldown':
+                    if (cardEl) cardEl.style.display = 'none';
+                    if (doneEl) { doneEl.style.display = 'block'; _renderAdsgramCooldown(st.remaining_seconds); }
+                    if (claimBtn) claimBtn.style.display = 'none';
+                    break;
+                case 'claim':
+                    if (cardEl) { cardEl.style.display = 'block'; cardEl.style.opacity = '1'; }
+                    if (doneEl) doneEl.style.display = 'none';
+                    if (timerEl) timerEl.style.display = 'none';
+                    if (claimBtn) {
+                        claimBtn.style.display = 'flex';
+                        claimBtn.textContent = `🎁 جمع +${st.reward} نقطة`;
+                        claimBtn.disabled = false;
+                        claimBtn.onclick = doClaimAdsgramTask;
+                    }
+                    break;
+                default: // completed / unknown
+                    if (cardEl) cardEl.style.display = 'none';
+                    if (claimBtn) claimBtn.style.display = 'none';
+                    if (doneEl) {
+                        doneEl.style.display = 'block';
+                        doneEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+                            <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,211,153,0.1);
+                                border:1px solid rgba(52,211,153,0.25);display:flex;align-items:center;
+                                justify-content:center;font-size:16px;flex-shrink:0;">✓</div>
+                            <div>
+                                <div style="font-size:13px;font-weight:800;color:rgba(52,211,153,0.85);">مهمة Adsgram مكتملة</div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">تعود غداً للمزيد</div>
+                            </div></div>`;
+                    }
+            }
+        }
+
+        function _startAdsgramCountdown(seconds) {
+            let s = Math.max(0, seconds);
+            const timerEl = document.getElementById('adsgram-timer');
+            if (!timerEl) return;
+            const total = ADSGRAM_STATE.remaining_seconds || seconds || 60;
+            const render = () => {
+                const pct = total > 0 ? Math.round(((total - s) / total) * 100) : 100;
+                timerEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                    <span style="font-size:11px;color:rgba(255,255,255,0.45);">جاري المشاهدة...</span>
+                    <span style="font-family:'DynaPuff';font-size:12px;color:#fbbf24;font-weight:700;">${s}s</span>
+                    </div>
+                    <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#fbbf24,#f59e0b);
+                            border-radius:3px;transition:width 1s linear;"></div>
+                    </div>`;
+            };
+            render();
+            ADSGRAM_STATE._countdownTimer = setInterval(() => {
+                s--;
+                if (s <= 0) {
+                    clearInterval(ADSGRAM_STATE._countdownTimer);
+                    ADSGRAM_STATE._countdownTimer = null;
+                    refreshAdsgramState();
+                } else { render(); }
+            }, 1000);
+        }
+
+        function _renderAdsgramCooldown(seconds) {
+            let s = Math.max(0, seconds);
+            const doneEl = document.getElementById('adsgram-task-done');
+            if (!doneEl) return;
+            const total = ADSGRAM_STATE.remaining_seconds || seconds || 60;
+            const render = () => {
+                const pct = total > 0 ? Math.round(((total - s) / total) * 100) : 100;
+                doneEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,211,153,0.1);
+                        border:1px solid rgba(52,211,153,0.22);display:flex;align-items:center;
+                        justify-content:center;font-size:15px;flex-shrink:0;">✓</div>
+                    <div style="flex:1;">
+                        <div style="font-size:13px;font-weight:800;color:rgba(52,211,153,0.85);">مهمة Adsgram مكتملة</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.4);">المهمة التالية خلال ${s}s</div>
+                    </div>
+                    <span style="font-family:'DynaPuff';font-size:12px;color:rgba(255,255,255,0.3);font-weight:700;">${s}s</span>
+                    </div>
+                    <div style="height:2px;background:rgba(52,211,153,0.07);border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:rgba(52,211,153,0.35);
+                            border-radius:3px;transition:width 1s linear;"></div>
+                    </div>`;
+            };
+            render();
+            ADSGRAM_STATE._countdownTimer = setInterval(() => {
+                s--;
+                if (s <= 0) {
+                    clearInterval(ADSGRAM_STATE._countdownTimer);
+                    ADSGRAM_STATE._countdownTimer = null;
+                    refreshAdsgramState();
+                } else { render(); }
+            }, 1000);
+        }
+
+        async function refreshAdsgramState() {
+            try {
+                const r = await fetchApi({ type: 'get_adsgram_state', data: {} });
+                if (r.ok && r.adsgram_task) {
+                    ADSGRAM_STATE = { ...ADSGRAM_STATE, ...r.adsgram_task };
+                    updateAdsgramUI();
+                }
+            } catch (_) {}
+        }
+
+        async function doClaimAdsgramTask() {
+            const btn = document.getElementById('adsgram-claim-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'جاري...'; }
+            const r = await fetchApi({ type: 'claim_adsgram_task', data: {} });
+            if (r.ok) {
+                animateBalance(USER_STATE.points, r.points, 1000);
+                USER_STATE.points = r.points;
+                showToast('coin', 'مهمة Adsgram ✓', `+${r.earned || ADSGRAM_STATE.reward} نقطة`, 'gold', `+${r.earned || ADSGRAM_STATE.reward}`);
+                if (r.adsgram_task) ADSGRAM_STATE = { ...ADSGRAM_STATE, ...r.adsgram_task };
+                updateAdsgramUI();
+            } else {
+                const e = r.error;
+                if (e === 'account_review')     showToast('coin', 'الحساب قيد المراجعة', '', 'red', '⚠️');
+                else if (e === 'task_too_fast') showToast('coin', 'شاهد المهمة كاملاً', '', 'red', '');
+                else if (e === 'cooldown_active' || e === 'already_claimed_today') { await refreshAdsgramState(); return; }
+                else showToast('coin', 'حدث خطأ', 'حاول مرة أخرى', 'red', '');
+                if (btn) { btn.disabled = false; btn.textContent = `🎁 جمع +${ADSGRAM_STATE.reward} نقطة`; }
+            }
+        }
+
+        // ✅ v5.0: claimDailyTask — جمع مكافأة المهمة اليومية
+        async function claimDailyTask(taskType, btnEl) {
+            if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'جاري...'; }
+            const nonceR = await fetchApi({ type: 'get_nonce', data: { action: `claim_daily_task_${taskType}` } });
+            if (!nonceR.ok || !nonceR.nonce) {
+                if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🎁 جمع المكافأة'; }
+                showToast('coin', 'حدث خطأ', 'حاول مرة أخرى', 'red', '');
+                return;
+            }
+            const r = await fetchApi({ type: 'claim_daily_task', data: { task_type: taskType }, _nonce: nonceR.nonce });
+            if (r.ok) {
+                animateBalance(USER_STATE.points, r.points, 800);
+                USER_STATE.points = r.points;
+                const reward = r.reward || 0;
+                showToast('trophy', 'تم جمع المكافأة! 🎉', `+${reward.toLocaleString('en-US')} نقطة`, 'gold', `+${reward}`);
+                if (btnEl) {
+                    btnEl.textContent = '✓ تم الاستلام';
+                    btnEl.style.background = 'rgba(52,211,153,0.12)';
+                    btnEl.style.color      = '#34d399';
+                    btnEl.style.border     = '1px solid rgba(52,211,153,0.25)';
+                    btnEl.onclick = null;
+                }
+            } else {
+                const e = r.error;
+                if (e === 'already_claimed_today') {
+                    if (btnEl) { btnEl.textContent = '✓ تم'; btnEl.disabled = true; }
+                } else if (e === 'task_not_completed_yet') {
+                    showToast('coin', 'أكمل المهمة أولاً', '', 'red', '');
+                    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🎁 جمع المكافأة'; }
+                } else {
+                    showToast('coin', 'حدث خطأ', 'حاول مرة أخرى', 'red', '');
+                    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🎁 جمع المكافأة'; }
+                }
+            }
+        }
         function openDepositSupport() {
             const msg = encodeURIComponent('مرحبا أريد إيداع داخل البوت');
             const url = 'https://t.me/YourSupportUsername?text=' + msg;
@@ -3887,45 +4205,30 @@
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
-            // ── 'start' event: يُطلَق عند بداية تشغيل المهمة ──────────
-            // نُسجّل وقت البداية في السيرفر عبر track_ad_event
+            // ✅ v5.0: start event — أخبر السيرفر ليبدأ adsgram_task_state في DB
             widget.addEventListener('start', async () => {
-                _taskStartedAt = Date.now();
-                // تسجيل وقت البداية في السيرفر (server-side timing enforcement)
                 try {
                     await fetchApi({
                         type: 'track_ad_event',
                         data: { event: 'ad_started', meta: { type: 'adsgram_task' } },
                     });
+                    // السيرفر يُنشئ الحالة — نُحدّث الـ UI
+                    await refreshAdsgramState();
                 } catch (_) {}
             });
 
-            // ── 'reward' event: يُطلَق عند اكتمال المهمة ──────────────
-            // السيرفر يتحقق أن 10s+ مرت من وقت البداية المُسجَّل
+            // ✅ v5.0: reward event — السيرفر هو المرجع — نُحدّث الحالة ونعرض زر claim أو cooldown
             widget.addEventListener('reward', async () => {
-                const result = await fetchApi({ type: 'claim_adsgram_task', data: {} });
-                if (result.ok) {
-                    animateBalance(USER_STATE.points, result.points, 1000);
-                    USER_STATE.points = result.points;
-                    showToast('coin', 'مهمة مكتملة ✓', '+70 نقطة', 'gold', '+70');
-                    _closeTaskCard();
-                } else {
-                    const e = result.error;
-                    if (e === 'already_claimed_today') {
-                        showToast('coin', 'أكملت هذه المهمة اليوم', '', 'red', '');
-                    } else if (e === 'task_too_fast') {
-                        // السيرفر رفض لأن المشاهدة كانت قصيرة جداً
-                        showToast('coin', 'شاهد المهمة كاملاً', 'يجب مشاهدة الإعلان حتى النهاية', 'red', '');
-                    } else {
-                        showToast('coin', 'حدث خطأ، حاول مرة أخرى', '', 'red', '');
-                    }
-                }
+                await refreshAdsgramState();
+                // updateAdsgramUI يُشغَّل تلقائياً داخل refreshAdsgramState
             });
 
-            widget.addEventListener('error', () => {
-                const outer = document.getElementById('adsgram-task-outer');
-                if (outer) outer.style.display = 'none';
+            widget.addEventListener('error', async () => {
+                await refreshAdsgramState();
             });
+
+            // تطبيق الحالة الأولية من ADSGRAM_STATE (محمّل من السيرفر)
+            updateAdsgramUI();
         }
 
         function _closeTaskCard() {
@@ -4696,8 +4999,8 @@
         function handleTelegramTask() {
             if (TASKS_STATE.tgVerified) return;
 
-            // Open channel — BACKEND: replace with real channel username
-            const channelUrl = 'https://t.me/YourChannelUsername';
+            // ✅ v5.0: رابط القناة من السيرفر — لا hardcoding
+            const channelUrl = _SERVER_CONFIG.telegram?.channel_url || 'https://t.me/RebhArabiChannel';
             if (window.Telegram && window.Telegram.WebApp) {
                 window.Telegram.WebApp.openTelegramLink(channelUrl);
             } else {
@@ -4752,7 +5055,7 @@
             if (doneOverlay) doneOverlay.style.display = 'block';
             if (card)        card.classList.add('completed');
 
-            showToast('trophy', 'انضممت للقناة! 🎉', '+2,500 نقطة أضيفت لرصيدك', 'gold', '+2,500');
+            showToast('trophy', 'انضممت للقناة! 🎉', `+${(result.reward || _SERVER_CONFIG.rewards?.telegram_task || 200).toLocaleString('en-US')} نقطة أضيفت لرصيدك`, 'gold', `+${result.reward || 200}`);
         }
 
         /* Daily tasks — update from AD_STATE */
@@ -4794,6 +5097,13 @@
                 icon.style.background = 'rgba(52,211,153,0.12)';
                 icon.style.border = '1px solid rgba(52,211,153,0.22)';
                 icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+            }
+            // ✅ v5.0: إظهار زر جمع المكافأة
+            const taskTypeMap = { 'dtask-ads10': 'ads10', 'dtask-ads25': 'ads25', 'dtask-invite3': 'invite3' };
+            const taskType = taskTypeMap[cardId];
+            if (taskType) {
+                const claimBtn = document.getElementById(`claim-btn-${taskType}`);
+                if (claimBtn) claimBtn.style.display = 'block';
             }
         }
 
@@ -4942,6 +5252,10 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             initTelegramUser();
+
+            // ✅ v5.0: تحميل Dynamic Config من السيرفر أولاً
+            await loadServerConfig();
+
             /* Create session right after TG init */
             await createSession();
             /* Load full state from server */
@@ -4957,7 +5271,37 @@
 
                 // ✅ config من السيرفر — يُستخدم في TON_CONFIG و openTonWithdraw
                 if (loadResult.config) {
-                    Object.assign(_SERVER_CONFIG, loadResult.config);
+                    // ✅ v5.0: دمج config الجديد مع _SERVER_CONFIG
+                    if (loadResult.config.rewards)  _SERVER_CONFIG.rewards  = { ..._SERVER_CONFIG.rewards,  ...loadResult.config.rewards  };
+                    if (loadResult.config.telegram) _SERVER_CONFIG.telegram = { ..._SERVER_CONFIG.telegram, ...loadResult.config.telegram };
+                    if (loadResult.config.ads_daily_limit) _SERVER_CONFIG.ads_daily_limit = loadResult.config.ads_daily_limit;
+                    if (loadResult.config.pts_per_ton)     _SERVER_CONFIG.pts_per_ton     = loadResult.config.pts_per_ton;
+                    // تحديث عناصر الـ UI من config الديناميكي
+                    _applyDynamicConfigToUI();
+                }
+
+                // ✅ v5.0: First Withdraw
+                if (loadResult.first_withdraw_done !== undefined) {
+                    USER_STATE.first_withdraw_done = !!loadResult.first_withdraw_done;
+                }
+                if (loadResult.withdraw) {
+                    if (loadResult.withdraw.withdraw_min !== undefined) {
+                        _SERVER_CONFIG.withdraw_min_pts   = loadResult.withdraw.withdraw_min;
+                        _SERVER_CONFIG.withdraw_min_level = loadResult.withdraw.withdraw_level || 0;
+                    }
+                }
+
+                // ✅ v5.0: USDT Balance
+                if (loadResult.usdt_balance !== undefined) {
+                    USER_STATE.usdt_balance = parseFloat(loadResult.usdt_balance) || 0;
+                    const usdtEl = document.getElementById('uc-usdt-val');
+                    if (usdtEl) usdtEl.textContent = USER_STATE.usdt_balance.toFixed(2);
+                }
+
+                // ✅ v5.0: Adsgram persistent state
+                if (loadResult.adsgram_task) {
+                    ADSGRAM_STATE = { ...ADSGRAM_STATE, ...loadResult.adsgram_task };
+                    updateAdsgramUI();
                 }
 
                 // ✅ Ads state من السيرفر
@@ -5113,6 +5457,15 @@
                     }
 
                     if (state.level !== undefined) USER_STATE.level = state.level;
+
+                    // ✅ v5.0: First Withdraw sync
+                    if (state.first_withdraw_done !== undefined) {
+                        USER_STATE.first_withdraw_done = !!state.first_withdraw_done;
+                    }
+                    if (state.withdraw?.withdraw_min) {
+                        _SERVER_CONFIG.withdraw_min_pts   = state.withdraw.withdraw_min;
+                        _SERVER_CONFIG.withdraw_min_level = state.withdraw.withdraw_level || 0;
+                    }
 
                     // ── Referral stats ────────────────────────────────
                     if (state.total_referrals !== undefined) {
@@ -5320,7 +5673,7 @@
                 { bg: 'linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.05))',border: 'rgba(251,191,36,0.2)',  color: 'var(--gold)'   },
                 { bg: 'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.05))',border: 'rgba(52,211,153,0.2)',  color: 'var(--green)'  },
             ];
-            const pts = _SERVER_CONFIG.pts_per_referral || 500;
+            const pts = _SERVER_CONFIG.pts_per_referral || _SERVER_CONFIG.rewards?.referral || 100;
 
             if (!list.length) return; // keep empty state
 
@@ -5482,28 +5835,34 @@
         /* ══════════════════════════════════════════
            TON WITHDRAW LOGIC
         ══════════════════════════════════════════ */
-        // ✅ TON_CONFIG يُشتق من _SERVER_CONFIG القادم من السيرفر — لا hardcoding
+        // ✅ v5.0: TON_CONFIG يشتق من _SERVER_CONFIG + first_withdraw logic
         const TON_CONFIG = new Proxy({}, {
             get(_, k) {
-                if (k === 'minPts')    return _SERVER_CONFIG.withdraw_min_pts   || 50000;
-                if (k === 'minLevel')  return _SERVER_CONFIG.withdraw_min_level || 5;
-                if (k === 'ptsPerTon') return _SERVER_CONFIG.pts_per_ton        || 100000;
+                const isFirst = !USER_STATE.first_withdraw_done;
+                if (k === 'minPts')    return isFirst
+                    ? (_SERVER_CONFIG.withdraw?.first_min  || 3000)
+                    : (_SERVER_CONFIG.withdraw?.normal_min || 20000);
+                if (k === 'minLevel')  return isFirst ? 0 : (_SERVER_CONFIG.withdraw?.normal_level || 5);
+                if (k === 'ptsPerTon') return _SERVER_CONFIG.pts_per_ton || 100000;
+                if (k === 'isFirst')   return isFirst;
             }
         });
 
-        // ✅ قيم ابتدائية صفر — تُحدَّث من السيرفر عند load
+        // ✅ v5.0: USER_STATE — يتضمن first_withdraw_done + usdt_balance
         const USER_STATE = {
-            points: 0,
-            level:  1,
+            points:              0,
+            level:               1,
+            usdt_balance:        0,
+            first_withdraw_done: false,
         };
 
-        // ✅ config يأتي من السيرفر — لا قيم hardcoded
-        let _SERVER_CONFIG = {
-            withdraw_min_pts:   50000,
-            withdraw_min_level: 5,
-            pts_per_ton:        100000,
-            pts_per_referral:   500,
-            ads_daily_limit:    10,
+        // ✅ v5.0: ADSGRAM_STATE — Persistent من السيرفر
+        let ADSGRAM_STATE = {
+            status:           'ready',
+            remaining_seconds: 0,
+            reward:           30,
+            claimed:          false,
+            _countdownTimer:  null,
         };
 
         function openTonWithdraw() {
@@ -5525,8 +5884,24 @@
             const tonEquiv = (USER_STATE.points / TON_CONFIG.ptsPerTon).toFixed(3);
             equivEl.textContent = '≈ ' + tonEquiv + ' TON';
 
-            // Check level
-            const hasLevel = USER_STATE.level >= TON_CONFIG.minLevel;
+            // ✅ v5.0: First Withdraw offer banner
+            const firstOfferEl = document.getElementById('first-withdraw-offer-banner');
+            const normalInfoEl = document.getElementById('normal-withdraw-info-banner');
+            const minPtsEl     = document.getElementById('ton-min-pts-display');
+            const minLvlEl     = document.getElementById('ton-min-level-display');
+
+            if (TON_CONFIG.isFirst) {
+                if (firstOfferEl) firstOfferEl.style.display = 'block';
+                if (normalInfoEl) normalInfoEl.style.display = 'none';
+            } else {
+                if (firstOfferEl) firstOfferEl.style.display = 'none';
+                if (normalInfoEl) normalInfoEl.style.display = 'block';
+            }
+            if (minPtsEl)  minPtsEl.textContent  = TON_CONFIG.minPts.toLocaleString('en-US');
+            if (minLvlEl)  minLvlEl.textContent  = TON_CONFIG.minLevel;
+
+            // Check level + balance
+            const hasLevel = TON_CONFIG.isFirst ? true : (USER_STATE.level >= TON_CONFIG.minLevel);
             const hasPts   = USER_STATE.points >= TON_CONFIG.minPts;
 
             levelWarn.style.display = 'none';
