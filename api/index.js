@@ -34,9 +34,34 @@ async function sql(query, params = []) {
 
 // ── Environment ───────────────────────────────────────────────────
 const BOT_TOKEN    = process.env.BOT_TOKEN    || '';
+const CHANNEL_ID   = process.env.CHANNEL_ID   || '';   // e.g. "@botbababab" or "-100123456789"
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-me-in-env';
 const IP_SALT      = process.env.IP_SALT      || 'rebh_ip_salt_2025';
 const IS_DEV       = process.env.NODE_ENV !== 'production';
+
+// ── Telegram Bot API: check channel membership ───────────────────
+async function checkTelegramMembership(telegramUserId) {
+  if (!BOT_TOKEN || !CHANNEL_ID) {
+    // إذا لم يُضبط BOT_TOKEN أو CHANNEL_ID → نتجاوز الفحص (dev mode)
+    console.warn('[TG_MEMBER] BOT_TOKEN or CHANNEL_ID not set — skipping check');
+    return { ok: true, skipped: true };
+  }
+  try {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(CHANNEL_ID)}&user_id=${telegramUserId}`;
+    const res  = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5000) });
+    const json = await res.json();
+    if (!json.ok) {
+      console.warn('[TG_MEMBER] API error:', json.description);
+      return { ok: false, reason: json.description || 'api_error' };
+    }
+    const status = json.result?.status; // member | administrator | creator | left | kicked | restricted
+    const isMember = ['member', 'administrator', 'creator'].includes(status);
+    return { ok: isMember, status };
+  } catch (err) {
+    console.error('[TG_MEMBER] fetch error:', err.message);
+    return { ok: false, reason: 'network_error' };
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // DYNAMIC CONFIG — Single source of truth
@@ -1602,14 +1627,23 @@ async function handleVerifyTgTask(userId, rawNonce, sessionId, fpHash, ipHash) {
   const result = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'verify_tg_task');
   if (result !== 'ok') return { ok: false, error: result };
 
-  const uCheck = (await sql(`SELECT is_shadow_banned FROM users WHERE id=$1`, [userId]))[0];
-  if (uCheck?.is_shadow_banned) {
+  const uCheck = (await sql(`SELECT is_shadow_banned, tg_id, tg_verified FROM users WHERE id=$1`, [userId]))[0];
+  if (!uCheck) return { ok: false, error: 'user_not_found' };
+  if (uCheck.is_shadow_banned) {
     logShadow('tg_task_blocked', userId, {});
     return { ok: false, error: 'account_review' };
   }
+  if (uCheck.tg_verified) return { ok: false, error: 'already_verified' };
 
-  const r = await sql(`SELECT tg_verified FROM users WHERE id=$1`, [userId]);
-  if (r[0]?.tg_verified) return { ok: false, error: 'already_verified' };
+  // ── فحص العضوية الفعلي عبر Bot API ─────────────────────────────
+  const telegramId = uCheck.tg_id;
+  if (telegramId && !IS_DEV) {
+    const membership = await checkTelegramMembership(telegramId);
+    if (!membership.ok && !membership.skipped) {
+      console.warn(`[VERIFY_TG] user ${userId} not in channel — status: ${membership.status}`);
+      return { ok: false, error: 'not_in_channel' };
+    }
+  }
 
   const reward = CONFIG.rewards.telegram_task;
   await sql(
