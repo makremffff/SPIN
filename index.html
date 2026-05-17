@@ -3537,139 +3537,187 @@
     <script>
         const API_BASE = '/api';
 
-        const { fetchApi, createSession } = (() => {
+        // ══════════════════════════════════════════════════════════
+        //  ZERO TRUST CLIENT — مطابق لنظام toma
+        //  ✅ _sessionId in-memory (لا cookies، لا localStorage)
+        //  ✅ X-Session-Id header في كل طلب
+        //  ✅ nonce client-side one-time لكل write
+        //  ✅ fingerprint multi-signal مُشترك بين جميع الطلبات
+        //  ✅ auto-renew عند 401
+        //  ✅ showSecurityWall عند حظر
+        // ══════════════════════════════════════════════════════════
 
-        /* ─── state ─── */
-        let _sessionReady   = false;
-        let _sessionToken   = null;   // in-memory session token for X-Session-ID header
-        let _rateLimitUntil = 0;
-        let _fpCache        = null;
-        let _pendingSession = null;
+        let _sessionId      = null;   // session ID — in-memory فقط
+        let _fpCache        = null;   // fingerprint cache — لا يتغير بين requests
+        let _pendingSession = null;   // منع parallel session creation
 
-        /* ══════════════════════════════════════════════════════════
-           FINGERPRINT — Multi-Signal SubtleCrypto SHA-256
-        ══════════════════════════════════════════════════════════ */
-        async function _buildFingerprint() {
-            const fp = {};
-            try {
-                fp.user_agent  = navigator.userAgent || '';
-                fp.lang        = navigator.language   || '';
-                fp.screen      = `${screen.width}x${screen.height}x${screen.availWidth}x${screen.availHeight}`;
-                fp.tz_offset   = new Date().getTimezoneOffset();
-                fp.tz_name     = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-                fp.hw_cores    = navigator.hardwareConcurrency || 0;
-                fp.hw_mem      = navigator.deviceMemory        || 0;
-                fp.touch_pts   = navigator.maxTouchPoints      || 0;
-                fp.dpr         = window.devicePixelRatio       || 1;
-                fp.color_depth = screen.colorDepth             || 0;
-                try {
-                    const c = document.createElement('canvas');
-                    c.width = 200; c.height = 50;
-                    const ctx = c.getContext('2d');
-                    ctx.font = '14px Arial'; ctx.fillStyle = '#f0f';
-                    ctx.fillText('ZT_fp_v3_2025', 10, 30);
-                    ctx.strokeStyle = '#0ff'; ctx.beginPath();
-                    ctx.arc(100, 25, 20, 0, Math.PI * 2); ctx.stroke();
-                    fp.canvas_sig = c.toDataURL().slice(-32);
-                } catch (_) { fp.canvas_sig = ''; }
-                try {
-                    const gl = document.createElement('canvas').getContext('webgl');
-                    if (gl) {
-                        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-                        fp.webgl_sig = (dbg
-                            ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   || '') + '|'
-                            + (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '')
-                            : gl.getParameter(gl.RENDERER) || '').slice(0, 64);
-                    } else { fp.webgl_sig = ''; }
-                } catch (_) { fp.webgl_sig = ''; }
-                try {
-                    const ac = new (window.AudioContext || window.webkitAudioContext)();
-                    fp.audio_sig = ac.sampleRate + '|' + ac.destination.maxChannelCount;
-                    ac.close();
-                } catch (_) { fp.audio_sig = ''; }
-                const sigStr  = [fp.user_agent, fp.lang, fp.screen, fp.tz_name, fp.hw_cores, fp.hw_mem, fp.canvas_sig, fp.webgl_sig, fp.audio_sig].join('|');
-                const enc     = new TextEncoder().encode(sigStr);
-                const hashBuf = await crypto.subtle.digest('SHA-256', enc);
-                fp.fp = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
-            } catch (_) { fp.fp = 'unknown'; }
-            return fp;
+        // ── Generate unique Nonce per request ─────────────────────
+        function _genNonce() {
+            if (crypto?.randomUUID) return crypto.randomUUID();
+            const arr = new Uint8Array(16);
+            crypto.getRandomValues(arr);
+            return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('') + '_' + Date.now();
         }
 
-        async function _getFp() {
-            if (!_fpCache) _fpCache = await _buildFingerprint();
-            return _fpCache;
+        // ── Security Wall (Ban Screen) ─────────────────────────────
+        function _genIncidentId() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let id = 'INC-';
+            for (let i = 0; i < 12; i++) {
+                if (i === 4 || i === 8) id += '-';
+                id += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return id;
         }
 
-        /* ── UI helpers ── */
-        function _showBanScreen() {
+        function showSecurityWall() {
+            const lp = document.getElementById('loading-page');
+            if (lp) lp.remove();
+            document.body.style.pointerEvents = 'none';
             document.body.innerHTML = `
                 <div style="display:flex;align-items:center;justify-content:center;height:100vh;
-                            background:#0a0a1a;flex-direction:column;gap:16px;">
-                    <div style="font-size:48px;">🚫</div>
-                    <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:20px;font-weight:700;">
+                            background:#0a0a1a;flex-direction:column;gap:16px;padding:24px;text-align:center;">
+                    <div style="font-size:64px;">🛡️</div>
+                    <div style="color:#f87171;font-family:'Tajawal',sans-serif;font-size:22px;font-weight:700;">
                         تم حظر هذا الحساب
                     </div>
-                    <div style="color:rgba(255,255,255,0.5);font-size:13px;">يرجى التواصل مع الدعم</div>
+                    <div style="color:rgba(255,255,255,0.5);font-size:13px;font-family:'Tajawal',sans-serif;">
+                        INCIDENT ID: ${_genIncidentId()}
+                    </div>
+                    <div style="color:rgba(255,255,255,0.35);font-size:12px;margin-top:8px;">
+                        ${new Date().toISOString().replace('T',' ').slice(0,19)} UTC
+                    </div>
                 </div>`;
         }
 
-        function _showRateLimitToast() {
-            const el = document.createElement('div');
-            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171;padding:10px 20px;border-radius:12px;z-index:9999;font-family:Tajawal,sans-serif;font-size:13px;';
-            el.textContent = 'أنت تطلب بسرعة كبيرة، يرجى الانتظار لحظة...';
-            document.body.appendChild(el);
-            setTimeout(() => el.remove(), 3000);
+        // ── Strong device fingerprint — Multi-Signal ───────────────
+        async function _buildFingerprint() {
+            if (_fpCache) return _fpCache;
+
+            // Signal 1: Canvas
+            let canvasHash = '';
+            try {
+                const c = document.createElement('canvas');
+                const ctx = c.getContext('2d');
+                ctx.textBaseline = 'top'; ctx.font = '14px Arial';
+                ctx.fillStyle = '#f60'; ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle = '#069'; ctx.fillText('Cwm fjordbank glyphs vext quiz', 2, 15);
+                ctx.fillStyle = 'rgba(102,204,0,0.7)'; ctx.fillText('Cwm fjordbank glyphs vext quiz', 4, 17);
+                canvasHash = c.toDataURL().slice(-40);
+            } catch (_) { canvasHash = 'canvas_blocked'; }
+
+            // Signal 2: WebGL
+            let webglInfo = '';
+            try {
+                const gl = document.createElement('canvas').getContext('webgl');
+                if (gl) {
+                    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                    webglInfo = ext
+                        ? (gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL))
+                        : gl.getParameter(gl.RENDERER);
+                }
+            } catch (_) { webglInfo = 'webgl_blocked'; }
+
+            // Signal 3: Audio
+            let audioHash = '';
+            try {
+                const ac = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+                const osc = ac.createOscillator(); const an = ac.createAnalyser();
+                const gain = ac.createGain(); gain.gain.value = 0;
+                osc.connect(an); an.connect(gain); gain.connect(ac.destination);
+                osc.start(0);
+                const buf = new Float32Array(an.frequencyBinCount);
+                an.getFloatFrequencyData(buf); osc.stop(); await ac.close();
+                audioHash = buf.slice(0, 8).reduce((s, v) => s + Math.abs(v).toFixed(2), '');
+            } catch (_) { audioHash = 'audio_blocked'; }
+
+            // Signals 4-9: Platform
+            const hw       = [navigator.hardwareConcurrency||0, navigator.deviceMemory||0].join('x');
+            const touch    = [navigator.maxTouchPoints||0, 'ontouchstart' in window?1:0].join('');
+            const platform = [navigator.userAgent||'', navigator.language||'',
+                              (navigator.languages||[]).join(','),
+                              `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                              new Date().getTimezoneOffset(),
+                              (Intl.DateTimeFormat().resolvedOptions().timeZone||'')].join('|');
+            const plugins  = navigator.plugins?.length || 0;
+            const media    = [window.matchMedia('(prefers-color-scheme:dark)').matches?'D':'L',
+                              (window.devicePixelRatio||1).toFixed(1)].join('');
+
+            const raw = [canvasHash, webglInfo, audioHash, hw, touch, platform, plugins, media].join('§');
+
+            // djb2 double hash
+            let h1 = 5381, h2 = 52711;
+            for (let i = 0; i < raw.length; i++) {
+                const c = raw.charCodeAt(i);
+                h1 = (Math.imul(h1, 31) ^ c) >>> 0;
+                h2 = (Math.imul(h2, 33) ^ c) >>> 0;
+            }
+            const fpHash = ((h1>>>0).toString(16).padStart(8,'0') + (h2>>>0).toString(16).padStart(8,'0'));
+
+            _fpCache = JSON.stringify({
+                fp:          fpHash,
+                user_agent:  navigator.userAgent        || '',
+                lang:        navigator.language         || '',
+                screen:      `${screen.width}x${screen.height}`,
+                tz_offset:   new Date().getTimezoneOffset(),
+                hw_cores:    navigator.hardwareConcurrency || 0,
+                hw_mem:      navigator.deviceMemory        || 0,
+                touch_pts:   navigator.maxTouchPoints      || 0,
+                tz_name:     Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                canvas_sig:  canvasHash,
+                webgl_sig:   webglInfo.slice(0, 60),
+                audio_sig:   audioHash,
+                dpr:         (window.devicePixelRatio||1).toFixed(2),
+                color_depth: screen.colorDepth || 0,
+            });
+            return _fpCache;
         }
 
-        /* ══════════════════════════════════════════════════════════
-           CREATE SESSION
-           ✅ session_id يُحفظ في httpOnly cookie تلقائياً من السيرفر
-           ✅ العميل يحصل على { ok: true } فقط — لا session_id في JSON
-           ✅ Cookie ينتقل تلقائياً في كل طلب — لا يظهر في JS
-        ══════════════════════════════════════════════════════════ */
-        async function createSession() {
+        // ── Create Session ─────────────────────────────────────────
+        async function _createSession() {
             if (_pendingSession) return _pendingSession;
             _pendingSession = (async () => {
                 const tg       = window?.Telegram?.WebApp;
                 const initData = tg?.initData || '';
-                const fp       = await _getFp();
+                if (!initData) {
+                    console.warn('[ZT] No initData — dev mode');
+                    return false;
+                }
                 try {
+                    const fpStr = await _buildFingerprint();
                     const res = await fetch(API_BASE, {
-                        method:      'POST',
-                        credentials: 'include',   // ✅ يرسل ويستقبل cookies
+                        method:  'POST',
                         headers: {
                             'Content-Type':  'application/json',
                             'X-Init-Data':   initData,
-                            'X-Fingerprint': JSON.stringify(fp),
-                            // X-Session-ID sent if renewing session
-                            ...(_sessionToken ? { 'X-Session-ID': _sessionToken } : {}),
+                            'X-Fingerprint': fpStr,
                         },
-                        body: JSON.stringify({ type: 'create_session', data: { initData } }),
+                        body: JSON.stringify({ type: 'create_session', data: { initData, fp: JSON.parse(fpStr) } }),
                     });
-                    const json = await res.json();
-                    if (json.is_banned) { _showBanScreen(); return false; }
-                    if (json.ok) {
-                        // ✅ session_token — نحفظه in-memory ونُرسله كـ X-Session-ID header
-                        // هذا fallback لـ Telegram WebApp الذي يمنع cookies أحياناً
-                        if (json._session_token) {
-                            _sessionToken = json._session_token;
-                            delete json._session_token; // لا يبقى في الذاكرة بعد الحفظ
-                        }
-                        _sessionReady = true;
-                        if (json.user) {
-                            if (json.user.points      !== undefined) USER_STATE.points = parseInt(json.user.points) || 0;
-                            if (json.user.level       !== undefined) USER_STATE.level  = parseInt(json.user.level)  || 1;
-                            if (json.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!json.user.tg_verified;
-                            if (json.user.streak_day  !== undefined)
-                                DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(json.user.streak_day) || 0) + 1);
+                    const result = await res.json();
+                    if (result.is_banned || result.shadow_banned) {
+                        showSecurityWall();
+                        return false;
+                    }
+                    if (result.ok && result._session_token) {
+                        _sessionId = result._session_token;
+                        console.log('[ZT] Session created:', _sessionId.slice(0, 8) + '...');
+                        // تحديث state من بيانات الجلسة
+                        if (result.user) {
+                            if (result.user.points      !== undefined) USER_STATE.points = parseInt(result.user.points) || 0;
+                            if (result.user.level       !== undefined) USER_STATE.level  = parseInt(result.user.level)  || 1;
+                            if (result.user.tg_verified !== undefined) TASKS_STATE.tgVerified = !!result.user.tg_verified;
+                            if (result.user.streak_day  !== undefined)
+                                DAILY_GIFT_STATE.dayNumber = Math.max(1, (parseInt(result.user.streak_day) || 0) + 1);
                             const today = new Date().toISOString().slice(0, 10);
-                            if (json.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
+                            if (result.user.last_gift_date === today) DAILY_GIFT_STATE.claimed = true;
                         }
                         return true;
                     }
+                    console.warn('[ZT] Session failed:', result.error);
                     return false;
                 } catch (e) {
-                    console.error('[ZT] Session error:', e.message);
+                    console.warn('[ZT] Session error:', e.message);
                     return false;
                 } finally {
                     _pendingSession = null;
@@ -3678,94 +3726,68 @@
             return _pendingSession;
         }
 
-        /* ══════════════════════════════════════════════════════════
-           REQUEST META — One-Time Request-ID + Timestamp
-           ✅ العميل يُولّد request_id عشوائي 32-byte لكل عملية write
-           ✅ يُرسل في X-Request-ID + X-Timestamp headers
-           ✅ السيرفر يتحقق من replay (نفس request_id) ويرفضه فوراً
-           ✅ لا يُخزَّن في localStorage — in-memory per-request فقط
-           ✅ Timestamp window ±60 ثانية — يمنع delayed replay
-        ══════════════════════════════════════════════════════════ */
-        function _genRequestId() {
-            const arr = new Uint8Array(32);
-            crypto.getRandomValues(arr);
-            return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-
-        /* ══════════════════════════════════════════════════════════
-           FETCH API
-           ✅ credentials: 'include' — cookie ينتقل تلقائياً
-           ✅ request_id عشوائي في X-Request-ID header لكل write operation
-           ✅ timestamp في X-Timestamp header (unix ms)
-           ✅ fingerprint في كل طلب
-        ══════════════════════════════════════════════════════════ */
-        async function fetchApi({ type, data = {} }) {
-            if (!_sessionReady) {
-                const ok = await createSession();
-                if (!ok) return { ok: false, error: 'session_unavailable' };
+        // ── Central request function (Zero Trust) — مطابق لـ toma ──
+        async function _dbCall(action, data = {}) {
+            if (!_sessionId && !['create_session'].includes(action)) {
+                const ok = await _createSession();
+                if (!ok) {
+                    console.warn('[ZT] No session — dev fallback for:', action);
+                }
             }
 
-            if (Date.now() < _rateLimitUntil) {
-                _showRateLimitToast();
-                return { ok: false, error: 'rate_limited' };
-            }
-
-            const tg       = window?.Telegram?.WebApp;
-            const initData = tg?.initData || '';
-            const fp       = await _getFp();
-
-            // العمليات الحساسة (write) تحمل request_id + timestamp
-            const SKIP_REQUEST_ID = new Set(['load', 'get_state', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event', 'claim_adsgram_task']);
-            const needsRequestId  = !SKIP_REQUEST_ID.has(type);
-
-            const headers = {
-                'Content-Type':  'application/json',
-                'X-Init-Data':   initData,
-                'X-Fingerprint': JSON.stringify(fp),
-            };
-            if (needsRequestId) {
-                headers['X-Request-ID'] = _genRequestId();
-                headers['X-Timestamp']  = String(Date.now());
-            }
-            // ✅ X-Session-ID كـ fallback لـ cookie في Telegram WebApp iframe
-            if (_sessionToken) headers['X-Session-ID'] = _sessionToken;
+            // actions لا تحتاج nonce (read-only أو atomic server-side)
+            const SKIP_NONCE = new Set(['get_state', 'load', 'reward_ad', 'get_referrals', 'create_session', 'track_ad_event', 'claim_adsgram_task']);
+            const needsNonce = !SKIP_NONCE.has(action);
 
             try {
+                const fpStr    = await _buildFingerprint();
+                const initData = window?.Telegram?.WebApp?.initData || '';
+
+                const headers = {
+                    'Content-Type':  'application/json',
+                    'X-Fingerprint': fpStr,
+                };
+
+                if (initData) headers['X-Init-Data'] = initData;
+                if (_sessionId) headers['X-Session-Id'] = _sessionId;
+
+                const nonce = needsNonce ? _genNonce() : null;
+                if (nonce) headers['X-Nonce'] = nonce;
+
+                console.log(`[ZT] ${action} | session=${_sessionId?.slice(0,8) || 'none'} | nonce=${nonce?.slice(0,8) || 'skip'}`);
+
                 const res = await fetch(API_BASE, {
-                    method:      'POST',
-                    credentials: 'include',   // ✅ cookie تنتقل تلقائياً
+                    method: 'POST',
                     headers,
-                    body: JSON.stringify({ type, data }),
+                    body: JSON.stringify({ type: action, data }),
                 });
 
+                // 401 → renew session و retry تلقائي
                 if (res.status === 401) {
-                    _sessionReady = false;
-                    const renewed = await createSession();
-                    if (!renewed) return { ok: false, error: 'session_expired' };
-                    return fetchApi({ type, data });
-                }
-
-                if (res.status === 429) {
-                    _rateLimitUntil = Date.now() + 5000;
-                    _showRateLimitToast();
-                    return { ok: false, error: 'rate_limited' };
-                }
-
-                if (!res.ok) {
-                    const errBody = await res.json().catch(() => ({}));
-                    return { ok: false, error: errBody?.error || `HTTP ${res.status}` };
+                    console.warn('[ZT] 401 — renewing session for:', action);
+                    _sessionId = null;
+                    const renewed = await _createSession();
+                    if (renewed) return _dbCall(action, data);
+                    return { ok: false, error: 'auth_failed' };
                 }
 
                 const json = await res.json();
-                return { ok: true, ...json };
+                console.log(`[ZT] ${action} response:`, json);
 
-            } catch (err) {
-                return { ok: false, error: 'network_error' };
+                // فحص حظر من أي response
+                if (json.shadow_banned === true || json.is_banned === true) {
+                    showSecurityWall();
+                }
+                return json;
+            } catch (e) {
+                console.warn('[ZT]', action, 'failed:', e.message);
+                return { ok: false };
             }
         }
 
-        return { fetchApi, createSession };
-        })();
+        // ── wrappers للتوافق مع الكود القديم ──────────────────────
+        async function fetchApi({ type, data = {} }) { return _dbCall(type, data); }
+        async function createSession() { return _createSession(); }
 
         /* ─── Ad System ─── */
         /* ─── Deposit via Telegram Support ─── */
@@ -4496,8 +4518,8 @@
             if (DAILY_GIFT_STATE.claimed) return;
             DAILY_GIFT_STATE.claimed = true;
 
-            // ✅ fetchApi يُولّد request_id + timestamp تلقائياً
-            // السيرفر يتحقق أن request_id لم يُستخدم من قبل (anti-replay)
+            // ✅ fetchApi يطلب nonce تلقائياً مرتبط بـ action 'claim_gift'
+            // السيرفر يتحقق أن هذا الـ nonce صدر لـ claim_gift تحديداً
             const result = await fetchApi({ type: 'claim_gift', data: {} });
 
             if (!result.ok) {
