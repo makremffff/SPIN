@@ -86,7 +86,7 @@ const CONFIG = Object.freeze({
     channel_url: 'https://t.me/botbababab',
   },
   ads: {
-    daily_limit:       12,
+    daily_limit:       22,
     cooldown_ms:       30 * 1000,
     min_duration_ms:   14 * 1000,
   },
@@ -1927,21 +1927,14 @@ async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
   const ad_type = body?.data?.ad_type || 'daily_ad'; // 'adsgram_task' | 'daily_ad'
   if (!allowed.has(event)) return { ok: false, error: 'unknown_event' };
 
-  if (event === 'ad_started') {
+  if (event === 'ad_started' && ad_type !== 'adsgram_task') {
     await sql(`UPDATE sessions SET ad_started_at=NOW() WHERE id=$1`, [sessionId]);
   }
 
-  // ── فصل تام: adsgram_task يُحدّث adsgram_started_at، daily_ad يُحدّث ad_started_at فقط
+  // ── فصل تام: adsgram_task يُحدّث session فقط، start_adsgram_task هو المصدر الحقيقي لـ users
   if (event === 'ad_started' && ad_type === 'adsgram_task') {
     await sql(`UPDATE sessions SET adsgram_task_started_at=NOW() WHERE id=$1`, [sessionId]);
-    // Also update users table directly — used by handleStartAdsgramTask as backup
-    await sql(
-      `UPDATE users SET adsgram_started_at=NOW(), adsgram_status='watching',
-       adsgram_expires_at=NOW() + INTERVAL '${Math.ceil(CFG.ADSGRAM_TASK_MIN_WATCH_MS / 1000)} seconds',
-       adsgram_completed=FALSE, updated_at=NOW()
-       WHERE id=$1 AND (adsgram_status != 'watching' OR adsgram_expires_at < NOW())`,
-      [userId]
-    );
+    // لا نُحدّث users هنا — start_adsgram_task يفعل ذلك قبل widget.show()
   }
 
   if (event === 'suspicious_activity') {
