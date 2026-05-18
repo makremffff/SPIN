@@ -3509,7 +3509,7 @@
         // ══════════════════════════════════════════════════════════
         let APP_CONFIG = {
             withdraw:  { first_min: 3000, normal_min: 20000, normal_level: 5 },
-            rewards:   { referral: 100, telegram_task: 200, adsgram_task: 30,
+            rewards:   { referral: 100, telegram_task: 200, adsgram_task: 50,
                          daily_ads_10: 200, daily_ads_25: 300, daily_referrals_3: 1000,
                          points_per_ad: 50 },
             telegram:  { channel_url: 'https://t.me/botbababab' },
@@ -4115,18 +4115,34 @@
         // ✅ Claim Adsgram reward — calls server for verification
         async function claimAdsgramTaskReward() {
             // claim_adsgram_task يحتاج task_nonce صادر من start_adsgram_task
-            const nonce = window._adsgramTaskNonce || null;
+            let nonce = window._adsgramTaskNonce || null;
+
+            // إذا لم يكن nonce موجوداً (مثلاً بعد refresh) → استدعي start_adsgram_task من جديد
             if (!nonce) {
-                console.error('[AdsgramTask] no task_nonce — cannot claim');
-                showToast('coin', 'ابدأ المهمة أولاً', '', 'red', '');
+                console.warn('[AdsgramTask] no task_nonce — calling start_adsgram_task to get nonce');
+                try {
+                    const startRes = await _dbCall('start_adsgram_task', {});
+                    if (startRes.ok || startRes.already_watching) {
+                        nonce = startRes.task_nonce || null;
+                        window._adsgramTaskNonce = nonce;
+                    }
+                } catch (_) {}
+            }
+
+            if (!nonce) {
+                console.error('[AdsgramTask] still no task_nonce after retry');
+                showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
                 return;
             }
+
             const result = await _dbCall('claim_adsgram_task', {}, nonce);
             if (result.ok) {
+                window._adsgramTaskNonce = null; // استُهلك الـ nonce
                 animateBalance(USER_STATE.points, result.points, 1000);
                 USER_STATE.points = result.points;
-                const r = result.earned || APP_CONFIG.rewards.adsgram_task || 30;
-                showToast('coin', 'مهمة Adsgram مكتملة ✓', `+${r} نقطة`, 'gold', `+${r}`);
+                const r = result.earned || APP_CONFIG?.rewards?.adsgram_task || 50;
+                showToast('trophy', `ربحت ${r.toLocaleString('ar-EG')} نقطة! 🎉`,
+                    'مهمة Adsgram مكتملة ✓', 'gold', `+${r}`);
                 // Update UI to cooldown or completed
                 if (result.adsgram_task) {
                     _syncAdsgramStateFromServer(result.adsgram_task);
@@ -4412,18 +4428,8 @@
                 await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _adWatchStartedAt });
 
                 successCount++;
-
-                if (AD_STATE.remaining > 0) {
-                    AD_STATE.remaining--;
-                    AD_STATE.watchedToday++;
-                    const elRem      = document.getElementById('ads-remaining');
-                    const elWatched  = document.getElementById('ads-watched');
-                    const elProgress = document.getElementById('ads-progress');
-                    if (elRem)      elRem.textContent = AD_STATE.remaining;
-                    if (elWatched)  elWatched.textContent = AD_STATE.watchedToday;
-                    if (elProgress) elProgress.style.width =
-                        (((AD_STATE.total - AD_STATE.remaining) / AD_STATE.total) * 100) + '%';
-                }
+                // ✅ لا نُعدّل AD_STATE.remaining يدوياً —
+                // السيرفر يُعيد القيمة الصحيحة في reward_ad ثم updateAdUI يُزامنها
 
                 if (i < AD_PRELOAD_REQUIRED - 1) {
                     const left = AD_PRELOAD_REQUIRED - successCount;
@@ -4481,6 +4487,7 @@
             _updatePreloadBar(preloadBar, 0, AD_PRELOAD_REQUIRED);
 
             if (result.ok) {
+                // ✅ أولاً: حدّث الـ state
                 AD_STATE.remaining    = result.remaining;
                 AD_STATE.watchedToday = result.watchedToday;
                 AD_STATE.earnedToday  = result.earnedToday;
@@ -4490,35 +4497,38 @@
                     animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
                 }
+
+                // ✅ ثانياً: أظهر toast الربح فوراً قبل updateAdUI
+                const earned = result.earned || APP_CONFIG?.rewards?.ad_watch || 50;
+                if (AD_STATE.remaining === 0) {
+                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆',
+                        `ربحت ${earned.toLocaleString('ar-EG')} نقطة — حصلت على كل نقاط اليوم`, 'green', `+${earned}`);
+                } else {
+                    showToast('coin', `ربحت ${earned.toLocaleString('ar-EG')} نقطة! 🎉`,
+                        `تبقّى ${AD_STATE.remaining} إعلان للربح اليوم`, 'gold', `+${earned}`);
+                }
+
+                // ✅ ثالثاً: حدّث UI (cooldown يظهر في الزر فقط، بدون toast)
+                updateAdUI();
                 await trackAdEvent('reward_granted', { watched_today: result.watchedToday });
+
             } else {
                 console.warn('[Ad] reward_ad rejected:', result.error);
                 if (result.error === 'cooldown_active') {
                     const waitMs = result.wait_ms || 30000;
                     AD_STATE.cooldownUntil = Date.now() + waitMs;
-                    showToast('coin', 'انتظر قليلاً', `${Math.ceil(waitMs/1000)}s`, 'red', '');
+                    showToast('coin', 'انتظر قبل الإعلان التالي ⏳', `${Math.ceil(waitMs/1000)} ثانية`, 'red', '');
                 } else if (result.error === 'ad_duration_invalid') {
                     showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل', 'red', '');
                 } else if (result.error === 'daily_limit_reached') {
                     AD_STATE.remaining = 0;
-                } else if (['nonce_missing','nonce_not_issued','nonce_expired'].includes(result.error)) {
+                    showToast('trophy', 'انتهت إعلانات اليوم 🏆', 'عُد غداً لمزيد من النقاط', 'green', '');
+                } else if (['nonce_missing','nonce_not_issued','nonce_expired','invalid'].includes(result.error)) {
                     showToast('coin', 'انتهت الجلسة', 'اضغط مرة أخرى', 'red', '');
                 } else {
                     showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
                 }
-            }
-
-            updateAdUI();
-
-            if (result.ok) {
-                const earned = result.earned || APP_CONFIG?.rewards?.ad_watch || 50;
-                if (AD_STATE.remaining === 0) {
-                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆',
-                        `ربحت ${earned} نقطة — حصلت على كل نقاط اليوم`, 'green', `+${earned}`);
-                } else {
-                    showToast('coin', `ربحت ${earned} نقطة! 🎉`,
-                        `تبقّى ${AD_STATE.remaining} إعلان للربح اليوم`, 'gold', `+${earned}`);
-                }
+                updateAdUI();
             }
         }
 
@@ -4980,9 +4990,10 @@
             if (doneOverlay) doneOverlay.style.display = 'block';
             if (card)        card.classList.add('completed');
 
-            // ✅ Dynamic reward amount from APP_CONFIG
-            const reward = result.reward || APP_CONFIG.rewards.telegram_task || 200;
-            showToast('trophy', 'انضممت للقناة! 🎉', `+${reward.toLocaleString()} نقطة أضيفت لرصيدك`, 'gold', `+${reward}`);
+            const reward = parseInt(result.reward) || APP_CONFIG.rewards.telegram_task || 200;
+            console.log('[TG Task] reward from server:', result.reward, '→ using:', reward);
+            showToast('trophy', 'انضممت للقناة! 🎉',
+                `+${reward.toLocaleString('ar-EG')} نقطة أضيفت لرصيدك`, 'gold', `+${reward}`);
         }
 
         /* Daily tasks — update from AD_STATE */
@@ -5419,11 +5430,11 @@
                     _pollFailCount = 0;
 
                     // ── Ads state + cooldown ──────────────────────────
-                    if (state.ads_remaining !== undefined) {
+                    // لا نُزامن إذا كان المستخدم يشاهد إعلاناً الآن
+                    if (state.ads_remaining !== undefined && !AD_STATE.isWatching) {
                         AD_STATE.remaining    = state.ads_remaining;
                         AD_STATE.watchedToday = state.ads_watched_today || 0;
                         AD_STATE.earnedToday  = state.earned_today || 0;
-                        // cooldown المتبقي من السيرفر
                         if (state.ad_cooldown_ms > 0) {
                             AD_STATE.cooldownUntil = Date.now() + state.ad_cooldown_ms;
                         }
