@@ -354,6 +354,7 @@ async function bootstrap() {
       `ALTER TABLE sessions  ADD COLUMN IF NOT EXISTS ad_started_at TIMESTAMPTZ`,
       `ALTER TABLE sessions  ADD COLUMN IF NOT EXISTS adsgram_task_started_at TIMESTAMPTZ`,
       `ALTER TABLE users     ADD COLUMN IF NOT EXISTS ad_last_reward TIMESTAMPTZ`,
+      `ALTER TABLE nonces    ADD COLUMN IF NOT EXISTS session_id TEXT`,
       `ALTER TABLE nonces    ADD COLUMN IF NOT EXISTS ip_hash TEXT`,
       `ALTER TABLE nonces    ADD COLUMN IF NOT EXISTS fp_hash TEXT`,
       `ALTER TABLE nonces    ADD COLUMN IF NOT EXISTS action  TEXT`,
@@ -1361,6 +1362,7 @@ async function handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce)
     remaining:    Math.max(0, CFG.ADS_DAILY_LIMIT - watched),
     watchedToday: watched,
     earnedToday:  parseInt(lr[0].points_earned) || 0,
+    earned:       CONFIG.rewards.ad_watch,
     points:       parseInt(ur[0]?.points) || 0,
     all_done:     watched >= CFG.ADS_DAILY_LIMIT,
     cooldown_ms:  CFG.AD_COOLDOWN_MS,
@@ -1389,9 +1391,12 @@ async function handleStartAdsgramTask(userId, sessionId, ipHash, fpHash) {
     if (now < expiresAt) {
       const remaining = Math.ceil((expiresAt - now) / 1000);
       logAdsgramState(userId, 'already_watching', { remaining });
+      // أصدر task_nonce حتى لو already_watching — الكليانت يحتاجه للـ claim
+      const alreadyTaskNonce = await issueNonce(sessionId, userId, ipHash, fpHash, 'claim_adsgram_task');
       return {
         ok: true,
         already_watching: true,
+        task_nonce: alreadyTaskNonce,
         adsgram_task: {
           status: 'watching',
           remaining_seconds: remaining,
@@ -1441,8 +1446,12 @@ async function handleStartAdsgramTask(userId, sessionId, ipHash, fpHash) {
 
   logAdsgramState(userId, 'watching', { expires_at: expiresAt.toISOString() });
 
+  // أصدر task_nonce — يُستخدم في claim_adsgram_task كـ X-Nonce
+  const taskNonce = await issueNonce(sessionId, userId, ipHash, fpHash, 'claim_adsgram_task');
+
   return {
     ok: true,
+    task_nonce: taskNonce,
     adsgram_task: {
       status: 'watching',
       remaining_seconds: Math.ceil(CFG.ADSGRAM_TASK_MIN_WATCH_MS / 1000),
@@ -1452,7 +1461,12 @@ async function handleStartAdsgramTask(userId, sessionId, ipHash, fpHash) {
   };
 }
 
-async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
+async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash, rawNonce) {
+  // استهلك task_nonce أولاً
+  if (!rawNonce) return { ok: false, error: 'nonce_missing' };
+  const nonceResult = await consumeNonce(rawNonce, sessionId, userId, fpHash, ipHash, 'claim_adsgram_task');
+  if (nonceResult !== 'ok') return { ok: false, error: nonceResult };
+
   // ── Fetch current state from DB (source of truth) ─────────────
   const u = (await sql(
     `SELECT adsgram_status, adsgram_started_at, adsgram_expires_at,
@@ -2228,7 +2242,7 @@ module.exports = async function handler(req, res) {
         result = await handleStartAdsgramTask(userId, sessionId, ipHash, fpHash);
         break;
       case 'claim_adsgram_task':
-        result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash);
+        result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash, rawNonce);
         break;
       case 'claim_daily_mission':
         result = await handleClaimDailyMission(userId, body, rawNonce, sessionId, fpHash, ipHash);
