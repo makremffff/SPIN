@@ -3915,19 +3915,17 @@
         //   • reward يُرفض إذا مر أقل من 14s
         //   • كل حدث يُرسَل للسيرفر عبر trackAdEvent
         // ══════════════════════════════════════════════════════════
-        let _adController      = null;   // controller مشترك — Adsgram يُعيد نفس instance لنفس blockId
-        let _adWatchStartedAt  = 0;
+        let _adController      = null;   // controller للإعلانات العادية فقط
+        let _adWatchStartedAt  = 0;      // timestamp لبداية الإعلان العادي — anti-fraud
         let _adRetryCount      = 0;
         const AD_MAX_RETRIES   = 2;
-        const AD_MIN_DURATION  = 7000;
+        const AD_MIN_DURATION  = 7000;   // 7s minimum client-side check
 
-        // ── flag: هل الإعلان الحالي مهمة أم إعلان عادي ────────────────
-        let _currentAdMode = 'normal'; // 'normal' | 'task'
-
-        // ── controller منفصل لمهمة Adsgram ─────────────────────────────
+        // ── controller منفصل لمهمة Adsgram (يمنع التداخل مع الإعلانات العادية) ──
         let _adsgramTaskController   = null;
         let _adsgramTaskWatchStarted = 0;
 
+        // ── تهيئة controller الإعلانات العادية ─────────────────────────
         function _initAdController() {
             if (!window.Adsgram) return null;
             if (_adController) return _adController;
@@ -3937,16 +3935,16 @@
                     debug:   false,
                     debugBanners: false,
                 });
-                console.info('[Adsgram] ✅ Controller initialized — blockId:', AD_BLOCK_ID);
+                console.info('[Adsgram] ✅ Ad controller initialized — blockId:', AD_BLOCK_ID);
             } catch (e) {
-                console.error('[Adsgram] ❌ init failed:', e.message);
+                console.error('[Adsgram] ❌ Ad controller init failed:', e.message);
                 _adController = null;
             }
             return _adController;
         }
 
+        // ── تهيئة controller مهمة Adsgram (منفصل تماماً) ───────────────
         function _initAdsgramTaskController() {
-            // Adsgram يُعيد نفس instance لنفس blockId — لكن نحتفظ بـ reference منفصل للوضوح
             if (!window.Adsgram) return null;
             if (_adsgramTaskController) return _adsgramTaskController;
             try {
@@ -3963,13 +3961,21 @@
             return _adsgramTaskController;
         }
 
+        // ── _getAdController — للإعلانات العادية فقط ──────────────────
         function _getAdController() {
-            if (!window.Adsgram) return null;
+            if (!window.Adsgram) {
+                console.warn('[Adsgram] SDK not loaded yet');
+                return null;
+            }
             return _initAdController();
         }
 
+        // ── _getAdsgramTaskController — لمهمة Adsgram فقط ─────────────
         function _getAdsgramTaskController() {
-            if (!window.Adsgram) return null;
+            if (!window.Adsgram) {
+                console.warn('[AdsgramTask] SDK not loaded yet');
+                return null;
+            }
             return _initAdsgramTaskController();
         }
 
@@ -4038,28 +4044,104 @@
             if (done)  done.style.display = 'block';
             if (outer) outer.style.display = 'block';
 
-            let s = Math.max(0, parseInt(seconds) || 180);
+            const TOTAL = 180;
+            let s = Math.max(0, parseInt(seconds) || TOTAL);
 
             const render = () => {
-                const pct = Math.round(((180 - s) / 180) * 100);
+                const elapsed = TOTAL - s;
+                const pct = Math.round((elapsed / TOTAL) * 100);
+                const mins = Math.floor(s / 60);
+                const secs = s % 60;
+                const timeStr = mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${s}s`;
+
+                // SVG arc for circular timer
+                const radius = 22;
+                const circumference = 2 * Math.PI * radius;
+                const dashOffset = circumference - (circumference * pct / 100);
+
                 if (!done) return;
                 done.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px;">
-                        <div style="width:38px;height:38px;border-radius:11px;flex-shrink:0;
-                            background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);
-                            display:flex;align-items:center;justify-content:center;font-size:17px;">⏳</div>
-                        <div style="flex:1;">
-                            <div style="font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;
-                                color:rgba(251,191,36,0.85);margin-bottom:2px;">جاري المعالجة...</div>
-                            <div style="font-family:'Readex Pro',sans-serif;font-size:11px;
-                                color:rgba(255,255,255,0.4);">يُفتح خلال ${s} ثانية</div>
+                    <div style="
+                        background:linear-gradient(135deg,rgba(251,191,36,0.05) 0%,rgba(0,0,0,0.3) 100%);
+                        border-radius:16px;
+                        border:1px solid rgba(251,191,36,0.15);
+                        padding:16px 14px;
+                        position:relative;
+                        overflow:hidden;
+                    ">
+                        <!-- Top shimmer line -->
+                        <div style="position:absolute;top:0;left:0;right:0;height:1px;
+                            background:linear-gradient(90deg,transparent,rgba(251,191,36,0.3),transparent);"></div>
+
+                        <div style="display:flex;align-items:center;gap:14px;">
+                            <!-- Circular progress timer -->
+                            <div style="position:relative;flex-shrink:0;width:54px;height:54px;">
+                                <svg width="54" height="54" viewBox="0 0 54 54" style="transform:rotate(-90deg);">
+                                    <circle cx="27" cy="27" r="${radius}" fill="none"
+                                        stroke="rgba(251,191,36,0.1)" stroke-width="3"/>
+                                    <circle cx="27" cy="27" r="${radius}" fill="none"
+                                        stroke="url(#adsgramGrad)" stroke-width="3"
+                                        stroke-linecap="round"
+                                        stroke-dasharray="${circumference}"
+                                        stroke-dashoffset="${dashOffset}"
+                                        style="transition:stroke-dashoffset 1s linear;"/>
+                                    <defs>
+                                        <linearGradient id="adsgramGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#f59e0b"/>
+                                            <stop offset="100%" stop-color="#fbbf24"/>
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div style="
+                                    position:absolute;inset:0;
+                                    display:flex;align-items:center;justify-content:center;
+                                    flex-direction:column;gap:1px;
+                                ">
+                                    <span style="font-family:'DynaPuff',sans-serif;font-size:${mins>0?'9':'11'}px;
+                                        font-weight:700;color:#fbbf24;line-height:1;">${timeStr}</span>
+                                </div>
+                            </div>
+
+                            <!-- Text block -->
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                    <div style="width:6px;height:6px;border-radius:50%;
+                                        background:#fbbf24;
+                                        box-shadow:0 0 6px rgba(251,191,36,0.8);
+                                        animation:shimmer 1.5s ease-in-out infinite;"></div>
+                                    <span style="font-family:'Tajawal',sans-serif;font-size:13px;
+                                        font-weight:800;color:rgba(255,255,255,0.9);">مهمة قيد المعالجة</span>
+                                </div>
+                                <div style="font-family:'Readex Pro',sans-serif;font-size:11px;
+                                    color:rgba(255,255,255,0.38);line-height:1.4;margin-bottom:8px;">
+                                    تُفتح المهمة التالية خلال ${s} ثانية
+                                </div>
+                                <!-- Mini progress bar -->
+                                <div style="height:3px;background:rgba(251,191,36,0.08);
+                                    border-radius:10px;overflow:hidden;">
+                                    <div style="height:100%;width:${pct}%;
+                                        background:linear-gradient(90deg,#d97706,#fbbf24,#fde68a);
+                                        border-radius:10px;
+                                        box-shadow:0 0 6px rgba(251,191,36,0.4);
+                                        transition:width 1s linear;"></div>
+                                </div>
+                            </div>
                         </div>
-                        <span style="font-family:'DynaPuff',sans-serif;font-size:12px;
-                            font-weight:700;color:rgba(251,191,36,0.7);">${s}s</span>
-                    </div>
-                    <div style="height:3px;background:rgba(251,191,36,0.07);border-radius:3px;overflow:hidden;">
-                        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#f59e0b,#fbbf24);
-                            border-radius:3px;transition:width 1s linear;"></div>
+
+                        <!-- Lock icon & label at bottom -->
+                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;
+                            margin-top:10px;padding-top:10px;
+                            border-top:1px solid rgba(255,255,255,0.05);">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                stroke="rgba(251,191,36,0.4)" stroke-width="2.2" stroke-linecap="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                <path d="M7 11V7a5 5 0 0110 0v4"/>
+                            </svg>
+                            <span style="font-family:'Readex Pro',sans-serif;font-size:10px;
+                                color:rgba(255,255,255,0.25);font-weight:500;letter-spacing:0.3px;">
+                                مغلق مؤقتاً • ${Math.round(pct)}% مكتمل
+                            </span>
+                        </div>
                     </div>`;
             };
             render();
@@ -4070,7 +4152,12 @@
                     _clearAdsgramTimer();
                     // بعد 180 ثانية: أظهر الكارد مجدداً (جاهز لمهمة جديدة)
                     if (done)  done.style.display = 'none';
-                    if (card)  { card.style.display = 'flex'; card.style.opacity = '1'; }
+                    if (card)  {
+                        card.style.display = 'flex';
+                        card.style.opacity = '0';
+                        card.style.transition = 'opacity 0.5s ease';
+                        setTimeout(() => { card.style.opacity = '1'; }, 50);
+                    }
                     if (outer) outer.style.display = 'block';
                 } else { render(); }
             }, 1000);
@@ -4175,8 +4262,11 @@
                 animateBalance(USER_STATE.points, result.points, 1000);
                 USER_STATE.points = result.points;
                 const r = result.earned || APP_CONFIG?.rewards?.adsgram_task || 50;
-                showToast('trophy', `ربحت ${r.toLocaleString('ar-EG')} نقطة! 🎉`,
-                    'مهمة Adsgram مكتملة ✓', 'gold', `+${r}`);
+                // ✅ تأخير 2 ثانية قبل إشعار الربح — يشعر المستخدم بأن الأمر تمت معالجته فعلاً
+                setTimeout(() => {
+                    showToast('trophy', `🎉 ربحت ${r.toLocaleString('ar-EG')} نقطة!`,
+                        `تم احتساب مكافأة مهمة Adsgram ✓`, 'gold', `+${r}`);
+                }, 2000);
                 // Update UI to cooldown or completed
                 if (result.adsgram_task) {
                     _syncAdsgramStateFromServer(result.adsgram_task);
@@ -4232,8 +4322,7 @@
                 return;
             }
 
-            // ✅ أظهر إشعار "لقد ربحت جائزة" فوراً
-            showToast('trophy', '🎉 لقد ربحت جائزة!', 'جاري تحضير مكافأتك...', 'gold', '🏆');
+            // ✅ لا toast هنا — الإشعار يجيء بعد احتساب الرصيد فعلياً (في claimAdsgramTaskReward)
 
             // خزّن task_nonce
             window._adsgramTaskNonce = startRes.task_nonce || null;
@@ -4587,12 +4676,6 @@
         // ══════════════════════════════════════════════════════════
         function _showAdsgramAd() {
             return new Promise(async (resolve) => {
-                // ✅ إذا كانت مهمة Adsgram تعمل — لا تُشغّل إعلاناً عادياً
-                if (_currentAdMode === 'task') {
-                    resolve(false);
-                    return;
-                }
-
                 const controller = _getAdController();
                 if (!controller) {
                     console.warn('[Adsgram] SDK not ready');
@@ -4601,7 +4684,10 @@
                     return;
                 }
 
+                // ── تتبع: طلب الإعلان ─────────────────────────────────
                 await trackAdEvent('ad_requested', { block_id: AD_BLOCK_ID });
+
+                // ── تسجيل وقت بداية الإعلان — anti-fraud ─────────────
                 _adWatchStartedAt = Date.now();
 
                 try {
@@ -4665,9 +4751,9 @@
 
 
         // ══════════════════════════════════════════════════════════
-        // ✅ _showAdsgramTaskAd — تشغيل إعلان المهمة
-        // تضع mode='task' قبل show() وتُعيدها 'normal' بعده
-        // هذا يمنع watchAd وأي listener عادي من معالجة الـ reward
+        // ✅ _showAdsgramTaskAd — منفصلة تماماً عن _showAdsgramAd
+        // تستخدم _adsgramTaskController الخاص بالمهمة فقط
+        // لا تمس AD_STATE ولا progress bar ولا أي شيء يخص إعلانات صفحة الربح
         // ══════════════════════════════════════════════════════════
         function _showAdsgramTaskAd() {
             return new Promise(async (resolve) => {
@@ -4677,23 +4763,21 @@
                     resolve(false);
                     return;
                 }
-                _currentAdMode = 'task';
                 _adsgramTaskWatchStarted = Date.now();
                 try {
                     const result = await controller.show();
-                    _currentAdMode = 'normal';
                     if (result && result.done === true) {
-                        // ✅ انتظر 2 ثانية ثم استدعي claim وأظهر الإشعار
-                        await new Promise(r => setTimeout(r, 2000));
+                        // ✅ إعلان اكتمل — استدعي claimAdsgramTaskReward مباشرة
                         await claimAdsgramTaskReward();
                         resolve(true);
                     } else {
                         resolve(false);
                     }
                 } catch (result) {
-                    _currentAdMode = 'normal';
-                    console.warn('[AdsgramTask] catch:', result?.description || result?.state || 'unknown');
+                    const errReason = result?.description || result?.state || 'unknown';
+                    console.warn('[AdsgramTask] catch:', errReason);
                     if (result?.error === true) {
+                        // reset task controller فقط — لا يمس _adController
                         _adsgramTaskController = null;
                     }
                     resolve(false);
