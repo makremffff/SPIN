@@ -5381,10 +5381,19 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             initTelegramUser();
+
+            // ✅ Fallback: أخفِ شاشة التحميل دائماً بعد 5 ثواني كحد أقصى
+            const _loadingFallback = setTimeout(() => _hideLoadingScreen(), 5000);
+
             /* Create session right after TG init */
             await createSession();
             /* Load full state from server */
             const loadResult = await fetchApi({ type: 'load', data: {} });
+
+            // ✅ أخفِ شاشة التحميل دائماً — سواء نجح الطلب أو فشل
+            clearTimeout(_loadingFallback);
+            _hideLoadingScreen();
+
             if (loadResult.ok) {
                 const pts = parseInt(loadResult.points) || 0;
                 const lvl = parseInt(loadResult.level)  || 1;
@@ -5531,8 +5540,7 @@
                 setTimeout(() => runCounters(document), 350);
             }
 
-            // ── إخفاء loading screen بعد تحميل البيانات ──────────────
-            _hideLoadingScreen();
+            // ── إخفاء loading screen تم أعلاه — بعد تحميل البيانات ──
             setTimeout(_initAdsgramTask, 1000);
             // ── جلب قائمة القنوات من السيرفر ────────────────────────
             _loadChannels();
