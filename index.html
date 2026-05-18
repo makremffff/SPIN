@@ -4035,13 +4035,20 @@
         }
 
         function _startAdsgramCountdown(seconds, reward) {
-            const done = document.getElementById('adsgram-task-done');
-            if (!done) return;
-            done.style.display = 'block';
-            let s = Math.max(0, parseInt(seconds) || 60);
+            const card  = document.getElementById('adsgram-task-card');
+            const done  = document.getElementById('adsgram-task-done');
+            const outer = document.getElementById('adsgram-task-outer');
+
+            // أخفِ الكارد الرئيسي وأظهر لوحة الإغلاق
+            if (card)  card.style.display = 'none';
+            if (done)  done.style.display = 'block';
+            if (outer) outer.style.display = 'block';
+
+            let s = Math.max(0, parseInt(seconds) || 180);
 
             const render = () => {
-                const pct = Math.round(((60 - s) / 60) * 100);
+                const pct = Math.round(((180 - s) / 180) * 100);
+                if (!done) return;
                 done.innerHTML = `
                     <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px;">
                         <div style="width:38px;height:38px;border-radius:11px;flex-shrink:0;
@@ -4049,9 +4056,9 @@
                             display:flex;align-items:center;justify-content:center;font-size:17px;">⏳</div>
                         <div style="flex:1;">
                             <div style="font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;
-                                color:rgba(251,191,36,0.85);margin-bottom:2px;">جاري المشاهدة...</div>
+                                color:rgba(251,191,36,0.85);margin-bottom:2px;">جاري المعالجة...</div>
                             <div style="font-family:'Readex Pro',sans-serif;font-size:11px;
-                                color:rgba(255,255,255,0.4);">المكافأة خلال ${s} ثانية</div>
+                                color:rgba(255,255,255,0.4);">يُفتح خلال ${s} ثانية</div>
                         </div>
                         <span style="font-family:'DynaPuff',sans-serif;font-size:12px;
                             font-weight:700;color:rgba(251,191,36,0.7);">${s}s</span>
@@ -4067,7 +4074,10 @@
                 s--;
                 if (s <= 0) {
                     _clearAdsgramTimer();
-                    _showAdsgramClaimReady(reward);
+                    // بعد 180 ثانية: أظهر الكارد مجدداً (جاهز لمهمة جديدة)
+                    if (done)  done.style.display = 'none';
+                    if (card)  { card.style.display = 'flex'; card.style.opacity = '1'; }
+                    if (outer) outer.style.display = 'block';
                 } else { render(); }
             }, 1000);
         }
@@ -4211,18 +4221,7 @@
 
             _adsgramTaskInProgress = true;
 
-            const widget = document.getElementById('adsgram-task-widget');
-            if (!widget) { _adsgramTaskInProgress = false; return; }
-
-            // ══════════════════════════════════════════════════════
-            // التسلسل الصحيح لـ Adsgram Task:
-            //  1. _dbCall('start_adsgram_task') — يُسجَّل started_at في users DB
-            //  2. track(ad_started, type=adsgram_task)
-            //  3. widget.show()
-            //  4. event 'reward' → track(ad_completed) → claim_adsgram_task + task_nonce
-            // ══════════════════════════════════════════════════════
-
-            // [1] start_adsgram_task — لازم ينجح قبل show()
+            // [1] start_adsgram_task
             let startRes;
             try {
                 startRes = await _dbCall('start_adsgram_task', {});
@@ -4236,23 +4235,19 @@
                     const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
                     _showAdsgramCooldown(sec);
                 }
-                // لا نُظهر أي إشعار خطأ — نتجاهل الأخطاء الأخرى بصمت
                 return;
             }
 
-            // ✅ أظهر إشعار "لقد ربحت جائزة" فوراً عند ضغط Go
+            // ✅ أظهر إشعار "لقد ربحت جائزة" فوراً
             showToast('trophy', '🎉 لقد ربحت جائزة!', 'جاري تحضير مكافأتك...', 'gold', '🏆');
 
-            // خزّن task_nonce لاستخدامه في claim_adsgram_task
+            // خزّن task_nonce
             window._adsgramTaskNonce = startRes.task_nonce || null;
 
-            // ✅ أغلق الكارد لمدة 180 ثانية (عداد تنازلي)
-            _startAdsgramCountdown(180, startRes.adsgram_task?.reward || CONFIG?.rewards?.adsgram_task || 50);
+            // ✅ أغلق الكارد 180 ثانية — بدون زر جمع وبدون تأثير على إعلانات صفحة الربح
+            _startAdsgramCountdown(180, 0);
 
-            // [2] track ad_started
-            await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, type: 'adsgram_task' });
-
-            // [3] show — يستخدم controller المنفصل للمهمة (لا يتداخل مع الإعلانات العادية)
+            // [2] شغّل الإعلان عبر controller المنفصل (لا يمس AD_STATE ولا progress bar)
             try {
                 await _showAdsgramTaskAd();
             } catch (e) {
@@ -4267,25 +4262,19 @@
         let _taskStartedAt = 0;
 
         function _initAdsgramTask() {
-            // ✅ State now comes from DB via load/get_state — not session only
-            // ملاحظة: widget listener احتياطي فقط — _showAdsgramTaskAd تتحكم بالـ reward flow
+            // widget listeners احتياطية فقط — _showAdsgramTaskAd تتحكم بالـ reward flow
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
             widget.addEventListener('start', () => {
                 _adsgramTaskWatchStarted = Date.now();
-                console.info('[AdsgramTask] widget started at', _adsgramTaskWatchStarted);
             });
 
-            widget.addEventListener('reward', async () => {
-                // هذا listener احتياطي — _showAdsgramTaskAd تُعالج الـ reward مباشرة
-                await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _adsgramTaskWatchStarted });
-                await claimAdsgramTaskReward();
-            });
+            // لا نضيف 'reward' listener هنا — _showAdsgramTaskAd تستدعي claimAdsgramTaskReward مباشرة
 
             widget.addEventListener('error', () => {
-                console.warn('[AdsgramTask] widget error event — resetting task controller');
-                _adsgramTaskController = null; // reset task controller فقط
+                console.warn('[AdsgramTask] widget error — resetting task controller');
+                _adsgramTaskController = null;
             });
         }
 
@@ -4681,6 +4670,7 @@
         // ══════════════════════════════════════════════════════════
         // ✅ _showAdsgramTaskAd — منفصلة تماماً عن _showAdsgramAd
         // تستخدم _adsgramTaskController الخاص بالمهمة فقط
+        // لا تمس AD_STATE ولا progress bar ولا أي شيء يخص إعلانات صفحة الربح
         // ══════════════════════════════════════════════════════════
         function _showAdsgramTaskAd() {
             return new Promise(async (resolve) => {
@@ -4694,6 +4684,8 @@
                 try {
                     const result = await controller.show();
                     if (result && result.done === true) {
+                        // ✅ إعلان اكتمل — استدعي claimAdsgramTaskReward مباشرة
+                        await claimAdsgramTaskReward();
                         resolve(true);
                     } else {
                         resolve(false);
@@ -4702,7 +4694,7 @@
                     const errReason = result?.description || result?.state || 'unknown';
                     console.warn('[AdsgramTask] catch:', errReason);
                     if (result?.error === true) {
-                        // reset task controller only — لا يمس _adController
+                        // reset task controller فقط — لا يمس _adController
                         _adsgramTaskController = null;
                     }
                     resolve(false);
