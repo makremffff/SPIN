@@ -76,7 +76,7 @@ const CONFIG = Object.freeze({
   rewards: {
     referral:          100,   // نقاط لكل إحالة
     telegram_task:     200,   // مهمة تيليجرام
-    adsgram_task:      30,    // مهمة Adsgram
+    adsgram_task:      50,    // مهمة Adsgram
     daily_ads_10:      200,   // مشاهدة 10 إعلانات
     daily_ads_25:      300,   // مشاهدة 25 إعلان
     daily_referrals_3: 1000,  // 3 إحالات يومية
