@@ -1926,20 +1926,9 @@ async function handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash) {
   const event = body?.data?.event || '';
   if (!allowed.has(event)) return { ok: false, error: 'unknown_event' };
 
-  if (event === 'ad_started') {
+  // ✅ ad_started للإعلانات العادية فقط — لا نُحدّث adsgram_task fields هنا
+  if (event === 'ad_started' && body?.data?.meta?.type !== 'adsgram_task') {
     await sql(`UPDATE sessions SET ad_started_at=NOW() WHERE id=$1`, [sessionId]);
-  }
-
-  if (event === 'ad_started' && body?.data?.meta?.type === 'adsgram_task') {
-    await sql(`UPDATE sessions SET adsgram_task_started_at=NOW() WHERE id=$1`, [sessionId]);
-    // Also update users table directly — used by handleStartAdsgramTask as backup
-    await sql(
-      `UPDATE users SET adsgram_started_at=NOW(), adsgram_status='watching',
-       adsgram_expires_at=NOW() + INTERVAL '${Math.ceil(CFG.ADSGRAM_TASK_MIN_WATCH_MS / 1000)} seconds',
-       adsgram_completed=FALSE, updated_at=NOW()
-       WHERE id=$1 AND (adsgram_status != 'watching' OR adsgram_expires_at < NOW())`,
-      [userId]
-    );
   }
 
   if (event === 'suspicious_activity') {
