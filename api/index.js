@@ -92,7 +92,7 @@ const CONFIG = Object.freeze({
   },
   adsgram_task: {
     cooldown_ms:       60 * 1000,
-    min_watch_ms:      10 * 1000,
+    min_watch_ms:      1500,   // 1.5 ثانية — Adsgram يتحكم بوقت الإعلان
   },
   referral: {
     min_active_ads:    3,     // الحد الأدنى للإعلانات لاعتبار المستخدم نشيطاً
