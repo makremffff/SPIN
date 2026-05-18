@@ -316,8 +316,10 @@ async function bootstrap() {
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL,
       task_key TEXT NOT NULL,
-      completed_at TIMESTAMPTZ DEFAULT NOW()
+      completed_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, task_key)
     )`);
+
 
     // ── device_fingerprints ───────────────────────────────────────
     await sql(`CREATE TABLE IF NOT EXISTS device_fingerprints (
@@ -370,6 +372,7 @@ async function bootstrap() {
       `ALTER TABLE referrals ADD COLUMN IF NOT EXISTS activated BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE referrals ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ`,
       `ALTER TABLE user_tasks ADD COLUMN IF NOT EXISTS reward_claimed BOOLEAN DEFAULT FALSE`,
+      `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='completed_tasks_user_key_unique') THEN ALTER TABLE completed_tasks ADD CONSTRAINT completed_tasks_user_key_unique UNIQUE(user_id, task_key); END IF; END $$`,
     ];
     for (const m of migrations) { try { await sql(m); } catch (_) {} }
 
@@ -1147,7 +1150,7 @@ async function handleLoad(userId) {
     })),
     referral_list: rR.map(r => ({
       name: r.tg_first_name || r.tg_username || 'مستخدم',
-      ts: new Date(r.created_at).getTime(),
+      ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
     })),
     completed_tasks: tR.map(r => ({
       task_type: r.task_type,
@@ -1533,7 +1536,8 @@ async function handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash) {
   );
   await sql(
     `INSERT INTO completed_tasks(user_id, task_key, completed_at)
-     VALUES($1, 'adsgram_task_daily', NOW())`,
+     VALUES($1, 'adsgram_task_daily', NOW())
+     ON CONFLICT DO NOTHING`,
     [userId]
   );
 
@@ -1786,11 +1790,13 @@ async function handleVerifyTgTask(userId, rawNonce, sessionId, fpHash, ipHash) {
   }
 
   const reward = CONFIG.rewards.telegram_task;
-  await sql(
+  const tgUpdateRes = await sql(
     `UPDATE users SET tg_verified=TRUE, points=points+$1, xp=xp+$1, updated_at=NOW()
-     WHERE id=$2 AND tg_verified=FALSE`,
+     WHERE id=$2 AND tg_verified=FALSE
+     RETURNING id`,
     [reward, userId]
   );
+  if (!tgUpdateRes.length) return { ok: false, error: 'already_verified' };
   await syncLevel(userId);
   await upsertTask(userId, 'tg_join');
   const fresh = (await sql(`SELECT points, level FROM users WHERE id=$1`, [userId]))[0];
@@ -2117,7 +2123,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers',
-    'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret, X-Session-ID'
+    'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret, X-Session-Id, X-Session-ID'
   );
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'method_not_allowed' });
@@ -2135,7 +2141,7 @@ module.exports = async function handler(req, res) {
   const cookieHeader = req.headers['cookie'] || '';
   const sidMatch     = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
   const sessionFromCookie = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
-  const sessionFromHeader = req.headers['x-session-id'] || '';
+  const sessionFromHeader = req.headers['x-session-id'] || req.headers['x-session-Id'] || '';
   const sessionId = sessionFromCookie || sessionFromHeader;
 
   const fpRaw    = req.headers['x-fingerprint']  || '{}';
@@ -2264,7 +2270,8 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({
       ok: false,
       error: 'internal_server_error',
-      ...(IS_DEV && { detail: e.message }),
+      detail: e.message,   // ✅ دائماً — لتسهيل debugging في production
+      type,
     });
   }
 };
