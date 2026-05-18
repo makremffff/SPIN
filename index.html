@@ -3901,87 +3901,12 @@
             }
         }
 
-        // ✅ Adsgram Block ID — غيّره لـ block ID الخاص بك
+        // ✅ Adsgram Block ID
         const AD_BLOCK_ID = '30161';
 
-        // ══════════════════════════════════════════════════════════
-        // ✅ AdController — Robust initialization per Adsgram docs
-        // حسب الدوكيمنت: AdController.init() يُعيد نفس الـ instance
-        // لنفس blockId — آمن للاستدعاء المتعدد
-        //
-        // Anti-fraud:
-        //   • الإعلان لا يُشغَّل إلا بعد التحقق من SDK load
-        //   • _adWatchStartedAt يُسجَّل لحظة بدء الإعلان
-        //   • reward يُرفض إذا مر أقل من 14s
-        //   • كل حدث يُرسَل للسيرفر عبر trackAdEvent
-        // ══════════════════════════════════════════════════════════
-        let _adController      = null;   // controller للإعلانات العادية فقط
-        let _adWatchStartedAt  = 0;      // timestamp لبداية الإعلان العادي — anti-fraud
-        let _adRetryCount      = 0;
-        const AD_MAX_RETRIES   = 2;
-        const AD_MIN_DURATION  = 7000;   // 7s minimum client-side check
+        // ── trackAdEvent — يرسل حدث للسيرفر بشكل آمن ────────────────
 
-        // ── controller منفصل لمهمة Adsgram (يمنع التداخل مع الإعلانات العادية) ──
-        let _adsgramTaskController   = null;
-        let _adsgramTaskWatchStarted = 0;
-
-        // ── تهيئة controller الإعلانات العادية ─────────────────────────
-        function _initAdController() {
-            if (!window.Adsgram) return null;
-            if (_adController) return _adController;
-            try {
-                _adController = window.Adsgram.init({
-                    blockId: AD_BLOCK_ID,
-                    debug:   false,
-                    debugBanners: false,
-                });
-                console.info('[Adsgram] ✅ Ad controller initialized — blockId:', AD_BLOCK_ID);
-            } catch (e) {
-                console.error('[Adsgram] ❌ Ad controller init failed:', e.message);
-                _adController = null;
-            }
-            return _adController;
-        }
-
-        // ── تهيئة controller مهمة Adsgram (منفصل تماماً) ───────────────
-        function _initAdsgramTaskController() {
-            if (!window.Adsgram) return null;
-            if (_adsgramTaskController) return _adsgramTaskController;
-            try {
-                _adsgramTaskController = window.Adsgram.init({
-                    blockId: AD_BLOCK_ID,
-                    debug:   false,
-                    debugBanners: false,
-                });
-                console.info('[AdsgramTask] ✅ Task controller initialized');
-            } catch (e) {
-                console.error('[AdsgramTask] ❌ Task controller init failed:', e.message);
-                _adsgramTaskController = null;
-            }
-            return _adsgramTaskController;
-        }
-
-        // ── _getAdController — للإعلانات العادية فقط ──────────────────
-        function _getAdController() {
-            if (!window.Adsgram) {
-                console.warn('[Adsgram] SDK not loaded yet');
-                return null;
-            }
-            return _initAdController();
-        }
-
-        // ── _getAdsgramTaskController — لمهمة Adsgram فقط ─────────────
-        function _getAdsgramTaskController() {
-            if (!window.Adsgram) {
-                console.warn('[AdsgramTask] SDK not loaded yet');
-                return null;
-            }
-            return _initAdsgramTaskController();
-        }
-
-        // ✅ Adsgram Task — DB-persistent state sync
-        // السيرفر هو المصدر الحقيقي — الكارد لا يختفي عند refresh
-        let _adsgramLocalTimer = null;
+        // ── _syncAdsgramStateFromServer — السيرفر هو المصدر الحقيقي ──
 
         function _syncAdsgramStateFromServer(adsgramState) {
             if (!adsgramState) return;
@@ -4233,46 +4158,190 @@
             }, 1000);
         }
 
-        // ✅ Claim Adsgram reward — calls server for verification
-        async function claimAdsgramTaskReward() {
-            // claim_adsgram_task يحتاج task_nonce صادر من start_adsgram_task
-            let nonce = window._adsgramTaskNonce || null;
 
-            // إذا لم يكن nonce موجوداً (مثلاً بعد refresh) → استدعي start_adsgram_task من جديد
+        // ══════════════════════════════════════════════════════════
+        // ✅ ADSGRAM TASK SYSTEM — مستقل تماماً عن إعلانات صفحة الربح
+        //
+        // TYPE: 'adsgram_task'  ← هويته الخاصة
+        // لا يمس: AD_STATE / cooldownUntil / progress bar / ad-watch-btn
+        // دورة حياته: watchAdsgramTask → _showAdsgramTaskAd → claimAdsgramTaskReward
+        // الكارد: يختفي فور الضغط → يرجع بعد 180 ثانية
+        // الإشعار: يظهر بعد 2 ثانية من احتساب الرصيد فعلياً
+        // ══════════════════════════════════════════════════════════
+
+        const ADSGRAM_TASK_TYPE = 'adsgram_task';   // ← type مستقل لا يُشارَك
+
+        // State خاص بالمهمة — لا يلمس AD_STATE إطلاقاً
+        const ADSGRAM_TASK_STATE = {
+            inProgress: false,
+            nonce: null,
+            watchStarted: 0,
+        };
+
+        // ── controllers منفصلان تماماً ──────────────────────────────
+        let _adController            = null;   // الإعلانات اليومية فقط
+        let _adsgramTaskController   = null;   // مهمة Adsgram فقط
+        let _adWatchStartedAt        = 0;
+        let _adRetryCount            = 0;
+        const AD_MAX_RETRIES         = 2;
+        const AD_MIN_DURATION        = 7000;
+
+        function _initAdController() {
+            if (!window.Adsgram) return null;
+            if (_adController) return _adController;
+            try {
+                _adController = window.Adsgram.init({ blockId: AD_BLOCK_ID, debug: false, debugBanners: false });
+                console.info('[AD_DAILY] ✅ controller ready — blockId:', AD_BLOCK_ID);
+            } catch (e) { console.error('[AD_DAILY] ❌ init failed:', e.message); _adController = null; }
+            return _adController;
+        }
+
+        function _initAdsgramTaskController() {
+            if (!window.Adsgram) return null;
+            if (_adsgramTaskController) return _adsgramTaskController;
+            try {
+                _adsgramTaskController = window.Adsgram.init({ blockId: AD_BLOCK_ID, debug: false, debugBanners: false });
+                console.info('[ADSGRAM_TASK] ✅ controller ready');
+            } catch (e) { console.error('[ADSGRAM_TASK] ❌ init failed:', e.message); _adsgramTaskController = null; }
+            return _adsgramTaskController;
+        }
+
+        function _getAdController()         { return window.Adsgram ? _initAdController()         : null; }
+        function _getAdsgramTaskController() { return window.Adsgram ? _initAdsgramTaskController() : null; }
+
+        // ── متغيرات كانت مُعرَّفة قبلاً — نُبقيها للتوافق ───────────
+        let _adsgramTaskWatchStarted = 0;
+        let _taskCountdown           = null;
+        let _taskStartedAt           = 0;
+        let _adsgramTaskInProgress   = false;   // alias للتوافق
+
+        // ── watchAdsgramTask ─────────────────────────────────────────
+        async function watchAdsgramTask() {
+            if (ADSGRAM_TASK_STATE.inProgress) return;
+
+            // فصل تام: لو إعلان يومي شغّال، لا تبدأ المهمة
+            if (AD_STATE.isWatching) {
+                showToast('coin', 'انتظر انتهاء الإعلان الحالي', '', 'gold', '⏳');
+                return;
+            }
+
+            ADSGRAM_TASK_STATE.inProgress = true;
+            _adsgramTaskInProgress        = true;   // alias
+
+            // [1] start_adsgram_task — type مستقل
+            let startRes;
+            try {
+                startRes = await _dbCall('start_adsgram_task', {});
+            } catch (_) {
+                startRes = { ok: false, error: 'network_error' };
+            }
+
+            if (!startRes.ok) {
+                ADSGRAM_TASK_STATE.inProgress = false;
+                _adsgramTaskInProgress = false;
+                if (startRes.error === 'cooldown_active') {
+                    const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
+                    _showAdsgramCooldown(sec);
+                }
+                return;
+            }
+
+            ADSGRAM_TASK_STATE.nonce = startRes.task_nonce || null;
+            window._adsgramTaskNonce = ADSGRAM_TASK_STATE.nonce;   // alias
+
+            // ✅ الكارد يختفي فوراً — يبدأ عداد 180 ثانية (لا يمس AD_STATE)
+            _startAdsgramCountdown(180, 0);
+
+            // [2] شغّل الإعلان عبر controller المنفصل
+            try {
+                await _showAdsgramTaskAd();
+            } catch (e) {
+                console.warn('[ADSGRAM_TASK] show() error:', e.message);
+            }
+
+            ADSGRAM_TASK_STATE.inProgress = false;
+            _adsgramTaskInProgress = false;
+        }
+
+        // ── _showAdsgramTaskAd — controller منفصل، لا يمس AD_STATE ──
+        function _showAdsgramTaskAd() {
+            return new Promise(async (resolve) => {
+                const controller = _getAdsgramTaskController();
+                if (!controller) {
+                    console.warn('[ADSGRAM_TASK] SDK not ready');
+                    resolve(false);
+                    return;
+                }
+                ADSGRAM_TASK_STATE.watchStarted = Date.now();
+                _adsgramTaskWatchStarted        = ADSGRAM_TASK_STATE.watchStarted;
+                try {
+                    const result = await controller.show();
+                    if (result && result.done === true) {
+                        // ✅ إعلان اكتمل — احسب الجائزة
+                        await claimAdsgramTaskReward();
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                } catch (result) {
+                    const errReason = result?.description || result?.state || 'unknown';
+                    console.warn('[ADSGRAM_TASK] catch:', errReason);
+                    if (result?.error === true) { _adsgramTaskController = null; }
+                    resolve(false);
+                }
+            });
+        }
+
+        // ── claimAdsgramTaskReward ───────────────────────────────────
+        async function claimAdsgramTaskReward() {
+            let nonce = ADSGRAM_TASK_STATE.nonce || window._adsgramTaskNonce || null;
+
             if (!nonce) {
-                console.warn('[AdsgramTask] no task_nonce — calling start_adsgram_task to get nonce');
+                console.warn('[ADSGRAM_TASK] no nonce — retrying start_adsgram_task');
                 try {
                     const startRes = await _dbCall('start_adsgram_task', {});
                     if (startRes.ok || startRes.already_watching) {
                         nonce = startRes.task_nonce || null;
+                        ADSGRAM_TASK_STATE.nonce = nonce;
                         window._adsgramTaskNonce = nonce;
                     }
                 } catch (_) {}
             }
 
             if (!nonce) {
-                console.error('[AdsgramTask] still no task_nonce after retry');
+                console.error('[ADSGRAM_TASK] still no nonce after retry');
                 showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
                 return;
             }
 
             const result = await _dbCall('claim_adsgram_task', {}, nonce);
+
             if (result.ok) {
-                window._adsgramTaskNonce = null; // استُهلك الـ nonce
-                animateBalance(USER_STATE.points, result.points, 1000);
-                USER_STATE.points = result.points;
+                ADSGRAM_TASK_STATE.nonce = null;
+                window._adsgramTaskNonce = null;
+
+                // ✅ حدّث الرصيد فوراً
+                if (result.points !== undefined) {
+                    animateBalance(USER_STATE.points, result.points, 1000);
+                    USER_STATE.points = result.points;
+                }
+
                 const r = result.earned || APP_CONFIG?.rewards?.adsgram_task || 50;
-                // ✅ تأخير 2 ثانية قبل إشعار الربح — يشعر المستخدم بأن الأمر تمت معالجته فعلاً
+
+                // ✅ إشعار بعد 2 ثانية بالضبط — بعد احتساب الرصيد الفعلي
                 setTimeout(() => {
-                    showToast('trophy', `🎉 ربحت ${r.toLocaleString('ar-EG')} نقطة!`,
-                        `تم احتساب مكافأة مهمة Adsgram ✓`, 'gold', `+${r}`);
+                    showToast('trophy',
+                        `🎉 ربحت ${r.toLocaleString('ar-EG')} نقطة!`,
+                        `تم احتساب مكافأة مهمة Adsgram ✓`,
+                        'gold', `+${r}`);
                 }, 2000);
-                // Update UI to cooldown or completed
+
+                // ✅ الكارد يبقى مخفياً — يرجع بعد انتهاء عداد 180 ثانية
                 if (result.adsgram_task) {
                     _syncAdsgramStateFromServer(result.adsgram_task);
-                } else {
-                    _showAdsgramCooldown(60);
                 }
+                // لا نستدعي _showAdsgramCooldown هنا — العداد يعمل بالفعل
+
             } else {
                 const e = result.error;
                 if (e === 'already_claimed_today' || e === 'cooldown_active') {
@@ -4290,73 +4359,16 @@
             }
         }
 
-        // ✅ watchAdsgramTask — يُستدعى عند ضغط المستخدم على زر Adsgram
-        // المنطق الصحيح: start_adsgram_task أولاً → ثم widget.show()
-        let _adsgramTaskInProgress = false;
-
-        async function watchAdsgramTask() {
-            if (_adsgramTaskInProgress) return;
-
-            // ✅ منع التداخل: لا تشغّل المهمة إذا كان هناك إعلان عادي قيد التشغيل
-            if (AD_STATE.isWatching) {
-                showToast('coin', 'انتظر انتهاء الإعلان الحالي', '', 'gold', '⏳');
-                return;
-            }
-
-            _adsgramTaskInProgress = true;
-
-            // [1] start_adsgram_task
-            let startRes;
-            try {
-                startRes = await _dbCall('start_adsgram_task', {});
-            } catch (_) {
-                startRes = { ok: false, error: 'network_error' };
-            }
-
-            if (!startRes.ok) {
-                _adsgramTaskInProgress = false;
-                if (startRes.error === 'cooldown_active') {
-                    const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
-                    _showAdsgramCooldown(sec);
-                }
-                return;
-            }
-
-            // ✅ لا toast هنا — الإشعار يجيء بعد احتساب الرصيد فعلياً (في claimAdsgramTaskReward)
-
-            // خزّن task_nonce
-            window._adsgramTaskNonce = startRes.task_nonce || null;
-
-            // ✅ أغلق الكارد 180 ثانية — بدون زر جمع وبدون تأثير على إعلانات صفحة الربح
-            _startAdsgramCountdown(180, 0);
-
-            // [2] شغّل الإعلان عبر controller المنفصل (لا يمس AD_STATE ولا progress bar)
-            try {
-                await _showAdsgramTaskAd();
-            } catch (e) {
-                console.warn('[AdsgramTask] show() error:', e.message);
-            }
-
-            _adsgramTaskInProgress = false;
-        }
-
-        // ── Adsgram Task — DB state driven, refresh-safe ─────────────
-        let _taskCountdown = null;
-        let _taskStartedAt = 0;
-
+        // ── _initAdsgramTask (widget listeners احتياطية) ─────────────
         function _initAdsgramTask() {
-            // widget listeners احتياطية فقط — _showAdsgramTaskAd تتحكم بالـ reward flow
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
-
             widget.addEventListener('start', () => {
-                _adsgramTaskWatchStarted = Date.now();
+                ADSGRAM_TASK_STATE.watchStarted = Date.now();
+                _adsgramTaskWatchStarted        = ADSGRAM_TASK_STATE.watchStarted;
             });
-
-            // لا نضيف 'reward' listener هنا — _showAdsgramTaskAd تستدعي claimAdsgramTaskReward مباشرة
-
             widget.addEventListener('error', () => {
-                console.warn('[AdsgramTask] widget error — resetting task controller');
+                console.warn('[ADSGRAM_TASK] widget error — reset controller');
                 _adsgramTaskController = null;
             });
         }
@@ -4457,8 +4469,12 @@
             }
 
             if (AD_STATE.cooldownUntil && Date.now() < AD_STATE.cooldownUntil) {
-                const waitSec = Math.ceil((AD_STATE.cooldownUntil - Date.now()) / 1000);
-                showToast('coin', 'انتظر قليلاً ⏳', `${waitSec} ثانية`, 'red', '');
+                // ✅ بدل "انتظر قليلاً" — أظهر آخر مكافأة ربحها المستخدم
+                const lastEarned = AD_STATE._lastEarned || APP_CONFIG?.rewards?.points_per_ad || 50;
+                showToast('coin',
+                    `ربحت ${lastEarned.toLocaleString('ar-EG')} نقطة! 🎉`,
+                    `تبقّى ${AD_STATE.remaining} إعلان اليوم`,
+                    'gold', `+${lastEarned}`);
                 return;
             }
 
@@ -4602,13 +4618,12 @@
                 AD_STATE.earnedToday  = result.earnedToday;
                 const cdMs = result.cooldown_ms || APP_CONFIG.ads?.cooldown_ms || 30000;
                 AD_STATE.cooldownUntil = Date.now() + cdMs;
+                const earned = result.earned || APP_CONFIG?.rewards?.ad_watch || 50;
+                AD_STATE._lastEarned = earned;   // ✅ نحفظها لإشعار الـ cooldown
                 if (result.points !== undefined) {
                     animateBalance(USER_STATE.points, result.points, 1200);
                     USER_STATE.points = result.points;
                 }
-
-                // ✅ ثانياً: أظهر toast الربح فوراً قبل updateAdUI
-                const earned = result.earned || APP_CONFIG?.rewards?.ad_watch || 50;
                 if (AD_STATE.remaining === 0) {
                     showToast('trophy', 'أكملت جميع الإعلانات! 🏆',
                         `ربحت ${earned.toLocaleString('ar-EG')} نقطة — حصلت على كل نقاط اليوم`, 'green', `+${earned}`);
@@ -4752,38 +4767,6 @@
 
         // ══════════════════════════════════════════════════════════
         // ✅ _showAdsgramTaskAd — منفصلة تماماً عن _showAdsgramAd
-        // تستخدم _adsgramTaskController الخاص بالمهمة فقط
-        // لا تمس AD_STATE ولا progress bar ولا أي شيء يخص إعلانات صفحة الربح
-        // ══════════════════════════════════════════════════════════
-        function _showAdsgramTaskAd() {
-            return new Promise(async (resolve) => {
-                const controller = _getAdsgramTaskController();
-                if (!controller) {
-                    console.warn('[AdsgramTask] SDK not ready');
-                    resolve(false);
-                    return;
-                }
-                _adsgramTaskWatchStarted = Date.now();
-                try {
-                    const result = await controller.show();
-                    if (result && result.done === true) {
-                        // ✅ إعلان اكتمل — استدعي claimAdsgramTaskReward مباشرة
-                        await claimAdsgramTaskReward();
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                } catch (result) {
-                    const errReason = result?.description || result?.state || 'unknown';
-                    console.warn('[AdsgramTask] catch:', errReason);
-                    if (result?.error === true) {
-                        // reset task controller فقط — لا يمس _adController
-                        _adsgramTaskController = null;
-                    }
-                    resolve(false);
-                }
-            });
-        }
 
 
         /* Toast icons */
