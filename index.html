@@ -3800,17 +3800,29 @@
             }
 
             // Actions that use server-issued nonces (get_nonce endpoint)
+            // Actions التي تحصل على nonce من السيرفر عبر get_nonce
             const SERVER_NONCE_ACTIONS = new Set([
                 'claim_gift', 'verify_tg_task', 'submit_withdraw', 'claim_daily_mission', 'verify_channel_task'
             ]);
-            // Actions that skip nonce entirely
+            // Actions التي تستخدم nonce خارجي (ad_nonce / task_nonce) يُمرَّر يدوياً
+            const EXTERNAL_NONCE_ACTIONS = new Set([
+                'reward_ad', 'claim_adsgram_task'
+            ]);
+            // Actions التي لا تحتاج أي nonce
             const SKIP_NONCE = new Set([
-                'get_state', 'load', 'reward_ad', 'get_referrals', 'create_session',
-                'track_ad_event', 'claim_adsgram_task', 'start_ad', 'start_adsgram_task',
+                'get_state', 'load', 'get_referrals', 'create_session',
+                'track_ad_event', 'start_ad', 'start_adsgram_task',
                 'get_nonce', 'get_channels'
             ]);
-            const needsServerNonce = SERVER_NONCE_ACTIONS.has(action) && !_externalNonce;
-            const needsNonce = !SKIP_NONCE.has(action) && !SERVER_NONCE_ACTIONS.has(action);
+            const needsServerNonce  = SERVER_NONCE_ACTIONS.has(action) && !_externalNonce;
+            const needsNonce        = !SKIP_NONCE.has(action)
+                                    && !SERVER_NONCE_ACTIONS.has(action)
+                                    && !EXTERNAL_NONCE_ACTIONS.has(action);
+            // reward_ad / claim_adsgram_task: يجب أن يُمرَّر _externalNonce دائماً
+            if (EXTERNAL_NONCE_ACTIONS.has(action) && !_externalNonce) {
+                console.error(`[ZT] ${action} requires external nonce but none provided!`);
+                return { ok: false, error: 'nonce_missing' };
+            }
 
             try {
                 const fpStr    = await _buildFingerprint();
@@ -4102,7 +4114,14 @@
 
         // ✅ Claim Adsgram reward — calls server for verification
         async function claimAdsgramTaskReward() {
-            const result = await fetchApi({ type: 'claim_adsgram_task', data: {} });
+            // claim_adsgram_task يحتاج task_nonce صادر من start_adsgram_task
+            const nonce = window._adsgramTaskNonce || null;
+            if (!nonce) {
+                console.error('[AdsgramTask] no task_nonce — cannot claim');
+                showToast('coin', 'ابدأ المهمة أولاً', '', 'red', '');
+                return;
+            }
+            const result = await _dbCall('claim_adsgram_task', {}, nonce);
             if (result.ok) {
                 animateBalance(USER_STATE.points, result.points, 1000);
                 USER_STATE.points = result.points;
@@ -4142,26 +4161,42 @@
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) { _adsgramTaskInProgress = false; return; }
 
+            // ══════════════════════════════════════════════════════
             // التسلسل الصحيح لـ Adsgram Task:
-            //  1. start_adsgram_task  → يُسجَّل started_at في DB
+            //  1. _dbCall('start_adsgram_task') — يُسجَّل started_at في users DB
             //  2. track(ad_started, type=adsgram_task)
-            //  3. widget.show()       → يعرض الإعلان
-            //  (event 'reward' يُطلق claim_adsgram_task تلقائياً)
+            //  3. widget.show()
+            //  4. event 'reward' → track(ad_completed) → claim_adsgram_task + task_nonce
+            // ══════════════════════════════════════════════════════
 
-            // [1] start_adsgram_task أولاً
+            // [1] start_adsgram_task — لازم ينجح قبل show()
+            let startRes;
             try {
-                const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
-                if (!startRes.ok && startRes.error === 'cooldown_active') {
-                    showToast('coin', 'انتظر قليلاً ⏳', `${Math.ceil((startRes.wait_ms||60000)/1000)}s`, 'red', '');
-                    _adsgramTaskInProgress = false;
-                    return;
-                }
-            } catch (_) {}
+                startRes = await _dbCall('start_adsgram_task', {});
+            } catch (_) {
+                startRes = { ok: false, error: 'network_error' };
+            }
 
-            // [2] track ad_started قبل عرض الإعلان
+            if (!startRes.ok) {
+                _adsgramTaskInProgress = false;
+                if (startRes.error === 'cooldown_active') {
+                    const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
+                    const min = Math.floor(sec / 60);
+                    const label = min > 0 ? `${min} دقيقة` : `${sec} ثانية`;
+                    showToast('coin', 'انتظر قليلاً ⏳', label, 'red', '');
+                } else {
+                    showToast('coin', 'حدث خطأ', 'حاول مرة أخرى', 'red', '');
+                }
+                return;
+            }
+
+            // خزّن task_nonce لاستخدامه في claim_adsgram_task
+            window._adsgramTaskNonce = startRes.task_nonce || null;
+
+            // [2] track ad_started
             await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, type: 'adsgram_task' });
 
-            // [3] شغّل الـ widget
+            // [3] show — إذا فشل أعد الحالة
             try {
                 if (typeof widget.show === 'function') {
                     widget.show();
@@ -4171,6 +4206,8 @@
                 }
             } catch (e) {
                 console.warn('[AdsgramTask] show() error:', e.message);
+                _adsgramTaskInProgress = false;
+                return;
             }
 
             _adsgramTaskInProgress = false;
@@ -4185,19 +4222,11 @@
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
-            // 'start' event: Adsgram widget started showing
-            widget.addEventListener('start', async () => {
+            // 'start' event: Adsgram widget بدأ العرض — فقط نسجّل الوقت
+            // لا نستدعي start_adsgram_task هنا — watchAdsgramTask يفعله قبل show()
+            widget.addEventListener('start', () => {
                 _taskStartedAt = Date.now();
-                // Backup: ensure server knows task started (in case button wasn't used)
-                try {
-                    const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
-                    if (startRes.ok || startRes.already_watching) {
-                        console.info('[AdsgramTask] start_adsgram_task confirmed via event');
-                    }
-                } catch (_) {}
-                try {
-                    await fetchApi({ type: 'track_ad_event', data: { event: 'ad_started', meta: { type: 'adsgram_task' } } });
-                } catch (_) {}
+                console.info('[AdsgramTask] widget started at', _taskStartedAt);
             });
 
             widget.addEventListener('reward', async () => {
@@ -4482,10 +4511,13 @@
             updateAdUI();
 
             if (result.ok) {
+                const earned = result.earned || APP_CONFIG?.rewards?.ad_watch || 50;
                 if (AD_STATE.remaining === 0) {
-                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆', 'حصلت على كل نقاط اليوم', 'green', '+50');
+                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆',
+                        `ربحت ${earned} نقطة — حصلت على كل نقاط اليوم`, 'green', `+${earned}`);
                 } else {
-                    showToast('coin', 'مكافأة محصّلة ✓', 'أضفنا 50 نقطة إلى رصيدك', 'gold', '+50');
+                    showToast('coin', `ربحت ${earned} نقطة! 🎉`,
+                        `تبقّى ${AD_STATE.remaining} إعلان للربح اليوم`, 'gold', `+${earned}`);
                 }
             }
         }
