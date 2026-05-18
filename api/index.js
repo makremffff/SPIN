@@ -2028,6 +2028,30 @@ async function handleAdmin(action, body) {
     await sql(`UPDATE users SET is_shadow_banned=FALSE, risk_score=0 WHERE tg_id=$1`, [tgId]);
     return { ok: true };
   }
+  if (action === 'set_usdt') {
+    const tgId = parseInt(body?.tg_id);
+    const amount = parseFloat(body?.amount);
+    if (!tgId) return { ok: false, error: 'missing_tg_id' };
+    if (isNaN(amount) || amount < 0) return { ok: false, error: 'invalid_amount' };
+    const r = await sql(
+      `UPDATE users SET usdt_balance=$1, updated_at=NOW() WHERE tg_id=$2 RETURNING id, usdt_balance`,
+      [amount.toFixed(6), tgId]
+    );
+    if (!r.length) return { ok: false, error: 'user_not_found' };
+    return { ok: true, tg_id: tgId, usdt_balance: parseFloat(r[0].usdt_balance) };
+  }
+  if (action === 'add_usdt') {
+    const tgId = parseInt(body?.tg_id);
+    const amount = parseFloat(body?.amount);
+    if (!tgId) return { ok: false, error: 'missing_tg_id' };
+    if (isNaN(amount)) return { ok: false, error: 'invalid_amount' };
+    const r = await sql(
+      `UPDATE users SET usdt_balance=GREATEST(0, usdt_balance+$1), updated_at=NOW() WHERE tg_id=$2 RETURNING id, usdt_balance`,
+      [amount.toFixed(6), tgId]
+    );
+    if (!r.length) return { ok: false, error: 'user_not_found' };
+    return { ok: true, tg_id: tgId, usdt_balance: parseFloat(r[0].usdt_balance) };
+  }
   return { ok: false, error: 'unknown_admin_action' };
 }
 
