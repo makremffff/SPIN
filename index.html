@@ -2817,6 +2817,7 @@
                     background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(10,5,0,0.35));
                     padding:14px 15px;
                     display:flex;align-items:center;gap:13px;
+                    overflow:hidden;
                     transition:opacity 0.3s ease;
                 ">
                     <!-- icon -->
@@ -2839,8 +2840,9 @@
                         </div>
                     </div>
                     <!-- action: Adsgram widget -->
-                    <div style="flex-shrink:0;">
-                        <adsgram-task id="adsgram-task-widget" data-block-id="task-30166">
+                    <div style="flex-shrink:0;max-width:60px;overflow:hidden;">
+                        <adsgram-task id="adsgram-task-widget" data-block-id="task-30166"
+                            style="display:block;max-width:60px;overflow:hidden;">
                             <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
                                 <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span></span>
                             </div>
