@@ -3915,38 +3915,68 @@
         //   • reward يُرفض إذا مر أقل من 14s
         //   • كل حدث يُرسَل للسيرفر عبر trackAdEvent
         // ══════════════════════════════════════════════════════════
-        let _adController      = null;
-        let _adWatchStartedAt  = 0;   // timestamp لبداية الإعلان — anti-fraud
+        let _adController      = null;   // controller للإعلانات العادية فقط
+        let _adWatchStartedAt  = 0;      // timestamp لبداية الإعلان العادي — anti-fraud
         let _adRetryCount      = 0;
         const AD_MAX_RETRIES   = 2;
-        const AD_MIN_DURATION  = 7000;  // 7s minimum client-side check
+        const AD_MIN_DURATION  = 7000;   // 7s minimum client-side check
 
-        // ── تهيئة الـ controller مع callbacks رسمية ──────────────────
+        // ── controller منفصل لمهمة Adsgram (يمنع التداخل مع الإعلانات العادية) ──
+        let _adsgramTaskController   = null;
+        let _adsgramTaskWatchStarted = 0;
+
+        // ── تهيئة controller الإعلانات العادية ─────────────────────────
         function _initAdController() {
             if (!window.Adsgram) return null;
             if (_adController) return _adController;
-
             try {
                 _adController = window.Adsgram.init({
                     blockId: AD_BLOCK_ID,
                     debug:   false,
                     debugBanners: false,
                 });
-                console.info('[Adsgram] ✅ Controller initialized — blockId:', AD_BLOCK_ID);
+                console.info('[Adsgram] ✅ Ad controller initialized — blockId:', AD_BLOCK_ID);
             } catch (e) {
-                console.error('[Adsgram] ❌ init failed:', e.message);
+                console.error('[Adsgram] ❌ Ad controller init failed:', e.message);
                 _adController = null;
             }
             return _adController;
         }
 
-        // ── _getAdController — يتحقق من SDK ثم يُهيئ الـ controller ──
+        // ── تهيئة controller مهمة Adsgram (منفصل تماماً) ───────────────
+        function _initAdsgramTaskController() {
+            if (!window.Adsgram) return null;
+            if (_adsgramTaskController) return _adsgramTaskController;
+            try {
+                _adsgramTaskController = window.Adsgram.init({
+                    blockId: AD_BLOCK_ID,
+                    debug:   false,
+                    debugBanners: false,
+                });
+                console.info('[AdsgramTask] ✅ Task controller initialized');
+            } catch (e) {
+                console.error('[AdsgramTask] ❌ Task controller init failed:', e.message);
+                _adsgramTaskController = null;
+            }
+            return _adsgramTaskController;
+        }
+
+        // ── _getAdController — للإعلانات العادية فقط ──────────────────
         function _getAdController() {
             if (!window.Adsgram) {
                 console.warn('[Adsgram] SDK not loaded yet');
                 return null;
             }
             return _initAdController();
+        }
+
+        // ── _getAdsgramTaskController — لمهمة Adsgram فقط ─────────────
+        function _getAdsgramTaskController() {
+            if (!window.Adsgram) {
+                console.warn('[AdsgramTask] SDK not loaded yet');
+                return null;
+            }
+            return _initAdsgramTaskController();
         }
 
         // ✅ Adsgram Task — DB-persistent state sync
@@ -4172,6 +4202,13 @@
 
         async function watchAdsgramTask() {
             if (_adsgramTaskInProgress) return;
+
+            // ✅ منع التداخل: لا تشغّل المهمة إذا كان هناك إعلان عادي قيد التشغيل
+            if (AD_STATE.isWatching) {
+                showToast('coin', 'انتظر انتهاء الإعلان الحالي', '', 'gold', '⏳');
+                return;
+            }
+
             _adsgramTaskInProgress = true;
 
             const widget = document.getElementById('adsgram-task-widget');
@@ -4197,33 +4234,29 @@
                 _adsgramTaskInProgress = false;
                 if (startRes.error === 'cooldown_active') {
                     const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
-                    const min = Math.floor(sec / 60);
-                    const label = min > 0 ? `${min} دقيقة` : `${sec} ثانية`;
-                    showToast('coin', 'انتظر قليلاً ⏳', label, 'red', '');
-                } else {
-                    showToast('coin', 'حدث خطأ', 'حاول مرة أخرى', 'red', '');
+                    _showAdsgramCooldown(sec);
                 }
+                // لا نُظهر أي إشعار خطأ — نتجاهل الأخطاء الأخرى بصمت
                 return;
             }
+
+            // ✅ أظهر إشعار "لقد ربحت جائزة" فوراً عند ضغط Go
+            showToast('trophy', '🎉 لقد ربحت جائزة!', 'جاري تحضير مكافأتك...', 'gold', '🏆');
 
             // خزّن task_nonce لاستخدامه في claim_adsgram_task
             window._adsgramTaskNonce = startRes.task_nonce || null;
 
+            // ✅ أغلق الكارد لمدة 180 ثانية (عداد تنازلي)
+            _startAdsgramCountdown(180, startRes.adsgram_task?.reward || CONFIG?.rewards?.adsgram_task || 50);
+
             // [2] track ad_started
             await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, type: 'adsgram_task' });
 
-            // [3] show — إذا فشل أعد الحالة
+            // [3] show — يستخدم controller المنفصل للمهمة (لا يتداخل مع الإعلانات العادية)
             try {
-                if (typeof widget.show === 'function') {
-                    widget.show();
-                } else {
-                    const inner = widget.querySelector('button');
-                    if (inner) inner.click();
-                }
+                await _showAdsgramTaskAd();
             } catch (e) {
                 console.warn('[AdsgramTask] show() error:', e.message);
-                _adsgramTaskInProgress = false;
-                return;
             }
 
             _adsgramTaskInProgress = false;
@@ -4235,26 +4268,24 @@
 
         function _initAdsgramTask() {
             // ✅ State now comes from DB via load/get_state — not session only
+            // ملاحظة: widget listener احتياطي فقط — _showAdsgramTaskAd تتحكم بالـ reward flow
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
-            // 'start' event: Adsgram widget بدأ العرض — فقط نسجّل الوقت
-            // لا نستدعي start_adsgram_task هنا — watchAdsgramTask يفعله قبل show()
             widget.addEventListener('start', () => {
-                _taskStartedAt = Date.now();
-                console.info('[AdsgramTask] widget started at', _taskStartedAt);
+                _adsgramTaskWatchStarted = Date.now();
+                console.info('[AdsgramTask] widget started at', _adsgramTaskWatchStarted);
             });
 
             widget.addEventListener('reward', async () => {
-                // [3] track ad_completed قبل claim — نفس تسلسل الإعلان العادي
-                await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _taskStartedAt });
+                // هذا listener احتياطي — _showAdsgramTaskAd تُعالج الـ reward مباشرة
+                await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _adsgramTaskWatchStarted });
                 await claimAdsgramTaskReward();
             });
 
             widget.addEventListener('error', () => {
-                console.warn('[AdsgramTask] widget error event');
-                const outer = document.getElementById('adsgram-task-outer');
-                // don't hide — just log
+                console.warn('[AdsgramTask] widget error event — resetting task controller');
+                _adsgramTaskController = null; // reset task controller فقط
             });
         }
 
@@ -4346,6 +4377,12 @@
         // ══════════════════════════════════════════════════════════
         async function watchAd() {
             if (AD_STATE.remaining <= 0 || AD_STATE.isWatching) return;
+
+            // ✅ منع التداخل: لا تشغّل إعلاناً عادياً إذا كانت مهمة Adsgram تعمل
+            if (_adsgramTaskInProgress) {
+                showToast('coin', 'انتظر انتهاء مهمة Adsgram', '', 'gold', '⏳');
+                return;
+            }
 
             if (AD_STATE.cooldownUntil && Date.now() < AD_STATE.cooldownUntil) {
                 const waitSec = Math.ceil((AD_STATE.cooldownUntil - Date.now()) / 1000);
@@ -4517,7 +4554,7 @@
                 if (result.error === 'cooldown_active') {
                     const waitMs = result.wait_ms || 30000;
                     AD_STATE.cooldownUntil = Date.now() + waitMs;
-                    showToast('coin', 'انتظر قبل الإعلان التالي ⏳', `${Math.ceil(waitMs/1000)} ثانية`, 'red', '');
+                    // العداد التنازلي يظهر على الزر تلقائياً عبر updateAdUI — لا حاجة لـ toast
                 } else if (result.error === 'ad_duration_invalid') {
                     showToast('coin', 'الإعلان لم يكتمل', 'شاهد الإعلان بالكامل', 'red', '');
                 } else if (result.error === 'daily_limit_reached') {
@@ -4634,6 +4671,39 @@
                     } else {
                         // المستخدم أغلق الإعلان
                         await trackAdEvent('ad_failed', { reason: 'user_closed' });
+                    }
+                    resolve(false);
+                }
+            });
+        }
+
+
+        // ══════════════════════════════════════════════════════════
+        // ✅ _showAdsgramTaskAd — منفصلة تماماً عن _showAdsgramAd
+        // تستخدم _adsgramTaskController الخاص بالمهمة فقط
+        // ══════════════════════════════════════════════════════════
+        function _showAdsgramTaskAd() {
+            return new Promise(async (resolve) => {
+                const controller = _getAdsgramTaskController();
+                if (!controller) {
+                    console.warn('[AdsgramTask] SDK not ready');
+                    resolve(false);
+                    return;
+                }
+                _adsgramTaskWatchStarted = Date.now();
+                try {
+                    const result = await controller.show();
+                    if (result && result.done === true) {
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                } catch (result) {
+                    const errReason = result?.description || result?.state || 'unknown';
+                    console.warn('[AdsgramTask] catch:', errReason);
+                    if (result?.error === true) {
+                        // reset task controller only — لا يمس _adController
+                        _adsgramTaskController = null;
                     }
                     resolve(false);
                 }
