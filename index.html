@@ -2819,24 +2819,10 @@
                     display:flex;align-items:center;gap:13px;
                     transition:opacity 0.3s ease;
                 ">
-                    <!-- icon -->
-                    <div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;
-                        background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.28);
-                        display:flex;align-items:center;justify-content:center;">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                            <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                                  stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                    <!-- info -->
+                    <!-- info: title only -->
                     <div style="flex:1;min-width:0;">
                         <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
-                                    color:rgba(255,255,255,0.95);margin-bottom:3px;line-height:1.2;">مهمة إعلانية يومية</div>
-                        <div style="display:flex;align-items:center;gap:5px;">
-                            <span style="font-family:'DynaPuff',sans-serif;font-size:11px;font-weight:700;
-                                         color:rgba(251,191,36,0.85);">+<span class="adsgram-reward-badge">30</span> نقطة</span>
-                            <span style="font-size:9px;color:rgba(255,255,255,0.25);">· كل 60 ثانية</span>
-                        </div>
+                                    color:rgba(255,255,255,0.95);line-height:1.2;">بلاي غيم تو غيت تون</div>
                     </div>
                     <!-- action: Adsgram Task widget -->
                     <div style="flex-shrink:0;">
@@ -4125,7 +4111,22 @@
         }
 
         // ✅ Claim Adsgram reward — calls server for verification
-        async function claimAdsgramTaskReward() {
+        let _adsgramClaimInProgress = false;
+        async function claimAdsgramTaskReward(_retry) {
+            // ✅ منع النقر المزدوج / استدعاءات متعددة من نفس المهمة
+            if (_adsgramClaimInProgress) {
+                console.warn('[AdsgramTask] claim already in progress — ignoring');
+                return;
+            }
+            _adsgramClaimInProgress = true;
+            try {
+                await _claimAdsgramTaskRewardInner(_retry);
+            } finally {
+                _adsgramClaimInProgress = false;
+            }
+        }
+
+        async function _claimAdsgramTaskRewardInner(_retry) {
             // claim_adsgram_task يحتاج task_nonce صادر من start_adsgram_task
             let nonce = window._adsgramTaskNonce || null;
 
@@ -4156,6 +4157,12 @@
                 showToast('trophy', `ربحت ${r.toLocaleString('ar-EG')} نقطة! 🎉`,
                     'جائزة المهمة الإعلانية ✓', 'gold', `+${r}`);
 
+                // ✅ إضافة إشعار في لوحة الإشعارات
+                try {
+                    addNotification('gold', 'تمت المهمة الإعلانية ✓',
+                        `+${r.toLocaleString('ar-EG')} نقطة أُضيفت لرصيدك`, Date.now());
+                } catch (_) {}
+
                 // ── إخفاء الكارد فوراً بعد الاستلام ─────────────────
                 const _outerEl = document.getElementById('adsgram-task-outer');
                 const _cardEl  = document.getElementById('adsgram-task-card');
@@ -4176,6 +4183,20 @@
 
             } else {
                 const e = result.error;
+                // ✅ إذا كانت سرعة الإعلان أقل من الحد الأدنى — انتظر وأعد المحاولة مرة واحدة
+                if (e === 'task_too_fast' && !_retry) {
+                    const wait = Math.min(3000, (result.wait_ms || 1800));
+                    console.info('[AdsgramTask] too_fast — retry after', wait, 'ms');
+                    await new Promise(r => setTimeout(r, wait + 200));
+                    // أعد إصدار task_nonce جديد قبل إعادة المحاولة
+                    try {
+                        const startRes = await _dbCall('start_adsgram_task', {});
+                        if (startRes.ok || startRes.already_watching) {
+                            window._adsgramTaskNonce = startRes.task_nonce || null;
+                        }
+                    } catch (_) {}
+                    return _claimAdsgramTaskRewardInner(true);
+                }
                 if (e === 'already_claimed_today' || e === 'cooldown_active') {
                     showToast('coin', 'تم الاستلام مسبقاً', '', 'gold', '✓');
                     if (result.adsgram_task) _syncAdsgramStateFromServer(result.adsgram_task);
@@ -4255,13 +4276,32 @@
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
-            widget.addEventListener('start', () => {
+            widget.addEventListener('start', async () => {
                 _taskStartedAt = Date.now();
                 console.info('[AdsgramTask] widget started at', _taskStartedAt);
+                // ✅ سجّل بداية المهمة على السيرفر فوراً عند الضغط على GO
+                // حتى يصبح adsgram_started_at موجوداً ويُصدر task_nonce قابل للاستخدام مرة واحدة
+                try {
+                    const startRes = await _dbCall('start_adsgram_task', {});
+                    if (startRes.ok || startRes.already_watching) {
+                        window._adsgramTaskNonce = startRes.task_nonce || null;
+                    } else if (startRes.error === 'cooldown_active') {
+                        const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
+                        showToast('coin', 'انتظر قليلاً ⏳', `${sec} ثانية`, 'red', '');
+                    }
+                } catch (e) {
+                    console.warn('[AdsgramTask] start failed:', e.message);
+                }
             });
 
             widget.addEventListener('reward', async () => {
                 await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _taskStartedAt }, 'adsgram_task');
+                // ✅ تأخير صغير لضمان أن elapsed >= MIN_WATCH على السيرفر
+                const elapsed = Date.now() - _taskStartedAt;
+                const MIN_WAIT = 1800;
+                if (elapsed < MIN_WAIT) {
+                    await new Promise(r => setTimeout(r, MIN_WAIT - elapsed));
+                }
                 await claimAdsgramTaskReward();
             });
 
@@ -4523,6 +4563,12 @@
                     showToast('coin', `ربحت ${earned.toLocaleString('ar-EG')} نقطة! 🎉`,
                         `تبقّى ${AD_STATE.remaining} إعلان للربح اليوم`, 'gold', `+${earned}`);
                 }
+
+                // ✅ إضافة إشعار للمستخدم بمشاهدة الإعلان وإضافة الرصيد
+                try {
+                    addNotification('gold', 'تمت مشاهدة الإعلان ✓',
+                        `+${earned.toLocaleString('ar-EG')} نقطة أُضيفت لرصيدك`, Date.now());
+                } catch (_) {}
 
                 // ✅ ثالثاً: حدّث UI (cooldown يظهر في الزر فقط، بدون toast)
                 updateAdUI();
@@ -5103,6 +5149,10 @@
             if (claimedBadge) claimedBadge.style.display = 'inline-flex';
 
             showToast('trophy', 'تم استلام المكافأة! 🎁', `+${(result.reward||0).toLocaleString()} نقطة`, 'green', `+${result.reward||0}`);
+            try {
+                addNotification('gold', 'تم استلام مكافأة المهمة اليومية ✓',
+                    `+${(result.reward||0).toLocaleString('ar-EG')} نقطة أُضيفت لرصيدك`, Date.now());
+            } catch (_) {}
         }
 
         function updateDailyBadge() {
