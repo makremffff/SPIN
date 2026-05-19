@@ -2439,15 +2439,3 @@
             font-size: 14px; font-weight: 900;
             color: var(--gold);
         }
-
-
-        @keyframes loadPulse {
-            0%,100% { box-shadow:0 0 40px rgba(251,191,36,0.15); transform:scale(1); }
-            50%      { box-shadow:0 0 60px rgba(251,191,36,0.3);  transform:scale(1.04); }
-        }
-        @keyframes loadSpin { to { transform:rotate(360deg); } }
-        @keyframes skelShimmer {
-            0%   { background:rgba(255,255,255,0.04); }
-            50%  { background:rgba(255,255,255,0.08); }
-            100% { background:rgba(255,255,255,0.04); }
-        }
