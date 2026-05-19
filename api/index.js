@@ -93,6 +93,32 @@ const CONFIG = Object.freeze({
   adsgram_task: {
     cooldown_ms:       60 * 1000,
     min_watch_ms:      1500,   // 1.5 ثانية — Adsgram يتحكم بوقت الإعلان
+    // ✅ اسم/عنوان المهمة الديناميكي — يتغير حسب مزود الإعلان
+    // غيّر هذه القيم من السيرفر فقط، الواجهة تقرأها من /config
+    title_ar:          'بلاي غيم تو غيت تون',
+    title_en:          'Play Game to Get TON',
+    block_id:          'task-30166',
+  },
+  // ═══ هدية الربح اليومي — ديناميكية من السيرفر ═══
+  daily_gift: {
+    rewards: [100, 150, 200, 250, 300, 400, 750, 800, 900, 1000],
+    titles_ar: [
+      'اليوم الأول', 'اليوم الثاني', 'اليوم الثالث', 'اليوم الرابع',
+      'اليوم الخامس', 'اليوم السادس', 'اليوم السابع',
+      'اليوم الثامن', 'اليوم التاسع', 'اليوم العاشر'
+    ],
+    descs_ar: [
+      'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!',
+      'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.',
+      'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.',
+      'أسبوعك يقترب!\nاستمر في التحدي.',
+      'خمسة أيام!\nأنت من الملتزمين الحقيقيين.',
+      'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.',
+      'أسبوع كامل!\nمكافأة ضخمة بانتظارك.',
+      'تجاوزت الأسبوع!\nمكافأة استثنائية.',
+      'تسعة أيام!\nأنت أسطورة.',
+      'عشرة أيام متتالية!\nمكافأة الأبطال.'
+    ],
   },
   referral: {
     min_active_ads:    3,     // الحد الأدنى للإعلانات لاعتبار المستخدم نشيطاً
@@ -138,7 +164,7 @@ const CFG = {
   },
 
   LEVEL_THRESHOLDS: [0, 0, 500, 1500, 3500, 8000, 16000, 30000, 55000, 90000, 150000],
-  GIFT_REWARDS:     [100, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000],
+  GIFT_REWARDS:     CONFIG.daily_gift.rewards,
 };
 
 // ── In-memory rate limit ──────────────────────────────────────────
@@ -852,6 +878,18 @@ function handleGetConfig() {
       daily_limit:     CONFIG.ads.daily_limit,
       cooldown_ms:     CONFIG.ads.cooldown_ms,
       min_duration_ms: CONFIG.ads.min_duration_ms,
+    },
+    adsgram_task: {
+      title_ar:  CONFIG.adsgram_task.title_ar,
+      title_en:  CONFIG.adsgram_task.title_en,
+      block_id:  CONFIG.adsgram_task.block_id,
+      reward:    CONFIG.rewards.adsgram_task,
+      cooldown_ms: CONFIG.adsgram_task.cooldown_ms,
+    },
+    daily_gift: {
+      rewards:   CONFIG.daily_gift.rewards,
+      titles_ar: CONFIG.daily_gift.titles_ar,
+      descs_ar:  CONFIG.daily_gift.descs_ar,
     },
   };
 }
