@@ -2817,7 +2817,6 @@
                     background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(10,5,0,0.35));
                     padding:14px 15px;
                     display:flex;align-items:center;gap:13px;
-                    overflow:hidden;
                     transition:opacity 0.3s ease;
                 ">
                     <!-- icon -->
@@ -2839,26 +2838,15 @@
                             <span style="font-size:9px;color:rgba(255,255,255,0.25);">· كل 60 ثانية</span>
                         </div>
                     </div>
-                    <!-- action: Go Button -->
-                    <button id="adsgram-go-btn" onclick="watchAdsgramTask()" style="
-                        flex-shrink:0;
-                        width:54px;height:44px;border-radius:13px;border:none;cursor:pointer;
-                        background:linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.12));
-                        border:1px solid rgba(251,191,36,0.4);
-                        font-family:'DynaPuff','Tajawal',sans-serif;
-                        font-size:13px;font-weight:800;color:#fbbf24;
-                        display:flex;align-items:center;justify-content:center;
-                        transition:all 0.2s ease;
-                        box-shadow:0 2px 10px rgba(251,191,36,0.15);
-                        -webkit-tap-highlight-color:transparent;
-                    " onpointerdown="this.style.transform='scale(0.93)'" onpointerup="this.style.transform='scale(1)'" onpointercancel="this.style.transform='scale(1)'">
-                        GO
-                    </button>
-                    <!-- Hidden Adsgram widget for SDK events only -->
-                    <adsgram-task id="adsgram-task-widget" data-block-id="task-30166"
-                        style="display:none;position:absolute;pointer-events:none;">
-                        <div slot="reward"></div>
-                    </adsgram-task>
+                    <!-- action: Adsgram Task widget -->
+                    <div style="flex-shrink:0;">
+                        <adsgram-task id="adsgram-task-widget" data-block-id="task-30166"
+                            style="display:block;">
+                            <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
+                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span></span>
+                            </div>
+                        </adsgram-task>
+                    </div>
                 </div>
 
                 <!-- حالة الإكمال + عداد -->
@@ -4177,14 +4165,14 @@
                 if (_doneEl)  _doneEl.style.display  = 'none';
                 _clearAdsgramTimer();
 
-                // ── إعادة الكارد بعد 180 ثانية ───────────────────────
+                // ── إعادة الكارد بعد 230 ثانية ───────────────────────
                 setTimeout(() => {
                     if (_outerEl) _outerEl.style.display = 'block';
                     if (_cardEl)  { _cardEl.style.display = 'flex'; _cardEl.style.opacity = '1'; }
                     if (_doneEl)  _doneEl.style.display = 'none';
                     // إعادة المزامنة مع السيرفر
                     if (result.adsgram_task) _syncAdsgramStateFromServer(result.adsgram_task);
-                }, 180000);
+                }, 230000);
 
             } else {
                 const e = result.error;
@@ -4203,74 +4191,60 @@
             }
         }
 
-        // ✅ watchAdsgramTask — جائزة فورية عند الضغط + إخفاء 230 ثانية
+        // ✅ watchAdsgramTask — يُستدعى عند ضغط المستخدم على زر Adsgram
+        // المنطق الصحيح: start_adsgram_task أولاً → ثم widget.show()
         let _adsgramTaskInProgress = false;
-
-        function _hideAdsgramCardFor230Sec() {
-            const outer = document.getElementById('adsgram-task-outer');
-            const card  = document.getElementById('adsgram-task-card');
-            const done  = document.getElementById('adsgram-task-done');
-            if (outer) outer.style.display = 'none';
-            if (card)  card.style.display  = 'none';
-            if (done)  done.style.display  = 'none';
-            _clearAdsgramTimer();
-            setTimeout(() => {
-                if (outer) { outer.style.display = 'block'; }
-                if (card)  { card.style.display = 'flex'; card.style.opacity = '1'; }
-                if (done)  { done.style.display = 'none'; }
-                _dbCall('get_state', {}).then(r => {
-                    if (r && r.adsgram_task) _syncAdsgramStateFromServer(r.adsgram_task);
-                }).catch(() => {});
-            }, 230000);
-        }
 
         async function watchAdsgramTask() {
             if (_adsgramTaskInProgress) return;
             _adsgramTaskInProgress = true;
 
-            const goBtn = document.getElementById('adsgram-go-btn');
-            if (goBtn) { goBtn.disabled = true; goBtn.style.opacity = '0.5'; }
+            const widget = document.getElementById('adsgram-task-widget');
+            if (!widget) { _adsgramTaskInProgress = false; return; }
 
-            // جائزة فورية في الـ UI
-            const r = APP_CONFIG?.rewards?.adsgram_task || 50;
-            const prevPts = USER_STATE.points || 0;
-            USER_STATE.points = prevPts + r;
-            animateBalance(prevPts, USER_STATE.points, 800);
+            // [1] start_adsgram_task — يسجل started_at في DB ويُصدر task_nonce
+            let startRes;
+            try {
+                startRes = await _dbCall('start_adsgram_task', {});
+            } catch (_) {
+                startRes = { ok: false, error: 'network_error' };
+            }
 
-            // إخفاء الكارد فوراً لـ 230 ثانية
-            _hideAdsgramCardFor230Sec();
-
-            // إشعار بعد 2 ثانية (دائماً ناجح)
-            setTimeout(() => {
-                showToast('trophy', `ربحت ${r.toLocaleString('ar-EG')} نقطة! 🎉`,
-                    'تم بنجاح ✓', 'gold', `+${r}`);
-            }, 2000);
-
-            // في الخلفية: تسجيل مع السيرفر
-            (async () => {
-                try {
-                    const startRes = await _dbCall('start_adsgram_task', {});
-                    if (startRes && startRes.ok) {
-                        window._adsgramTaskNonce = startRes.task_nonce || null;
-                        await trackAdEvent('ad_started', { type: 'adsgram_task' }, 'adsgram_task');
-                        await new Promise(res => setTimeout(res, 1200));
-                        if (window._adsgramTaskNonce) {
-                            await _dbCall('claim_adsgram_task', {}, window._adsgramTaskNonce);
-                            window._adsgramTaskNonce = null;
-                        }
-                        await trackAdEvent('ad_completed', { type: 'adsgram_task' }, 'adsgram_task');
-                    }
-                    const widget = document.getElementById('adsgram-task-widget');
-                    if (widget && typeof widget.show === 'function') {
-                        try { widget.show(); } catch (_) {}
-                    }
-                } catch (e) {
-                    console.warn('[AdsgramTask] background call failed:', e.message);
+            if (!startRes.ok) {
+                _adsgramTaskInProgress = false;
+                if (startRes.error === 'cooldown_active') {
+                    const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
+                    const min = Math.floor(sec / 60);
+                    const label = min > 0 ? `${min} دقيقة` : `${sec} ثانية`;
+                    showToast('coin', 'انتظر قليلاً ⏳', label, 'red', '');
+                } else {
+                    showToast('coin', 'حدث خطأ', 'حاول مرة أخرى', 'red', '');
                 }
-            })();
+                return;
+            }
+
+            // خزّن task_nonce لاستخدامه في claim_adsgram_task
+            window._adsgramTaskNonce = startRes.task_nonce || null;
+
+            // [2] track ad_started
+            await trackAdEvent('ad_started', { block_id: AD_BLOCK_ID, type: 'adsgram_task' }, 'adsgram_task');
+
+            // [3] widget.show() — يفتح Adsgram Task الحقيقي
+            // الجائزة تأتي عبر event 'reward' في _initAdsgramTask
+            try {
+                if (typeof widget.show === 'function') {
+                    widget.show();
+                } else {
+                    const inner = widget.querySelector('button');
+                    if (inner) inner.click();
+                }
+            } catch (e) {
+                console.warn('[AdsgramTask] show() error:', e.message);
+                _adsgramTaskInProgress = false;
+                return;
+            }
 
             _adsgramTaskInProgress = false;
-
         }
 
         // ── Adsgram Task — DB state driven, refresh-safe ─────────────
@@ -4278,27 +4252,21 @@
         let _taskStartedAt = 0;
 
         function _initAdsgramTask() {
-            // ✅ State now comes from DB via load/get_state — not session only
             const widget = document.getElementById('adsgram-task-widget');
             if (!widget) return;
 
-            // 'start' event: Adsgram widget بدأ العرض — فقط نسجّل الوقت
-            // لا نستدعي start_adsgram_task هنا — watchAdsgramTask يفعله قبل show()
             widget.addEventListener('start', () => {
                 _taskStartedAt = Date.now();
                 console.info('[AdsgramTask] widget started at', _taskStartedAt);
             });
 
             widget.addEventListener('reward', async () => {
-                // [3] track ad_completed قبل claim — نفس تسلسل الإعلان العادي
                 await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _taskStartedAt }, 'adsgram_task');
                 await claimAdsgramTaskReward();
             });
 
             widget.addEventListener('error', () => {
                 console.warn('[AdsgramTask] widget error event');
-                const outer = document.getElementById('adsgram-task-outer');
-                // don't hide — just log
             });
         }
 
@@ -4343,6 +4311,9 @@
             if (elWatched) elWatched.textContent  = AD_STATE.watchedToday;
             if (elEarned)  elEarned.textContent   = AD_STATE.earnedToday.toLocaleString('ar-EG');
             if (elProgress) elProgress.style.width = (((AD_STATE.total - r) / AD_STATE.total) * 100) + '%';
+            // تحديث الحد اليومي من السيرفر
+            const quotaTotal = document.querySelector('.ad-quota-total');
+            if (quotaTotal) quotaTotal.textContent = '/ ' + AD_STATE.total;
 
             // ── Cooldown state ──────────────────────────────────────
             const coolLeft = AD_STATE.cooldownUntil - Date.now();
@@ -5246,6 +5217,9 @@
                 const fmt     = current.toLocaleString('en-US');
                 if (balEl)   balEl.textContent   = fmt;
                 if (heroNum) heroNum.textContent  = fmt;
+                // تحديث USDT أثناء الأنيميشن
+                const usdtLive = document.getElementById('uc-usdt-val');
+                if (usdtLive) usdtLive.textContent = (current / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(2);
                 if (progress < 1) {
                     requestAnimationFrame(tick);
                 } else {
@@ -5273,7 +5247,7 @@
             if (heroNum) { heroNum.textContent = formatted; heroNum.dataset.target = pts; }
             if (tonSheet) tonSheet.textContent = pts.toLocaleString('en-US');
             if (tonEquiv) tonEquiv.textContent = '≈ ' + (pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(3) + ' TON';
-            if (usdtEl)   usdtEl.textContent  = '0.00'; // ✅ USDT دائماً 0 — لا يُحسب من النقاط
+            if (usdtEl)   usdtEl.textContent  = (pts / (_SERVER_CONFIG.pts_per_ton || 100000)).toFixed(2);
 
             // XP bar — نعيد حسابه من النقاط
             const lvl  = USER_STATE.level || 1;
@@ -5326,14 +5300,11 @@
                     _applyConfigToUI();
                 }
 
-                // ✅ Ads state من السيرفر — القيم دائماً من السيرفر بدون fallback وهمي
-                AD_STATE.total        = (loadResult.ads_total !== undefined) ? Math.max(1, parseInt(loadResult.ads_total)) : (APP_CONFIG.ads?.daily_limit ?? 10);
+                // ✅ Ads state من السيرفر
+                AD_STATE.total        = parseInt(loadResult.ads_total)        || APP_CONFIG.ads.daily_limit || 10;
+                AD_STATE.remaining    = parseInt(loadResult.ads_remaining)     || AD_STATE.total;
                 AD_STATE.watchedToday = parseInt(loadResult.ads_watched_today) || 0;
                 AD_STATE.earnedToday  = parseInt(loadResult.earned_today)      || 0;
-                // remaining من السيرفر مباشرة — لا fallback وهمي لو كان صفر
-                AD_STATE.remaining    = (loadResult.ads_remaining !== undefined)
-                    ? Math.max(0, parseInt(loadResult.ads_remaining))
-                    : Math.max(0, AD_STATE.total - AD_STATE.watchedToday);
                 updateAdUI();
 
                 // ✅ Adsgram Task — DB state (persistent across refresh)
