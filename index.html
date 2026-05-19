@@ -2985,7 +2985,7 @@
         </div>
     </main>
 
-    <!-- ══════════════════════════════════════════
+    <!-- ═══���══════════════════════════════════════
          EARN PAGE
     ══════════════════════════════════════════ -->
     <main id="page-earn" class="page">
@@ -3187,7 +3187,7 @@
         </div>
     </main>
 
-    <!-- ══════════════════════════════════════════
+    <!-- ════════════════════════════════════���═════
          INVITE PAGE
     ══════════════════════════════════════════ -->
     <main id="page-invite" class="page">
@@ -4111,45 +4111,45 @@
         }
 
         // ✅ Claim Adsgram reward — calls server for verification
+        // حالات المهمة:
+        //   _adsgramClaimInProgress = طلب claim جارٍ الآن (يمنع التزامن)
+        //   _adsgramClaimSucceeded  = نجحت في هذه الدورة — يمنع أي توست خطأ بعد النجاح
         let _adsgramClaimInProgress = false;
-        async function claimAdsgramTaskReward(_retry) {
-            // ✅ منع النقر المزدوج / استدعاءات متعددة من نفس المهمة
+        let _adsgramClaimSucceeded  = false;
+
+        async function claimAdsgramTaskReward() {
+            if (_adsgramClaimSucceeded) {
+                console.warn('[AdsgramTask] already succeeded in this cycle — ignoring');
+                return;
+            }
             if (_adsgramClaimInProgress) {
                 console.warn('[AdsgramTask] claim already in progress — ignoring');
                 return;
             }
             _adsgramClaimInProgress = true;
             try {
-                await _claimAdsgramTaskRewardInner(_retry);
+                await _claimAdsgramTaskRewardInner();
             } finally {
                 _adsgramClaimInProgress = false;
             }
         }
 
-        async function _claimAdsgramTaskRewardInner(_retry) {
+        async function _claimAdsgramTaskRewardInner() {
             // claim_adsgram_task يحتاج task_nonce صادر من start_adsgram_task
-            let nonce = window._adsgramTaskNonce || null;
+            const nonce = window._adsgramTaskNonce || null;
 
-            // إذا لم يكن nonce موجوداً (مثلاً بعد refresh) → استدعي start_adsgram_task من جديد
+            // ✅ إذا لم يكن nonce موجوداً — لا تستدعِ start_adsgram_task هنا
+            // لأن ذلك سيعيد ضبط adsgram_started_at=NOW() على السيرفر،
+            // فتفشل أي محاولة claim لاحقة بسبب task_too_fast
             if (!nonce) {
-                console.warn('[AdsgramTask] no task_nonce — calling start_adsgram_task to get nonce');
-                try {
-                    const startRes = await _dbCall('start_adsgram_task', {});
-                    if (startRes.ok || startRes.already_watching) {
-                        nonce = startRes.task_nonce || null;
-                        window._adsgramTaskNonce = nonce;
-                    }
-                } catch (_) {}
-            }
-
-            if (!nonce) {
-                console.error('[AdsgramTask] still no task_nonce after retry');
-                showToast('coin', 'خطأ في المعالجة', 'حاول مرة أخرى', 'red', '');
+                console.warn('[AdsgramTask] no task_nonce — aborting silently');
                 return;
             }
 
             const result = await _dbCall('claim_adsgram_task', {}, nonce);
             if (result.ok) {
+                // ✅ علّم النجاح أولاً — يمنع أي reward listener لاحق من المحاولة
+                _adsgramClaimSucceeded = true;
                 window._adsgramTaskNonce = null; // استُهلك الـ nonce
                 animateBalance(USER_STATE.points, result.points, 1000);
                 USER_STATE.points = result.points;
@@ -4174,40 +4174,32 @@
 
                 // ── إعادة الكارد بعد 230 ثانية ───────────────────────
                 setTimeout(() => {
+                    _adsgramClaimSucceeded = false; // ابدأ دورة جديدة
                     if (_outerEl) _outerEl.style.display = 'block';
                     if (_cardEl)  { _cardEl.style.display = 'flex'; _cardEl.style.opacity = '1'; }
                     if (_doneEl)  _doneEl.style.display = 'none';
-                    // إعادة المزامنة مع السيرفر
                     if (result.adsgram_task) _syncAdsgramStateFromServer(result.adsgram_task);
                 }, 230000);
 
             } else {
                 const e = result.error;
-                // ✅ إذا كانت سرعة الإعلان أقل من الحد الأدنى — انتظر وأعد المحاولة مرة واحدة
-                if (e === 'task_too_fast' && !_retry) {
-                    const wait = Math.min(3000, (result.wait_ms || 1800));
-                    console.info('[AdsgramTask] too_fast — retry after', wait, 'ms');
-                    await new Promise(r => setTimeout(r, wait + 200));
-                    // أعد إصدار task_nonce جديد قبل إعادة المحاولة
-                    try {
-                        const startRes = await _dbCall('start_adsgram_task', {});
-                        if (startRes.ok || startRes.already_watching) {
-                            window._adsgramTaskNonce = startRes.task_nonce || null;
-                        }
-                    } catch (_) {}
-                    return _claimAdsgramTaskRewardInner(true);
-                }
+                // ✅ لا نُعيد محاولة start+claim هنا أبداً — لأن start يعيد ضبط الساعة
                 if (e === 'already_claimed_today' || e === 'cooldown_active') {
-                    showToast('coin', 'تم الاستلام مسبقاً', '', 'gold', '✓');
+                    // المستخدم استلم من نافذة أخرى — لا تُظهر خطأ
+                    _adsgramClaimSucceeded = true;
                     if (result.adsgram_task) _syncAdsgramStateFromServer(result.adsgram_task);
                 } else if (e === 'task_too_fast') {
-                    showToast('coin', 'شاهد الإعلان بالكامل', 'يجب مشاهدة Adsgram حتى النهاية', 'red', '');
+                    // النافذة أُغلقت بسرعة — لا توست؛ Adsgram يتحكم بالمدة
+                    console.warn('[AdsgramTask] too_fast — silent, widget controls timing');
                 } else if (e === 'task_not_started') {
-                    showToast('coin', 'ابدأ المهمة أولاً', '', 'red', '');
+                    console.warn('[AdsgramTask] not_started — silent');
                 } else if (e === 'account_review') {
                     showToast('coin', 'الحساب قيد المراجعة', 'تواصل مع الدعم', 'red', '!');
+                } else if (e === 'nonce_used' || e === 'nonce_expired' || e === 'invalid' || e === 'nonce_missing') {
+                    // الـ nonce استُهلك مسبقاً — يعني claim نجحت بالفعل
+                    _adsgramClaimSucceeded = true;
                 } else {
-                    showToast('coin', 'حدث خطأ، حاول مرة أخرى', '', 'red', '');
+                    console.warn('[AdsgramTask] claim failed silently:', e);
                 }
             }
         }
@@ -4278,6 +4270,7 @@
 
             widget.addEventListener('start', async () => {
                 _taskStartedAt = Date.now();
+                _adsgramClaimSucceeded = false; // دورة جديدة
                 console.info('[AdsgramTask] widget started at', _taskStartedAt);
                 // ✅ سجّل بداية المهمة على السيرفر فوراً عند الضغط على GO
                 // حتى يصبح adsgram_started_at موجوداً ويُصدر task_nonce قابل للاستخدام مرة واحدة
@@ -4287,7 +4280,7 @@
                         window._adsgramTaskNonce = startRes.task_nonce || null;
                     } else if (startRes.error === 'cooldown_active') {
                         const sec = Math.ceil((startRes.wait_ms || 60000) / 1000);
-                        showToast('coin', 'انتظر قليلاً ⏳', `${sec} ثانية`, 'red', '');
+                        showToast('coin', 'انتظر قليلاً', `${sec} ثانية`, 'red', '');
                     }
                 } catch (e) {
                     console.warn('[AdsgramTask] start failed:', e.message);
@@ -4295,14 +4288,18 @@
             });
 
             widget.addEventListener('reward', async () => {
-                await trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _taskStartedAt }, 'adsgram_task');
-                // ✅ تأخير صغير لضمان أن elapsed >= MIN_WATCH على السيرفر
+                // إذا أُطلق reward قبل start (نادر) — سجّل بداية الآن لتجنّب nonce فارغ
+                if (!_taskStartedAt) _taskStartedAt = Date.now();
+                // ✅ ضمان مرور الحد الأدنى من الوقت قبل claim
                 const elapsed = Date.now() - _taskStartedAt;
                 const MIN_WAIT = 1800;
                 if (elapsed < MIN_WAIT) {
                     await new Promise(r => setTimeout(r, MIN_WAIT - elapsed));
                 }
+                // claim مرة واحدة فقط — متعدد النداء آمن (الحارس داخل claimAdsgramTaskReward)
                 await claimAdsgramTaskReward();
+                // ✅ track ad_completed بعد الـ claim — لا يؤثر على عداد الإعلانات اليومي
+                trackAdEvent('ad_completed', { elapsed_ms: Date.now() - _taskStartedAt }, 'adsgram_task').catch(()=>{});
             });
 
             widget.addEventListener('error', () => {
