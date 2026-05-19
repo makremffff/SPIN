@@ -270,34 +270,15 @@ async function bootstrap() {
     console.error('[DB] bootstrap error:', e.message);
   }
 }
-_bootstrapPromise = bootstrap();
 
-// ── Cleanup — كل ساعة ────────────────────────────────────────────
-setInterval(async () => {
-  try {
-    await sql(`DELETE FROM nonces   WHERE expires_at < NOW() OR used = TRUE`);
-    await sql(`DELETE FROM sessions WHERE expires_at < NOW()`);
-    await sql(`
-      UPDATE sessions
-      SET ad_nonce=NULL, ad_nonce_exp=NULL, ad_nonce_used=FALSE
-      WHERE ad_nonce_exp < NOW()
-    `);
-    await sql(`DELETE FROM audit_log   WHERE created_at < NOW() - INTERVAL '30 days'`);
-    await sql(`DELETE FROM risk_events WHERE created_at < NOW() - INTERVAL '7 days'`);
-    // Reset adsgram_status إذا انتهت المهلة بدون claim
-    await sql(`
-      UPDATE users
-      SET adsgram_status='ready', adsgram_completed=FALSE
-      WHERE adsgram_status='watching'
-        AND adsgram_expires_at IS NOT NULL
-        AND adsgram_expires_at < NOW() - INTERVAL '5 minutes'
-    `);
-    console.log('[CLEANUP] OK');
-  } catch (_) {}
-}, 60 * 60 * 1000);
+// Cleanup skipped — Vercel Serverless (stateless, no setInterval)
 
 
-// Bootstrap on module load
-let _bootstrapPromise = bootstrap();
+// Lazy bootstrap — called on first request (Vercel Serverless safe)
+let _bootstrapPromise = null;
+function ensureBootstrap() {
+  if (!_bootstrapPromise) _bootstrapPromise = bootstrap();
+  return _bootstrapPromise;
+}
 
-module.exports = { sql, rateLimitMap, getBootstrapPromise: () => _bootstrapPromise };
+module.exports = { sql, rateLimitMap, ensureBootstrap };

@@ -1,8 +1,5 @@
 'use strict';
 
-// ── DB ────────────────────────────────────────────────────────────
-const { neon } = require('@neondatabase/serverless');
-
 // ── Environment ───────────────────────────────────────────────────
 const BOT_TOKEN    = process.env.BOT_TOKEN    || '';
 const CHANNEL_ID   = process.env.CHANNEL_ID   || '';

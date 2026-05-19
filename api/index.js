@@ -1,7 +1,7 @@
 'use strict';
 
 const { CFG, ADMIN_SECRET } = require('./config');
-const { rateLimitMap, getBootstrapPromise } = require('./db');
+const { rateLimitMap, ensureBootstrap } = require('./db');
 const { hashIp, hashFp, getIp, verifyTg, rateLimit } = require('./utils');
 const { validateSession, issueNonce, writeAudit } = require('./security');
 const {
@@ -14,7 +14,7 @@ const {
 
 module.exports = async function handler(req, res) {
   // ── Ensure DB is bootstrapped before handling any request ─────
-  const _bp = getBootstrapPromise(); if (_bp) { try { await _bp; } catch (_) {} }
+  try { await ensureBootstrap(); } catch (_) {}
 
   // ── GET /config — Dynamic Config ──────────────────────────────
   if (req.method === 'GET' && (req.url || '').includes('/config')) {
