@@ -2809,7 +2809,7 @@
                 <div class="section-badge" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.22);color:rgba(251,191,36,0.85);">+<span id="adsgram-reward-badge">30</span> نقطة</div>
             </div>
 
-            <div id="adsgram-task-outer" style="margin-bottom:14px;">
+            <div id="adsgram-task-outer" style="margin-bottom:14px;display:none;">
                 <!-- Compact card -->
                 <div id="adsgram-task-card" class="glass" style="
                     border-radius:var(--radius-xl);
@@ -2819,10 +2819,10 @@
                     display:flex;align-items:center;gap:13px;
                     transition:opacity 0.3s ease;
                 ">
-                    <!-- info: title only -->
+                    <!-- info: title only — يتم تعبئته من السيرفر عبر APP_CONFIG.adsgram_task.title_ar -->
                     <div style="flex:1;min-width:0;">
-                        <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
-                                    color:rgba(255,255,255,0.95);line-height:1.2;">بلاي غيم تو غيت تون</div>
+                        <div id="adsgram-task-title" style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
+                                    color:rgba(255,255,255,0.95);line-height:1.2;">مهمة إعلانية</div>
                     </div>
                     <!-- action: Adsgram Task widget -->
                     <div style="flex-shrink:0;">
@@ -3512,6 +3512,8 @@
                          points_per_ad: 50 },
             telegram:  { channel_url: 'https://t.me/botbababab' },
             ads:       { daily_limit: 10, cooldown_ms: 30000, min_duration_ms: 14000 },
+            adsgram_task: { title_ar: '', title_en: '', block_id: 'task-30166', reward: 50, cooldown_ms: 60000 },
+            daily_gift:   { rewards: [], titles_ar: [], descs_ar: [] },
         };
 
         async function _fetchAppConfig() {
@@ -3524,6 +3526,8 @@
                     if (data.rewards)  APP_CONFIG.rewards  = data.rewards;
                     if (data.telegram) APP_CONFIG.telegram = data.telegram;
                     if (data.ads)      APP_CONFIG.ads      = data.ads;
+                    if (data.adsgram_task) APP_CONFIG.adsgram_task = data.adsgram_task;
+                    if (data.daily_gift)   APP_CONFIG.daily_gift   = data.daily_gift;
                     _applyConfigToUI();
                     console.info('[Config] ✅ Loaded from server:', APP_CONFIG);
                 }
@@ -3538,6 +3542,25 @@
             tgLinks.forEach(el => {
                 el.href = APP_CONFIG.telegram.channel_url;
             });
+
+            // ✅ اسم/عنوان مهمة Adsgram من السيرفر (يتغيّر حسب مزود الإعلان)
+            try {
+                const lang = (typeof currentLang !== 'undefined') ? currentLang : 'ar';
+                const dynTitle = (lang === 'en' && APP_CONFIG.adsgram_task?.title_en)
+                    ? APP_CONFIG.adsgram_task.title_en
+                    : (APP_CONFIG.adsgram_task?.title_ar || '');
+                const titleEl = document.getElementById('adsgram-task-title');
+                if (titleEl && dynTitle) titleEl.textContent = dynTitle;
+
+                // ✅ block_id ديناميكي من السيرفر
+                const widget = document.getElementById('adsgram-task-widget');
+                if (widget && APP_CONFIG.adsgram_task?.block_id) {
+                    const cur = widget.getAttribute('data-block-id');
+                    if (cur !== APP_CONFIG.adsgram_task.block_id) {
+                        widget.setAttribute('data-block-id', APP_CONFIG.adsgram_task.block_id);
+                    }
+                }
+            } catch (_) {}
 
             // Update reward badges
             const adsgramBadges = document.querySelectorAll('.adsgram-reward-badge, #adsgram-reward-badge');
@@ -3960,6 +3983,16 @@
 
             logAdsgramState(status, { remaining_seconds, claimed });
 
+            // ✅ السيرفر يتحكّم بالعرض: إذا لم يُرسل title من /config (فارغ) — أخفِ الكارد كلياً
+            const hasTitle = !!(APP_CONFIG?.adsgram_task?.title_ar || APP_CONFIG?.adsgram_task?.title_en);
+            if (!hasTitle) {
+                if (card)  card.style.display = 'none';
+                if (done)  done.style.display = 'none';
+                if (outer) outer.style.display = 'none';
+                _clearAdsgramTimer();
+                return;
+            }
+
             if (status === 'ready') {
                 // Ready — show card, hide done panel
                 if (card)  { card.style.display = 'flex'; card.style.opacity = '1'; }
@@ -4153,15 +4186,8 @@
                 window._adsgramTaskNonce = null; // استُهلك الـ nonce
                 animateBalance(USER_STATE.points, result.points, 1000);
                 USER_STATE.points = result.points;
-                const r = result.earned || APP_CONFIG?.rewards?.adsgram_task || 50;
-                showToast('trophy', `ربحت ${r.toLocaleString('ar-EG')} نقطة! 🎉`,
-                    'جائزة المهمة الإعلانية ✓', 'gold', `+${r}`);
-
-                // ✅ إضافة إشعار في لوحة الإشعارات
-                try {
-                    addNotification('gold', 'تمت المهمة الإعلانية ✓',
-                        `+${r.toLocaleString('ar-EG')} نقطة أُضيفت لرصيدك`, Date.now());
-                } catch (_) {}
+                // ✅ بدون توست/إشعار — المستخدم لا يحس أنه ربح (مطلب)
+                // (تم إزالة showToast و addNotification هنا عمداً)
 
                 // ── إخفاء الكارد فوراً بعد الاستلام ─────────────────
                 const _outerEl = document.getElementById('adsgram-task-outer');
@@ -4551,21 +4577,8 @@
                     USER_STATE.points = result.points;
                 }
 
-                // ✅ ثانياً: أظهر toast الربح فوراً قبل updateAdUI
-                const earned = result.earned || APP_CONFIG?.rewards?.ad_watch || 50;
-                if (AD_STATE.remaining === 0) {
-                    showToast('trophy', 'أكملت جميع الإعلانات! 🏆',
-                        `ربحت ${earned.toLocaleString('ar-EG')} نقطة — حصلت على كل نقاط اليوم`, 'green', `+${earned}`);
-                } else {
-                    showToast('coin', `ربحت ${earned.toLocaleString('ar-EG')} نقطة! 🎉`,
-                        `تبقّى ${AD_STATE.remaining} إعلان للربح اليوم`, 'gold', `+${earned}`);
-                }
-
-                // ✅ إضافة إشعار للمستخدم بمشاهدة الإعلان وإضافة الرصيد
-                try {
-                    addNotification('gold', 'تمت مشاهدة الإعلان ✓',
-                        `+${earned.toLocaleString('ar-EG')} نقطة أُضيفت لرصيدك`, Date.now());
-                } catch (_) {}
+                // ✅ ثانياً: لا توست/إشعار عند انتهاء الإعلان اليومي — المستخدم لا يحس أنه ربح (مطلب)
+                // (تم إزالة showToast و addNotification هنا عمداً)
 
                 // ✅ ثالثاً: حدّث UI (cooldown يظهر في الزر فقط، بدون toast)
                 updateAdUI();
@@ -4753,22 +4766,36 @@
             isOpening: false
         };
 
-        const GIFT_DAYS = [
-            { day: 'اليوم الأول',   desc: 'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!', amount: '+100', pts: 100 },
-            { day: 'اليوم الثاني',  desc: 'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.', amount: '+150', pts: 150 },
-            { day: 'اليوم الثالث',  desc: 'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.', amount: '+200', pts: 200 },
-            { day: 'اليوم الرابع',  desc: 'أسبوعك يقترب!\nاستمر في التحدي.', amount: '+250', pts: 250 },
-            { day: 'اليوم الخامس', desc: 'خمسة أيام!\nأنت من الملتزمين الحقيقيين.', amount: '+300', pts: 300 },
-            { day: 'اليوم السادس', desc: 'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.', amount: '+400', pts: 400 },
-            { day: 'اليوم السابع',  desc: 'أسبوع كامل!\nمكافأة ضخمة بانتظارك.', amount: '+750', pts: 750 },
+        // ✅ هدية الربح اليومي — نصوص افتراضية فقط (fallback)
+        // القيم الفعلية تأتي من السيرفر عبر APP_CONFIG.daily_gift
+        const GIFT_DAYS_FALLBACK = [
+            { day: 'اليوم الأول',   desc: 'مبروك! بداية رائعة معنا.\nاستمر يومياً لتضاعف مكافآتك!', pts: 100 },
+            { day: 'اليوم الثاني',  desc: 'يومان متتاليان!\nالمثابرة هي مفتاح النجاح.', pts: 150 },
+            { day: 'اليوم الثالث',  desc: 'ثلاثة أيام متتالية!\nمكافأة خاصة بانتظارك.', pts: 200 },
+            { day: 'اليوم الرابع',  desc: 'أسبوعك يقترب!\nاستمر في التحدي.', pts: 250 },
+            { day: 'اليوم الخامس', desc: 'خمسة أيام!\nأنت من الملتزمين الحقيقيين.', pts: 300 },
+            { day: 'اليوم السادس', desc: 'يوم واحد ويكتمل أسبوعك!\nلا تتوقف.', pts: 400 },
+            { day: 'اليوم السابع',  desc: 'أسبوع كامل!\nمكافأة ضخمة بانتظارك.', pts: 750 },
         ];
+
+        // يبني بيانات اليوم من السيرفر إن وُجدت، وإلا من fallback
+        function _getGiftDayData(day) {
+            const idx = Math.max(0, day - 1);
+            const sv = APP_CONFIG?.daily_gift || {};
+            const pts   = (sv.rewards   && sv.rewards[idx])   != null ? sv.rewards[idx]
+                        : (sv.rewards   && sv.rewards.length) ? sv.rewards[sv.rewards.length - 1]
+                        : (GIFT_DAYS_FALLBACK[Math.min(idx, GIFT_DAYS_FALLBACK.length - 1)]?.pts || 100);
+            const dayT  = (sv.titles_ar && sv.titles_ar[idx]) || GIFT_DAYS_FALLBACK[Math.min(idx, GIFT_DAYS_FALLBACK.length - 1)]?.day || ('اليوم ' + day);
+            const desc  = (sv.descs_ar  && sv.descs_ar[idx])  || GIFT_DAYS_FALLBACK[Math.min(idx, GIFT_DAYS_FALLBACK.length - 1)]?.desc || '';
+            return { day: dayT, desc, amount: '+' + pts, pts };
+        }
 
         function openDailyGiftOverlay() {
             if (DAILY_GIFT_STATE.isOpening) return;
             DAILY_GIFT_STATE.isOpening = true;
 
             const day = DAILY_GIFT_STATE.dayNumber;
-            const data = GIFT_DAYS[Math.min(day - 1, GIFT_DAYS.length - 1)];
+            const data = _getGiftDayData(day);
 
             const dayTextEl  = document.getElementById('gift-day-text');
             const descTextEl = document.getElementById('gift-desc-text');
