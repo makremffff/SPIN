@@ -483,14 +483,12 @@
 
             logAdsgramState(status, { remaining_seconds, claimed });
 
-            // ✅ السيرفر يتحكّم بالعرض: إذا لم يُرسل title من /config (فارغ) — أخفِ الكارد كلياً
+            // ✅ إذا لم يُرسل title من /config — استخدم نص افتراضي بدلاً من الإخفاء
             const hasTitle = !!(APP_CONFIG?.adsgram_task?.title_ar || APP_CONFIG?.adsgram_task?.title_en);
             if (!hasTitle) {
-                if (card)  card.style.display = 'none';
-                if (done)  done.style.display = 'none';
-                if (outer) outer.style.display = 'none';
-                _clearAdsgramTimer();
-                return;
+                // ضع نصاً افتراضياً حتى لا يظل الكارد فارغاً
+                const titleEl = document.getElementById('adsgram-task-title');
+                if (titleEl && !titleEl.textContent.trim()) titleEl.textContent = 'مهمة إعلانية';
             }
 
             if (status === 'ready') {
@@ -686,8 +684,14 @@
                 window._adsgramTaskNonce = null; // استُهلك الـ nonce
                 animateBalance(USER_STATE.points, result.points, 1000);
                 USER_STATE.points = result.points;
-                // ✅ بدون توست/إشعار — المستخدم لا يحس أنه ربح (مطلب)
-                // (تم إزالة showToast و addNotification هنا عمداً)
+
+                // ✅ توست + إشعار بالمكافأة
+                const _taskReward = result.reward || APP_CONFIG.rewards?.adsgram_task || 50;
+                showToast('trophy', 'مبروك! 🎁', `+${_taskReward.toLocaleString()} نقطة من المهمة الإعلانية`, 'green', `+${_taskReward}`);
+                try {
+                    addNotification('gold', 'مكافأة المهمة الإعلانية ✓',
+                        `+${_taskReward.toLocaleString('ar-EG')} نقطة أُضيفت لرصيدك`, Date.now());
+                } catch (_) {}
 
                 // ── إخفاء الكارد فوراً بعد الاستلام ─────────────────
                 const _outerEl = document.getElementById('adsgram-task-outer');
@@ -798,8 +802,12 @@
                 _taskStartedAt = Date.now();
                 _adsgramClaimSucceeded = false; // دورة جديدة
                 console.info('[AdsgramTask] widget started at', _taskStartedAt);
-                // ✅ سجّل بداية المهمة على السيرفر فوراً عند الضغط على GO
-                // حتى يصبح adsgram_started_at موجوداً ويُصدر task_nonce قابل للاستخدام مرة واحدة
+                // إذا كان watchAdsgramTask() استدعى start_adsgram_task بالفعل وحصل على nonce — تجاهل
+                if (window._adsgramTaskNonce) {
+                    console.info('[AdsgramTask] nonce already set by watchAdsgramTask — skip double start');
+                    return;
+                }
+                // حالة نادرة: المستخدم ضغط GO مباشرة داخل الـ widget بدون مرور بـ watchAdsgramTask
                 try {
                     const startRes = await _dbCall('start_adsgram_task', {});
                     if (startRes.ok || startRes.already_watching) {
@@ -1077,10 +1085,16 @@
                     USER_STATE.points = result.points;
                 }
 
-                // ✅ ثانياً: لا توست/إشعار عند انتهاء الإعلان اليومي — المستخدم لا يحس أنه ربح (مطلب)
-                // (تم إزالة showToast و addNotification هنا عمداً)
+                // ✅ ثانياً: توست + إشعار بالمكافأة
+                const earnedPts = APP_CONFIG.rewards?.points_per_ad || 50;
+                showToast('trophy', 'مبروك! 🎉', `+${earnedPts.toLocaleString()} نقطة أُضيفت لرصيدك`, 'green', `+${earnedPts}`);
+                try {
+                    addNotification('gold', 'مكافأة إعلان يومي ✓',
+                        `+${earnedPts.toLocaleString('ar-EG')} نقطة — شاهدت ${result.watchedToday || AD_STATE.watchedToday} إعلان اليوم`,
+                        Date.now());
+                } catch (_) {}
 
-                // ✅ ثالثاً: حدّث UI (cooldown يظهر في الزر فقط، بدون toast)
+                // ✅ ثالثاً: حدّث UI (cooldown يظهر في الزر فقط)
                 updateAdUI();
                 await trackAdEvent('reward_granted', { watched_today: result.watchedToday }, 'daily_ad');
 
