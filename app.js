@@ -1434,6 +1434,12 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            // ✅ Safety net — شاشة التحميل تختفي بعد 8 ثواني مهما حدث
+            const _loadingTimeout = setTimeout(() => {
+                console.warn('[Init] ⚠️ Loading timeout — forcing hide');
+                _hideLoadingScreen();
+            }, 8000);
+
             initTelegramUser();
             /* Create session right after TG init */
             await createSession();
@@ -1586,6 +1592,7 @@
             }
 
             // ── إخفاء loading screen بعد تحميل البيانات ──────────────
+            clearTimeout(_loadingTimeout);
             _hideLoadingScreen();
             setTimeout(_initAdsgramTask, 1000);
             // ── جلب قائمة القنوات من السيرفر ────────────────────────
