@@ -1130,7 +1130,7 @@ async function handleLoad(userId) {
     points:       parseInt(u.points) || 0,
     level:        parseInt(u.level)  || 1,
     xp:           parseInt(u.xp)    || 0,
-    usdt_balance: 0, // ✅ دائماً 0 — لا يُحسب من النقاط
+    usdt_balance: parseFloat(u.usdt_balance) || 0,
     tg_verified:  u.tg_verified,
     streak_day:   u.streak_day,
     last_gift_date: u.last_gift_date,
