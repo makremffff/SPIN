@@ -50,6 +50,7 @@ export function updateAdUI() {
     setText('ads-remaining', r);
     setText('ads-watched',   ads.watched);
     setText('earned-today',  ads.earned.toLocaleString('ar-EG'));
+    setText('ads-daily-limit', ads.total);
 
     // progress — يعتمد على watched مش remaining (منع التناقص)
     const progBar = document.getElementById('ads-progress');
@@ -797,31 +798,8 @@ export async function startAdsgramTask() {
 
     _AT.isRunning = true;
     _atShow('atask-loading-state');
-    const hint = document.getElementById('atask-hint');
 
-    // 1. Wait for Adsgram SDK
-    if (!window.Adsgram || window._adsgramLoadStatus !== 'loaded') {
-        if (window._adsgramLoadStatus === 'failed') {
-            _AT.isRunning = false;
-            _atShow('atask-start-btn');
-            showToast('coin', 'تعذّر تحميل المهمة', 'تحقق من اتصالك', 'red', '!');
-            return;
-        }
-        const loaded = await new Promise(res => {
-            const t = setTimeout(() => res(false), 8000);
-            if (typeof window.onAdsgramLoaded === 'function') {
-                window.onAdsgramLoaded(s => { clearTimeout(t); res(s !== 'failed'); });
-            } else res(false);
-        });
-        if (!loaded) {
-            _AT.isRunning = false;
-            _atShow('atask-start-btn');
-            showToast('coin', 'تعذّر تحميل المهمة', 'تحقق من اتصالك', 'red', '!');
-            return;
-        }
-    }
-
-    // 2. Start task on server — get nonce
+    // 1. Notify server — get nonce
     const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
     if (!startRes.ok) {
         _AT.isRunning = false;
@@ -841,53 +819,115 @@ export async function startAdsgramTask() {
 
     const taskNonce = startRes.task_nonce;
 
-    // 3. Show Adsgram ad silently — no Adsgram UI visible, our UI handles state
-    const ctrl = _atInitController();
-    if (!ctrl) {
+    // 2. Get the hidden <adsgram-task> web component
+    const widget = document.getElementById('atask-hidden-widget');
+    if (!widget) {
         _AT.isRunning = false;
         _atShow('atask-start-btn');
-        showToast('coin', 'تعذّر تشغيل المهمة', 'أعد المحاولة', 'red', '!');
+        showToast('coin', 'خطأ في التهيئة', 'أعد تحميل التطبيق', 'red', '!');
         return;
     }
 
+    const hint = document.getElementById('atask-hint');
     if (hint) hint.style.display = 'block';
 
-    let adDone = false;
-    try {
-        const result = await ctrl.show();
-        adDone = result?.done === true;
-    } catch (err) {
-        adDone = false;
-    }
+    // 3. Wait for the "reward" event from adsgram-task widget
+    //    The widget handles showing the task UI internally (invisible to user)
+    //    We just listen for the result event
+    const adResult = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+            cleanup();
+            resolve({ ok: false, reason: 'timeout' });
+        }, 120000); // 2 min max
 
-    if (!adDone) {
-        _AT.isRunning = false;
-        if (hint) hint.style.display = 'none';
+        function onReward(e) {
+            cleanup();
+            resolve({ ok: true, blockId: e.detail });
+        }
+        function onError(e) {
+            cleanup();
+            resolve({ ok: false, reason: 'error', detail: e.detail });
+        }
+        function onNotFound(e) {
+            cleanup();
+            resolve({ ok: false, reason: 'not_found', detail: e.detail });
+        }
+        function onTooLong() {
+            cleanup();
+            resolve({ ok: false, reason: 'too_long' });
+        }
+
+        function cleanup() {
+            clearTimeout(timeout);
+            widget.removeEventListener('reward', onReward);
+            widget.removeEventListener('onError', onError);
+            widget.removeEventListener('onBannerNotFound', onNotFound);
+            widget.removeEventListener('onTooLongSession', onTooLong);
+        }
+
+        widget.addEventListener('reward', onReward);
+        widget.addEventListener('onError', onError);
+        widget.addEventListener('onBannerNotFound', onNotFound);
+        widget.addEventListener('onTooLongSession', onTooLong);
+
+        // Trigger the widget — simulate click on its internal button
+        // The widget's "go" slot button triggers the task flow
+        // We make the widget temporarily visible just for the click, then hide again
+        widget.style.visibility = 'visible';
+        widget.style.width = '1px';
+        widget.style.height = '1px';
+
+        // Click the internal button via shadow DOM or dispatch click
+        try {
+            const shadowBtn = widget.shadowRoot?.querySelector('button, [slot="button"], .adsgram-task-button');
+            if (shadowBtn) {
+                shadowBtn.click();
+            } else {
+                widget.click();
+            }
+        } catch(_) {
+            widget.click();
+        }
+
+        // Re-hide after triggering
+        setTimeout(() => {
+            widget.style.width = '0';
+            widget.style.height = '0';
+            widget.style.visibility = 'hidden';
+        }, 100);
+    });
+
+    if (hint) hint.style.display = 'none';
+    _AT.isRunning = false;
+
+    if (!adResult.ok) {
         _atShow('atask-start-btn');
-        showToast('coin', 'لم تكتمل المهمة', 'حاول مرة أخرى', 'red', '!');
+        if (adResult.reason === 'not_found') {
+            showToast('coin', 'لا توجد مهمة متاحة حالياً', 'حاول لاحقاً', 'gold', '!');
+        } else if (adResult.reason === 'too_long') {
+            showToast('coin', 'أعد تشغيل التطبيق', 'الجلسة طويلة جداً', 'red', '!');
+        } else {
+            showToast('coin', 'لم تكتمل المهمة', 'حاول مرة أخرى', 'red', '!');
+        }
         return;
     }
 
     // 4. Claim reward from server using nonce
     const claimRes = await _dbCall('claim_adsgram_task', {}, taskNonce);
 
-    _AT.isRunning = false;
-    if (hint) hint.style.display = 'none';
-
     if (claimRes.ok) {
-        // Update balance
         const pts = claimRes.points;
         if (pts !== undefined) { animateBalance(_AS.balance, pts, 1200); _AS.balance = pts; }
 
         const earned = claimRes.earned || claimRes.reward || _AT.reward;
-        _AT.doneCount = (_AT.doneCount || 0) + 1;
+        _AT.doneCount = claimRes.adsgram_task_today_count || (_AT.doneCount + 1);
         _atUpdateCounter();
 
-        // Success notification — fully custom, no Adsgram branding
+        // Custom success notification — no AdsGram branding
         showToast('trophy', `مهمة إعلانية مكتملة 🎉`, `+${earned.toLocaleString()} نقطة أُضيفت`, 'green', `+${earned}`);
         pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString()} نقطة`);
 
-        // Update icon to checkmark momentarily then go to cooldown / start
+        // Icon flash green then back
         const icon = document.getElementById('atask-icon');
         if (icon) {
             icon.style.background = 'rgba(52,211,153,0.12)';
@@ -900,16 +940,13 @@ export async function startAdsgramTask() {
             }, 1800);
         }
 
-        // Check daily limit
         if (_AT.doneCount >= _AT.dailyLimit) {
             setTimeout(() => {
                 _atShow('atask-maxed-state');
                 document.getElementById('atask-card')?.style.setProperty('opacity', '0.75');
             }, 1500);
-        } else if (claimRes.cooldown_ms || _AT.cooldownMs) {
-            setTimeout(() => _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs), 600);
         } else {
-            _atShow('atask-start-btn');
+            setTimeout(() => _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs), 600);
         }
     } else {
         if (claimRes.error === 'cooldown_active') {
@@ -918,15 +955,13 @@ export async function startAdsgramTask() {
             _AT.doneCount = _AT.dailyLimit;
             _atUpdateCounter();
             _atShow('atask-maxed-state');
-        } else if (claimRes.error === 'too_fast') {
-            _atShow('atask-start-btn');
-            showToast('coin', 'أسرع مما ينبغي', 'أكمل المهمة بالكامل', 'red', '!');
         } else {
             _atShow('atask-start-btn');
             showToast('coin', 'خطأ في المعالجة', claimRes.error || '', 'red', '!');
         }
     }
 }
+
 
 // ── Init adsgram task UI from server data ─────────────────
 export function initAdsgramTaskUI(adsgramTaskData) {
