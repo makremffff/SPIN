@@ -316,6 +316,13 @@
             </div>
 
             <div id="atask-outer" style="margin-bottom:14px;">
+                <!-- adsgram-task مخفي تماماً — يعمل في الخلف فقط لتسجيل الـ reward -->
+                <adsgram-task
+                    id="atask-hidden-widget"
+                    data-block-id="task-30166"
+                    data-debug="false"
+                    style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;visibility:hidden;">
+                </adsgram-task>
                 <div id="atask-card" class="glass" style="border-radius:var(--radius-xl);border:1px solid rgba(251,191,36,0.18);background:linear-gradient(135deg,rgba(251,191,36,0.05),rgba(10,5,0,0.4));overflow:hidden;transition:all 0.25s ease;">
                     <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
                         <div id="atask-icon" style="width:46px;height:46px;border-radius:14px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.3s ease;">
@@ -566,7 +573,7 @@
                         <span style="font-family:'Readex Pro',sans-serif;font-size:10px;
                               color:rgba(255,255,255,0.3);font-weight:500;">تقدم التحميل</span>
                         <span id="ad-preload-label" style="font-family:'DynaPuff',sans-serif;
-                              font-size:10px;color:rgba(251,191,36,0.6);font-weight:700;">0 / 3</span>
+                              font-size:10px;color:rgba(251,191,36,0.6);font-weight:700;">0 / 1</span>
                     </div>
                     <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:10px;overflow:hidden;">
                         <div id="ad-preload-bar" style="height:100%;width:0%;border-radius:10px;
@@ -611,7 +618,7 @@
                     </div>
                     <div style="width:1px;height:32px;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.1),transparent);"></div>
                     <div style="flex:1;text-align:center;">
-                        <div style="font-family:'Tajawal',sans-serif;font-size:20px;font-weight:900;color:var(--gold);">500</div>
+                        <div style="font-family:'Tajawal',sans-serif;font-size:20px;font-weight:900;color:var(--gold);" id="ads-daily-limit">500</div>
                         <div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:4px;" data-i18n="daily_limit">الحد اليومي</div>
                     </div>
                 </div>
