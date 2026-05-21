@@ -801,10 +801,32 @@ export async function startAdsgramTask() {
     // نبقيها فقط للتوافق مع أي استدعاء قديم
 }
 
-// ── ربط الـ widget بالسيرفر عند الـ reward event ────────────
+// ── ربط الـ widget بالسيرفر ────────────────────────────────
+// start_adsgram_task يُستدعى لحظة ظهور الـ widget للمستخدم
+// هكذا adsgram_started_at يُسجل مبكراً وlapsed يتجاوز min_watch_ms
+let _atPendingNonce = null;
+
+async function _atPrestart() {
+    if (_AT.doneCount >= _AT.dailyLimit) return;
+    if (_atPendingNonce) return; // نonce موجود مسبقاً
+    const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+    if (!startRes.ok) {
+        if (startRes.error === 'daily_limit_reached') {
+            _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
+        } else if (startRes.error === 'cooldown_active') {
+            _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
+        }
+        return;
+    }
+    _atPendingNonce = startRes.task_nonce;
+}
+
 function _atBindWidget() {
     const widget = document.getElementById('atask-widget');
     if (!widget) return;
+
+    // Pre-issue nonce بعد تحميل الـ widget مباشرةً
+    setTimeout(_atPrestart, 500);
 
     widget.addEventListener('reward', async () => {
         // Guard: daily limit
@@ -813,24 +835,28 @@ function _atBindWidget() {
             return;
         }
 
-        // أخبر السيرفر وخذ nonce
         _atShow('atask-loading-state');
-        const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
 
-        if (!startRes.ok) {
-            if (startRes.error === 'daily_limit_reached') {
-                _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
-                document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
-            } else if (startRes.error === 'cooldown_active') {
-                _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
-            } else {
-                _atShow(null); // أظهر الـ widget مجدداً
-                showToast('coin', 'خطأ في التحقق', startRes.error || '', 'red', '!');
+        // إذا ما عندنا nonce بعد → اطلبه الحين
+        if (!_atPendingNonce) {
+            const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+            if (!startRes.ok) {
+                if (startRes.error === 'daily_limit_reached') {
+                    _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
+                    document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
+                } else if (startRes.error === 'cooldown_active') {
+                    _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
+                } else {
+                    _atShow(null);
+                    showToast('coin', 'خطأ في التحقق', startRes.error || '', 'red', '!');
+                }
+                return;
             }
-            return;
+            _atPendingNonce = startRes.task_nonce;
         }
 
-        const taskNonce = startRes.task_nonce;
+        const taskNonce = _atPendingNonce;
+        _atPendingNonce = null; // استهلك الـ nonce
 
         // Claim المكافأة
         const claimRes = await _dbCall('claim_adsgram_task', {}, taskNonce);
@@ -864,7 +890,11 @@ function _atBindWidget() {
                     document.getElementById('atask-card')?.style.setProperty('opacity', '0.75');
                 }, 1500);
             } else {
-                setTimeout(() => _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs), 600);
+                setTimeout(() => {
+                    _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs);
+                    // pre-issue nonce للمرة القادمة بعد انتهاء cooldown
+                    setTimeout(_atPrestart, (claimRes.cooldown_ms || _AT.cooldownMs) + 200);
+                }, 600);
             }
         } else {
             if (claimRes.error === 'cooldown_active') {
