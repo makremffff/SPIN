@@ -285,6 +285,48 @@
                 <h1 class="site-title" data-i18n="tasks_page_title">المهام</h1>
                 <div class="shine-line"></div>
             </div>
+            <!-- ═══ TELEGRAM CHANNEL JOIN TASK ═══ -->
+            <div id="tg-task-card" class="tg-task-hero" style="margin-bottom:14px;">
+                <div class="tg-task-top">
+                    <div class="tg-once-badge">⚡ مرة واحدة</div>
+                    <div class="tg-reward-pill">
+                        <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;">
+                        <span style="font-size:12px;font-weight:700;color:rgba(251,191,36,0.9);font-family:'Readex Pro',sans-serif;">+<span class="tg-task-reward-badge">200</span> نقطة</span>
+                    </div>
+                </div>
+                <div class="tg-task-body">
+                    <div class="tg-channel-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(41,182,246,0.15)" stroke="rgba(41,182,246,0.6)" stroke-width="1.2"/>
+                            <path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#29b6f6"/>
+                        </svg>
+                    </div>
+                    <div class="tg-task-info">
+                        <div class="tg-task-title">انضم لقناتنا</div>
+                        <div class="tg-task-sub">اشترك في قناتنا الرسمية واحصل على مكافأة</div>
+                    </div>
+                </div>
+                <!-- Join button — مرئي قبل الانضمام -->
+                <button id="tg-join-btn" class="tg-join-btn" onclick="window.handleTelegramTask()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(41,182,246,0.2)" stroke="rgba(41,182,246,0.8)" stroke-width="1.4"/>
+                        <path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#fff"/>
+                    </svg>
+                    انضم للقناة
+                </button>
+                <!-- Verify button — يظهر بعد الضغط على انضم -->
+                <button id="tg-verify-btn-compact" class="tg-verify-btn" style="display:none;margin-top:10px;" onclick="window.verifyTelegramTask()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    تحقق من الانضمام
+                </button>
+                <!-- Hint -->
+                <div id="tg-verify-hint" style="display:none;margin-top:10px;padding:8px 12px;border-radius:10px;background:rgba(37,178,248,0.05);border:1px solid rgba(37,178,248,0.13);">
+                    <span style="font-size:11px;color:rgba(37,178,248,0.65);font-weight:600;font-family:'Readex Pro',sans-serif;">اضغط «تحقق» بعد الانضمام للقناة</span>
+                </div>
+            </div>
+
             <!-- ═══ CHANNEL TASKS SECTION ═══ -->
             <div class="section-header" style="margin-bottom:10px;">
                 <div class="section-title">قناتنا الرسمية</div>
@@ -316,15 +358,9 @@
             </div>
 
             <div id="atask-outer" style="margin-bottom:14px;">
-                <!-- adsgram-task مخفي تماماً — يعمل في الخلف فقط لتسجيل الـ reward -->
-                <adsgram-task
-                    id="atask-hidden-widget"
-                    data-block-id="task-30166"
-                    data-debug="false"
-                    style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;visibility:hidden;">
-                </adsgram-task>
                 <div id="atask-card" class="glass" style="border-radius:var(--radius-xl);border:1px solid rgba(251,191,36,0.18);background:linear-gradient(135deg,rgba(251,191,36,0.05),rgba(10,5,0,0.4));overflow:hidden;transition:all 0.25s ease;">
-                    <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;">
+                    <!-- Header row: icon + info + states -->
+                    <div style="display:flex;align-items:center;gap:14px;padding:16px 18px 10px;">
                         <div id="atask-icon" style="width:46px;height:46px;border-radius:14px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.3s ease;">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                                 <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.8)" stroke-width="1.6"/>
@@ -340,11 +376,8 @@
                                 <span id="atask-counter-wrap" style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:600;"><span id="atask-done-count">0</span>/<span id="atask-daily-limit">3</span> اليوم</span>
                             </div>
                         </div>
+                        <!-- State indicators (loading / cooldown / maxed) — بدون زر ابدأ هنا -->
                         <div id="atask-action" style="flex-shrink:0;">
-                            <button id="atask-start-btn" onclick="window.startAdsgramTask()" style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;border:1px solid rgba(251,191,36,0.45);background:linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.08));color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.2s ease;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" fill="#fff"/></svg>
-                                ابدأ
-                            </button>
                             <div id="atask-loading-state" style="display:none;align-items:center;gap:7px;padding:10px 14px;border-radius:12px;border:1px solid rgba(251,191,36,0.25);background:rgba(251,191,36,0.06);color:rgba(251,191,36,0.7);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">
                                 <div style="width:13px;height:13px;border:2px solid rgba(251,191,36,0.3);border-top-color:rgba(251,191,36,0.9);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
                                 جاري...
@@ -356,8 +389,26 @@
                             </div>
                         </div>
                     </div>
-                    <div id="atask-hint" style="display:none;margin:0 18px 14px;padding:9px 13px;border-radius:10px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.13);">
-                        <span style="font-size:11px;color:rgba(251,191,36,0.55);font-weight:600;font-family:'Readex Pro',sans-serif;">أكمل المهمة وستُضاف النقاط تلقائياً</span>
+                    <!-- الـ <adsgram-task> widget — مرئي، زر ابدأ الحقيقي -->
+                    <div id="atask-widget-wrap" style="padding:0 14px 14px;">
+                        <adsgram-task
+                            id="atask-widget"
+                            data-block-id="task-30166"
+                            data-debug="false"
+                            style="display:block;width:100%;--adsgram-task-font-size:13px;--adsgram-task-icon-size:36px;--adsgram-task-icon-border-radius:10px;--adsgram-task-button-width:70px;">
+                            <div slot="button" id="atask-start-btn" style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;border:1px solid rgba(251,191,36,0.45);background:linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.08));color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" fill="#fff"/></svg>
+                                ابدأ
+                            </div>
+                            <div slot="claim" style="display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:12px;border:1px solid rgba(251,191,36,0.25);background:rgba(251,191,36,0.06);color:rgba(251,191,36,0.8);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">
+                                <div style="width:12px;height:12px;border:2px solid rgba(251,191,36,0.3);border-top-color:rgba(251,191,36,0.9);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                                تحقق...
+                            </div>
+                            <div slot="done" style="display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:12px;border:1px solid rgba(52,211,153,0.28);background:rgba(52,211,153,0.08);color:#34d399;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                تم
+                            </div>
+                        </adsgram-task>
                     </div>
                 </div>
             </div>

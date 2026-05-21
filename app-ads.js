@@ -631,6 +631,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     _loadChannels();
+    _atBindWidget();
 
     // polling
     let _lastPts=_AS.balance; let _pollFails=0;
@@ -700,10 +701,17 @@ const _AT = {
 
 // ── helpers ───────────────────────────────────────────────
 function _atShow(id) {
-    ['atask-start-btn','atask-loading-state','atask-cooldown-state','atask-maxed-state'].forEach(x => {
+    // states داخل atask-action
+    ['atask-loading-state','atask-cooldown-state','atask-maxed-state'].forEach(x => {
         const el = document.getElementById(x);
         if (el) el.style.display = (x === id) ? 'inline-flex' : 'none';
     });
+    // widget-wrap: مرئي فقط في حالة ready (لا يوجد state نشط)
+    const wrap = document.getElementById('atask-widget-wrap');
+    if (wrap) {
+        const hideWrap = ['atask-loading-state','atask-cooldown-state','atask-maxed-state'].includes(id);
+        wrap.style.display = hideWrap ? 'none' : 'block';
+    }
 }
 
 function _atUpdateCounter() {
@@ -758,7 +766,7 @@ async function _atRefreshState() {
             if (s.status === 'cooldown' && s.remaining_seconds > 0) {
                 _atStartCooldown(s.remaining_seconds * 1000);
             } else if (s.status === 'ready') {
-                _atShow('atask-start-btn');
+                _atShow(null); // أظهر الـ widget
             }
         }
         if (res.adsgram_task_today_count !== undefined) {
@@ -786,180 +794,101 @@ function _atInitController() {
     return _AT.controller;
 }
 
-// ── main entry — called by "ابدأ" button ─────────────────
+// ── main entry — الـ <adsgram-task> widget يدير الـ UI مباشرةً ─────
+// عند reward event نبدأ claim مع السيرفر
 export async function startAdsgramTask() {
-    if (_AT.isRunning) return;
+    // هذه الدالة لم تعد تُستدعى من زر — الـ widget يشتغل وحده
+    // نبقيها فقط للتوافق مع أي استدعاء قديم
+}
 
-    // Guard: daily limit
-    if (_AT.doneCount >= _AT.dailyLimit) {
-        _atShow('atask-maxed-state');
-        return;
-    }
+// ── ربط الـ widget بالسيرفر عند الـ reward event ────────────
+function _atBindWidget() {
+    const widget = document.getElementById('atask-widget');
+    if (!widget) return;
 
-    _AT.isRunning = true;
-    _atShow('atask-loading-state');
-
-    // 1. Notify server — get nonce
-    const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
-    if (!startRes.ok) {
-        _AT.isRunning = false;
-        if (startRes.error === 'daily_limit_reached') {
-            _AT.doneCount = _AT.dailyLimit;
-            _atUpdateCounter();
+    widget.addEventListener('reward', async () => {
+        // Guard: daily limit
+        if (_AT.doneCount >= _AT.dailyLimit) {
             _atShow('atask-maxed-state');
-            document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
-        } else if (startRes.error === 'cooldown_active') {
-            _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
-        } else {
-            _atShow('atask-start-btn');
-            showToast('coin', 'تعذّر بدء المهمة', startRes.error || '', 'red', '!');
-        }
-        return;
-    }
-
-    const taskNonce = startRes.task_nonce;
-
-    // 2. Get the hidden <adsgram-task> web component
-    const widget = document.getElementById('atask-hidden-widget');
-    if (!widget) {
-        _AT.isRunning = false;
-        _atShow('atask-start-btn');
-        showToast('coin', 'خطأ في التهيئة', 'أعد تحميل التطبيق', 'red', '!');
-        return;
-    }
-
-    const hint = document.getElementById('atask-hint');
-    if (hint) hint.style.display = 'block';
-
-    // 3. Wait for the "reward" event from adsgram-task widget
-    //    The widget handles showing the task UI internally (invisible to user)
-    //    We just listen for the result event
-    const adResult = await new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-            cleanup();
-            resolve({ ok: false, reason: 'timeout' });
-        }, 120000); // 2 min max
-
-        function onReward(e) {
-            cleanup();
-            resolve({ ok: true, blockId: e.detail });
-        }
-        function onError(e) {
-            cleanup();
-            resolve({ ok: false, reason: 'error', detail: e.detail });
-        }
-        function onNotFound(e) {
-            cleanup();
-            resolve({ ok: false, reason: 'not_found', detail: e.detail });
-        }
-        function onTooLong() {
-            cleanup();
-            resolve({ ok: false, reason: 'too_long' });
+            return;
         }
 
-        function cleanup() {
-            clearTimeout(timeout);
-            widget.removeEventListener('reward', onReward);
-            widget.removeEventListener('onError', onError);
-            widget.removeEventListener('onBannerNotFound', onNotFound);
-            widget.removeEventListener('onTooLongSession', onTooLong);
-        }
+        // أخبر السيرفر وخذ nonce
+        _atShow('atask-loading-state');
+        const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
 
-        widget.addEventListener('reward', onReward);
-        widget.addEventListener('onError', onError);
-        widget.addEventListener('onBannerNotFound', onNotFound);
-        widget.addEventListener('onTooLongSession', onTooLong);
-
-        // Trigger the widget — simulate click on its internal button
-        // The widget's "go" slot button triggers the task flow
-        // We make the widget temporarily visible just for the click, then hide again
-        widget.style.visibility = 'visible';
-        widget.style.width = '1px';
-        widget.style.height = '1px';
-
-        // Click the internal button via shadow DOM or dispatch click
-        try {
-            const shadowBtn = widget.shadowRoot?.querySelector('button, [slot="button"], .adsgram-task-button');
-            if (shadowBtn) {
-                shadowBtn.click();
+        if (!startRes.ok) {
+            if (startRes.error === 'daily_limit_reached') {
+                _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
+                document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
+            } else if (startRes.error === 'cooldown_active') {
+                _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
             } else {
-                widget.click();
+                _atShow(null); // أظهر الـ widget مجدداً
+                showToast('coin', 'خطأ في التحقق', startRes.error || '', 'red', '!');
             }
-        } catch(_) {
-            widget.click();
+            return;
         }
 
-        // Re-hide after triggering
-        setTimeout(() => {
-            widget.style.width = '0';
-            widget.style.height = '0';
-            widget.style.visibility = 'hidden';
-        }, 100);
+        const taskNonce = startRes.task_nonce;
+
+        // Claim المكافأة
+        const claimRes = await _dbCall('claim_adsgram_task', {}, taskNonce);
+
+        if (claimRes.ok) {
+            const pts = claimRes.points;
+            if (pts !== undefined) { animateBalance(_AS.balance, pts, 1200); _AS.balance = pts; }
+
+            const earned = claimRes.earned || claimRes.reward || _AT.reward;
+            _AT.doneCount = claimRes.adsgram_task_today_count || (_AT.doneCount + 1);
+            _atUpdateCounter();
+
+            showToast('trophy', 'مهمة إعلانية مكتملة 🎉', `+${earned.toLocaleString()} نقطة أُضيفت`, 'green', `+${earned}`);
+            pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString()} نقطة`);
+
+            const icon = document.getElementById('atask-icon');
+            if (icon) {
+                icon.style.background = 'rgba(52,211,153,0.12)';
+                icon.style.border = '1px solid rgba(52,211,153,0.28)';
+                icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+                setTimeout(() => {
+                    icon.style.background = 'rgba(251,191,36,0.1)';
+                    icon.style.border = '1px solid rgba(251,191,36,0.22)';
+                    icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.8)" stroke-width="1.6"/></svg>`;
+                }, 1800);
+            }
+
+            if (_AT.doneCount >= _AT.dailyLimit) {
+                setTimeout(() => {
+                    _atShow('atask-maxed-state');
+                    document.getElementById('atask-card')?.style.setProperty('opacity', '0.75');
+                }, 1500);
+            } else {
+                setTimeout(() => _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs), 600);
+            }
+        } else {
+            if (claimRes.error === 'cooldown_active') {
+                _atStartCooldown(claimRes.wait_ms || _AT.cooldownMs);
+            } else if (claimRes.error === 'daily_limit_reached') {
+                _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
+            } else {
+                _atShow(null);
+                showToast('coin', 'خطأ في المعالجة', claimRes.error || '', 'red', '!');
+            }
+        }
     });
 
-    if (hint) hint.style.display = 'none';
-    _AT.isRunning = false;
+    widget.addEventListener('onBannerNotFound', () => {
+        document.getElementById('atask-outer')?.style.setProperty('display', 'none');
+    });
 
-    if (!adResult.ok) {
-        _atShow('atask-start-btn');
-        if (adResult.reason === 'not_found') {
-            showToast('coin', 'لا توجد مهمة متاحة حالياً', 'حاول لاحقاً', 'gold', '!');
-        } else if (adResult.reason === 'too_long') {
-            showToast('coin', 'أعد تشغيل التطبيق', 'الجلسة طويلة جداً', 'red', '!');
-        } else {
-            showToast('coin', 'لم تكتمل المهمة', 'حاول مرة أخرى', 'red', '!');
-        }
-        return;
-    }
+    widget.addEventListener('onTooLongSession', () => {
+        showToast('coin', 'أعد تشغيل التطبيق', 'الجلسة طويلة جداً', 'red', '!');
+    });
 
-    // 4. Claim reward from server using nonce
-    const claimRes = await _dbCall('claim_adsgram_task', {}, taskNonce);
-
-    if (claimRes.ok) {
-        const pts = claimRes.points;
-        if (pts !== undefined) { animateBalance(_AS.balance, pts, 1200); _AS.balance = pts; }
-
-        const earned = claimRes.earned || claimRes.reward || _AT.reward;
-        _AT.doneCount = claimRes.adsgram_task_today_count || (_AT.doneCount + 1);
-        _atUpdateCounter();
-
-        // Custom success notification — no AdsGram branding
-        showToast('trophy', `مهمة إعلانية مكتملة 🎉`, `+${earned.toLocaleString()} نقطة أُضيفت`, 'green', `+${earned}`);
-        pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString()} نقطة`);
-
-        // Icon flash green then back
-        const icon = document.getElementById('atask-icon');
-        if (icon) {
-            icon.style.background = 'rgba(52,211,153,0.12)';
-            icon.style.border = '1px solid rgba(52,211,153,0.28)';
-            icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
-            setTimeout(() => {
-                icon.style.background = 'rgba(251,191,36,0.1)';
-                icon.style.border = '1px solid rgba(251,191,36,0.22)';
-                icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.8)" stroke-width="1.6"/></svg>`;
-            }, 1800);
-        }
-
-        if (_AT.doneCount >= _AT.dailyLimit) {
-            setTimeout(() => {
-                _atShow('atask-maxed-state');
-                document.getElementById('atask-card')?.style.setProperty('opacity', '0.75');
-            }, 1500);
-        } else {
-            setTimeout(() => _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs), 600);
-        }
-    } else {
-        if (claimRes.error === 'cooldown_active') {
-            _atStartCooldown(claimRes.wait_ms || _AT.cooldownMs);
-        } else if (claimRes.error === 'daily_limit_reached') {
-            _AT.doneCount = _AT.dailyLimit;
-            _atUpdateCounter();
-            _atShow('atask-maxed-state');
-        } else {
-            _atShow('atask-start-btn');
-            showToast('coin', 'خطأ في المعالجة', claimRes.error || '', 'red', '!');
-        }
-    }
+    widget.addEventListener('onError', () => {
+        showToast('coin', 'خطأ في تحميل المهمة', 'حاول لاحقاً', 'red', '!');
+    });
 }
 
 
@@ -976,7 +905,7 @@ export function initAdsgramTaskUI(adsgramTaskData) {
     if (status === 'cooldown' && remaining_seconds > 0) {
         _atStartCooldown(remaining_seconds * 1000);
     } else if (status === 'ready') {
-        _atShow('atask-start-btn');
+        _atShow(null); // أظهر الـ widget
     }
     // Show section (always visible)
 }
