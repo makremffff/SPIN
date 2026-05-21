@@ -524,6 +524,14 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (cfg.telegram)  Object.assign(_AC.telegram,  cfg.telegram);
                 if (cfg.ads)       Object.assign(_AC.ads,       cfg.ads);
                 if (cfg.ads?.daily_limit) _AS.serverConfig.ads_daily_limit=cfg.ads.daily_limit;
+                // ── adsgram task dynamic config ──
+                if (cfg.adsgram_task) {
+                    if (cfg.adsgram_task.reward)      _AT.reward     = cfg.adsgram_task.reward;
+                    if (cfg.adsgram_task.cooldown_ms) _AT.cooldownMs = cfg.adsgram_task.cooldown_ms;
+                    if (cfg.adsgram_task.block_id)    _AT.blockId    = cfg.adsgram_task.block_id;
+                }
+                if (cfg.adsgram_task?.daily_limit)    _AT.dailyLimit = cfg.adsgram_task.daily_limit;
+                if (cfg.ads?.adsgram_daily_limit)     _AT.dailyLimit = cfg.ads.adsgram_daily_limit;
                 _applyConfigToUI();
             }
 
@@ -576,6 +584,29 @@ window.addEventListener('DOMContentLoaded', async () => {
                 _updateReferralLinkUI();
             }
 
+            // ── adsgram task state from server ──
+            if (load.config?.adsgram_task?.daily_limit !== undefined) {
+                _AT.dailyLimit = load.config.adsgram_task.daily_limit;
+            }
+            if (load.adsgram_task) {
+                if (load.adsgram_task.reward)       _AT.reward     = load.adsgram_task.reward;
+                if (load.adsgram_task.cooldown_ms)  _AT.cooldownMs = load.adsgram_task.cooldown_ms;
+                if (load.adsgram_task_today_count !== undefined) _AT.doneCount = load.adsgram_task_today_count;
+                if (load.adsgram_task_daily_limit !== undefined) _AT.dailyLimit = load.adsgram_task_daily_limit;
+                _atUpdateCounter();
+                const atStatus = load.adsgram_task.status;
+                const atRemSec = load.adsgram_task.remaining_seconds || 0;
+                if (atStatus === 'cooldown' && atRemSec > 0) {
+                    _atStartCooldown(atRemSec * 1000);
+                } else if (atStatus === 'maxed' || _AT.doneCount >= _AT.dailyLimit) {
+                    _atShow('atask-maxed-state');
+                    document.getElementById('atask-card')?.style.setProperty('opacity','0.75');
+                } else {
+                    _atShow('atask-start-btn');
+                }
+            } else {
+                _atShow('atask-start-btn');
+            }
             // tgVerified UI
             if (_AS.tasks.tgVerified) {
                 document.getElementById('tg-join-btn')?.style.setProperty('display','none');
@@ -646,3 +677,275 @@ window.verifyTelegramTask  = verifyTelegramTask;
 window.handleChannelJoin   = handleChannelJoin;
 window.verifyChannelTask   = verifyChannelTask;
 window.updateAdUI          = updateAdUI;
+
+// ══════════════════════════════════════════════════════════
+// ADSGRAM SPONSORED TASK (task-30166) — Custom UI
+// AdsGram SDK runs silently in the background only.
+// All visual state is driven by our own UI elements.
+// ══════════════════════════════════════════════════════════
+
+// ── state ─────────────────────────────────────────────────
+const _AT = {
+    blockId:       'task-30166',
+    controller:    null,
+    isRunning:     false,
+    cooldownTimer: null,
+    // values loaded from server (defaults match config)
+    reward:        50,
+    dailyLimit:    3,
+    doneCount:     0,
+    cooldownMs:    60000,
+};
+
+// ── helpers ───────────────────────────────────────────────
+function _atShow(id) {
+    ['atask-start-btn','atask-loading-state','atask-cooldown-state','atask-maxed-state'].forEach(x => {
+        const el = document.getElementById(x);
+        if (el) el.style.display = (x === id) ? 'inline-flex' : 'none';
+    });
+}
+
+function _atUpdateCounter() {
+    const dc = document.getElementById('atask-done-count');
+    const dl = document.getElementById('atask-daily-limit');
+    const rl = document.getElementById('atask-reward-label');
+    const rb = document.getElementById('adsgram-reward-badge');
+    if (dc) dc.textContent = _AT.doneCount;
+    if (dl) dl.textContent = _AT.dailyLimit;
+    if (rl) rl.textContent = _AT.reward;
+    if (rb) rb.textContent = _AT.reward;
+}
+
+function _atStartCooldown(ms) {
+    if (_AT.cooldownTimer) clearInterval(_AT.cooldownTimer);
+    _atShow('atask-cooldown-state');
+    const timerEl = document.getElementById('atask-cooldown-timer');
+    let remaining = Math.ceil(ms / 1000);
+    if (timerEl) timerEl.textContent = remaining + 's';
+    _AT.cooldownTimer = setInterval(() => {
+        remaining--;
+        if (timerEl) timerEl.textContent = remaining + 's';
+        if (remaining <= 0) {
+            clearInterval(_AT.cooldownTimer);
+            _AT.cooldownTimer = null;
+            _atRefreshState();
+        }
+    }, 1000);
+}
+
+async function _atRefreshState() {
+    // Poll server for current adsgram task state
+    try {
+        const res = await fetchApi({ type: 'start_adsgram_task', data: {} });
+        if (!res.ok) {
+            if (res.error === 'daily_limit_reached') {
+                _AT.doneCount = _AT.dailyLimit;
+                _atUpdateCounter();
+                _atShow('atask-maxed-state');
+                document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
+            } else if (res.error === 'cooldown_active') {
+                _atStartCooldown(res.wait_ms || _AT.cooldownMs);
+            } else {
+                _atShow('atask-start-btn');
+            }
+            return;
+        }
+        // Server sent ok — update values
+        if (res.adsgram_task) {
+            const s = res.adsgram_task;
+            if (s.reward)   _AT.reward = s.reward;
+            if (s.status === 'cooldown' && s.remaining_seconds > 0) {
+                _atStartCooldown(s.remaining_seconds * 1000);
+            } else if (s.status === 'ready') {
+                _atShow('atask-start-btn');
+            }
+        }
+        if (res.adsgram_task_today_count !== undefined) {
+            _AT.doneCount = res.adsgram_task_today_count;
+        }
+        _atUpdateCounter();
+    } catch (_) {
+        _atShow('atask-start-btn');
+    }
+}
+
+// ── init Adsgram controller (silent) ──────────────────────
+function _atInitController() {
+    if (_AT.controller) return _AT.controller;
+    if (!window.Adsgram) return null;
+    try {
+        _AT.controller = window.Adsgram.init({
+            blockId: _AT.blockId,
+            debug: false,
+            debugBanners: false,
+        });
+    } catch (_) {
+        _AT.controller = null;
+    }
+    return _AT.controller;
+}
+
+// ── main entry — called by "ابدأ" button ─────────────────
+export async function startAdsgramTask() {
+    if (_AT.isRunning) return;
+
+    // Guard: daily limit
+    if (_AT.doneCount >= _AT.dailyLimit) {
+        _atShow('atask-maxed-state');
+        return;
+    }
+
+    _AT.isRunning = true;
+    _atShow('atask-loading-state');
+    const hint = document.getElementById('atask-hint');
+
+    // 1. Wait for Adsgram SDK
+    if (!window.Adsgram || window._adsgramLoadStatus !== 'loaded') {
+        if (window._adsgramLoadStatus === 'failed') {
+            _AT.isRunning = false;
+            _atShow('atask-start-btn');
+            showToast('coin', 'تعذّر تحميل المهمة', 'تحقق من اتصالك', 'red', '!');
+            return;
+        }
+        const loaded = await new Promise(res => {
+            const t = setTimeout(() => res(false), 8000);
+            if (typeof window.onAdsgramLoaded === 'function') {
+                window.onAdsgramLoaded(s => { clearTimeout(t); res(s !== 'failed'); });
+            } else res(false);
+        });
+        if (!loaded) {
+            _AT.isRunning = false;
+            _atShow('atask-start-btn');
+            showToast('coin', 'تعذّر تحميل المهمة', 'تحقق من اتصالك', 'red', '!');
+            return;
+        }
+    }
+
+    // 2. Start task on server — get nonce
+    const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+    if (!startRes.ok) {
+        _AT.isRunning = false;
+        if (startRes.error === 'daily_limit_reached') {
+            _AT.doneCount = _AT.dailyLimit;
+            _atUpdateCounter();
+            _atShow('atask-maxed-state');
+            document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
+        } else if (startRes.error === 'cooldown_active') {
+            _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
+        } else {
+            _atShow('atask-start-btn');
+            showToast('coin', 'تعذّر بدء المهمة', startRes.error || '', 'red', '!');
+        }
+        return;
+    }
+
+    const taskNonce = startRes.task_nonce;
+
+    // 3. Show Adsgram ad silently — no Adsgram UI visible, our UI handles state
+    const ctrl = _atInitController();
+    if (!ctrl) {
+        _AT.isRunning = false;
+        _atShow('atask-start-btn');
+        showToast('coin', 'تعذّر تشغيل المهمة', 'أعد المحاولة', 'red', '!');
+        return;
+    }
+
+    if (hint) hint.style.display = 'block';
+
+    let adDone = false;
+    try {
+        const result = await ctrl.show();
+        adDone = result?.done === true;
+    } catch (err) {
+        adDone = false;
+    }
+
+    if (!adDone) {
+        _AT.isRunning = false;
+        if (hint) hint.style.display = 'none';
+        _atShow('atask-start-btn');
+        showToast('coin', 'لم تكتمل المهمة', 'حاول مرة أخرى', 'red', '!');
+        return;
+    }
+
+    // 4. Claim reward from server using nonce
+    const claimRes = await _dbCall('claim_adsgram_task', {}, taskNonce);
+
+    _AT.isRunning = false;
+    if (hint) hint.style.display = 'none';
+
+    if (claimRes.ok) {
+        // Update balance
+        const pts = claimRes.points;
+        if (pts !== undefined) { animateBalance(_AS.balance, pts, 1200); _AS.balance = pts; }
+
+        const earned = claimRes.earned || claimRes.reward || _AT.reward;
+        _AT.doneCount = (_AT.doneCount || 0) + 1;
+        _atUpdateCounter();
+
+        // Success notification — fully custom, no Adsgram branding
+        showToast('trophy', `مهمة إعلانية مكتملة 🎉`, `+${earned.toLocaleString()} نقطة أُضيفت`, 'green', `+${earned}`);
+        pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString()} نقطة`);
+
+        // Update icon to checkmark momentarily then go to cooldown / start
+        const icon = document.getElementById('atask-icon');
+        if (icon) {
+            icon.style.background = 'rgba(52,211,153,0.12)';
+            icon.style.border = '1px solid rgba(52,211,153,0.28)';
+            icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+            setTimeout(() => {
+                icon.style.background = 'rgba(251,191,36,0.1)';
+                icon.style.border = '1px solid rgba(251,191,36,0.22)';
+                icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.8)" stroke-width="1.6"/></svg>`;
+            }, 1800);
+        }
+
+        // Check daily limit
+        if (_AT.doneCount >= _AT.dailyLimit) {
+            setTimeout(() => {
+                _atShow('atask-maxed-state');
+                document.getElementById('atask-card')?.style.setProperty('opacity', '0.75');
+            }, 1500);
+        } else if (claimRes.cooldown_ms || _AT.cooldownMs) {
+            setTimeout(() => _atStartCooldown(claimRes.cooldown_ms || _AT.cooldownMs), 600);
+        } else {
+            _atShow('atask-start-btn');
+        }
+    } else {
+        if (claimRes.error === 'cooldown_active') {
+            _atStartCooldown(claimRes.wait_ms || _AT.cooldownMs);
+        } else if (claimRes.error === 'daily_limit_reached') {
+            _AT.doneCount = _AT.dailyLimit;
+            _atUpdateCounter();
+            _atShow('atask-maxed-state');
+        } else if (claimRes.error === 'too_fast') {
+            _atShow('atask-start-btn');
+            showToast('coin', 'أسرع مما ينبغي', 'أكمل المهمة بالكامل', 'red', '!');
+        } else {
+            _atShow('atask-start-btn');
+            showToast('coin', 'خطأ في المعالجة', claimRes.error || '', 'red', '!');
+        }
+    }
+}
+
+// ── Init adsgram task UI from server data ─────────────────
+export function initAdsgramTaskUI(adsgramTaskData) {
+    // adsgramTaskData = load.adsgram_task from server
+    if (!adsgramTaskData) return;
+    if (adsgramTaskData.reward)         _AT.reward      = adsgramTaskData.reward;
+    if (adsgramTaskData.cooldown_ms)    _AT.cooldownMs  = adsgramTaskData.cooldown_ms;
+    // daily limit comes from config
+    _atUpdateCounter();
+
+    const { status, remaining_seconds } = adsgramTaskData;
+    if (status === 'cooldown' && remaining_seconds > 0) {
+        _atStartCooldown(remaining_seconds * 1000);
+    } else if (status === 'ready') {
+        _atShow('atask-start-btn');
+    }
+    // Show section (always visible)
+}
+
+// ── expose ────────────────────────────────────────────────
+window.startAdsgramTask    = startAdsgramTask;
+window.initAdsgramTaskUI   = initAdsgramTaskUI;
