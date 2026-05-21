@@ -303,46 +303,80 @@
                 </div>
             </div>
 
-            <!-- ═══ ADSGRAM TASK ═══ -->
+            <!-- ═══ ADSGRAM SPONSORED TASK ═══ -->
             <div class="section-header" style="margin-bottom:10px;margin-top:4px;">
                 <div class="section-title" style="display:flex;align-items:center;gap:6px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;">
-                        <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="rgba(251,191,36,0.6)" stroke="rgba(251,191,36,0.8)" stroke-width="0.8"/>
                     </svg>
-                    مهام إعلانية
+                    مهمة إعلانية مميزة
                 </div>
-                <div class="section-badge" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.22);color:rgba(251,191,36,0.85);">+<span id="adsgram-reward-badge">30</span> نقطة</div>
+                <div class="section-badge" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.22);color:rgba(251,191,36,0.85);">+<span id="adsgram-reward-badge" class="adsgram-reward-badge">50</span> نقطة</div>
+            </div>
+
+            <!-- Adsgram hidden widget — يعمل في الخلفية فقط بدون أي ظهور بصري -->
+            <div style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;pointer-events:none;" aria-hidden="true">
+                <adsgram-task id="adsgram-task-widget" data-block-id="task-30166">
+                    <div slot="reward"></div>
+                </adsgram-task>
             </div>
 
             <div id="adsgram-task-outer" style="margin-bottom:14px;display:none;">
-                <!-- Compact card -->
+
+                <!-- ── الكارد الرئيسي للمهمة الإعلانية ── -->
                 <div id="adsgram-task-card" class="glass" style="
                     border-radius:var(--radius-xl);
-                    border:1px solid rgba(251,191,36,0.18);
-                    background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(10,5,0,0.35));
-                    padding:14px 15px;
-                    display:flex;align-items:center;gap:13px;
+                    border:1px solid rgba(251,191,36,0.2);
+                    background:linear-gradient(135deg,rgba(251,191,36,0.07),rgba(10,5,0,0.4));
+                    overflow:hidden;
                     transition:opacity 0.3s ease;
                 ">
-                    <!-- info: title only — يتم تعبئته من السيرفر عبر APP_CONFIG.adsgram_task.title_ar -->
-                    <div style="flex:1;min-width:0;">
-                        <div id="adsgram-task-title" style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
-                                    color:rgba(255,255,255,0.95);line-height:1.2;">مهمة إعلانية</div>
-                    </div>
-                    <!-- action: Adsgram Task widget -->
-                    <div style="flex-shrink:0;">
-                        <adsgram-task id="adsgram-task-widget" data-block-id="task-30166"
-                            style="display:block;">
-                            <div slot="reward" style="display:inline-flex;align-items:center;gap:4px;">
-                                <span style="font-size:11px;font-weight:700;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">30</span></span>
+                    <!-- خط علوي ذهبي -->
+                    <div style="height:2px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.55),transparent);"></div>
+
+                    <div style="padding:14px 16px;display:flex;align-items:center;gap:13px;">
+                        <!-- أيقونة المهمة -->
+                        <div style="width:48px;height:48px;border-radius:14px;flex-shrink:0;
+                            background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.04));
+                            border:1px solid rgba(251,191,36,0.28);
+                            display:flex;align-items:center;justify-content:center;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="9" fill="rgba(251,191,36,0.1)" stroke="rgba(251,191,36,0.45)" stroke-width="1.2"/>
+                                <path d="M8 12l3 3 5-5" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <!-- نص المهمة -->
+                        <div style="flex:1;min-width:0;">
+                            <div id="adsgram-task-title" style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:900;
+                                color:rgba(255,255,255,0.95);margin-bottom:5px;line-height:1.25;">مهمة إعلانية</div>
+                            <div style="display:flex;align-items:center;gap:5px;">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="rgba(251,191,36,0.12)" stroke="rgba(251,191,36,0.35)" stroke-width="1.5"/><path d="M12 7v5l3 3" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/></svg>
+                                <span style="font-size:10.5px;color:rgba(255,255,255,0.38);font-weight:500;font-family:'Readex Pro',sans-serif;">مرة واحدة يومياً</span>
                             </div>
-                        </adsgram-task>
+                        </div>
+
+                        <!-- زر ابدأ المهمة -->
+                        <button id="adsgram-task-btn" onclick="watchAdsgramTask()"
+                            style="flex-shrink:0;display:inline-flex;align-items:center;gap:7px;
+                                padding:10px 16px;border-radius:13px;
+                                border:1px solid rgba(251,191,36,0.5);
+                                background:linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.06));
+                                color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;
+                                cursor:pointer;transition:all 0.2s ease;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                <path d="M5 12h14M13 6l6 6-6 6" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span>ابدأ</span>
+                            <span style="background:rgba(251,191,36,0.18);padding:2px 8px;border-radius:8px;
+                                font-size:11px;color:rgba(251,191,36,0.9);">+<span class="adsgram-reward-badge">50</span></span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- حالة الإكمال + عداد -->
+                <!-- ── حالة التقدم / الإكمال ── -->
                 <div id="adsgram-task-done" style="display:none;border-radius:var(--radius-xl);
-                     border:1px solid rgba(52,211,153,0.2);padding:12px 14px;
+                     border:1px solid rgba(52,211,153,0.2);
                      background:linear-gradient(135deg,rgba(52,211,153,0.06),rgba(52,211,153,0.01));">
                 </div>
             </div>
@@ -450,7 +484,7 @@
                     <div class="dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
                         <div style="display:flex;align-items:center;gap:4px;">
                             <img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;filter:drop-shadow(0 0 3px rgba(167,139,250,0.6));">
-                            <span class="dtask-reward-num purple">+3,000</span>
+                            <span class="dtask-reward-num purple daily-refs3-reward-badge">+3,000</span>
                         </div>
                         <button id="dtask-claim-daily_refs_3" onclick="event.stopPropagation();claimDailyMission('daily_refs_3')"
                             style="display:none;align-items:center;gap:5px;padding:6px 12px;border-radius:10px;border:1px solid rgba(167,139,250,0.45);background:rgba(167,139,250,0.12);color:#a78bfa;font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.2s ease;white-space:nowrap;">
@@ -504,7 +538,7 @@
             <!-- ═══ DAILY ADS SECTION ═══ -->
             <div class="section-header" style="margin-bottom:10px;margin-top:0;">
                 <div class="section-title">الإعلانات اليومية</div>
-                <div class="section-badge" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.18);color:rgba(251,191,36,0.75);">+50 نقطة / إعلان</div>
+                <div class="section-badge" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.18);color:rgba(251,191,36,0.75);">+<span class="pts-per-ad-badge">50</span> نقطة / إعلان</div>
             </div>
 
             <!-- Ad Hero Card -->
@@ -546,7 +580,7 @@
                         </div>
                     </div>
                     <div class="ad-btn-reward">
-                        <div class="ad-btn-reward-amount">+50</div>
+                        <div class="ad-btn-reward-amount">+<span class="pts-per-ad-badge">50</span></div>
                         <div class="ad-btn-reward-label" data-i18n="pts">نقطة</div>
                     </div>
                 </button>
