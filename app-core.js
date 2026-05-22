@@ -8,6 +8,7 @@ export const API_BASE = '/api';
 export const APP_STATE = {
     balance: 0,
     level:   1,
+    usdt_balance: 0,
     first_withdraw_done: false,
 
     ads: {
@@ -260,9 +261,10 @@ export async function _createSession() {
                 _sessionId = result._session_token;
                 if (result.user) {
                     const u = result.user;
-                    if (u.points      !== undefined) APP_STATE.balance = parseInt(u.points) || 0;
-                    if (u.level       !== undefined) APP_STATE.level   = parseInt(u.level)  || 1;
-                    if (u.tg_verified !== undefined) APP_STATE.tasks.tgVerified = !!u.tg_verified;
+                    if (u.points       !== undefined) APP_STATE.balance       = parseInt(u.points)           || 0;
+                    if (u.level        !== undefined) APP_STATE.level         = parseInt(u.level)            || 1;
+                    if (u.usdt_balance !== undefined) APP_STATE.usdt_balance  = parseFloat(u.usdt_balance)  || 0;
+                    if (u.tg_verified  !== undefined) APP_STATE.tasks.tgVerified = !!u.tg_verified;
                     if (u.streak_day  !== undefined) APP_STATE.dailyGift.dayNumber = Math.max(1,(parseInt(u.streak_day)||0)+1);
                     const today = new Date().toISOString().slice(0,10);
                     if (u.last_gift_date === today) APP_STATE.dailyGift.claimed = true;

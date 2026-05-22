@@ -148,8 +148,6 @@ export function animateBalance(from, to, dur) {
         const f = v.toLocaleString('en-US');
         if (balEl)  balEl.textContent  = f;
         if (heroEl) heroEl.textContent = f;
-        const uEl = document.getElementById('uc-usdt-val');
-        if (uEl) uEl.textContent = (v/(_SC.pts_per_ton||100000)).toFixed(2);
         if (p < 1) requestAnimationFrame(tick);
         else updateBalanceUI(to);
     }
@@ -171,7 +169,7 @@ export function updateBalanceUI(pts) {
     if (heroEl) { heroEl.textContent = f; heroEl.dataset.target = pts; }
     if (tonSh)  tonSh.textContent = f;
     if (tonEq)  tonEq.textContent = '≈ '+(pts/(_SC.pts_per_ton||100000)).toFixed(3)+' TON';
-    if (usdtEl) usdtEl.textContent = (pts/(_SC.pts_per_ton||100000)).toFixed(2);
+    if (usdtEl) usdtEl.textContent = (_AS.usdt_balance || 0).toFixed(2);
     const lvl = _AS.level||1;
     const TH  = [0,0,500,1500,3500,8000,16000,30000,55000,90000,150000];
     const cur = TH[lvl]||0; const nxt = TH[lvl+1]||cur+10000;
