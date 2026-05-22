@@ -80,13 +80,34 @@ export function _applyConfigToUI() {
 }
 
 // ══════════════════════════════════════════════════════════
-// NONCE — كل ريكوست يولّد nonce جديد مرة وحدة
+// NONCE — يُطلب من السيرفر قبل كل ريكوست يحتاجه
 // ══════════════════════════════════════════════════════════
 export function _genNonce() {
     if (crypto?.randomUUID) return crypto.randomUUID();
     const arr = new Uint8Array(16);
     crypto.getRandomValues(arr);
     return Array.from(arr, b => b.toString(16).padStart(2,'0')).join('') + '_' + Date.now();
+}
+
+// طلب nonce من السيرفر (مسجّل في جدول nonces) بدلاً من توليده محلياً
+async function _getServerNonce(action) {
+    try {
+        const fpStr    = await _buildFingerprint();
+        const initData = window?.Telegram?.WebApp?.initData || '';
+        const headers  = { 'Content-Type':'application/json', 'X-Fingerprint': fpStr };
+        if (initData)   headers['X-Init-Data']  = initData;
+        if (_sessionId) headers['X-Session-Id'] = _sessionId;
+        const res  = await fetch(API_BASE, {
+            method: 'POST', headers, credentials: 'include',
+            body: JSON.stringify({ type: 'get_nonce', data: { action } }),
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json.ok ? json.nonce : null;
+    } catch (e) {
+        console.warn('[ZT] get_nonce failed:', e.message);
+        return null;
+    }
 }
 
 // هذه الـ actions لا تحتاج nonce (polling / session / tracking فقط)
@@ -275,8 +296,8 @@ export async function _dbCall(action, data = {}, externalNonce = null) {
         if (initData)   headers['X-Init-Data']  = initData;
         if (_sessionId) headers['X-Session-Id'] = _sessionId;
 
-        // نونس: إما external (لـ reward_ad) أو جديد لكل ريكوست ما عدا الـ polling
-        const nonce = externalNonce || (!SKIP_NONCE.has(action) ? _genNonce() : null);
+        // نونس: إما external (لـ reward_ad) أو مُصدَر من السيرفر لكل ريكوست يحتاجه
+        const nonce = externalNonce || (!SKIP_NONCE.has(action) ? await _getServerNonce(action) : null);
         if (nonce) headers['X-Nonce'] = nonce;
 
         const res  = await fetch(API_BASE, {
