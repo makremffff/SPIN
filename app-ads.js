@@ -862,9 +862,11 @@ function _atBindWidget() {
     });
 
     widget.addEventListener('onBannerNotFound', () => {
-        // الكارد تبقى مرئية لكن فارغة — نخفي الـ widget wrap ونظهر حالة "انتظر"
+        // نخفي الـ widget wrap + الـ widget نفسه (يمنع ظهور التايتل والدائرة من الـ web component)
         const wrap = document.getElementById('atask-widget-wrap');
         if (wrap) wrap.style.display = 'none';
+        const w = document.getElementById('atask-widget');
+        if (w) w.style.display = 'none';
         ['atask-loading-state','atask-cooldown-state','atask-maxed-state'].forEach(x => {
             const el = document.getElementById(x);
             if (el) el.style.display = 'none';
