@@ -208,11 +208,11 @@ export function showPage(pageName, btn) {
 
 function _refreshWithdrawUI() {
     const heroEl = document.getElementById('withdraw-balance-hero');
-    if (heroEl) heroEl.textContent = _AS.balance.toLocaleString();
+    if (heroEl) heroEl.textContent = _AS.balance.toLocaleString('en-US');
     const fw  = _AS.first_withdraw_done;
     const min = fw ? (_AC.withdraw.normal_min||20000) : (_AC.withdraw.first_min||3000);
     const el  = document.getElementById('withdraw-ton-min-display');
-    if (el) el.textContent = min.toLocaleString();
+    if (el) el.textContent = min.toLocaleString('en-US');
 }
 
 export function _hideLoadingScreen() {
@@ -281,7 +281,7 @@ export function renderWithdrawHistory() {
                 <div class="withdraw-hist-time">${_timeAgo(item.ts)}</div>
             </div>
             <div class="withdraw-hist-right">
-                <div class="withdraw-hist-pts">${item.pts.toLocaleString()}</div>
+                <div class="withdraw-hist-pts">${item.pts.toLocaleString('en-US')}</div>
                 <div class="withdraw-hist-ton">${ton} TON</div>
                 <div class="withdraw-hist-badge pending">قيد المعالجة</div>
             </div>
@@ -420,7 +420,7 @@ export function openTonWithdraw() {
 
     input.value=''; errEl.style.display='none';
     const ptsPerTon = _SC.pts_per_ton||100000;
-    ptsEl.textContent  = _AS.balance.toLocaleString();
+    ptsEl.textContent  = _AS.balance.toLocaleString('en-US');
     equivEl.textContent= '≈ '+(_AS.balance/ptsPerTon).toFixed(3)+' TON';
 
     const fw      = _AS.first_withdraw_done;
@@ -431,13 +431,13 @@ export function openTonWithdraw() {
 
     levelWarn.style.display='none'; ptsWarn.style.display='none';
     const chip=document.getElementById('ton-min-chip-val');
-    if (chip) { chip.textContent=minPts.toLocaleString()+' نقطة'; chip.style.color=fw?'var(--gold)':'var(--green)'; }
+    if (chip) { chip.textContent=minPts.toLocaleString('en-US')+' نقطة'; chip.style.color=fw?'var(--gold)':'var(--green)'; }
     const firstOffer=document.getElementById('first-withdraw-offer');
     if (firstOffer) firstOffer.style.display=fw?'none':'flex';
     const minPtsEl=document.getElementById('ton-min-pts');
-    if (minPtsEl) minPtsEl.textContent=minPts.toLocaleString();
+    if (minPtsEl) minPtsEl.textContent=minPts.toLocaleString('en-US');
     const warnMin=document.getElementById('ton-pts-warn-min');
-    if (warnMin) warnMin.textContent=minPts.toLocaleString();
+    if (warnMin) warnMin.textContent=minPts.toLocaleString('en-US');
 
     if (!hasLvl) { levelWarn.style.display=''; if(curLvlEl) curLvlEl.textContent=_AS.level; submitBtn.disabled=true; }
     else if (!hasPts) { ptsWarn.style.display=''; submitBtn.disabled=true; }
@@ -490,7 +490,7 @@ export async function submitTonWithdraw() {
     renderWithdrawHistory();
     closeTonWithdraw();
     showToast('trophy','تم إرسال طلب السحب! 🎉','سيتم معالجة طلبك قريباً','green','✓');
-    pushNotif('ton','طلب سحب TON مُرسَل',`${item.pts.toLocaleString()} نقطة قيد المعالجة`);
+    pushNotif('ton','طلب سحب TON مُرسَل',`${item.pts.toLocaleString('en-US')} نقطة قيد المعالجة`);
 }
 
 export function copyReferralLink() {

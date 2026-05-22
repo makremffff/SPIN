@@ -308,8 +308,9 @@ export async function createSession() { return _createSession(); }
 // ══════════════════════════════════════════════════════════
 // TELEGRAM USER
 // ══════════════════════════════════════════════════════════
-export const BOT_USERNAME = 'RebhApp_bot';
-export let REFERRAL_LINK  = 'https://t.me/' + BOT_USERNAME + '?start=ref_0000000000';
+export const BOT_USERNAME = 'SPINN_TON_Bot';
+export const APP_NAME     = 'earn';
+export let REFERRAL_LINK  = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=ref_0000000000';
 
 export function initTelegramUser() {
     const tg = window?.Telegram?.WebApp;
@@ -329,7 +330,7 @@ export function initTelegramUser() {
     else if (firstName||lastName) displayName = [firstName,lastName].filter(Boolean).join(' ');
 
     if (userId) {
-        REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_' + userId;
+        REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=ref_' + userId;
     }
     _applyUserToUI(displayName, photoUrl, userId);
     _updateReferralLinkUI();
@@ -354,7 +355,7 @@ function _applyFallbackUser() {
     const photoEl = document.getElementById('uc-user-photo');
     if (nameEl)  nameEl.textContent = '@مستخدم';
     if (photoEl) photoEl.src = _fallbackAvatar('user', null);
-    REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '?start=ref_0000000000';
+    REFERRAL_LINK = 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=ref_0000000000';
     _updateReferralLinkUI();
 }
 

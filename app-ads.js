@@ -49,7 +49,7 @@ export function updateAdUI() {
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
     setText('ads-remaining', r);
     setText('ads-watched',   ads.watched);
-    setText('earned-today',  ads.earned.toLocaleString('ar-EG'));
+    setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
 
     // progress — يعتمد على watched مش remaining (منع التناقص)
@@ -313,8 +313,8 @@ export async function claimDailyMission(taskType) {
     if (claimedBadge) claimedBadge.style.display='inline-flex';
 
     const reward=result.reward||0;
-    showToast('trophy',`مكافأة المهمة ✓`,`+${reward.toLocaleString()} نقطة`,'green',`+${reward}`);
-    pushNotif('gold','مكافأة مهمة يومية ✓',`+${reward.toLocaleString()} نقطة`);
+    showToast('trophy',`مكافأة المهمة ✓`,`+${reward.toLocaleString('en-US')} نقطة`,'green',`+${reward}`);
+    pushNotif('gold','مكافأة مهمة يومية ✓',`+${reward.toLocaleString('en-US')} نقطة`);
 }
 
 export function handleDailyTask(type) {
@@ -377,8 +377,8 @@ export async function verifyTelegramTask() {
     document.getElementById('tg-task-card')?.classList.add('completed');
 
     const reward=parseInt(result.reward)||_AC.rewards.telegram_task||200;
-    showToast('trophy','انضممت للقناة! 🎉',`+${reward.toLocaleString()} نقطة`,'gold',`+${reward}`);
-    pushNotif('gold','مهمة قناة تيليغرام ✓',`+${reward.toLocaleString()} نقطة`);
+    showToast('trophy','انضممت للقناة! 🎉',`+${reward.toLocaleString('en-US')} نقطة`,'gold',`+${reward}`);
+    pushNotif('gold','مهمة قناة تيليغرام ✓',`+${reward.toLocaleString('en-US')} نقطة`);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -419,8 +419,8 @@ export async function verifyChannelTask(channelId) {
 
     if (result.points!==undefined) { animateBalance(_AS.balance,result.points); _AS.balance=result.points; }
     const reward=result.reward||2500;
-    showToast('trophy','انضممت للقناة! 🎉',`+${reward.toLocaleString()} نقطة`,'gold',`+${reward}`);
-    pushNotif('gold','مهمة قناة ✓',`+${reward.toLocaleString()} نقطة`);
+    showToast('trophy','انضممت للقناة! 🎉',`+${reward.toLocaleString('en-US')} نقطة`,'gold',`+${reward}`);
+    pushNotif('gold','مهمة قناة ✓',`+${reward.toLocaleString('en-US')} نقطة`);
     _chMarkDone(channelId);
 }
 
@@ -446,7 +446,7 @@ function _renderChannels(channels) {
     wrap.innerHTML=channels.map(ch=>{
         const id=ch.id; const done=!!ch.verified;
         const memText=ch.max_members>0
-            ? `<span style="font-size:10px;color:rgba(37,178,248,0.5);">أقصى ${ch.max_members.toLocaleString()} عضو</span>` : '';
+            ? `<span style="font-size:10px;color:rgba(37,178,248,0.5);">أقصى ${ch.max_members.toLocaleString('en-US')} عضو</span>` : '';
         return `
         <div class="glass" style="border-radius:var(--radius-xl);overflow:hidden;${done?'border:1px solid rgba(52,211,153,0.2)!important;':''}">
             <div id="ch-card-${id}" style="display:flex;align-items:center;gap:14px;padding:16px 18px;position:relative;">
@@ -461,7 +461,7 @@ function _renderChannels(channels) {
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <div style="display:flex;align-items:center;gap:5px;">
                             <img src="asesst/coins.png" alt="" style="width:11px;height:11px;object-fit:contain;">
-                            <span style="font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+${(ch.reward||2500).toLocaleString()} نقطة</span>
+                            <span style="font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+${(ch.reward||2500).toLocaleString('en-US')} نقطة</span>
                         </div>
                         ${memText}
                     </div>
@@ -581,7 +581,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 renderReferralList(load.referral_list,totalRefs);
 
             if (load.tg_id) {
-                window._REFERRAL_LINK='https://t.me/'+BOT_USERNAME+'?start=ref_'+load.tg_id;
+                window._REFERRAL_LINK='https://t.me/'+BOT_USERNAME+'/earn?startapp=ref_'+load.tg_id;
                 _updateReferralLinkUI();
             }
 
@@ -822,8 +822,8 @@ function _atBindWidget() {
             _AT.doneCount = claimRes.adsgram_task_today_count || (_AT.doneCount + 1);
             _atUpdateCounter();
 
-            showToast('trophy', 'مهمة إعلانية مكتملة 🎉', `+${earned.toLocaleString()} نقطة أُضيفت`, 'green', `+${earned}`);
-            pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString()} نقطة`);
+            showToast('trophy', 'مهمة إعلانية مكتملة 🎉', `+${earned.toLocaleString('en-US')} نقطة أُضيفت`, 'green', `+${earned}`);
+            pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString('en-US')} نقطة`);
 
             const icon = document.getElementById('atask-icon');
             if (icon) {
