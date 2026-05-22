@@ -706,10 +706,10 @@ function _atShow(id) {
         const el = document.getElementById(x);
         if (el) el.style.display = (x === id) ? 'inline-flex' : 'none';
     });
-    // widget-wrap: مرئي فقط في حالة ready (لا يوجد state نشط)
+    // widget-wrap: يُخبى فقط عند cooldown أو maxed — لا أثناء loading
     const wrap = document.getElementById('atask-widget-wrap');
     if (wrap) {
-        const hideWrap = ['atask-loading-state','atask-cooldown-state','atask-maxed-state'].includes(id);
+        const hideWrap = ['atask-cooldown-state','atask-maxed-state'].includes(id);
         wrap.style.display = hideWrap ? 'none' : 'block';
     }
 }
@@ -742,57 +742,12 @@ function _atStartCooldown(ms) {
     }, 1000);
 }
 
-async function _atRefreshState() {
-    // Poll server for current adsgram task state
-    try {
-        const res = await fetchApi({ type: 'start_adsgram_task', data: {} });
-        if (!res.ok) {
-            if (res.error === 'daily_limit_reached') {
-                _AT.doneCount = _AT.dailyLimit;
-                _atUpdateCounter();
-                _atShow('atask-maxed-state');
-                document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
-            } else if (res.error === 'cooldown_active') {
-                _atStartCooldown(res.wait_ms || _AT.cooldownMs);
-            } else {
-                _atShow('atask-start-btn');
-            }
-            return;
-        }
-        // Server sent ok — update values
-        if (res.adsgram_task) {
-            const s = res.adsgram_task;
-            if (s.reward)   _AT.reward = s.reward;
-            if (s.status === 'cooldown' && s.remaining_seconds > 0) {
-                _atStartCooldown(s.remaining_seconds * 1000);
-            } else if (s.status === 'ready') {
-                _atShow(null); // أظهر الـ widget
-            }
-        }
-        if (res.adsgram_task_today_count !== undefined) {
-            _AT.doneCount = res.adsgram_task_today_count;
-        }
-        _atUpdateCounter();
-    } catch (_) {
-        _atShow('atask-start-btn');
-    }
+function _atRefreshState() {
+    // بعد انتهاء cooldown — أظهر الـ widget وأصدر nonce مسبقاً
+    _atShow(null);
+    _atPrestart();
 }
 
-// ── init Adsgram controller (silent) ──────────────────────
-function _atInitController() {
-    if (_AT.controller) return _AT.controller;
-    if (!window.Adsgram) return null;
-    try {
-        _AT.controller = window.Adsgram.init({
-            blockId: _AT.blockId,
-            debug: false,
-            debugBanners: false,
-        });
-    } catch (_) {
-        _AT.controller = null;
-    }
-    return _AT.controller;
-}
 
 // ── main entry — الـ <adsgram-task> widget يدير الـ UI مباشرةً ─────
 // عند reward event نبدأ claim مع السيرفر
@@ -834,8 +789,6 @@ function _atBindWidget() {
             _atShow('atask-maxed-state');
             return;
         }
-
-        _atShow('atask-loading-state');
 
         // إذا ما عندنا nonce بعد → اطلبه الحين
         if (!_atPendingNonce) {
