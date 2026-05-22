@@ -66,7 +66,7 @@ export function updateAdUI() {
 
     if (coolLeft>0 && r>0) {
         if (btn) btn.classList.add('disabled');
-        if (coolEl) { coolEl.textContent=`⏳ ${Math.ceil(coolLeft/1000)}s`; coolEl.style.display='block'; }
+        if (coolEl) { coolEl.innerHTML=`<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;"> ${Math.ceil(coolLeft/1000)}s`; coolEl.style.display='block'; }
         if (!ads._cooldownTimer) {
             ads._cooldownTimer = setInterval(()=>{
                 const left = ads.cooldownUntil-Date.now();
@@ -75,7 +75,7 @@ export function updateAdUI() {
                     if (btn)    btn.classList.remove('disabled');
                     if (coolEl) coolEl.style.display='none';
                 } else {
-                    if (coolEl) coolEl.textContent=`⏳ ${Math.ceil(left/1000)}s`;
+                    if (coolEl) coolEl.innerHTML=`<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;"> ${Math.ceil(left/1000)}s`;
                 }
             }, 1000);
         }
@@ -130,7 +130,7 @@ export async function watchAd() {
     const ads = _AS.ads;
     if (ads.remaining<=0||ads.isWatching) return;
     if (ads.cooldownUntil&&Date.now()<ads.cooldownUntil) {
-        showToast('coin','انتظر قليلاً ⏳',`${Math.ceil((ads.cooldownUntil-Date.now())/1000)} ثانية`,'red','');
+        showToast('coin','انتظر قليلاً',`${Math.ceil((ads.cooldownUntil-Date.now())/1000)} ثانية`,'red','');
         return;
     }
 
@@ -149,7 +149,7 @@ export async function watchAd() {
             showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
-        if (overlay) { if(countEl) countEl.textContent='⏳'; overlay.classList.add('visible'); }
+        if (overlay) { if(countEl) countEl.innerHTML='<img src="asesst/loading.gif" style="width:40px;height:40px;object-fit:contain;border-radius:8px;">'; overlay.classList.add('visible'); }
         const loaded = await new Promise(res=>{
             const t=setTimeout(()=>res(false),8000);
             const cb=s=>{ clearTimeout(t); res(s!=='failed'); };
@@ -833,7 +833,7 @@ function _atBindWidget() {
                 setTimeout(() => {
                     icon.style.background = 'rgba(251,191,36,0.1)';
                     icon.style.border = '1px solid rgba(251,191,36,0.22)';
-                    icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.8)" stroke-width="1.6"/></svg>`;
+                    icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(251,191,36,0.8)" stroke-width="1.6" fill="rgba(251,191,36,0.08)"/><path d="M8 12l3 3 5-5" stroke="rgba(251,191,36,0.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
                 }, 1800);
             }
 
@@ -862,7 +862,18 @@ function _atBindWidget() {
     });
 
     widget.addEventListener('onBannerNotFound', () => {
-        document.getElementById('atask-outer')?.style.setProperty('display', 'none');
+        // الكارد تبقى مرئية لكن فارغة — نخفي الـ widget wrap ونظهر حالة "انتظر"
+        const wrap = document.getElementById('atask-widget-wrap');
+        if (wrap) wrap.style.display = 'none';
+        ['atask-loading-state','atask-cooldown-state','atask-maxed-state'].forEach(x => {
+            const el = document.getElementById(x);
+            if (el) el.style.display = 'none';
+        });
+        // نعرض حالة انتظر مخصصة
+        const action = document.getElementById('atask-action');
+        if (action) {
+            action.innerHTML = `<div style="display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.35);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">انتظر</div>`;
+        }
     });
 
     widget.addEventListener('onTooLongSession', () => {

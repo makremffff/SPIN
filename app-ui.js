@@ -471,7 +471,7 @@ export async function submitTonWithdraw() {
 
     if (!_isValidTonAddr(addr)) { errEl.style.display='block'; input.style.borderColor='rgba(248,113,113,0.5)'; return; }
 
-    submitBtn.disabled=true; submitBtn.textContent='⏳ جاري الإرسال...';
+    submitBtn.disabled=true; submitBtn.innerHTML='<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;margin-left:4px;"> جاري الإرسال...';
     const result = await _fetchApi({ type:'submit_withdraw', data:{address:addr} });
     submitBtn.disabled=false; submitBtn.textContent='إرسال طلب السحب';
 
