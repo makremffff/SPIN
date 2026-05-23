@@ -605,7 +605,7 @@
                     <div class="earn-fc-hint earn-v-hint" data-i18n="invite_btn_sub">ادعُ واربح معاً</div>
                 </div>
                 <div class="earn-fc-end">
-                    <div class="earn-fc-chip earn-v-chip">+500</div>
+                    <div class="earn-fc-chip earn-v-chip inv-referral-pts-badge">+500</div>
                     <svg class="earn-fc-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b8a9f5" stroke-width="2.3">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
                     </svg>
@@ -1276,7 +1276,7 @@
         /* openDepositSupport — لم يُنقل بعد إلى الملفات الجديدة */
         function openDepositSupport() {
             const msg = encodeURIComponent('مرحبا أريد إيداع داخل البوت');
-            const url = 'https://t.me/YourSupportUsername?text=' + msg;
+            const url = 'https://t.me/mango_tun?text=' + msg;
             if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(url);
             else window.open(url, '_blank');
         }

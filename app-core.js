@@ -80,7 +80,12 @@ export function _applyConfigToUI() {
     });
     document.querySelectorAll('.inv-referral-pts-badge').forEach(el => {
         const pts = APP_CONFIG.rewards.referral || 100;
-        el.textContent = pts.toLocaleString('en-US') + ' نقطة';
+        // الـ chip في صفحة earn يبدأ بـ + ، الـ pill في invite يحتوي على "نقطة"
+        if (el.textContent.startsWith('+')) {
+            el.textContent = '+' + pts.toLocaleString('en-US');
+        } else {
+            el.textContent = pts.toLocaleString('en-US') + ' نقطة';
+        }
     });
 }
 
