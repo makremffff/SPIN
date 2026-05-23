@@ -280,11 +280,11 @@ export async function watchAd() {
             let remSec = Math.ceil(cdMs / 1000);
             ads._btnCooldownActive = true;
             btn.innerHTML = `<div class="btn-shimmer"></div>`
-                + `<div id="ad-btn-countdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'DynaPuff',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:2px;text-shadow:0 0 14px rgba(251,191,36,0.6);"><img src="https://i.gifer.com/ZKZg.gif" alt="" style="width:22px;height:22px;opacity:0.85;filter:sepia(1) saturate(4) hue-rotate(5deg);">${remSec}s</div>`;
+                + `<div id="ad-btn-countdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'DynaPuff',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:2px;text-shadow:0 0 14px rgba(251,191,36,0.6);"><img src="assets/loading.gif" alt="" style="width:22px;height:22px;opacity:0.85;">${remSec}s</div>`;
             ads._cooldownTimer = setInterval(() => {
                 remSec--;
                 const lbl = document.getElementById('ad-btn-countdown');
-                if (lbl) lbl.innerHTML = `<img src="https://i.gifer.com/ZKZg.gif" alt="" style="width:22px;height:22px;opacity:0.85;filter:sepia(1) saturate(4) hue-rotate(5deg);">${remSec}s`;
+                if (lbl) lbl.innerHTML = `<img src="assets/loading.gif" alt="" style="width:22px;height:22px;opacity:0.85;">${remSec}s`;
                 if (remSec <= 0) {
                     clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
                     ads._btnCooldownActive = false;

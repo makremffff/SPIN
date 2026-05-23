@@ -416,10 +416,10 @@ export function openDailyGiftOverlay() {
     }
 
     let sec=3;
-    if (label) { label.style.display='flex'; label.style.alignItems='center'; label.style.gap='6px'; label.innerHTML=`<img src="https://i.gifer.com/ZKZg.gif" alt="" style="width:13px;height:13px;opacity:0.6;filter:grayscale(1);">${sec}`; }
+    if (label) { label.style.display='flex'; label.style.alignItems='center'; label.style.gap='6px'; label.innerHTML=`<img src="assets/loading.gif" alt="" style="width:13px;height:13px;opacity:0.6;">${sec}`; }
     const timer = setInterval(()=>{
         sec--;
-        if (sec>0) { if(label) label.innerHTML=`<img src="https://i.gifer.com/ZKZg.gif" alt="" style="width:13px;height:13px;opacity:0.6;filter:grayscale(1);">${sec}`; }
+        if (sec>0) { if(label) label.innerHTML=`<img src="assets/loading.gif" alt="" style="width:13px;height:13px;opacity:0.6;">${sec}`; }
         else {
             clearInterval(timer);
             if (label) label.style.display='none';
