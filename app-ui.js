@@ -262,6 +262,28 @@ export function showPage(pageName, btn) {
         if (window.updateAdUI) window.updateAdUI();
         setTimeout(() => { if (window.runEarnEntranceAnimation) window.runEarnEntranceAnimation(); }, 30);
     }
+    if (pageName === 'invite') {
+        _loadInvitePage();
+    }
+}
+
+async function _loadInvitePage() {
+    try {
+        const res = await _fetchApi({ type: 'get_referrals', data: {} });
+        if (!res?.ok) return;
+        // update stats counters
+        const totalRefs  = parseInt(res.total_referrals)  || 0;
+        const earnedRefs = parseInt(res.earned_from_refs) || 0;
+        const statVals = document.querySelectorAll('#page-invite .invite-stat-val .counter');
+        if (statVals[0]) { statVals[0].textContent = totalRefs.toLocaleString('en-US'); statVals[0].dataset.target = totalRefs; }
+        if (statVals[1]) { statVals[1].textContent = earnedRefs.toLocaleString('en-US'); statVals[1].dataset.target = earnedRefs; }
+        const refBadge = document.getElementById('referral-friends-badge');
+        if (refBadge) refBadge.textContent = totalRefs + ' صديق';
+        // render list
+        if (Array.isArray(res.referral_list) && res.referral_list.length) {
+            renderReferralList(res.referral_list, totalRefs);
+        }
+    } catch (_) {}
 }
 
 function _refreshWithdrawUI() {
@@ -303,21 +325,33 @@ export function renderReferralList(list, total) {
     const pts = _AC.rewards.referral||100;
     let html = list.map((r,i) => {
         const c = colors[i%colors.length];
+        const initials = (r.name||'م')[0].toUpperCase();
+        const avatarHtml = r.photo_url
+            ? `<img src="${r.photo_url}" alt="${initials}"
+                 style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                 onerror="this.parentElement.innerHTML='${initials}'">`
+            : initials;
+        const rewardHtml = r.activated
+            ? `<img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;">
+               <span class="referral-reward-text">+${pts}</span>`
+            : `<span class="referral-reward-text" style="font-size:11px;color:rgba(255,255,255,0.45);background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:20px;">بانتظار</span>`;
         return `<div class="referral-item">
-            <div class="referral-avatar" style="background:${c.bg};border-color:${c.border};color:${c.color};">${(r.name||'م')[0]}</div>
+            <div class="referral-avatar" style="background:${c.bg};border-color:${c.border};color:${c.color};overflow:hidden;">${avatarHtml}</div>
             <div class="referral-info">
                 <div class="referral-name">${r.name||'مستخدم'}</div>
                 <div class="referral-date">${_timeAgo(r.ts||Date.now())}</div>
             </div>
             <div class="referral-reward">
-                <img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;">
-                <span class="referral-reward-text">+${pts}</span>
+                ${rewardHtml}
             </div>
         </div><div class="shine-line-sm" style="margin:2px 10px;"></div>`;
     }).join('');
     const extra = total-list.length;
     if (extra>0) html += `<div style="text-align:center;padding:12px 0 4px;"><span style="font-size:12px;font-weight:700;color:var(--purple);opacity:0.7;">+${extra} صديق آخر</span></div>`;
     container.innerHTML = html;
+    // hide empty state if visible
+    const emptyState = document.getElementById('referral-empty-state');
+    if (emptyState) emptyState.style.display = 'none';
 }
 
 export function renderWithdrawHistory() {
