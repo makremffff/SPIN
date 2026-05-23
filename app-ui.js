@@ -112,7 +112,10 @@ const _ICONS = {
 };
 
 export function showToast(icon, title, desc, color, badge) {
-    if (color === 'green' && navigator.vibrate) navigator.vibrate([80,40,80]);
+    if (color === 'green') {
+        try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
+        try { if (navigator.vibrate) navigator.vibrate([80,40,80]); } catch(e){}
+    }
     const container = document.getElementById('ad-toast-container');
     if (!container) return;
     const el = document.createElement('div');

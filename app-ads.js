@@ -266,7 +266,8 @@ export async function watchAd() {
         const pts = _AC.rewards?.points_per_ad||50;
 
         // فيبريشن صريح
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+        try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
+        try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
         showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
         pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
@@ -276,11 +277,10 @@ export async function watchAd() {
             // أوقف أي عدّاد قديم
             if (ads._cooldownTimer) { clearInterval(ads._cooldownTimer); ads._cooldownTimer = null; }
             btn.classList.add('disabled');
-            btn.style.justifyContent = 'center';
             let remSec = Math.ceil(cdMs / 1000);
             ads._btnCooldownActive = true;
             btn.innerHTML = `<div class="btn-shimmer"></div>`
-                + `<div id="ad-btn-countdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DynaPuff',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:2px;text-shadow:0 0 14px rgba(251,191,36,0.55);">${remSec}s</div>`;
+                + `<div id="ad-btn-countdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DynaPuff',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:2px;text-shadow:0 0 14px rgba(251,191,36,0.6);">${remSec}s</div>`;
             ads._cooldownTimer = setInterval(() => {
                 remSec--;
                 const lbl = document.getElementById('ad-btn-countdown');
@@ -288,7 +288,6 @@ export async function watchAd() {
                 if (remSec <= 0) {
                     clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
                     ads._btnCooldownActive = false;
-                    btn.style.justifyContent = '';
                     btn.innerHTML = `<div class="btn-shimmer"></div>`
                         + `<div class="earn-cta-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4l14 8-14 8V4z" fill="#fbbf24" opacity=".9"/></svg></div>`
                         + `<div class="earn-cta-lbl" data-i18n="watch_ad">شاهد إعلاناً</div>`
