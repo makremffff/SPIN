@@ -64,19 +64,19 @@ export function _applyConfigToUI() {
         el.href = APP_CONFIG.telegram.channel_url;
     });
     document.querySelectorAll('.referral-reward-badge').forEach(el => {
-        el.textContent = APP_CONFIG.rewards.referral;
+        el.textContent = '+' + (APP_CONFIG.rewards.referral||100).toLocaleString('en-US');
     });
     document.querySelectorAll('.tg-task-reward-badge').forEach(el => {
-        el.textContent = APP_CONFIG.rewards.telegram_task;
+        el.textContent = '+' + (APP_CONFIG.rewards.telegram_task||200).toLocaleString('en-US');
     });
     document.querySelectorAll('.daily-ads10-reward-badge').forEach(el => {
-        el.textContent = APP_CONFIG.rewards.daily_ads_10;
+        el.textContent = '+' + (APP_CONFIG.rewards.daily_ads_10||200).toLocaleString('en-US');
     });
     document.querySelectorAll('.daily-ads25-reward-badge').forEach(el => {
-        el.textContent = APP_CONFIG.rewards.daily_ads_25;
+        el.textContent = '+' + (APP_CONFIG.rewards.daily_ads_25||300).toLocaleString('en-US');
     });
     document.querySelectorAll('.daily-refs3-reward-badge').forEach(el => {
-        el.textContent = APP_CONFIG.rewards.daily_referrals_3;
+        el.textContent = '+' + (APP_CONFIG.rewards.daily_referrals_3||3000).toLocaleString('en-US');
     });
 }
 

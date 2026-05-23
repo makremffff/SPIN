@@ -148,8 +148,7 @@ export function animateBalance(from, to, dur) {
         const f = v.toLocaleString('en-US');
         if (balEl)  balEl.textContent  = f;
         if (heroEl) heroEl.textContent = f;
-        const uEl = document.getElementById('uc-usdt-val');
-        if (uEl) uEl.textContent = (v/(_SC.pts_per_ton||100000)).toFixed(2);
+        // USDT لا يُحسب من النقاط — يُحدَّث فقط من updateBalanceUI
         if (p < 1) requestAnimationFrame(tick);
         else updateBalanceUI(to);
     }
@@ -171,7 +170,7 @@ export function updateBalanceUI(pts) {
     if (heroEl) { heroEl.textContent = f; heroEl.dataset.target = pts; }
     if (tonSh)  tonSh.textContent = f;
     if (tonEq)  tonEq.textContent = '≈ '+(pts/(_SC.pts_per_ton||100000)).toFixed(3)+' TON';
-    if (usdtEl) usdtEl.textContent = (pts/(_SC.pts_per_ton||100000)).toFixed(2);
+    if (usdtEl) usdtEl.textContent = (_AS.usdt_balance||0).toFixed(2);
     const lvl = _AS.level||1;
     const TH  = [0,0,500,1500,3500,8000,16000,30000,55000,90000,150000];
     const cur = TH[lvl]||0; const nxt = TH[lvl+1]||cur+10000;
@@ -213,7 +212,7 @@ function _updateHomeTicker(pts, lvl) {
     const el = document.getElementById('hm-ticker-inner');
     if (!el) return;
     const bal     = pts.toLocaleString('en-US');
-    const usdt    = (pts / (_SC.pts_per_ton || 100000)).toFixed(2);
+    const usdt    = (_AS.usdt_balance||0).toFixed(2);
     const friends = (document.querySelector('.uc-stat-val.green') || {}).textContent || '0';
     const tasks   = (document.querySelector('.uc-stat-val.blue')  || {}).textContent || '0';
     const items = [
@@ -257,6 +256,7 @@ export function showPage(pageName, btn) {
         setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 30);
     }
     if (pageName === 'earn') {
+        if (window.updateAdUI) window.updateAdUI();
         setTimeout(() => { if (window.runEarnEntranceAnimation) window.runEarnEntranceAnimation(); }, 30);
     }
 }
@@ -663,6 +663,11 @@ export function runEarnEntranceAnimation() {
             }, d);
         });
     });
+    // بعد اكتمال الـ animation نزامن الـ ring مع القيمة الحالية
+    const maxDelay = 720 + 620 + 50; // أطول delay + مدة animation
+    setTimeout(() => {
+        if (window.updateAdUI) window.updateAdUI();
+    }, maxDelay);
 }
 
 window.updateCircle              = updateCircle;

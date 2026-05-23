@@ -31,6 +31,7 @@ const AD_PRELOAD     = 1;
 let _adController    = null;
 let _adStartedAt     = 0;
 let _adRetryCount    = 0;
+let _isClaimingAd    = false;   // ← guard ضد double-claim
 
 function _initAdController() {
     if (!window.Adsgram||_adController) return _adController;
@@ -64,22 +65,13 @@ export function updateAdUI() {
     const btn      = document.getElementById('ad-watch-btn');
     const coolEl   = document.getElementById('ad-cooldown-msg');
 
-    if (coolLeft>0 && r>0) {
+    // إذا الزر عنده عدّاد تنازلي داخلي — لا تتدخل
+    const btnHasCooldown = btn && btn.querySelector('.earn-cta-lbl')?.textContent?.match(/^\d+s$/);
+
+    if (coolLeft>0 && r>0 && !btnHasCooldown) {
         if (btn) btn.classList.add('disabled');
-        if (coolEl) { coolEl.innerHTML=`<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;"> ${Math.ceil(coolLeft/1000)}s`; coolEl.style.display='block'; }
-        if (!ads._cooldownTimer) {
-            ads._cooldownTimer = setInterval(()=>{
-                const left = ads.cooldownUntil-Date.now();
-                if (left<=0) {
-                    clearInterval(ads._cooldownTimer); ads._cooldownTimer=null;
-                    if (btn)    btn.classList.remove('disabled');
-                    if (coolEl) coolEl.style.display='none';
-                } else {
-                    if (coolEl) coolEl.innerHTML=`<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;"> ${Math.ceil(left/1000)}s`;
-                }
-            }, 1000);
-        }
-    } else {
+        if (coolEl) coolEl.style.display='none'; // مخفي دائماً — العدّاد في الزر
+    } else if (!btnHasCooldown) {
         if (r>0&&btn) btn.classList.remove('disabled');
         if (coolEl)   coolEl.style.display='none';
     }
@@ -137,7 +129,7 @@ function _showAd() {
 // ══════════════════════════════════════════════════════════
 export async function watchAd() {
     const ads = _AS.ads;
-    if (ads.remaining<=0||ads.isWatching) return;
+    if (ads.remaining<=0||ads.isWatching||_isClaimingAd) return;
     if (ads.cooldownUntil&&Date.now()<ads.cooldownUntil) {
         showToast('coin','انتظر قليلاً',`${Math.ceil((ads.cooldownUntil-Date.now())/1000)} ثانية`,'red','');
         return;
@@ -205,9 +197,11 @@ export async function watchAd() {
     if (preBar) { preBar.style.width='100%'; preBar.style.background='linear-gradient(90deg,#34d399,#10b981)'; }
 
     // [1] start_ad → نحصل على nonce من السيرفر
+    _isClaimingAd = true;
     const startRes = await _dbCall('start_ad', {});
     if (!startRes.ok) {
         ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+        _isClaimingAd = false;
         if (preBar) preBar.style.width='0%';
         if (startRes.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); }
         else if (startRes.error==='cooldown_active') { ads.cooldownUntil=Date.now()+(startRes.wait_ms||30000); updateAdUI(); }
@@ -218,6 +212,7 @@ export async function watchAd() {
     const adNonce = startRes.ad_nonce;
     if (!adNonce) {
         ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+        _isClaimingAd = false;
         if (preBar) preBar.style.width='0%';
         showToast('coin','خطأ في المعالجة','حاول مرة أخرى','red','');
         return;
@@ -230,19 +225,42 @@ export async function watchAd() {
     );
 
     ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+    _isClaimingAd = false;
     if (preBar) preBar.style.width='0%';
 
     if (result.ok) {
         ads.remaining    = result.remaining;
         ads.watched      = result.watchedToday;
         ads.earned       = result.earnedToday;
-        ads.cooldownUntil= Date.now()+(result.cooldown_ms||_AC.ads?.cooldown_ms||30000);
+        const cdMs       = result.cooldown_ms||_AC.ads?.cooldown_ms||30000;
+        ads.cooldownUntil= Date.now()+cdMs;
 
         if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
 
         const pts = _AC.rewards?.points_per_ad||50;
         showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
         pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
+
+        // ── عدّاد تنازلي داخل الزر ──
+        if (ads.remaining > 0 && btn) {
+            btn.classList.add('disabled');
+            const originalHTML = btn.innerHTML;
+            let remSec = Math.ceil(cdMs / 1000);
+            btn.innerHTML = `<div class="btn-shimmer"></div><div class="earn-cta-ico" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="earn-cta-lbl">${remSec}s</div>`;
+            if (!ads._cooldownTimer) {
+                ads._cooldownTimer = setInterval(() => {
+                    remSec--;
+                    const lbl = btn.querySelector('.earn-cta-lbl');
+                    if (lbl) lbl.textContent = remSec + 's';
+                    if (remSec <= 0) {
+                        clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
+                        btn.innerHTML = originalHTML;
+                        btn.classList.remove('disabled');
+                    }
+                }, 1000);
+            }
+        }
+
         updateAdUI();
 
     } else {
@@ -528,6 +546,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             _AS.level               = parseInt(load.level)||1;
             _AS.first_withdraw_done = !!load.first_withdraw_done;
             _AS.tasks.tgVerified    = !!load.tg_verified;
+            if (load.usdt_balance !== undefined) _AS.usdt_balance = parseFloat(load.usdt_balance)||0;
 
             // config
             if (load.config) {
@@ -589,6 +608,12 @@ window.addEventListener('DOMContentLoaded', async () => {
             document.querySelectorAll('.uc-stat-val.blue').forEach(el=>{ el.textContent=load.completed_tasks?.length||0; });
             const refBadge=document.getElementById('referral-friends-badge');
             if (refBadge) refBadge.textContent=totalRefs+' صديق';
+            // تحديث دائرة التقدم لمهمة الدعوة 3
+            if (window.updateCircle) window.updateCircle('invite3', Math.min(totalRefs,3), 3);
+            const inv3fill=document.getElementById('invite3-fill');
+            const inv3prog=document.getElementById('invite3-prog');
+            if (inv3fill) inv3fill.style.width=Math.min(totalRefs/3,1)*100+'%';
+            if (inv3prog) inv3prog.textContent=Math.min(totalRefs,3)+' / 3';
             if (Array.isArray(load.referral_list)&&load.referral_list.length)
                 renderReferralList(load.referral_list,totalRefs);
 
@@ -668,6 +693,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 animateBalance(_lastPts,s.points,800);
                 _lastPts=s.points; _AS.balance=s.points;
             }
+            if (s.usdt_balance!==undefined) _AS.usdt_balance=parseFloat(s.usdt_balance)||0;
             if (s.level!==undefined) _AS.level=s.level;
         } catch(_) { _pollFails++; }
     }
