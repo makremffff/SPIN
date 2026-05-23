@@ -2681,3 +2681,180 @@
         }
         .hm-tick.hm-y strong { color: var(--hm-gold);  }
         .hm-tick.hm-g strong { color: var(--hm-green); }
+
+        /* ══════════════════════════════════════════
+           TASKS PAGE — NEW DESIGN (v2)
+        ══════════════════════════════════════════ */
+
+        /* CSS variables for new tasks design */
+        :root {
+            --tasks-gold: #f5c842;
+            --tasks-gold2: rgba(245,200,66,.12);
+            --tasks-blue: #5eceff;
+            --tasks-blue2: rgba(94,206,255,.1);
+            --tasks-purple: #b98bff;
+            --tasks-purple2: rgba(185,139,255,.1);
+            --tasks-green: #3ddc84;
+            --tasks-row-hover: rgba(255,255,255,.028);
+        }
+
+        /* Dot pulse animation */
+        @keyframes tasksDotPulse {
+            0%,100%{ opacity:.3; box-shadow:0 0 6px currentColor; }
+            50%    { opacity:1;  box-shadow:0 0 14px currentColor, 0 0 26px currentColor; }
+        }
+
+        /* Entrance animation */
+        .tasks-e {
+            opacity:0;
+            transform:translateX(22px) translateY(-14px);
+            will-change:opacity,transform;
+        }
+
+        /* Background mesh for tasks page */
+        #page-tasks .tasks-bg-mesh {
+            position:absolute; inset:0; pointer-events:none; z-index:0;
+            border-radius: inherit;
+            background:
+                radial-gradient(ellipse 420px 300px at 110% -5%,  rgba(245,200,66,.055) 0%,transparent 70%),
+                radial-gradient(ellipse 300px 250px at -20% 52%, rgba(94,206,255,.04) 0%,transparent 70%),
+                radial-gradient(ellipse 260px 220px at 85% 90%,  rgba(185,139,255,.04) 0%,transparent 70%);
+        }
+
+        /* Tasks page override */
+        #page-tasks .page-wrap {
+            position: relative;
+            z-index: 1;
+            padding-bottom: 110px;
+        }
+
+        /* Hero section */
+        .tasks-hero { padding: 8px 0 20px; }
+        .tasks-hero-p {
+            font-size:12.5px; font-weight:500;
+            color:rgba(255,255,255,.28); line-height:1.55;
+        }
+
+        /* Section label (replaces old section-header on tasks page) */
+        .tasks-slabel {
+            font-size:8.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase;
+            color:rgba(255,255,255,.2);
+            padding:22px 0 10px;
+            display:flex; align-items:center; gap:8px;
+        }
+        .tasks-slabel-ico {
+            width:18px; height:18px; border-radius:6px;
+            display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        }
+        .tasks-slabel-badge {
+            margin-right:auto;
+            font-family:'DynaPuff',sans-serif;
+            font-size:8px; padding:2px 8px; border-radius:99px;
+        }
+
+        /* Generic row */
+        .tasks-row {
+            display:flex; align-items:center; gap:13px;
+            padding:11px 12px;
+            border-radius:16px;
+            margin-bottom:3px;
+            cursor:pointer;
+            transition:background .15s;
+            -webkit-tap-highlight-color:transparent;
+            position: relative; z-index: 1;
+        }
+        .tasks-row:hover, .tasks-row:active { background: var(--tasks-row-hover); }
+
+        /* Icon box */
+        .tasks-ico {
+            width:44px; height:44px; border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0; position:relative; overflow:hidden;
+        }
+        .tasks-ico::after {
+            content:''; position:absolute;
+            top:0; left:0; right:0; height:50%;
+            background:linear-gradient(to bottom,rgba(255,255,255,.07),transparent);
+            pointer-events:none;
+        }
+        .tasks-ico-blue   { background:linear-gradient(145deg,rgba(94,206,255,.15),rgba(94,206,255,.07)); border:1px solid rgba(94,206,255,.15); }
+        .tasks-ico-gold   { background:linear-gradient(145deg,rgba(245,200,66,.14),rgba(245,200,66,.06)); border:1px solid rgba(245,200,66,.14); }
+        .tasks-ico-blue2  { background:linear-gradient(145deg,rgba(94,206,255,.15),rgba(94,206,255,.07)); border:1px solid rgba(94,206,255,.15); }
+        .tasks-ico-purple { background:linear-gradient(145deg,rgba(185,139,255,.15),rgba(185,139,255,.07)); border:1px solid rgba(185,139,255,.15); }
+        .tasks-ico-dim    { background:rgba(255,255,255,.04); border:1.5px dashed rgba(255,255,255,.1); }
+        .tasks-ico-adtask {
+            background:linear-gradient(145deg,rgba(245,200,66,.18),rgba(245,200,66,.06));
+            border:1px solid rgba(245,200,66,.22);
+            box-shadow:inset 0 0 12px rgba(245,200,66,.08), 0 0 18px rgba(245,200,66,.07);
+        }
+
+        /* Row body */
+        .tasks-rbody { flex:1; min-width:0; }
+        .tasks-rname { font-size:13.5px; font-weight:800; color:#fff; margin-bottom:2px; line-height:1.2; }
+        .tasks-rsub  { font-size:11px; font-weight:500; color:rgba(255,255,255,.3); line-height:1.3; }
+
+        /* Chips */
+        .tasks-chips { display:flex; align-items:center; gap:8px; margin-top:5px; }
+        .tasks-chip  { display:inline-flex; align-items:center; gap:4px; font-family:'DynaPuff',sans-serif; font-size:9.5px; }
+        .tasks-chip-dot { width:4px; height:4px; border-radius:50%; flex-shrink:0; }
+        .tasks-chip-g { color:var(--tasks-gold); }
+        .tasks-chip-g .tasks-chip-dot { background:var(--tasks-gold); box-shadow:0 0 5px rgba(245,200,66,.9); }
+        .tasks-chip-m { color:rgba(255,255,255,.22); }
+
+        /* Circular progress */
+        .tasks-cprog-wrap { display:flex; align-items:center; gap:9px; margin-top:6px; }
+        .tasks-cprog { position:relative; width:34px; height:34px; flex-shrink:0; }
+        .tasks-cprog svg { transform:rotate(-90deg); width:34px; height:34px; }
+        .tasks-cprog-track { fill:none; stroke:rgba(255,255,255,.07); stroke-width:3; stroke-linecap:round; }
+        .tasks-cprog-fill  { fill:none; stroke-width:3; stroke-linecap:round; transition:stroke-dashoffset 1.4s cubic-bezier(.16,1,.3,1); }
+        .tasks-cprog-fill-gold   { stroke:url(#tasks-grad-gold); }
+        .tasks-cprog-fill-blue   { stroke:url(#tasks-grad-blue); }
+        .tasks-cprog-fill-purple { stroke:url(#tasks-grad-purple); }
+        .tasks-cprog-text {
+            position:absolute; inset:0;
+            display:flex; align-items:center; justify-content:center;
+            font-family:'DynaPuff',sans-serif; font-size:7.5px;
+            color:rgba(255,255,255,.45); line-height:1;
+        }
+        .tasks-cprog-label { font-family:'DynaPuff',sans-serif; font-size:9.5px; color:rgba(255,255,255,.28); }
+
+        /* Row end */
+        .tasks-rend { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
+
+        /* Action buttons */
+        .tasks-rbtn {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:7px 15px; border-radius:10px;
+            font-family:'Tajawal',sans-serif; font-size:12px; font-weight:800;
+            border:none; cursor:pointer;
+            transition:filter .15s, transform .1s;
+            white-space:nowrap;
+        }
+        .tasks-rbtn:active { transform:scale(.94); }
+        .tasks-btn-blue   { background:rgba(94,206,255,.1); border:1px solid rgba(94,206,255,.18); color:var(--tasks-blue); }
+        .tasks-btn-blue:hover  { filter:brightness(1.15); }
+        .tasks-btn-gold   { background:rgba(245,200,66,.1); border:1px solid rgba(245,200,66,.18); color:var(--tasks-gold); }
+        .tasks-btn-gold:hover  { filter:brightness(1.15); }
+
+        /* Reward text */
+        .tasks-rreward { font-family:'DynaPuff',sans-serif; font-size:12px; font-weight:700; line-height:1; }
+        .tasks-rr-gold   { color:var(--tasks-gold); }
+        .tasks-rr-blue   { color:var(--tasks-blue); }
+        .tasks-rr-purple { color:var(--tasks-purple); }
+
+        /* Add channel button */
+        .tasks-add-channel-btn {
+            display:flex; align-items:center; gap:12px;
+            width:100%; padding:11px 12px;
+            border-radius:16px; border:1.5px dashed rgba(255,255,255,.1);
+            background:rgba(255,255,255,.03);
+            cursor:pointer; transition:all .22s ease;
+            color:rgba(255,255,255,.35); text-align:right;
+            margin-top:4px;
+        }
+        .tasks-add-channel-btn:hover {
+            background:rgba(255,255,255,.06);
+            border-color:rgba(245,200,66,.25);
+            color:rgba(245,200,66,.65);
+        }
+        .tasks-add-channel-btn:active { transform:scale(.98); }

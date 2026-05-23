@@ -253,6 +253,9 @@ export function showPage(pageName, btn) {
     (btn || document.querySelector(`.nav-item[data-page="${pageName}"]`))?.classList.add('active');
     updateBalanceUI(_AS.balance);
     if (pageName === 'withdraw') _refreshWithdrawUI();
+    if (pageName === 'tasks') {
+        setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 30);
+    }
 }
 
 function _refreshWithdrawUI() {
@@ -590,3 +593,52 @@ window.updateBalanceUI       = updateBalanceUI;
 window.showToast             = showToast;
 window.pushNotif             = pushNotif;
 window.renderWithdrawHistory = renderWithdrawHistory;
+
+// ══════════════════════════════════════════════════════════
+// TASKS PAGE — CIRCULAR PROGRESS & ENTRANCE ANIMATION
+// ══════════════════════════════════════════════════════════
+
+const _TASKS_CIRC = 87.96; // circumference of r=14
+
+/**
+ * updateCircle(id, value, max)
+ * Updates the circular progress ring on the tasks page.
+ * id    — e.g. 'ads10', 'ads25', 'invite3'
+ * value — current progress count
+ * max   — target count
+ */
+export function updateCircle(id, value, max) {
+    const fill  = document.getElementById('cfill-' + id);
+    const text  = document.getElementById('ctext-' + id);
+    if (!fill) return;
+    const pct    = Math.min(value / max, 1);
+    const offset = _TASKS_CIRC * (1 - pct);
+    requestAnimationFrame(() => { fill.style.strokeDashoffset = offset; });
+    if (text) text.textContent = value;
+    if (pct >= 1) fill.style.filter = 'drop-shadow(0 0 4px currentColor)';
+}
+
+/**
+ * runTasksEntranceAnimation()
+ * Fires staggered entrance for all .tasks-e elements on the tasks page.
+ * Called once when the tasks page becomes active.
+ */
+export function runTasksEntranceAnimation() {
+    document.querySelectorAll('#page-tasks .tasks-e').forEach(el => {
+        // reset first
+        el.style.transition = 'none';
+        el.style.opacity    = '0';
+        el.style.transform  = 'translateX(22px) translateY(-14px)';
+        const d = parseInt(el.dataset.tasksD) || 0;
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                el.style.transition = 'opacity .52s cubic-bezier(.16,1,.3,1), transform .58s cubic-bezier(.16,1,.3,1)';
+                el.style.opacity    = '1';
+                el.style.transform  = 'none';
+            }, d);
+        });
+    });
+}
+
+window.updateCircle              = updateCircle;
+window.runTasksEntranceAnimation = runTasksEntranceAnimation;

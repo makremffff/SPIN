@@ -251,16 +251,23 @@ export async function watchAd() {
 function _syncDailyTaskProgress() {
     const watched = _AS.ads.watched;
 
+    // Legacy mini-bar (hidden but kept for compatibility)
     const fill10=document.getElementById('ads10-fill');
     const prog10=document.getElementById('ads10-prog');
     if (fill10) fill10.style.width=Math.min(watched/10,1)*100+'%';
     if (prog10) prog10.textContent=Math.min(watched,10)+' / 10';
+    // Circular progress
+    if (window.updateCircle) window.updateCircle('ads10', Math.min(watched,10), 10);
+
     if (watched>=10&&!_AS.tasks.ads10Done) { _AS.tasks.ads10Done=true; _markDailyDone('dtask-ads10',false); }
 
     const fill25=document.getElementById('ads25-fill');
     const prog25=document.getElementById('ads25-prog');
     if (fill25) fill25.style.width=Math.min(watched/25,1)*100+'%';
     if (prog25) prog25.textContent=Math.min(watched,25)+' / 25';
+    // Circular progress
+    if (window.updateCircle) window.updateCircle('ads25', Math.min(watched,25), 25);
+
     if (watched>=25&&!_AS.tasks.ads25Done) { _AS.tasks.ads25Done=true; _markDailyDone('dtask-ads25',false); }
 
     _updateDailyBadge();
@@ -270,11 +277,21 @@ function _markDailyDone(cardId, rewardClaimed) {
     const card=document.getElementById(cardId);
     if (!card) return;
     card.classList.add('completed');
+    // Update new tasks-ico (new design icon)
+    const tasksIco=card.querySelector('.tasks-ico');
+    if (tasksIco) {
+        tasksIco.style.background='rgba(61,220,132,0.12)';
+        tasksIco.style.border='1px solid rgba(61,220,132,0.22)';
+        tasksIco.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>';
+    }
+    // Legacy dtask-icon (kept for safety)
     const icon=card.querySelector('.dtask-icon');
     if (icon) {
         icon.style.background='rgba(52,211,153,0.12)'; icon.style.border='1px solid rgba(52,211,153,0.22)';
-        icon.innerHTML=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+        icon.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>';
     }
+    // Fill circular progress to 100% for invite3
+    if (cardId==='dtask-invite3' && window.updateCircle) window.updateCircle('invite3', 3, 3);
     const typeMap={'dtask-ads10':'ads_10','dtask-ads25':'ads_25','dtask-invite3':'daily_refs_3'};
     const type    =typeMap[cardId];
     const claimBtn=type?document.getElementById('dtask-claim-'+type):null;
@@ -445,54 +462,40 @@ function _renderChannels(channels) {
     if (!wrap||!channels.length) return;
     wrap.innerHTML=channels.map(ch=>{
         const id=ch.id; const done=!!ch.verified;
-        const memText=ch.max_members>0
-            ? `<span style="font-size:10px;color:rgba(37,178,248,0.5);">أقصى ${ch.max_members.toLocaleString('en-US')} عضو</span>` : '';
         return `
-        <div class="glass" style="border-radius:var(--radius-xl);overflow:hidden;${done?'border:1px solid rgba(52,211,153,0.2)!important;':''}">
-            <div id="ch-card-${id}" style="display:flex;align-items:center;gap:14px;padding:16px 18px;position:relative;">
-                <div style="width:46px;height:46px;border-radius:14px;background:rgba(37,178,248,0.1);border:1px solid rgba(37,178,248,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(37,178,248,0.12)" stroke="rgba(37,178,248,0.5)" stroke-width="1.2"/>
-                        <path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#29b6f6"/>
-                    </svg>
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;color:rgba(255,255,255,0.92);margin-bottom:4px;">${ch.title}</div>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <div style="display:flex;align-items:center;gap:5px;">
-                            <img src="asesst/coins.png" alt="" style="width:11px;height:11px;object-fit:contain;">
-                            <span style="font-size:11px;font-weight:600;color:rgba(251,191,36,0.75);">+${(ch.reward||2500).toLocaleString('en-US')} نقطة</span>
-                        </div>
-                        ${memText}
-                    </div>
-                </div>
-                <div id="ch-action-${id}" style="flex-shrink:0;">
-                    ${done
-                        ? `<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.28);padding:9px 14px;border-radius:12px;">
-                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                               <span style="font-size:12px;font-weight:800;color:#34d399;font-family:'Tajawal',sans-serif;">مكتمل</span>
-                           </div>`
-                        : `<button id="ch-join-btn-${id}" onclick="window.handleChannelJoin(${id},'${ch.url}')"
-                               style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;border:1px solid rgba(37,178,248,0.45);background:linear-gradient(135deg,rgba(37,178,248,0.22),rgba(37,178,248,0.08));color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">
-                               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="rgba(41,182,246,0.2)" stroke="rgba(41,182,246,0.8)" stroke-width="1.4"/><path d="M17.5 7.5L15 16.5l-3-3-2 2-1-4-3-1 8.5-3.5z" fill="#fff"/></svg>
-                               انضم
-                           </button>
-                           <button id="ch-verify-btn-${id}" onclick="window.verifyChannelTask(${id})"
-                               style="display:none;align-items:center;gap:7px;padding:10px 16px;border-radius:12px;border:1px solid rgba(52,211,153,0.38);background:rgba(52,211,153,0.1);color:#34d399;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">
-                               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                               تحقق
-                           </button>`
-                    }
-                </div>
+        <div class="tasks-row" id="ch-card-${id}" style="cursor:default;${done?'opacity:.7;':''}" >
+            <div class="tasks-ico tasks-ico-blue">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                    <path d="M21.44 3.29a1.5 1.5 0 00-1.6-.22L2.87 10.6a1.5 1.5 0 00.07 2.76l3.71 1.37 1.41 4.5a1 1 0 001.73.34l2.04-2.13 3.99 2.93a1.5 1.5 0 002.31-1.01L22 4.75a1.5 1.5 0 00-.56-1.46zM10.1 14.5l-.7 2.56-.97-3.1 7.18-6.07-5.51 6.61z" fill="rgba(94,206,255,.85)"/>
+                </svg>
             </div>
-            ${!done?`
-            <div id="ch-hint-${id}" style="display:none;margin:0 18px 14px;padding:9px 13px;border-radius:10px;background:rgba(37,178,248,0.05);border:1px solid rgba(37,178,248,0.13);">
-                <span style="font-size:11px;color:rgba(37,178,248,0.65);font-weight:600;font-family:'Readex Pro',sans-serif;">اضغط «تحقق» بعد الانضمام للقناة</span>
-            </div>`:''}
-        </div>`;
+            <div class="tasks-rbody">
+                <div class="tasks-rname">${ch.title}</div>
+                <div class="tasks-rsub">+${(ch.reward||2500).toLocaleString('en-US')} نقطة${ch.max_members>0?` · أقصى ${ch.max_members.toLocaleString('en-US')} عضو`:''}</div>
+            </div>
+            <div id="ch-action-${id}" style="flex-shrink:0;">
+                ${done
+                    ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:10px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
+                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                           <span style="font-size:11px;font-weight:800;color:#3ddc84;font-family:'Tajawal',sans-serif;">مكتمل</span>
+                       </div>`
+                    : `<button id="ch-join-btn-${id}" onclick="window.handleChannelJoin(${id},'${ch.url}')"
+                           class="tasks-rbtn tasks-btn-blue">
+                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M21.44 3.29a1.5 1.5 0 00-1.6-.22L2.87 10.6a1.5 1.5 0 00.07 2.76l3.71 1.37 1.41 4.5a1 1 0 001.73.34l2.04-2.13 3.99 2.93a1.5 1.5 0 002.31-1.01L22 4.75a1.5 1.5 0 00-.56-1.46z" fill="rgba(94,206,255,.9)"/></svg>
+                           اشترك
+                       </button>
+                       <button id="ch-verify-btn-${id}" onclick="window.verifyChannelTask(${id})"
+                           style="display:none;" class="tasks-rbtn" style="background:rgba(61,220,132,.08);border:1px solid rgba(61,220,132,.22);color:#3ddc84;">
+                           تحقق
+                       </button>`
+                }
+            </div>
+        </div>
+        ${!done?`<div id="ch-hint-${id}" style="display:none;margin:0 12px 8px;padding:8px 12px;border-radius:10px;background:rgba(94,206,255,.05);border:1px solid rgba(94,206,255,.1);">
+            <span style="font-size:11px;color:rgba(94,206,255,.6);font-weight:600;font-family:'Tajawal',sans-serif;">اضغط «تحقق» بعد الاشتراك في القناة</span>
+        </div>`:''}`;
     }).join('');
 }
-
 async function _loadChannels() {
     const result=await fetchApi({ type:'get_channels', data:{} });
     document.getElementById('channel-tasks-loading')?.remove();
@@ -632,6 +635,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     _loadChannels();
     _atBindWidget();
+    // Run entrance animation if tasks page is active on load
+    if (document.getElementById('page-tasks')?.classList.contains('active')) {
+        setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 200);
+    }
 
     // polling
     let _lastPts=_AS.balance; let _pollFails=0;
@@ -862,11 +869,9 @@ function _atBindWidget() {
     });
 
     widget.addEventListener('onBannerNotFound', () => {
-        // نخفي الـ widget wrap + الـ widget نفسه (يمنع ظهور التايتل والدائرة من الـ web component)
+        // الكارد تبقى مرئية لكن فارغة — نخفي الـ widget wrap ونظهر حالة "انتظر"
         const wrap = document.getElementById('atask-widget-wrap');
         if (wrap) wrap.style.display = 'none';
-        const w = document.getElementById('atask-widget');
-        if (w) w.style.display = 'none';
         ['atask-loading-state','atask-cooldown-state','atask-maxed-state'].forEach(x => {
             const el = document.getElementById(x);
             if (el) el.style.display = 'none';
