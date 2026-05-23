@@ -795,121 +795,103 @@
     <main id="page-withdraw" class="page">
         <div class="page-wrap">
 
-            <div class="page-header">
-                <h1 class="site-title"><img src="asesst/coins.png" alt="" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(251,191,36,0.8));vertical-align:middle;margin-left:8px;"><span data-i18n="withdraw_title">سحب الرصيد</span></h1>
-                <div class="shine-line"></div>
+            <!-- ── HERO ── -->
+            <div class="wd-hero">
+                <div class="wd-hero-label" data-i18n="balance_available">رصيدك المتاح للسحب</div>
+                <div class="wd-balance-row">
+                    <img src="asesst/coins.png" alt="" class="wd-hero-coin">
+                    <span class="balance-hero-number wd-hero-number counter" id="withdraw-balance-hero" data-target="0">0</span>
+                </div>
+                <div class="wd-hero-unit" data-i18n="pts">نقطة</div>
             </div>
 
-            <!-- Balance Hero -->
-            <div class="glass balance-hero">
-                <div class="balance-hero-label"><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(251,191,36,0.6));vertical-align:middle;margin-left:4px;"><span data-i18n="balance_available">رصيدك المتاح للسحب</span></div>
-                <div class="balance-hero-amount">
-                    <img src="asesst/coins.png" alt="" class="coin-img-lg pulse-gold">
-                    <span class="balance-hero-number counter" id="withdraw-balance-hero" data-target="0">0</span>
+            <div class="wd-divider"></div>
+
+            <!-- ── METHODS ── -->
+            <div class="wd-section-label" data-i18n="withdraw_methods_title">طرق السحب</div>
+
+            <div class="wd-methods">
+
+                <!-- TON Wallet — active -->
+                <div class="method-item wd-method-row wd-method-ton" onclick="openTonWithdraw()">
+                    <div class="wd-method-logo">
+                        <img src="https://files.catbox.moe/tym38y.jpg" alt="TON">
+                    </div>
+                    <div class="method-info wd-method-body">
+                        <div class="method-name wd-method-name wd-blue" data-i18n="ton_wallet">محفظة TON</div>
+                        <div class="method-min wd-method-meta">
+                            <span data-i18n="min_label">الحد الأدنى</span> · <span id="withdraw-ton-min-display">…</span> <span data-i18n="pts">نقطة</span>
+                        </div>
+                    </div>
+                    <div class="wd-method-end">
+                        <span class="wd-badge-on" data-i18n="available_badge">متاح</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(83,147,255,0.4)" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+                        </svg>
+                    </div>
                 </div>
-                <div class="balance-hero-unit" data-i18n="pts">نقطة</div>
+
+                <!-- PayPal — locked -->
+                <div class="method-item wd-method-row wd-method-locked">
+                    <div class="wd-method-logo-svg">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M7.144 19.532l1.049-5.751c.075-.414.43-.713.85-.713h4.93c2.112 0 3.69-.842 4.367-2.377.114-.262.2-.53.259-.803C19.202 12.03 18.37 13 16.5 13H12a1 1 0 00-.986.836l-1.049 5.75-.821.001z" fill="#009cde"/>
+                            <path d="M18.599 10.888C18.03 13.619 15.9 15 12.923 15H9.5l-1.25 6.5H5.75L8 8.5h5.846c2.883 0 4.617 1.167 4.753 2.388z" fill="#012169"/>
+                            <path d="M5.75 21.5L8.5 6.5h5.846c1.867 0 3.18.456 3.884 1.327.548.678.72 1.571.508 2.661C18.03 13.219 15.9 14.5 12.923 14.5H9.5L8.25 21H5.75z" fill="#003087"/>
+                        </svg>
+                    </div>
+                    <div class="method-info wd-method-body">
+                        <div class="method-name wd-method-name wd-locked" data-i18n="paypal_name">باي بال</div>
+                        <div class="method-min wd-method-meta"><span data-i18n="min_label">الحد الأدنى</span> · 8,000 <span data-i18n="pts">نقطة</span></div>
+                    </div>
+                    <div class="wd-method-end">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2">
+                            <rect x="5" y="11" width="14" height="10" rx="2"/><path stroke-linecap="round" d="M8 11V7a4 4 0 018 0v4"/>
+                        </svg>
+                        <span class="wd-badge-soon" data-i18n="soon">قريباً</span>
+                    </div>
+                </div>
+
+                <!-- Fawry — locked -->
+                <div class="method-item wd-method-row wd-method-locked">
+                    <div class="wd-method-logo">
+                        <img src="https://files.catbox.moe/j5tzam.jpg" alt="Fawry">
+                    </div>
+                    <div class="method-info wd-method-body">
+                        <div class="method-name wd-method-name wd-locked" data-i18n="fawry_name">فوري باي</div>
+                        <div class="method-min wd-method-meta"><span data-i18n="min_label">الحد الأدنى</span> · 6,000 <span data-i18n="pts">نقطة</span></div>
+                    </div>
+                    <div class="wd-method-end">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2">
+                            <rect x="5" y="11" width="14" height="10" rx="2"/><path stroke-linecap="round" d="M8 11V7a4 4 0 018 0v4"/>
+                        </svg>
+                        <span class="wd-badge-soon" data-i18n="soon">قريباً</span>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- Withdraw Methods -->
-            <div class="method-card glass">
-                <div class="section-header" style="margin-bottom:16px;">
-                    <div class="section-title" data-i18n="withdraw_methods_title">طرق السحب</div>
-                </div>
-
-                <div style="display:flex; flex-direction:column; gap:8px;">
-
-                    <!-- ① TON Wallet — active -->
-                    <div class="method-item" style="background:rgba(83,147,255,0.06);border:1px solid rgba(83,147,255,0.2);border-radius:var(--radius-md);padding:14px 16px;cursor:pointer;transition:all 0.22s ease;" onmouseenter="this.style.background='rgba(83,147,255,0.11)'" onmouseleave="this.style.background='rgba(83,147,255,0.06)'" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform=''" onclick="openTonWithdraw()">
-                        <!-- TON logo image -->
-                        <div class="method-icon" style="background:transparent;border:none;width:46px;height:46px;padding:0;overflow:hidden;border-radius:12px;flex-shrink:0;">
-                            <img src="https://files.catbox.moe/tym38y.jpg" alt="TON"
-                                 style="width:100%;height:100%;object-fit:cover;border-radius:12px;box-shadow:0 2px 12px rgba(83,147,255,0.35);">
-                        </div>
-                        <div class="method-info" style="text-align:right;">
-                            <div class="method-name" style="color:#7eb8ff;font-weight:800;" data-i18n="ton_wallet">محفظة TON</div>
-                            <div class="method-min" style="margin-top:3px;"><span data-i18n="min_label">الحد الأدنى</span> · <span id="withdraw-ton-min-display">…</span> <span data-i18n="pts">نقطة</span></div>
-                        </div>
-                        <!-- active badge -->
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
-                            <span style="font-size:9px;font-weight:800;color:#7eb8ff;background:rgba(83,147,255,0.14);border:1px solid rgba(83,147,255,0.3);padding:3px 9px;border-radius:20px;letter-spacing:0.4px;" data-i18n="available_badge">متاح</span>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(83,147,255,0.5)" stroke-width="2.2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- ② PayPal — locked -->
-                    <div class="method-item" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-md);padding:14px 16px;cursor:not-allowed;opacity:0.55;position:relative;overflow:hidden;">
-                        <!-- lock overlay -->
-                        <div style="position:absolute;inset:0;border-radius:inherit;background:rgba(0,0,0,0.18);pointer-events:none;"></div>
-                        <div class="method-icon" style="background:rgba(0,112,243,0.12);border:1px solid rgba(0,112,243,0.2);border-radius:12px;width:46px;height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-                            <!-- PayPal SVG logo -->
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                                <path d="M7.144 19.532l1.049-5.751c.075-.414.43-.713.85-.713h4.93c2.112 0 3.69-.842 4.367-2.377.114-.262.2-.53.259-.803C19.202 12.03 18.37 13 16.5 13H12a1 1 0 00-.986.836l-1.049 5.75-.821.001z" fill="#009cde"/>
-                                <path d="M18.599 10.888C18.03 13.619 15.9 15 12.923 15H9.5l-1.25 6.5H5.75L8 8.5h5.846c2.883 0 4.617 1.167 4.753 2.388z" fill="#012169"/>
-                                <path d="M5.75 21.5L8.5 6.5h5.846c1.867 0 3.18.456 3.884 1.327.548.678.72 1.571.508 2.661C18.03 13.219 15.9 14.5 12.923 14.5H9.5L8.25 21H5.75z" fill="#003087"/>
-                            </svg>
-                        </div>
-                        <div class="method-info" style="text-align:right;">
-                            <div class="method-name" style="color:rgba(255,255,255,0.5);" data-i18n="paypal_name">باي بال</div>
-                            <div class="method-min"><span data-i18n="min_label">الحد الأدنى</span> · 8,000 <span data-i18n="pts">نقطة</span></div>
-                        </div>
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;position:relative;z-index:1;">
-                            <!-- lock icon -->
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2">
-                                <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
-                                <path stroke-linecap="round" d="M8 11V7a4 4 0 018 0v4"/>
-                            </svg>
-                            <span style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);" data-i18n="soon">قريباً</span>
-                        </div>
-                    </div>
-
-                    <!-- ③ Fawry Pay — locked -->
-                    <div class="method-item" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius-md);padding:14px 16px;cursor:not-allowed;opacity:0.55;position:relative;overflow:hidden;">
-                        <!-- lock overlay -->
-                        <div style="position:absolute;inset:0;border-radius:inherit;background:rgba(0,0,0,0.18);pointer-events:none;"></div>
-                        <div class="method-icon" style="background:transparent;border:none;width:46px;height:46px;padding:0;overflow:hidden;border-radius:12px;flex-shrink:0;">
-                            <img src="https://files.catbox.moe/j5tzam.jpg" alt="Fawry"
-                                 style="width:100%;height:100%;object-fit:cover;border-radius:12px;filter:grayscale(40%);">
-                        </div>
-                        <div class="method-info" style="text-align:right;">
-                            <div class="method-name" style="color:rgba(255,255,255,0.5);" data-i18n="fawry_name">فوري باي</div>
-                            <div class="method-min"><span data-i18n="min_label">الحد الأدنى</span> · 6,000 <span data-i18n="pts">نقطة</span></div>
-                        </div>
-                        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;position:relative;z-index:1;">
-                            <!-- lock icon -->
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2">
-                                <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
-                                <path stroke-linecap="round" d="M8 11V7a4 4 0 018 0v4"/>
-                            </svg>
-                            <span style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);" data-i18n="soon">قريباً</span>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- Withdraw History -->
-            <div class="history-card glass">
-                <div class="section-header" style="margin-bottom:14px;">
-                    <div class="section-title" data-i18n="withdraw_history_title">سجل السحوبات</div>
-                    <div id="withdraw-count-badge" style="display:none;font-size:10px;font-weight:700;color:#7eb8ff;background:rgba(83,147,255,0.12);border:1px solid rgba(83,147,255,0.25);padding:2px 10px;border-radius:20px;font-family:'DynaPuff',sans-serif;"></div>
+            <!-- ── HISTORY ── -->
+            <div class="wd-history-wrap">
+                <div class="wd-history-header">
+                    <div class="wd-history-title" data-i18n="withdraw_history_title">سجل السحوبات</div>
+                    <span class="wd-history-badge" id="withdraw-count-badge" style="display:none;"></span>
                 </div>
                 <div id="withdraw-history-list">
-                    <div class="empty-state" id="withdraw-empty" style="padding:24px 16px;">
-                        <div class="empty-icon" style="width:56px;height:56px;border-radius:16px;margin-bottom:12px;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5">
+                    <div class="empty-state" id="withdraw-empty">
+                        <div class="empty-icon wd-empty-icon">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                         </div>
-                        <div class="empty-title" style="font-size:13px;" data-i18n="no_transactions">لا توجد سحوبات سابقة</div>
+                        <div class="empty-title" data-i18n="no_transactions">لا توجد سحوبات سابقة</div>
+                        <div class="empty-sub">ستظهر هنا بعد أول سحب</div>
                     </div>
                 </div>
             </div>
 
         </div>
     </main>
-
     <!-- ══════════════════════════════════════════
          BOTTOM NAV
     ══════════════════════════════════════════ -->
