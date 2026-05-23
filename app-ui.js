@@ -256,6 +256,9 @@ export function showPage(pageName, btn) {
     if (pageName === 'tasks') {
         setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 30);
     }
+    if (pageName === 'earn') {
+        setTimeout(() => { if (window.runEarnEntranceAnimation) window.runEarnEntranceAnimation(); }, 30);
+    }
 }
 
 function _refreshWithdrawUI() {
@@ -640,5 +643,28 @@ export function runTasksEntranceAnimation() {
     });
 }
 
+/**
+ * runEarnEntranceAnimation()
+ * Staggered entrance for all .earn-e elements on the earn page.
+ * Direction controlled via data-earn-dir="up|down".
+ */
+export function runEarnEntranceAnimation() {
+    document.querySelectorAll('#page-earn .earn-e').forEach(el => {
+        const dir = el.dataset.earnDir === 'down' ? 'translateY(-16px)' : 'translateY(22px)';
+        el.style.transition = 'none';
+        el.style.opacity    = '0';
+        el.style.transform  = dir;
+        const d = parseInt(el.dataset.earnD) || 0;
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                el.style.transition = 'opacity .55s cubic-bezier(.22,1,.36,1), transform .62s cubic-bezier(.22,1,.36,1)';
+                el.style.opacity    = '1';
+                el.style.transform  = 'none';
+            }, d);
+        });
+    });
+}
+
 window.updateCircle              = updateCircle;
 window.runTasksEntranceAnimation = runTasksEntranceAnimation;
+window.runEarnEntranceAnimation  = runEarnEntranceAnimation;

@@ -1767,260 +1767,399 @@
         }
 
         /* ══════════════════════════════════════════
-           AD BUTTON — EARN PAGE
+           EARN PAGE — NEW DESIGN
         ══════════════════════════════════════════ */
-        .ad-hero-card {
-            border-radius: var(--radius-xl);
-            padding: 26px 20px 22px;
-            margin-bottom: 16px;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, rgba(0,0,0,0.55) 0%, rgba(0,0,60,0.65) 100%);
-            border: 1px solid rgba(251,191,36,0.18);
+
+        /* ── Keyframes ── */
+        @keyframes earnRingGlow   { 0%,100%{opacity:.5} 50%{opacity:1} }
+        @keyframes earnPulseDot   { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.35);opacity:.6} }
+        @keyframes earnShimmerPass{ 0%{transform:translateX(110%)} 100%{transform:translateX(-110%)} }
+        @keyframes earnBtnShimmer { 0%{transform:translateX(150%) skewX(-20deg)} 100%{transform:translateX(-150%) skewX(-20deg)} }
+
+        /* ── Entrance animation (JS-driven via runEarnEntranceAnimation) ── */
+        #page-earn .earn-e {
+            opacity: 0;
+            transform: translateY(22px);
+        }
+        #page-earn .earn-e[data-earn-dir="down"] {
+            transform: translateY(-16px);
         }
 
-        .ad-hero-card::before {
-            content: '';
-            position: absolute;
-            top: -60px;
-            right: -40px;
-            width: 220px;
-            height: 220px;
-            background: radial-gradient(circle, rgba(251,191,36,0.1) 0%, transparent 65%);
-            pointer-events: none;
-        }
-
-        .ad-hero-card::after {
-            content: '';
-            position: absolute;
-            bottom: -50px;
-            left: -30px;
-            width: 160px;
-            height: 160px;
-            background: radial-gradient(circle, rgba(96,165,250,0.07) 0%, transparent 65%);
-            pointer-events: none;
-        }
-
-        .ad-quota-row {
+        /* ── Header ── */
+        .earn-hd {
+            padding: 52px 0 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 18px;
-            position: relative;
-            z-index: 1;
         }
+        .earn-hd-title {
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: -.5px;
+        }
+        .earn-hd-title em { color: var(--gold); font-style: normal; }
 
-        .ad-quota-label {
-            font-size: 11px;
+        /* ── Ring section ── */
+        .earn-ring-section {
+            margin-top: 36px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .earn-ring-label {
+            font-size: 10px;
             font-weight: 700;
-            color: var(--text-secondary);
-            letter-spacing: 0.4px;
+            color: rgba(255,255,255,.20);
+            letter-spacing: 2.2px;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .earn-ring-glow {
+            position: absolute;
+            width: 130px; height: 130px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(245,193,56,.12) 0%, transparent 70%);
+            filter: blur(20px);
+            pointer-events: none;
+        }
+        .earn-ring-outer {
+            position: relative;
+            width: 110px; height: 110px;
+        }
+        .earn-ring-svg {
+            width: 110px; height: 110px;
+            transform: rotate(-90deg);
+            overflow: visible;
+        }
+        .earn-rt {
+            fill: none;
+            stroke: rgba(255,255,255,.05);
+            stroke-width: 6;
+        }
+        .earn-rf {
+            fill: none;
+            stroke: url(#earnRg);
+            stroke-width: 6;
+            stroke-linecap: round;
+            stroke-dasharray: 263.89;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset .85s cubic-bezier(.22,1,.36,1);
+            filter: drop-shadow(0 0 5px rgba(245,193,56,.5));
+        }
+        .earn-ring-inner {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .earn-ring-num {
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 44px;
+            font-weight: 700;
+            color: var(--gold);
+            line-height: 1;
+            letter-spacing: -1px;
+            transition: transform .35s cubic-bezier(.34,1.56,.64,1);
         }
 
-        .ad-quota-badge {
+        /* ── Watch button ── */
+        .earn-watch-wrap {
+            width: 100%;
+            margin-top: 22px;
+            display: flex;
+            justify-content: center;
+        }
+        .earn-cta-btn {
+            width: 88%;
+            background: rgba(0,0,0,.43);
+            border: 1px solid rgba(251,191,36,.22);
+            border-radius: 18px;
+            height: 64px;
+            padding: 0 16px;
             display: flex;
             align-items: center;
-            gap: 5px;
-            background: rgba(251,191,36,0.1);
-            border: 1px solid rgba(251,191,36,0.22);
-            border-radius: 20px;
-            padding: 4px 12px 4px 8px;
+            gap: 12px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 18px rgba(245,158,11,.08);
+            transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .18s, border-color .18s;
+        }
+        .earn-cta-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+            pointer-events: none;
+        }
+        .earn-cta-btn:hover {
+            transform: translateY(-2px);
+            border-color: rgba(251,191,36,.45);
+            box-shadow: 0 8px 28px rgba(245,158,11,.18);
+        }
+        .earn-cta-btn:active { transform: scale(.97); }
+        .earn-cta-btn.disabled {
+            opacity: .35;
+            cursor: not-allowed;
+            pointer-events: none;
+            filter: saturate(.4);
+        }
+        .earn-cta-btn .btn-shimmer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 40%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+            animation: earnBtnShimmer 3.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .earn-cta-ico {
+            width: 42px; height: 42px;
+            border-radius: 13px;
+            background: rgba(251,191,36,.13);
+            border: 1px solid rgba(251,191,36,.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .earn-cta-lbl {
+            flex: 1;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--text-primary);
+            text-align: center;
+            letter-spacing: .3px;
+        }
+        .earn-cta-reward {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(251,191,36,.10);
+            border: 1px solid rgba(251,191,36,.20);
+            border-radius: 12px;
+            padding: 6px 13px;
+            flex-shrink: 0;
+        }
+        .earn-cta-rnum {
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: #ff9;
+            line-height: 1;
+        }
+        .earn-cta-rsub {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 8px;
+            font-weight: 700;
+            color: rgba(208,209,200,.58);
+            margin-top: 2px;
         }
 
-        .ad-quota-count {
+        /* ── Stats row ── */
+        .earn-stats {
+            border-radius: var(--radius-xl);
+            padding: 16px 20px;
+            margin-top: 18px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+        .earn-stat {
+            flex: 1;
+            text-align: center;
+        }
+        .earn-stat-val {
             font-family: 'Tajawal', sans-serif;
-            font-size: 13px;
+            font-size: 20px;
             font-weight: 900;
             color: var(--gold);
         }
-
-        .ad-quota-total {
-            font-size: 11px;
-            color: rgba(251,191,36,0.5);
+        .earn-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
             font-weight: 600;
+            margin-top: 4px;
+        }
+        .earn-stat-div {
+            width: 1px;
+            height: 32px;
+            background: linear-gradient(180deg, transparent, rgba(255,255,255,.10), transparent);
         }
 
-        .ad-progress-bar {
-            height: 5px;
-            background: rgba(255,255,255,0.07);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 22px;
+        /* ── Section label ── */
+        .earn-sec-lbl {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: rgba(255,255,255,.15);
+            letter-spacing: 2.8px;
+            text-transform: uppercase;
+            text-align: center;
+            margin: 30px 0 14px;
+        }
+
+        /* ── Feature cards ── */
+        .earn-feat-card {
             position: relative;
-            z-index: 1;
-        }
-
-        .ad-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #f59e0b, #fbbf24, #fcd34d);
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(251,191,36,0.5);
-            transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .ad-main-btn {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            padding: 16px 20px;
-            border-radius: var(--radius-lg);
-            cursor: pointer;
-            position: relative;
-            z-index: 1;
             overflow: hidden;
-            background: transparent;
-            border: 1px solid rgba(251,191,36,0.35);
-            box-shadow: none;
-            transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .ad-main-btn::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(251,191,36,0.12) 0%, transparent 60%);
-            border-radius: inherit;
-            opacity: 0;
-            transition: opacity 0.25s ease;
-        }
-
-        .ad-main-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: none;
-            border-color: rgba(251,191,36,0.6);
-        }
-
-        .ad-main-btn:hover::before { opacity: 1; }
-
-        .ad-main-btn:active {
-            transform: scale(0.97) translateY(0);
-        }
-
-        .ad-main-btn.disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
-        .ad-btn-left {
+            border-radius: 20px;
+            padding: 16px 18px;
             display: flex;
             align-items: center;
             gap: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s;
+            margin-bottom: 10px;
         }
+        .earn-feat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+            pointer-events: none;
+        }
+        .earn-feat-card::after {
+            content: '';
+            position: absolute;
+            top: -20px; right: -20px;
+            width: 90px; height: 90px;
+            border-radius: 50%;
+            filter: blur(32px);
+            pointer-events: none;
+            opacity: .6;
+        }
+        .earn-feat-card:active { transform: scale(.968); }
 
-        .ad-btn-icon {
-            width: 46px;
-            height: 46px;
+        .earn-shimmer {
+            position: absolute;
+            top: 0; left: 0;
+            height: 100%; width: 40%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent);
+            transform: translateX(110%);
+            pointer-events: none;
+        }
+        .earn-feat-card:hover .earn-shimmer { animation: earnShimmerPass .55s ease forwards; }
+
+        /* Purple variant */
+        .earn-feat-v {
+            background: linear-gradient(135deg, rgba(184,169,245,.075) 0%, rgba(184,169,245,.025) 100%);
+            border: 1px solid rgba(184,169,245,.16);
+            box-shadow: 0 2px 22px rgba(184,169,245,.055), inset 0 -1px 0 rgba(0,0,0,.15);
+        }
+        .earn-feat-v:hover { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(184,169,245,.14); }
+        .earn-feat-v::after { background: rgba(184,169,245,.18); }
+
+        /* Gold variant */
+        .earn-feat-g {
+            background: linear-gradient(135deg, rgba(245,193,56,.08) 0%, rgba(245,193,56,.03) 100%);
+            border: 1px solid rgba(245,193,56,.18);
+            box-shadow: 0 2px 22px rgba(245,193,56,.06), inset 0 -1px 0 rgba(0,0,0,.15);
+        }
+        .earn-feat-g:hover { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(245,193,56,.14); }
+        .earn-feat-g::after { background: rgba(245,193,56,.22); }
+
+        /* Blue variant */
+        .earn-feat-b {
+            background: linear-gradient(135deg, rgba(96,165,250,.05) 0%, rgba(96,165,250,.02) 100%);
+            border: 1px solid rgba(96,165,250,.12);
+            box-shadow: 0 2px 18px rgba(96,165,250,.04);
+        }
+        .earn-feat-b::after { background: rgba(96,165,250,.14); }
+
+        /* Pink variant */
+        .earn-feat-p {
+            background: linear-gradient(135deg, rgba(244,114,182,.05) 0%, rgba(244,114,182,.02) 100%);
+            border: 1px solid rgba(244,114,182,.12);
+            box-shadow: 0 2px 18px rgba(244,114,182,.04);
+        }
+        .earn-feat-p::after { background: rgba(244,114,182,.14); }
+
+        /* ── Icon containers ── */
+        .earn-fc-ico {
+            width: 46px; height: 46px;
             border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(251,191,36,0.14);
-            border: 1px solid rgba(251,191,36,0.25);
             flex-shrink: 0;
-            transition: transform 0.25s ease;
+            position: relative;
+            z-index: 1;
         }
+        .earn-ico-v { background: rgba(184,169,245,.13); box-shadow: 0 2px 14px rgba(184,169,245,.14), inset 0 1px 0 rgba(255,255,255,.08); }
+        .earn-ico-g { background: rgba(245,193,56,.13);  box-shadow: 0 2px 14px rgba(245,193,56,.14),  inset 0 1px 0 rgba(255,255,255,.08); }
+        .earn-ico-b { background: rgba(96,165,250,.10);  box-shadow: 0 2px 10px rgba(96,165,250,.10),  inset 0 1px 0 rgba(255,255,255,.06); }
+        .earn-ico-p { background: rgba(244,114,182,.10); box-shadow: 0 2px 10px rgba(244,114,182,.10), inset 0 1px 0 rgba(255,255,255,.06); }
 
-        .ad-main-btn:hover .ad-btn-icon {
-            transform: scale(1.1) rotate(-5deg);
-        }
+        /* ── Card body ── */
+        .earn-fc-body { flex: 1; text-align: right; position: relative; z-index: 1; }
+        .earn-fc-name { font-size: 15px; font-weight: 900; line-height: 1.2; }
+        .earn-fc-hint { font-size: 10px; font-weight: 500; margin-top: 3px; line-height: 1.4; }
+        .earn-v-name  { color: #c4b5fd; }  .earn-v-hint { color: rgba(184,169,245,.38); }
+        .earn-g-name  { color: var(--gold); } .earn-g-hint { color: rgba(245,193,56,.38); }
+        .earn-b-name  { color: #60a5fa; }  .earn-b-hint { color: rgba(96,165,250,.35); }
+        .earn-p-name  { color: #f472b6; }  .earn-p-hint { color: rgba(244,114,182,.35); }
 
-        .ad-btn-text {
-            text-align: right;
-        }
+        /* ── Card end ── */
+        .earn-fc-end  { display: flex; align-items: center; gap: 7px; flex-shrink: 0; position: relative; z-index: 1; }
+        .earn-fc-chip { font-size: 12px; font-weight: 900; padding: 5px 13px; border-radius: 30px; letter-spacing: .2px; }
+        .earn-v-chip  { color: #b8a9f5; background: rgba(184,169,245,.10); border: 1px solid rgba(184,169,245,.22); }
+        .earn-g-chip  { color: var(--gold); background: rgba(245,193,56,.10);  border: 1px solid rgba(245,193,56,.22); }
+        .earn-b-chip  { color: #60a5fa;  background: rgba(96,165,250,.08);  border: 1px solid rgba(96,165,250,.16); }
+        .earn-p-chip  { color: #f472b6;  background: rgba(244,114,182,.08); border: 1px solid rgba(244,114,182,.16); }
+        .earn-fc-arr  { opacity: .18; flex-shrink: 0; }
 
-        .ad-btn-title {
-            font-size: 15px;
-            font-weight: 800;
-            color: var(--text-primary);
-            line-height: 1.2;
-            margin-bottom: 3px;
-        }
-
-        .ad-btn-sub {
-            font-size: 11px;
-            color: var(--text-secondary);
-            font-weight: 600;
-        }
-
-        .ad-btn-reward {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            flex-shrink: 0;
-        }
-
-        .ad-btn-reward-amount {
-            font-family: 'Tajawal', sans-serif;
-            font-size: 22px;
-            font-weight: 900;
-            color: var(--gold);
-            line-height: 1;
-            text-shadow: 0 0 20px rgba(251,191,36,0.5);
-        }
-
-        .ad-btn-reward-label {
-            font-size: 9px;
-            color: rgba(251,191,36,0.6);
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-
-        /* shimmer on ad btn */
-        @keyframes adShimmer {
-            0%   { transform: translateX(150%) skewX(-20deg); }
-            100% { transform: translateX(-150%) skewX(-20deg); }
-        }
-
-        .ad-main-btn .btn-shimmer {
+        /* ── Pulse dot ── */
+        .earn-fc-dot {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 40%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
-            animation: adShimmer 3.5s ease-in-out infinite;
-            pointer-events: none;
+            top: 17px; left: 18px;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 8px rgba(245,193,56,.9);
+            animation: earnPulseDot 2.4s ease-in-out infinite;
+            z-index: 2;
         }
 
-        /* All-done state */
+        /* ── Dim / coming soon ── */
+        .earn-dim { opacity: .35; cursor: default; pointer-events: none; }
+
+        /* ── All-done state (shared with JS) ── */
         .ad-done-state {
             display: none;
             flex-direction: column;
             align-items: center;
             gap: 10px;
             padding: 18px 0 4px;
-            position: relative;
-            z-index: 1;
             text-align: center;
         }
-
         .ad-done-icon {
-            width: 56px;
-            height: 56px;
+            width: 56px; height: 56px;
             border-radius: 18px;
-            background: rgba(52,211,153,0.12);
-            border: 1px solid rgba(52,211,153,0.22);
+            background: rgba(52,211,153,.12);
+            border: 1px solid rgba(52,211,153,.22);
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 4px;
         }
-
         .ad-done-title {
             font-size: 14px;
             font-weight: 800;
             color: var(--green);
         }
-
         .ad-done-sub {
             font-size: 11px;
             color: var(--text-muted);
             font-weight: 600;
         }
-
         /* ══════════════════════════════════════════
            iOS-STYLE TOAST NOTIFICATION
         ══════════════════════════════════════════ */

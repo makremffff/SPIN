@@ -89,6 +89,15 @@ export function updateAdUI() {
     else       { if(btn) btn.style.display='';     if(doneEl) doneEl.style.display='none'; }
 
     _syncDailyTaskProgress();
+
+    // ── Sync earn ring SVG ──
+    const _earnRingFill = document.getElementById('earn-ring-fill');
+    if (_earnRingFill) {
+        const _EARN_CIRC = 263.89; // 2π×42
+        const _total = ads.total || 10;
+        const _pct   = _total > 0 ? r / _total : 0;
+        _earnRingFill.style.strokeDashoffset = _EARN_CIRC * (1 - _pct);
+    }
 }
 
 // ══════════════════════════════════════════════════════════
