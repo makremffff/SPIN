@@ -276,12 +276,11 @@ export async function watchAd() {
             // أوقف أي عدّاد قديم
             if (ads._cooldownTimer) { clearInterval(ads._cooldownTimer); ads._cooldownTimer = null; }
             btn.classList.add('disabled');
+            btn.style.justifyContent = 'center';
             let remSec = Math.ceil(cdMs / 1000);
             ads._btnCooldownActive = true;
             btn.innerHTML = `<div class="btn-shimmer"></div>`
-                + `<div class="earn-cta-ico" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);">`
-                + `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>`
-                + `<div class="earn-cta-lbl" id="ad-btn-countdown">${remSec}s</div>`;
+                + `<div class="earn-cta-lbl" id="ad-btn-countdown" style="font-size:22px;font-weight:900;color:#1e3a5f;letter-spacing:1px;">${remSec}s</div>`;
             ads._cooldownTimer = setInterval(() => {
                 remSec--;
                 const lbl = document.getElementById('ad-btn-countdown');
@@ -289,6 +288,7 @@ export async function watchAd() {
                 if (remSec <= 0) {
                     clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
                     ads._btnCooldownActive = false;
+                    btn.style.justifyContent = '';
                     btn.innerHTML = `<div class="btn-shimmer"></div>`
                         + `<div class="earn-cta-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4l14 8-14 8V4z" fill="#fbbf24" opacity=".9"/></svg></div>`
                         + `<div class="earn-cta-lbl" data-i18n="watch_ad">شاهد إعلاناً</div>`

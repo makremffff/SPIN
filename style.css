@@ -2469,10 +2469,15 @@
             letter-spacing: 0.3px;
         }
 
+        .invite-share-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
         .invite-copy-btn {
-            display: flex; align-items: center; gap: 6px;
-            padding: 9px 16px;
-            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 11px 8px;
+            border-radius: var(--radius-md);
             border: none; cursor: pointer;
             font-family: 'Cairo', sans-serif;
             font-size: 12px; font-weight: 800;
@@ -2494,10 +2499,6 @@
             background: rgba(52,211,153,0.15);
             border-color: rgba(52,211,153,0.28);
             color: var(--green);
-        }
-        .invite-share-row {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 10px;
         }
 
         .invite-share-btn {
