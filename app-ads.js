@@ -280,7 +280,7 @@ export async function watchAd() {
             let remSec = Math.ceil(cdMs / 1000);
             ads._btnCooldownActive = true;
             btn.innerHTML = `<div class="btn-shimmer"></div>`
-                + `<div class="earn-cta-lbl" id="ad-btn-countdown" style="font-size:22px;font-weight:900;color:#1e3a5f;letter-spacing:1px;">${remSec}s</div>`;
+                + `<div id="ad-btn-countdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DynaPuff',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:2px;text-shadow:0 0 14px rgba(251,191,36,0.55);">${remSec}s</div>`;
             ads._cooldownTimer = setInterval(() => {
                 remSec--;
                 const lbl = document.getElementById('ad-btn-countdown');
