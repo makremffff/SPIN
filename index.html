@@ -687,7 +687,7 @@
 
             <!-- Header -->
             <div class="page-header" style="position:relative;">
-                <button class="back-btn" onclick="showPage('earn', document.querySelector('[data-page=earn]'))">
+                <button class="inv-back-btn" onclick="showPage('earn', document.querySelector('[data-page=earn]'))">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
                     </svg>
@@ -696,18 +696,17 @@
                 <div class="shine-line"></div>
             </div>
 
-            <!-- Hero — GIF + title + sub -->
+            <!-- Hero — GIF + title + sub + link card + reward rows -->
             <div class="invite-hero">
-                <div class="invite-hero-icon">
-                    <img src="asesst/invite.gif" alt="invite"
-                         onerror="this.style.display='none';this.parentElement.innerHTML='<svg width=\'52\' height=\'52\' viewBox=\'0 0 24 24\' fill=\'none\'><path d=\'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z\' fill=\'#a78bfa\'/></svg>';">
+                <div class="inv-hero-gif-wrap">
+                    <img src="asesst/invite.gif" alt="invite" onerror="this.style.display='none'">
                 </div>
                 <div class="invite-hero-title" data-i18n="invite_hero_title">ادعُ أصدقاءك واربح</div>
                 <div class="invite-hero-sub" data-i18n="invite_hero_sub">
                     شارك رابطك الخاص واحصل على مكافآت فورية<br>لكل صديق ينضم عبرك
                 </div>
 
-                <!-- Link Card — directly under sub text -->
+                <!-- Link Card — داخل الـ hero مباشرة -->
                 <div class="invite-link-card">
                     <div class="invite-link-label" data-i18n="your_ref_link">رابط الإحالة الخاص بك</div>
                     <div class="invite-link-box">
@@ -738,21 +737,21 @@
                     </div>
                 </div>
 
-                <!-- Reward Pills — transparent rows -->
-                <div class="reward-pills">
-                    <div class="reward-pill">
-                        <div class="pill-icon">
+                <!-- Reward rows -->
+                <div class="inv-reward-pills">
+                    <div class="inv-reward-pill">
+                        <div class="inv-pill-icon">
                             <img src="asesst/coins.png" alt="coins" width="22" height="22"
                                 style="filter:drop-shadow(0 0 5px rgba(251,191,36,0.65));object-fit:contain;">
                         </div>
-                        <div class="pill-text">
-                            <div class="pill-label">مكافأة انضمام الصديق</div>
-                            <div class="pill-val">500 نقطة</div>
+                        <div class="inv-pill-text">
+                            <div class="inv-pill-label">مكافأة انضمام الصديق</div>
+                            <div class="inv-pill-val gold">500 نقطة</div>
                         </div>
-                        <div class="pill-badge gold">فوري</div>
+                        <div class="inv-pill-badge gold">فوري</div>
                     </div>
-                    <div class="reward-pill">
-                        <div class="pill-icon">
+                    <div class="inv-reward-pill">
+                        <div class="inv-pill-icon">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                                 <rect x="2" y="5" width="20" height="14" rx="3" stroke="var(--purple)" stroke-width="1.8"/>
                                 <path d="M8 15V9l4 3 4-3v6" stroke="var(--purple)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -760,16 +759,16 @@
                                 <text x="18" y="11" text-anchor="middle" font-size="4.5" fill="#000" font-weight="800" font-family="sans-serif">%</text>
                             </svg>
                         </div>
-                        <div class="pill-text">
-                            <div class="pill-label">من أرباح إعلانات صديقك</div>
-                            <div class="pill-val purple">25% دائماً</div>
+                        <div class="inv-pill-text">
+                            <div class="inv-pill-label">من أرباح إعلانات صديقك</div>
+                            <div class="inv-pill-val purple">25% دائماً</div>
                         </div>
-                        <div class="pill-badge">مستمر</div>
+                        <div class="inv-pill-badge">مستمر</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Stats — transparent -->
+            <!-- Stats -->
             <div class="invite-stats">
                 <div class="invite-stat-card">
                     <div class="invite-stat-val" style="color:var(--purple);">
@@ -779,14 +778,14 @@
                 </div>
                 <div class="invite-stat-card">
                     <div class="invite-stat-val">
-                        <img class="stat-coin" src="asesst/coins.png" alt="">
+                        <img src="asesst/coins.png" alt="" class="inv-stat-coin">
                         <span style="color:var(--gold);" class="counter" data-target="0">0</span>
                     </div>
                     <div class="invite-stat-label" data-i18n="earned_from_refs">مكتسب من الإحالات</div>
                 </div>
             </div>
 
-            <!-- Referral List — transparent -->
+            <!-- Referral List -->
             <div class="invite-list-card">
                 <div class="section-header" style="margin-bottom:14px;">
                     <div class="section-title">الأصدقاء المدعوون</div>
