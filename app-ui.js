@@ -148,6 +148,8 @@ export function animateBalance(from, to, dur) {
         const f = v.toLocaleString('en-US');
         if (balEl)  balEl.textContent  = f;
         if (heroEl) heroEl.textContent = f;
+        const uEl = document.getElementById('uc-usdt-val');
+        if (uEl) uEl.textContent = (v/(_SC.pts_per_ton||100000)).toFixed(2);
         if (p < 1) requestAnimationFrame(tick);
         else updateBalanceUI(to);
     }
@@ -169,7 +171,7 @@ export function updateBalanceUI(pts) {
     if (heroEl) { heroEl.textContent = f; heroEl.dataset.target = pts; }
     if (tonSh)  tonSh.textContent = f;
     if (tonEq)  tonEq.textContent = '≈ '+(pts/(_SC.pts_per_ton||100000)).toFixed(3)+' TON';
-    if (usdtEl) usdtEl.textContent = (_AS.usdt_balance || 0).toFixed(2);
+    if (usdtEl) usdtEl.textContent = (pts/(_SC.pts_per_ton||100000)).toFixed(2);
     const lvl = _AS.level||1;
     const TH  = [0,0,500,1500,3500,8000,16000,30000,55000,90000,150000];
     const cur = TH[lvl]||0; const nxt = TH[lvl+1]||cur+10000;
@@ -177,6 +179,55 @@ export function updateBalanceUI(pts) {
     if (xpLvl)  xpLvl.textContent = `المستوى ${lvl}`;
     if (xpPct)  xpPct.textContent = pct+'%';
     if (xpFill) xpFill.style.width = pct+'%';
+    // ── Home ring + tier update ──
+    _updateHomeRing(lvl);
+    // ── Slide-in balance icons (once) ──
+    _triggerBalIcons();
+    // ── Ticker ──
+    _updateHomeTicker(pts, lvl);
+}
+
+let _balIconsTriggered = false;
+function _triggerBalIcons() {
+    if (_balIconsTriggered) return;
+    _balIconsTriggered = true;
+    setTimeout(() => {
+        document.querySelectorAll('.hm-bal-icon').forEach(el => el.classList.add('hm-in'));
+    }, 200);
+}
+
+function _updateHomeRing(lvl) {
+    const cont      = document.getElementById('hm-ring-container');
+    const ringNum   = document.getElementById('ring-level-num');
+    const tierLabel = document.getElementById('hm-tier-label');
+    if (!cont) return;
+    if (ringNum) ringNum.textContent = lvl;
+    const tier = lvl >= 7 ? 'gold' : lvl >= 4 ? 'silver' : 'green';
+    const labels = { gold: 'مستوى ذهبي', silver: 'مستوى فضي', green: 'مستوى أخضر' };
+    cont.classList.remove('tier-gold', 'tier-silver', 'tier-green');
+    cont.classList.add('tier-' + tier);
+    if (tierLabel) tierLabel.textContent = labels[tier];
+}
+
+function _updateHomeTicker(pts, lvl) {
+    const el = document.getElementById('hm-ticker-inner');
+    if (!el) return;
+    const bal     = pts.toLocaleString('en-US');
+    const usdt    = (pts / (_SC.pts_per_ton || 100000)).toFixed(2);
+    const friends = (document.querySelector('.uc-stat-val.green') || {}).textContent || '0';
+    const tasks   = (document.querySelector('.uc-stat-val.blue')  || {}).textContent || '0';
+    const items = [
+        { cls: 'hm-y', label: 'رصيدك',   val: bal + ' نقطة' },
+        { cls: 'hm-g', label: 'USDT',     val: usdt           },
+        { cls: 'hm-y', label: 'المستوى',  val: String(lvl)   },
+        { cls: 'hm-g', label: 'أصدقاء',  val: friends        },
+        { cls: 'hm-y', label: 'مهام',     val: tasks          },
+    ];
+    // duplicate for seamless infinite scroll
+    const html = [...items, ...items]
+        .map(i => `<div class="hm-tick ${i.cls}">${i.label} <strong>${i.val}</strong></div>`)
+        .join('');
+    el.innerHTML = html;
 }
 
 export function runCounters(scope) {

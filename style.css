@@ -2439,3 +2439,245 @@
             font-size: 14px; font-weight: 900;
             color: var(--gold);
         }
+
+        /* ══════════════════════════════════════════════════════════
+           HOME PAGE — NEW DESIGN  (hm- prefix, no conflicts)
+        ══════════════════════════════════════════════════════════ */
+
+        /* Color tokens used by new home design */
+        :root {
+            --hm-gold:   #f0b429;
+            --hm-green:  #2dd4a0;
+            --hm-blue:   #7eb8f7;
+            --hm-silver: #b8c8da;
+            --hm-white:  #e8dfc8;
+            --hm-dim:    rgba(232,223,200,.38);
+            --hm-faint:  rgba(232,223,200,.13);
+        }
+
+        /* ── Staggered entrance animations ── */
+        .s1,.s2,.s3,.s4,.s5,.s6,.s7 {
+            opacity: 0;
+            animation: hmFadeIn .45s cubic-bezier(.22,1,.36,1) forwards;
+        }
+        .s1 { animation-delay: .00s; }
+        .s2 { animation-delay: .38s; }
+        .s3 { animation-delay: .74s; }
+        .s4 { animation-delay:1.10s; }
+        .s5 { animation-delay:1.44s; }
+        .s6 { animation-delay:1.76s; }
+        .s7 { animation-delay:2.08s; }
+        @keyframes hmFadeIn {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+
+        /* ── Wrap override ── */
+        #page-home .hm-wrap { padding-top: 0; }
+
+        /* ── Top Brand Bar ── */
+        .hm-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 24px 0 0;
+        }
+        .hm-brand {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 17px; font-weight: 900;
+            color: var(--hm-white); letter-spacing: -.3px;
+        }
+        .hm-vip-pill {
+            font-size: 10px; font-weight: 700; color: var(--hm-gold);
+            border: 1px solid rgba(240,180,41,.28);
+            padding: 4px 11px; border-radius: 100px; letter-spacing: 1px;
+        }
+
+        /* ── User Section ── */
+        .hm-user-section {
+            margin-top: 28px;
+            display: flex; align-items: center; gap: 15px; justify-content: center;
+        }
+        .hm-avatar-ring {
+            width: 56px !important; height: 56px !important;
+        }
+        .hm-greeting {
+            font-size: 12px !important; color: var(--hm-dim) !important;
+            margin-bottom: 3px;
+        }
+        .hm-user-name-el {
+            font-size: 21px !important; font-weight: 800 !important;
+            letter-spacing: -.5px; line-height: 1; display: block;
+        }
+        .hm-rank-text {
+            margin-top: 5px; font-size: 11px; color: var(--hm-dim);
+        }
+        .hm-rank-text strong {
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 12px; color: var(--hm-gold);
+        }
+
+        /* ── Balance Section ── */
+        .hm-balance-section {
+            margin-top: 38px;
+            display: flex; align-items: flex-start;
+            justify-content: center; gap: 28px;
+        }
+        .hm-bal-sep {
+            width: 1px; height: 48px; align-self: center;
+            background: linear-gradient(180deg, transparent, rgba(232,223,200,.15), transparent);
+            flex-shrink: 0;
+        }
+        .hm-bal-block { display: flex; flex-direction: column; }
+        .hm-bal-micro {
+            font-size: 10px; color: var(--hm-faint);
+            font-weight: 500; letter-spacing: 1.8px;
+            text-transform: uppercase; margin-bottom: 7px;
+        }
+        .hm-bal-row { display: flex; align-items: center; gap: 9px; }
+        .hm-bal-icon {
+            width: 26px; height: 26px; object-fit: contain; flex-shrink: 0;
+            transform: translateX(56px); opacity: 0;
+            transition: transform .65s cubic-bezier(.22,1,.36,1), opacity .4s ease;
+        }
+        .hm-coins-img  { transition-delay: .42s; }
+        .hm-dollar-img { transition-delay: .54s; }
+        .hm-bal-icon.hm-in { transform: translateX(0); opacity: 1; }
+        .hm-bal-num {
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 26px !important; font-weight: 700 !important;
+            line-height: 1; letter-spacing: -1.5px;
+        }
+        .hm-gold  { color: var(--hm-gold)  !important; text-shadow: 0 0 22px rgba(240,180,41,.4) !important; }
+        .hm-green { color: var(--hm-green) !important; text-shadow: 0 0 22px rgba(45,212,160,.4)  !important; }
+        .hm-bal-unit {
+            font-size: 10px; color: var(--hm-faint); font-weight: 500; margin-top: 5px;
+        }
+
+        /* ── Level Ring ── */
+        .hm-level-center {
+            margin-top: 40px;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            position: relative;
+        }
+        .hm-ring-box { position: relative; width: 70px; height: 70px; }
+        .hm-ring-svg { transform: rotate(-90deg); }
+        .hm-ring-bg   { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 3.5; }
+        .hm-ring-fill { fill: none; stroke-width: 3.5; stroke-linecap: round; }
+
+        /* r=32 → circumference ≈ 201 */
+        .tier-gold   .hm-ring-fill {
+            stroke: var(--hm-gold);
+            stroke-dasharray: 201; stroke-dashoffset: 201;
+            animation: hmRingGold   1.3s 1.5s cubic-bezier(.22,1,.36,1) forwards;
+        }
+        .tier-silver .hm-ring-fill {
+            stroke: var(--hm-silver);
+            stroke-dasharray: 201; stroke-dashoffset: 201;
+            animation: hmRingSilver 1.3s 1.5s cubic-bezier(.22,1,.36,1) forwards;
+        }
+        .tier-green  .hm-ring-fill {
+            stroke: var(--hm-green);
+            stroke-dasharray: 201; stroke-dashoffset: 201;
+            animation: hmRingGreen  1.3s 1.5s cubic-bezier(.22,1,.36,1) forwards;
+        }
+        @keyframes hmRingGold   { to { stroke-dashoffset: 44;  } }
+        @keyframes hmRingSilver { to { stroke-dashoffset: 90;  } }
+        @keyframes hmRingGreen  { to { stroke-dashoffset: 16;  } }
+
+        .hm-ring-label {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 2px;
+        }
+        .hm-ring-num {
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 22px; font-weight: 700; line-height: 1;
+        }
+        .hm-ring-lv-sub {
+            font-size: 7px; color: var(--hm-faint); letter-spacing: .8px;
+        }
+        .tier-gold   .hm-ring-num { color: var(--hm-gold);   }
+        .tier-silver .hm-ring-num { color: var(--hm-silver); }
+        .tier-green  .hm-ring-num { color: var(--hm-green);  }
+
+        /* Tier badge */
+        .hm-tier-badge {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 5px 16px; border-radius: 100px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 13px; font-weight: 700;
+        }
+        .hm-tier-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+        .tier-gold   .hm-tier-badge {
+            background: rgba(240,180,41,.08);
+            border: 1px solid rgba(240,180,41,.22);
+            color: var(--hm-gold);
+        }
+        .tier-gold   .hm-tier-dot { background: var(--hm-gold);   box-shadow: 0 0 8px var(--hm-gold);   }
+        .tier-silver .hm-tier-badge {
+            background: rgba(184,200,218,.08);
+            border: 1px solid rgba(184,200,218,.22);
+            color: var(--hm-silver);
+        }
+        .tier-silver .hm-tier-dot { background: var(--hm-silver); box-shadow: 0 0 8px var(--hm-silver); }
+        .tier-green  .hm-tier-badge {
+            background: rgba(45,212,160,.08);
+            border: 1px solid rgba(45,212,160,.22);
+            color: var(--hm-green);
+        }
+        .tier-green  .hm-tier-dot { background: var(--hm-green);  box-shadow: 0 0 8px var(--hm-green);  }
+
+        /* ── Stats ── */
+        .hm-stats {
+            margin-top: 40px;
+            display: flex; justify-content: space-between;
+        }
+        .hm-stat { text-align: center; }
+        .hm-stat-num {
+            font-size: 25px !important; font-weight: 500 !important;
+            line-height: 1;
+        }
+        .hm-stat-label {
+            font-size: 11px; color: var(--hm-faint); font-weight: 400; margin-top: 5px;
+        }
+
+        /* ── Actions ── */
+        .hm-actions {
+            margin-top: 40px;
+            display: flex; gap: 0;
+            justify-content: space-around; align-items: flex-start;
+        }
+        .hm-act-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+            background: transparent; border: none; cursor: pointer;
+            transition: opacity .2s, transform .18s;
+            padding: 0; width: 100px;
+        }
+        .hm-act-btn:active { transform: scale(.93); opacity: .65; }
+        .hm-act-label {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 13px; font-weight: 700;
+        }
+        .hm-charge     .hm-act-label { color: rgba(240,180,41,.65); }
+        .hm-withdraw-btn .hm-act-label { color: rgba(45,212,160,.65); }
+
+        /* ── Ticker ── */
+        .hm-ticker { margin-top: 44px; overflow: hidden; }
+        .hm-ticker-inner {
+            display: flex; width: max-content; gap: 34px;
+            animation: hmTickerScroll 22s linear infinite;
+        }
+        @keyframes hmTickerScroll {
+            from { transform: translateX(0);    }
+            to   { transform: translateX(-50%); }
+        }
+        .hm-tick {
+            font-size: 11px; color: var(--hm-faint);
+            white-space: nowrap;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .hm-tick strong {
+            font-family: 'DynaPuff', sans-serif; font-size: 12px;
+        }
+        .hm-tick.hm-y strong { color: var(--hm-gold);  }
+        .hm-tick.hm-g strong { color: var(--hm-green); }
