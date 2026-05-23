@@ -43,6 +43,33 @@ function _initAdController() {
 // ══════════════════════════════════════════════════════════
 // updateAdUI — يحدث واجهة الإعلانات اليومية فقط
 // ══════════════════════════════════════════════════════════
+// نسخة داخلية لا تتدخل بالزر إذا عنده عدّاد تنازلي
+function _updateAdUINoBtn() {
+    const ads = _AS.ads;
+    const r   = ads.remaining;
+    const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    setText('ads-remaining', r);
+    setText('ads-watched',   ads.watched);
+    setText('earned-today',  ads.earned.toLocaleString('en-US'));
+    setText('ads-daily-limit', ads.total);
+    const progBar = document.getElementById('ads-progress');
+    if (progBar) progBar.style.width = (ads.total>0 ? Math.min(100,(ads.watched/ads.total)*100) : 0)+'%';
+    const quotaTotal = document.querySelector('.ad-quota-total');
+    if (quotaTotal) quotaTotal.textContent='/ '+ads.total;
+    const doneEl = document.getElementById('ad-done-state');
+    const btn    = document.getElementById('ad-watch-btn');
+    if (r===0) { if(btn) btn.style.display='none'; if(doneEl) doneEl.style.display='flex'; }
+    else       { if(btn) btn.style.display='';     if(doneEl) doneEl.style.display='none'; }
+    _syncDailyTaskProgress();
+    const _earnRingFill = document.getElementById('earn-ring-fill');
+    if (_earnRingFill) {
+        const _EARN_CIRC = 263.89;
+        const _total = ads.total || 10;
+        const _pct   = _total > 0 ? r / _total : 0;
+        _earnRingFill.style.strokeDashoffset = _EARN_CIRC * (1 - _pct);
+    }
+}
+
 export function updateAdUI() {
     const ads = _AS.ads;
     const r   = ads.remaining;
@@ -64,21 +91,20 @@ export function updateAdUI() {
     const coolLeft = ads.cooldownUntil - Date.now();
     const btn      = document.getElementById('ad-watch-btn');
     const coolEl   = document.getElementById('ad-cooldown-msg');
+    if (coolEl) coolEl.style.display='none';
 
-    // إذا الزر عنده عدّاد تنازلي داخلي — لا تتدخل
-    const btnHasCooldown = btn && btn.querySelector('.earn-cta-lbl')?.textContent?.match(/^\d+s$/);
-
-    if (coolLeft>0 && r>0 && !btnHasCooldown) {
-        if (btn) btn.classList.add('disabled');
-        if (coolEl) coolEl.style.display='none'; // مخفي دائماً — العدّاد في الزر
-    } else if (!btnHasCooldown) {
-        if (r>0&&btn) btn.classList.remove('disabled');
-        if (coolEl)   coolEl.style.display='none';
+    // إذا عنده عدّاد تنازلي داخلي — لا تتدخل بالزر
+    if (!ads._btnCooldownActive) {
+        if (coolLeft>0 && r>0) {
+            if (btn) btn.classList.add('disabled');
+        } else {
+            if (r>0 && btn) btn.classList.remove('disabled');
+        }
     }
 
     const doneEl = document.getElementById('ad-done-state');
     if (r===0) { if(btn) btn.style.display='none'; if(doneEl) doneEl.style.display='flex'; }
-    else       { if(btn) btn.style.display='';     if(doneEl) doneEl.style.display='none'; }
+    else       { if(btn && !ads._btnCooldownActive) btn.style.display=''; if(doneEl) doneEl.style.display='none'; }
 
     _syncDailyTaskProgress();
 
@@ -224,7 +250,7 @@ export async function watchAd() {
         adNonce  // ← external nonce من start_ad
     );
 
-    ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+    ads.isWatching=false;
     _isClaimingAd = false;
     if (preBar) preBar.style.width='0%';
 
@@ -238,32 +264,47 @@ export async function watchAd() {
         if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
 
         const pts = _AC.rewards?.points_per_ad||50;
+
+        // فيبريشن صريح
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+
         showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
         pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
 
         // ── عدّاد تنازلي داخل الزر ──
         if (ads.remaining > 0 && btn) {
+            // أوقف أي عدّاد قديم
+            if (ads._cooldownTimer) { clearInterval(ads._cooldownTimer); ads._cooldownTimer = null; }
             btn.classList.add('disabled');
-            const originalHTML = btn.innerHTML;
             let remSec = Math.ceil(cdMs / 1000);
-            btn.innerHTML = `<div class="btn-shimmer"></div><div class="earn-cta-ico" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><div class="earn-cta-lbl">${remSec}s</div>`;
-            if (!ads._cooldownTimer) {
-                ads._cooldownTimer = setInterval(() => {
-                    remSec--;
-                    const lbl = btn.querySelector('.earn-cta-lbl');
-                    if (lbl) lbl.textContent = remSec + 's';
-                    if (remSec <= 0) {
-                        clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
-                        btn.innerHTML = originalHTML;
-                        btn.classList.remove('disabled');
-                    }
-                }, 1000);
-            }
+            ads._btnCooldownActive = true;
+            btn.innerHTML = `<div class="btn-shimmer"></div>`
+                + `<div class="earn-cta-ico" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);">`
+                + `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>`
+                + `<div class="earn-cta-lbl" id="ad-btn-countdown">${remSec}s</div>`;
+            ads._cooldownTimer = setInterval(() => {
+                remSec--;
+                const lbl = document.getElementById('ad-btn-countdown');
+                if (lbl) lbl.textContent = remSec + 's';
+                if (remSec <= 0) {
+                    clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
+                    ads._btnCooldownActive = false;
+                    btn.innerHTML = `<div class="btn-shimmer"></div>`
+                        + `<div class="earn-cta-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4l14 8-14 8V4z" fill="#fbbf24" opacity=".9"/></svg></div>`
+                        + `<div class="earn-cta-lbl" data-i18n="watch_ad">شاهد إعلاناً</div>`
+                        + `<div class="earn-cta-reward"><div class="earn-cta-rnum">+${pts}</div><div class="earn-cta-rsub" data-i18n="pts">نقطة</div></div>`;
+                    btn.classList.remove('disabled');
+                }
+            }, 1000);
+        } else if (btn) {
+            btn.classList.remove('disabled');
         }
 
-        updateAdUI();
+        // updateAdUI بدون تدخّل بالزر إذا عنده عدّاد
+        _updateAdUINoBtn();
 
     } else {
+        if (btn) btn.classList.remove('disabled');
         if (result.error==='cooldown_active') { ads.cooldownUntil=Date.now()+(result.wait_ms||30000); updateAdUI(); }
         else if (result.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); showToast('trophy','انتهت إعلانات اليوم 🏆','عُد غداً لمزيد من النقاط','green',''); }
         else if (result.error==='ad_duration_invalid') showToast('coin','الإعلان لم يكتمل','شاهد الإعلان بالكامل','red','');
