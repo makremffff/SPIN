@@ -78,6 +78,10 @@ export function _applyConfigToUI() {
     document.querySelectorAll('.daily-refs3-reward-badge').forEach(el => {
         el.textContent = '+' + (APP_CONFIG.rewards.daily_referrals_3||3000).toLocaleString('en-US');
     });
+    document.querySelectorAll('.inv-referral-pts-badge').forEach(el => {
+        const pts = APP_CONFIG.rewards.referral || 100;
+        el.textContent = pts.toLocaleString('en-US') + ' نقطة';
+    });
 }
 
 // ══════════════════════════════════════════════════════════
