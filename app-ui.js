@@ -15,6 +15,200 @@ const _AS = APP_STATE;
 const _AC = APP_CONFIG;
 
 // ══════════════════════════════════════════════════════════
+// AD NOTIF QUEUE — نظام إشعارات الإعلانات مع Queue + Retry
+// ══════════════════════════════════════════════════════════
+
+const _AD_NOTIF_MESSAGES = {
+    success:      { icon: '🎉', color: 'green',  label: 'مكافأة',        action: '' },
+    partial:      { icon: '⚡', color: 'gold',   label: 'جزئية',         action: '▶ اضغط Play للمكافأة الكاملة' },
+    cooldown:     { icon: '⏱', color: 'blue',   label: 'انتظار',        action: '' },
+    incomplete:   { icon: '⚠️', color: 'red',    label: 'غير مكتمل',     action: 'شاهد حتى النهاية' },
+    closed_early: { icon: '✕',  color: 'red',    label: 'أُغلق مبكراً',  action: 'لا تغلق الإعلان' },
+    load_failed:  { icon: '📶', color: 'red',    label: 'خطأ في التحميل',action: 'تحقق من الاتصال' },
+    timeout:      { icon: '⌛', color: 'red',    label: 'انتهت المهلة',  action: 'أعد تشغيل التطبيق' },
+    offline:      { icon: '📵', color: 'red',    label: 'لا اتصال',      action: 'تحقق من الإنترنت' },
+    limit:        { icon: '✅', color: 'green',  label: 'اكتمل اليوم',   action: 'عُد غداً' },
+    error:        { icon: '⚠️', color: 'red',    label: 'خطأ',           action: 'حاول لاحقاً' },
+    retry:        { icon: '🔄', color: 'blue',   label: 'إعادة محاولة',  action: '' },
+};
+
+// حد أقصى للإشعارات المحفوظة
+const _ANQ_MAX = 50;
+const _ANQ_DEDUP_MS = 3000; // منع التكرار خلال 3 ثواني
+
+class _AdNotifQueueClass {
+    constructor() {
+        this._queue   = [];   // إشعارات معلّقة (لم تُعرض بعد)
+        this._shown   = [];   // إشعارات أُرسلت بنجاح
+        this._lastKey = '';   // مفتاح آخر إشعار للتحقق من التكرار
+        this._lastTs  = 0;    // وقت آخر إشعار
+        this._retries = {};   // عدد إعادة المحاولات لكل key
+        this._flushing = false;
+    }
+
+    // إضافة إشعار للـ Queue
+    push(notif) {
+        if (!notif?.type) return;
+        const key = notif.type + '_' + (notif.title || '');
+
+        // منع التكرار السريع
+        if (key === this._lastKey && (Date.now() - this._lastTs) < _ANQ_DEDUP_MS) return;
+
+        this._lastKey = key;
+        this._lastTs  = Date.now();
+
+        const item = {
+            ...notif,
+            ts:      notif.ts || Date.now(),
+            _key:    key,
+            _tries:  0,
+        };
+
+        this._queue.push(item);
+        if (this._queue.length > _ANQ_MAX) this._queue.shift();
+
+        // حاول عرضه فوراً
+        this._processNext();
+    }
+
+    // عرض الإشعار التالي في الـ Queue
+    _processNext() {
+        if (this._flushing || !this._queue.length) return;
+        const item = this._queue.shift();
+        this._display(item);
+    }
+
+    // عرض إشعار واحد
+    _display(item) {
+        const meta = _AD_NOTIF_MESSAGES[item.type] || _AD_NOTIF_MESSAGES.error;
+        try {
+            _showAdNotifBanner(item, meta);
+            this._shown.unshift(item);
+            if (this._shown.length > _ANQ_MAX) this._shown.pop();
+        } catch(e) {
+            // retry بعد تأخير
+            item._tries = (item._tries || 0) + 1;
+            if (item._tries <= 3) {
+                setTimeout(() => {
+                    this._queue.unshift(item);
+                    this._processNext();
+                }, 800 * item._tries);
+            }
+        }
+    }
+
+    // إعادة إرسال جميع الإشعارات المعلّقة (عند استعادة الاتصال)
+    flush() {
+        this._flushing = false;
+        // أعد جميع المعلّقة
+        const pending = [...this._queue];
+        this._queue = [];
+        pending.forEach(item => {
+            setTimeout(() => this._display(item), 200 * pending.indexOf(item));
+        });
+    }
+
+    // مسح الـ Queue
+    clear() {
+        this._queue = [];
+    }
+}
+
+// ── Banner عرض إشعار الإعلان الخاص ──────────────────────
+let _adNotifBannerTimeout = null;
+
+function _showAdNotifBanner(item, meta) {
+    // احصل على الـ container أو أنشئه
+    let cont = document.getElementById('ad-notif-banner-container');
+    if (!cont) {
+        cont = document.createElement('div');
+        cont.id = 'ad-notif-banner-container';
+        cont.style.cssText = `
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            pointer-events: none;
+            width: calc(100% - 32px);
+            max-width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            direction: rtl;
+        `;
+        document.body.appendChild(cont);
+    }
+
+    const colorMap = {
+        green: { bg: 'rgba(16,185,129,0.95)', border: 'rgba(52,211,153,0.4)', text: '#fff' },
+        gold:  { bg: 'rgba(30,25,8,0.97)',   border: 'rgba(251,191,36,0.5)', text: '#fbbf24' },
+        red:   { bg: 'rgba(30,10,10,0.97)',   border: 'rgba(248,113,113,0.4)', text: '#f87171' },
+        blue:  { bg: 'rgba(10,20,40,0.97)',   border: 'rgba(96,165,250,0.4)', text: '#60a5fa' },
+    };
+    const col = colorMap[meta.color] || colorMap.gold;
+
+    const banner = document.createElement('div');
+    banner.className = 'ad-notif-banner';
+    banner.style.cssText = `
+        background: ${col.bg};
+        border: 1px solid ${col.border};
+        border-radius: 16px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        pointer-events: auto;
+        transform: translateY(-20px) scale(0.96);
+        opacity: 0;
+        transition: all 0.32s cubic-bezier(0.34,1.56,0.64,1);
+        font-family: 'Tajawal', sans-serif;
+        direction: rtl;
+    `;
+
+    const subText = item.body || meta.action || '';
+    banner.innerHTML = `
+        <div style="font-size:20px;flex-shrink:0;line-height:1;">${meta.icon}</div>
+        <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:${col.text};line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.title || meta.label}</div>
+            ${subText ? `<div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${subText}</div>` : ''}
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);flex-shrink:0;font-family:'Nunito',sans-serif;">${_fmtTs(item.ts||Date.now())}</div>
+    `;
+
+    cont.appendChild(banner);
+
+    // أنيميشن دخول
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        banner.style.transform = 'translateY(0) scale(1)';
+        banner.style.opacity   = '1';
+    }));
+
+    // إخفاء تلقائي بعد 3.5 ثانية
+    setTimeout(() => {
+        banner.style.transform  = 'translateY(-12px) scale(0.95)';
+        banner.style.opacity    = '0';
+        banner.style.transition = 'all 0.28s ease';
+        setTimeout(() => banner.remove(), 300);
+    }, 3500);
+}
+
+function _fmtTs(ts) {
+    const d = new Date(ts);
+    const h = d.getHours().toString().padStart(2,'0');
+    const m = d.getMinutes().toString().padStart(2,'0');
+    return `${h}:${m}`;
+}
+
+// ── Singleton ──────────────────────────────────────────────
+export const AdNotifQueue = new _AdNotifQueueClass();
+window.AdNotifQueue = AdNotifQueue;
+
+
+// ══════════════════════════════════════════════════════════
 // NOTIFICATIONS — نظام جديد من الصفر
 // ══════════════════════════════════════════════════════════
 

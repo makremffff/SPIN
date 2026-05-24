@@ -56,10 +56,26 @@ export const APP_CONFIG = {
                   points_per_ad: 50 },
     telegram:   { channel_url: 'https://t.me/botbababab' },
     ads:        { daily_limit: 10, cooldown_ms: 30000, min_duration_ms: 14000 },
+    session_quality: {
+        partial_min_ms: 30000, partial_max_ms: 31000,
+        partial_ratio: 0.5,    full_min_ms: 32000,
+        require_play: true,
+    },
+    progressive_cooldown: { steps_ms: [60000, 90000, 120000] },
     daily_gift: { rewards: [], titles_ar: [], descs_ar: [] },
 };
 
-export function _applyConfigToUI() {
+export function _applyConfigToUI(cfg) {
+    // تحديث APP_CONFIG من السيرفر (single source of truth)
+    if (cfg) {
+        if (cfg.rewards)    Object.assign(APP_CONFIG.rewards,    cfg.rewards);
+        if (cfg.withdraw)   Object.assign(APP_CONFIG.withdraw,   cfg.withdraw);
+        if (cfg.telegram)   Object.assign(APP_CONFIG.telegram,   cfg.telegram);
+        if (cfg.ads)        Object.assign(APP_CONFIG.ads,        cfg.ads);
+        if (cfg.session_quality)     Object.assign(APP_CONFIG.session_quality,     cfg.session_quality);
+        if (cfg.progressive_cooldown) Object.assign(APP_CONFIG.progressive_cooldown, cfg.progressive_cooldown);
+        if (cfg.daily_gift) Object.assign(APP_CONFIG.daily_gift, cfg.daily_gift);
+    }
     document.querySelectorAll('[data-tg-channel]').forEach(el => {
         el.href = APP_CONFIG.telegram.channel_url;
     });
