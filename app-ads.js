@@ -668,19 +668,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (load.ad_cooldown_ms > 0) ads.cooldownUntil = Date.now() + load.ad_cooldown_ms;
 
-        if (load.tasks) {
-            _AS.tasks.ads10Done   = !!load.tasks.ads_10?.claimed;
-            _AS.tasks.ads25Done   = !!load.tasks.ads_25?.claimed;
-            _AS.tasks.invite3Done = !!load.tasks.daily_refs_3?.claimed;
-            if (load.tasks.ads_10?.completed  && !load.tasks.ads_10?.claimed)  _markDailyDone('dtask-ads10',false);
-            else if (load.tasks.ads_10?.claimed) _markDailyDone('dtask-ads10',true);
-            if (load.tasks.ads_25?.completed  && !load.tasks.ads_25?.claimed)  _markDailyDone('dtask-ads25',false);
-            else if (load.tasks.ads_25?.claimed) _markDailyDone('dtask-ads25',true);
-            if (load.tasks.daily_refs_3?.completed && !load.tasks.daily_refs_3?.claimed) _markDailyDone('dtask-invite3',false);
-            else if (load.tasks.daily_refs_3?.claimed) _markDailyDone('dtask-invite3',true);
+        // السيرفر يرجع: completed_tasks: [{task_type, reward_claimed}] و tg_verified
+        if (load.completed_tasks?.length) {
+            const _ct = {};
+            load.completed_tasks.forEach(t => { _ct[t.task_type] = t; });
+            _AS.tasks.ads10Done   = !!(_ct['ads_10']?.reward_claimed);
+            _AS.tasks.ads25Done   = !!(_ct['ads_25']?.reward_claimed);
+            _AS.tasks.invite3Done = !!(_ct['daily_refs_3']?.reward_claimed);
+            // ads_10
+            if (_ct['ads_10'] && !_ct['ads_10'].reward_claimed)  _markDailyDone('dtask-ads10',false);
+            else if (_ct['ads_10']?.reward_claimed)               _markDailyDone('dtask-ads10',true);
+            // ads_25
+            if (_ct['ads_25'] && !_ct['ads_25'].reward_claimed)  _markDailyDone('dtask-ads25',false);
+            else if (_ct['ads_25']?.reward_claimed)               _markDailyDone('dtask-ads25',true);
+            // daily_refs_3
+            if (_ct['daily_refs_3'] && !_ct['daily_refs_3'].reward_claimed) _markDailyDone('dtask-invite3',false);
+            else if (_ct['daily_refs_3']?.reward_claimed)                    _markDailyDone('dtask-invite3',true);
         }
 
-        if (load.tg_task_verified) {
+        // تلغرام task — يرجع load.tg_verified من السيرفر
+        if (load.tg_verified) {
             _AS.tasks.tgVerified=true;
             document.getElementById('tg-action-wrap')?.style.setProperty('display','none');
             const ds=document.getElementById('tg-done-state');
@@ -706,14 +713,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (typeof window._initGiftUI === 'function') window._initGiftUI(load.gift);
         }
 
-        if (load.tasks?.tg_channel?.verified) {
-            _AS.tasks.tgVerified=true;
-            document.getElementById('tg-action-wrap')?.style.setProperty('display','none');
-            const ds=document.getElementById('tg-done-state');
-            if (ds) ds.style.display='block';
-            document.getElementById('tg-done-overlay')?.style.setProperty('display','block');
-            document.getElementById('tg-task-card')?.classList.add('completed');
-        }
+        // tg_verified handled above
 
         const pts = _AS.balance;
         setTimeout(()=>{ animateBalance(0,pts,1600); runCounters(document); },120);

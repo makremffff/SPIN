@@ -36,14 +36,17 @@ const _AD_NOTIF_MESSAGES = {
 const _ANQ_MAX = 50;
 const _ANQ_DEDUP_MS = 3000; // منع التكرار خلال 3 ثواني
 
+// مدة عرض كل إشعار + الفاصل بين إشعار والتالي (4 ثواني)
+const _ANQ_DISPLAY_MS  = 4000;   // كل إشعار يظهر 4 ثواني
+const _ANQ_GAP_MS      = 500;    // فاصل نصف ثانية بعد اختفاء الإشعار قبل التالي
+
 class _AdNotifQueueClass {
     constructor() {
-        this._queue   = [];   // إشعارات معلّقة (لم تُعرض بعد)
-        this._shown   = [];   // إشعارات أُرسلت بنجاح
-        this._lastKey = '';   // مفتاح آخر إشعار للتحقق من التكرار
-        this._lastTs  = 0;    // وقت آخر إشعار
-        this._retries = {};   // عدد إعادة المحاولات لكل key
-        this._flushing = false;
+        this._queue    = [];    // إشعارات معلّقة
+        this._shown    = [];    // إشعارات عُرضت
+        this._lastKey  = '';
+        this._lastTs   = 0;
+        this._busy     = false; // هل يعرض حالياً إشعاراً؟
     }
 
     // إضافة إشعار للـ Queue
@@ -51,73 +54,58 @@ class _AdNotifQueueClass {
         if (!notif?.type) return;
         const key = notif.type + '_' + (notif.title || '');
 
-        // منع التكرار السريع
+        // منع التكرار السريع خلال 3 ثواني
         if (key === this._lastKey && (Date.now() - this._lastTs) < _ANQ_DEDUP_MS) return;
-
         this._lastKey = key;
         this._lastTs  = Date.now();
 
-        const item = {
+        this._queue.push({
             ...notif,
-            ts:      notif.ts || Date.now(),
-            _key:    key,
-            _tries:  0,
-        };
-
-        this._queue.push(item);
+            ts:     notif.ts || Date.now(),
+            _key:   key,
+            _tries: 0,
+        });
         if (this._queue.length > _ANQ_MAX) this._queue.shift();
 
-        // حاول عرضه فوراً
-        this._processNext();
+        // ابدأ العرض إذا مو مشغول
+        if (!this._busy) this._processNext();
     }
 
-    // عرض الإشعار التالي في الـ Queue
+    // عرض إشعار واحد ثم انتظر 4.5 ثانية قبل التالي
     _processNext() {
-        if (this._flushing || !this._queue.length) return;
+        if (!this._queue.length) { this._busy = false; return; }
+        this._busy = true;
         const item = this._queue.shift();
-        this._display(item);
-    }
-
-    // عرض إشعار واحد
-    _display(item) {
         const meta = _AD_NOTIF_MESSAGES[item.type] || _AD_NOTIF_MESSAGES.error;
+
         try {
-            _showAdNotifBanner(item, meta);
+            _showAdNotifBanner(item, meta, _ANQ_DISPLAY_MS);
             this._shown.unshift(item);
             if (this._shown.length > _ANQ_MAX) this._shown.pop();
         } catch(e) {
-            // retry بعد تأخير
             item._tries = (item._tries || 0) + 1;
             if (item._tries <= 3) {
-                setTimeout(() => {
-                    this._queue.unshift(item);
-                    this._processNext();
-                }, 800 * item._tries);
+                this._queue.unshift(item); // أعده للمقدمة
             }
         }
+
+        // بعد انتهاء وقت العرض + فاصل صغير → الإشعار التالي
+        setTimeout(() => this._processNext(), _ANQ_DISPLAY_MS + _ANQ_GAP_MS);
     }
 
-    // إعادة إرسال جميع الإشعارات المعلّقة (عند استعادة الاتصال)
+    // إعادة إرسال المعلّقة عند استعادة الاتصال
     flush() {
-        this._flushing = false;
-        // أعد جميع المعلّقة
-        const pending = [...this._queue];
-        this._queue = [];
-        pending.forEach(item => {
-            setTimeout(() => this._display(item), 200 * pending.indexOf(item));
-        });
+        this._busy = false;
+        if (this._queue.length && !this._busy) this._processNext();
     }
 
-    // مسح الـ Queue
-    clear() {
-        this._queue = [];
-    }
+    clear() { this._queue = []; this._busy = false; }
 }
 
 // ── Banner عرض إشعار الإعلان الخاص ──────────────────────
 let _adNotifBannerTimeout = null;
 
-function _showAdNotifBanner(item, meta) {
+function _showAdNotifBanner(item, meta, displayMs = 3500) {
     // احصل على الـ container أو أنشئه
     let cont = document.getElementById('ad-notif-banner-container');
     if (!cont) {
@@ -193,7 +181,7 @@ function _showAdNotifBanner(item, meta) {
         banner.style.opacity    = '0';
         banner.style.transition = 'all 0.28s ease';
         setTimeout(() => banner.remove(), 300);
-    }, 3500);
+    }, displayMs);
 }
 
 function _fmtTs(ts) {
