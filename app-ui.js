@@ -271,8 +271,8 @@ async function _loadInvitePage() {
     try {
         const res = await _fetchApi({ type: 'get_referrals', data: {} });
         if (!res?.ok) return;
-        // update stats counters
-        const totalRefs  = parseInt(res.total_referrals)  || 0;
+        // العدد الفعلي من referral_list (يشمل غير المفعّلين) بدل total_referrals المخزون
+        const totalRefs  = Array.isArray(res.referral_list) ? res.referral_list.length : (parseInt(res.total_referrals) || 0);
         const earnedRefs = parseInt(res.earned_from_refs) || 0;
         const statVals = document.querySelectorAll('#page-invite .invite-stat-val .counter');
         if (statVals[0]) { statVals[0].textContent = totalRefs.toLocaleString('en-US'); statVals[0].dataset.target = totalRefs; }
@@ -346,7 +346,8 @@ export function renderReferralList(list, total) {
             </div>
         </div><div class="shine-line-sm" style="margin:2px 10px;"></div>`;
     }).join('');
-    const extra = total-list.length;
+    // extra: إذا كان هناك إحالات أكثر من المعروضة (20 كحد أقصى) نعرض الباقي
+    const extra = Math.max(0, total - list.length);
     if (extra>0) html += `<div style="text-align:center;padding:12px 0 4px;"><span style="font-size:12px;font-weight:700;color:var(--purple);opacity:0.7;">+${extra} صديق آخر</span></div>`;
     container.innerHTML = html;
     // hide empty state if visible
