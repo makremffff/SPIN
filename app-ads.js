@@ -66,7 +66,7 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
     " alt="">
 
     <div style="
-        font-family:'DynaPuff',sans-serif;
+        font-family:'Tajawal',sans-serif;
         font-size:15px;
         font-weight:700;
         color:#fbbf24;
@@ -87,7 +87,7 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
         border:none;
         border-radius:12px;
         padding:11px 32px;
-        font-family:'DynaPuff',sans-serif;
+        font-family:'Tajawal',sans-serif;
         font-size:14px;
         font-weight:700;
         color:#1a0f00;
