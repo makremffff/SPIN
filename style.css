@@ -780,6 +780,16 @@
             border: 1px solid rgba(251,191,36,0.25);
             color: rgba(251,191,36,0.85);
         }
+        .withdraw-hist-badge.completed {
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.25);
+            color: rgba(34,197,94,0.9);
+        }
+        .withdraw-hist-badge.rejected {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: rgba(239,68,68,0.9);
+        }
 
         /* ══════════════════════════════════════════
            BOTTOM NAV

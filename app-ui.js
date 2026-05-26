@@ -376,7 +376,7 @@ export function renderWithdrawHistory() {
             <div class="withdraw-hist-right">
                 <div class="withdraw-hist-pts">${item.pts.toLocaleString('en-US')}</div>
                 <div class="withdraw-hist-ton">${ton} TON</div>
-                <div class="withdraw-hist-badge pending">قيد المعالجة</div>
+                <div class="withdraw-hist-badge ${item.status||"pending"}">${item.status==="completed"?"مكتمل":item.status==="rejected"?"مرفوض":"قيد المعالجة"}</div>
             </div>
         </div>`;
     }).join('');
