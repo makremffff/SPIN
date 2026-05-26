@@ -254,17 +254,18 @@ export async function watchAd() {
     }
 
     ads.isWatching=true;
-    const btn      = document.getElementById('ad-watch-btn');
+    // نجيب الزر دايماً fresh — الـ Adsgram SDK قد يعمل re-render أثناء الإعلان
+    const _btn     = () => document.getElementById('ad-watch-btn');
     const overlay  = document.getElementById('ad-watch-overlay');
     const countEl  = document.getElementById('overlay-count');
     const labelEl  = document.getElementById('overlay-label');
     const preBar   = document.getElementById('ad-preload-bar');
-    if (btn) btn.classList.add('disabled');
+    if (_btn()) _btn().classList.add('disabled');
 
     // SDK check
     if (!window.Adsgram||window._adsgramLoadStatus!=='loaded') {
         if (window._adsgramLoadStatus==='failed') {
-            ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+            ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
             showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
@@ -277,7 +278,7 @@ export async function watchAd() {
         });
         if (overlay) overlay.classList.remove('visible');
         if (!loaded) {
-            ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+            ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
             showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
@@ -292,7 +293,7 @@ export async function watchAd() {
 
         const done = await _showAd();
         if (!done) {
-            ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+            ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
             if (preBar) preBar.style.width='0%';
             showToast('coin','الإعلان لم يكتمل','شاهد الإعلان حتى النهاية','red','');
             return;
@@ -318,7 +319,7 @@ export async function watchAd() {
     _isClaimingAd = true;
     const startRes = await _dbCall('start_ad', {});
     if (!startRes.ok) {
-        ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+        ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
         _isClaimingAd = false;
         if (preBar) preBar.style.width='0%';
         if (startRes.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); }
@@ -329,7 +330,7 @@ export async function watchAd() {
 
     const adNonce = startRes.ad_nonce;
     if (!adNonce) {
-        ads.isWatching=false; if(btn) btn.classList.remove('disabled');
+        ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
         _isClaimingAd = false;
         if (preBar) preBar.style.width='0%';
         showToast('coin','خطأ في المعالجة','حاول مرة أخرى','red','');
@@ -355,31 +356,18 @@ export async function watchAd() {
 
         if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
 
-        const fullPts = _AC.rewards?.points_per_ad||50;
-        const pts     = result.points_awarded !== undefined ? result.points_awarded : fullPts;
+        const fullPts   = _AC.rewards?.points_per_ad||50;
+        const pts       = result.points_awarded !== undefined ? result.points_awarded : fullPts;
         const isPartial = !!result.partial;
 
-        // فيبريشن صريح
-        try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
-        try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
-
-        if (isPartial) {
-            // إشعار وسط الشاشة — مكافأة جزئية
-            _showPartialAdNotice(pts, fullPts);
-            pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${pts} نقطة (50%)`);
-        } else {
-            showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
-            pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
-        }
-
-        // ── عدّاد تنازلي داخل الزر ──
-        if (ads.remaining > 0 && btn) {
-            // أوقف أي عدّاد قديم
+        // ── عدّاد تنازلي داخل الزر — نجيبه fresh بعد الإعلان ──
+        const bNow = _btn();
+        if (ads.remaining > 0 && bNow) {
             if (ads._cooldownTimer) { clearInterval(ads._cooldownTimer); ads._cooldownTimer = null; }
-            btn.classList.add('disabled');
+            bNow.classList.add('disabled');
             let remSec = Math.ceil(cdMs / 1000);
             ads._btnCooldownActive = true;
-            btn.innerHTML = `<div class="btn-shimmer"></div>`
+            bNow.innerHTML = `<div class="btn-shimmer"></div>`
                 + `<div id="ad-btn-countdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'DynaPuff',sans-serif;font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:2px;text-shadow:0 0 14px rgba(251,191,36,0.6);"><img src="asesst/loading.gif" alt="" style="width:22px;height:22px;opacity:0.85;">${remSec}s</div>`;
             ads._cooldownTimer = setInterval(() => {
                 remSec--;
@@ -388,27 +376,47 @@ export async function watchAd() {
                 if (remSec <= 0) {
                     clearInterval(ads._cooldownTimer); ads._cooldownTimer = null;
                     ads._btnCooldownActive = false;
-                    btn.innerHTML = `<div class="btn-shimmer"></div>`
-                        + `<div class="earn-cta-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4l14 8-14 8V4z" fill="#fbbf24" opacity=".9"/></svg></div>`
-                        + `<div class="earn-cta-lbl" data-i18n="watch_ad">شاهد إعلاناً</div>`
-                        + `<div class="earn-cta-reward"><div class="earn-cta-rnum">+${pts}</div><div class="earn-cta-rsub" data-i18n="pts">نقطة</div></div>`;
-                    btn.classList.remove('disabled');
+                    const bFinal = _btn();
+                    if (bFinal) {
+                        bFinal.innerHTML = `<div class="btn-shimmer"></div>`
+                            + `<div class="earn-cta-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4l14 8-14 8V4z" fill="#fbbf24" opacity=".9"/></svg></div>`
+                            + `<div class="earn-cta-lbl" data-i18n="watch_ad">شاهد إعلاناً</div>`
+                            + `<div class="earn-cta-reward"><div class="earn-cta-rnum">+${fullPts}</div><div class="earn-cta-rsub" data-i18n="pts">نقطة</div></div>`;
+                        bFinal.classList.remove('disabled');
+                    }
                 }
             }, 1000);
-        } else if (btn) {
-            btn.classList.remove('disabled');
+        } else if (bNow) {
+            bNow.classList.remove('disabled');
         }
 
         // updateAdUI بدون تدخّل بالزر إذا عنده عدّاد
         _updateAdUINoBtn();
 
+        // ── Vibration + Toast + Notif بعد delay قصير عشان Adsgram SDK overlay يختفي ──
+        setTimeout(() => {
+            // فيبريشن صريح
+            try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
+            try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
+
+            if (isPartial) {
+                _showPartialAdNotice(pts, fullPts);
+                pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${pts} نقطة (50%)`);
+            } else {
+                showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
+                pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
+            }
+        }, 350);
+
     } else {
-        if (btn) btn.classList.remove('disabled');
+        if (_btn()) _btn().classList.remove('disabled');
         if (result.error==='cooldown_active') { ads.cooldownUntil=Date.now()+(result.wait_ms||30000); updateAdUI(); }
         else if (result.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); showToast('trophy','انتهت إعلانات اليوم 🏆','عُد غداً لمزيد من النقاط','green',''); }
         else if (result.error==='ad_duration_invalid') showToast('coin','الإعلان لم يكتمل','شاهد الإعلان بالكامل','red','');
         else showToast('coin','خطأ في المعالجة','حاول مرة أخرى','red','');
         updateAdUI();
+        // تأكد الزر يرجع حالته
+        const bErr = _btn(); if (bErr) bErr.classList.remove('disabled');
     }
 }
 
