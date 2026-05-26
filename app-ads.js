@@ -669,6 +669,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     initTelegramUser();
     window._REFERRAL_LINK = REFERRAL_LINK;
 
+    // ── Safety net: إذا ما اتخفّت شاشة التحميل خلال 8 ثوانٍ → أخفها قسراً
+    // (يحدث عند تعليق الـ fetch بسبب ضعف الشبكة أو غيابها)
+    const _loadingFallbackTimer = setTimeout(() => {
+        _hideLoadingScreen();
+    }, 8000);
+
     try {
         await createSession();
         const load=await fetchApi({ type:'load', data:{} });
@@ -797,6 +803,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch(e) {
         console.error('[INIT]',e.message);
     } finally {
+        clearTimeout(_loadingFallbackTimer); // ألغِ الـ safety timer — التحميل انتهى طبيعياً
         _hideLoadingScreen();
     }
 
