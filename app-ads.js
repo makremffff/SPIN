@@ -33,88 +33,6 @@ let _adStartedAt     = 0;
 let _adRetryCount    = 0;
 let _isClaimingAd    = false;   // ← guard ضد double-claim
 
-// ══════════════════════════════════════════════════════════
-// AD SESSION MANAGER — جودة ذكية + توقيتات تصاعدية طبيعية
-// ══════════════════════════════════════════════════════════
-const _AD_SESSION = {
-    consecutiveCount:  0,
-    lastAdCompletedAt: 0,
-
-    // عتبات المكافأة (ms)
-    BASIC_MS: 30000,   // 30–31s → مكافأة أساسية
-    FULL_MS:  32000,   // 32s+   → مكافأة كاملة
-
-    // cooldown تصاعدي: 1→60s · 2→90s · 3+→120s
-    _steps: [60000, 90000, 120000],
-
-    // Jitter طبيعي — يمنع التوقيتات المتطابقة دائماً (1200–4000ms)
-    _jitter() { return 1200 + Math.floor(Math.random() * 2800); },
-
-    getCooldown() {
-        const idx = Math.min(this.consecutiveCount, this._steps.length - 1);
-        return this._steps[idx] + this._jitter();
-    },
-
-    getQuality(ms) {
-        if (ms >= this.FULL_MS)  return 'full';
-        if (ms >= this.BASIC_MS) return 'basic';
-        return 'incomplete';
-    },
-
-    // إعادة الإحصاء إذا أخذ المستخدم استراحة أكثر من 5 دقائق
-    checkStreak() {
-        if (this.lastAdCompletedAt && Date.now() - this.lastAdCompletedAt > 300000)
-            this.consecutiveCount = 0;
-    },
-
-    markComplete() {
-        this.lastAdCompletedAt = Date.now();
-        if (this.consecutiveCount < this._steps.length - 1) this.consecutiveCount++;
-    },
-};
-
-// ══════════════════════════════════════════════════════════
-// PLAY REMINDER — تذكير وسط الشاشة · ≥ 4 ثوانٍ
-// ══════════════════════════════════════════════════════════
-let _playReminderInjected = false;
-
-function _injectPlayReminder() {
-    if (_playReminderInjected || document.getElementById('play-reminder-overlay')) return;
-    _playReminderInjected = true;
-    const el = document.createElement('div');
-    el.id = 'play-reminder-overlay';
-    el.setAttribute('aria-hidden', 'true');
-    el.innerHTML = `
-        <div class="plr-card">
-            <div class="plr-pulse"></div>
-            <div class="plr-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10"
-                        fill="rgba(251,191,36,.12)"
-                        stroke="rgba(251,191,36,.55)" stroke-width="1.5"/>
-                    <path d="M9.5 7.5l7 4.5-7 4.5V7.5z" fill="#fbbf24"/>
-                </svg>
-            </div>
-            <div class="plr-title">للحصول على <span class="plr-gold">كامل الجائزة</span></div>
-            <div class="plr-body">اضغط <strong>▶ تشغيل</strong> وتفاعل مع الإعلان</div>
-        </div>`;
-    document.body.appendChild(el);
-}
-
-function _showPlayReminder() {
-    _injectPlayReminder();
-    return new Promise(resolve => {
-        const ov = document.getElementById('play-reminder-overlay');
-        if (!ov) { resolve(); return; }
-        ov.classList.add('plr-visible');
-        // مدة عرض ≥ 4 ثوانٍ كما هو مطلوب، ثم يختفي تلقائياً
-        setTimeout(() => {
-            ov.classList.remove('plr-visible');
-            setTimeout(resolve, 380); // انتظر نهاية الـ transition
-        }, 4300);
-    });
-}
-
 function _initAdController() {
     if (!window.Adsgram||_adController) return _adController;
     try { _adController = window.Adsgram.init({ blockId:AD_BLOCK_ID, debug:false, debugBanners:false }); }
@@ -251,11 +169,6 @@ export async function watchAd() {
     const preBar   = document.getElementById('ad-preload-bar');
     if (btn) btn.classList.add('disabled');
 
-    // ── تذكير اضغط ▶ — وسط الشاشة ≥ 4 ثوانٍ قبل تحميل الإعلان ──
-    _AD_SESSION.checkStreak();
-    await _showPlayReminder();
-    // ─────────────────────────────────────────────────────────────
-
     // SDK check
     if (!window.Adsgram||window._adsgramLoadStatus!=='loaded') {
         if (window._adsgramLoadStatus==='failed') {
@@ -345,6 +258,9 @@ export async function watchAd() {
         ads.remaining    = result.remaining;
         ads.watched      = result.watchedToday;
         ads.earned       = result.earnedToday;
+        const cdMs       = result.cooldown_ms||_AC.ads?.cooldown_ms||30000;
+        ads.cooldownUntil= Date.now()+cdMs;
+
         if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
 
         const pts = _AC.rewards?.points_per_ad||50;
@@ -353,20 +269,11 @@ export async function watchAd() {
         try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
         try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
-        // ── تحديد جودة الجلسة للإشعار ──
-        const _sessionElapsed = Date.now() - _adStartedAt;
-        const _sessionQuality = _AD_SESSION.getQuality(_sessionElapsed);
-        const _qualityLabel   = _sessionQuality === 'full'
-            ? `شاهدت ${result.watchedToday} إعلان · جائزة كاملة ✨`
-            : `شاهدت ${result.watchedToday} إعلان اليوم`;
-
-        showToast('trophy',`تم إضافة +${pts} نقطة 🎉`, _qualityLabel,'green',`+${pts}`);
+        showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
         pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
 
-        // ── cooldown تصاعدي ذكي بدلاً من الثابت ──
-        _AD_SESSION.markComplete();
-        const cdMs = _AD_SESSION.getCooldown();
-        ads.cooldownUntil= Date.now()+cdMs;
+        // ── عدّاد تنازلي داخل الزر ──
+        if (ads.remaining > 0 && btn) {
             // أوقف أي عدّاد قديم
             if (ads._cooldownTimer) { clearInterval(ads._cooldownTimer); ads._cooldownTimer = null; }
             btn.classList.add('disabled');
@@ -669,12 +576,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     initTelegramUser();
     window._REFERRAL_LINK = REFERRAL_LINK;
 
-    // ── Safety net: إذا ما اتخفّت شاشة التحميل خلال 8 ثوانٍ → أخفها قسراً
-    // (يحدث عند تعليق الـ fetch بسبب ضعف الشبكة أو غيابها)
-    const _loadingFallbackTimer = setTimeout(() => {
-        _hideLoadingScreen();
-    }, 8000);
-
     try {
         await createSession();
         const load=await fetchApi({ type:'load', data:{} });
@@ -803,12 +704,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch(e) {
         console.error('[INIT]',e.message);
     } finally {
-        clearTimeout(_loadingFallbackTimer); // ألغِ الـ safety timer — التحميل انتهى طبيعياً
         _hideLoadingScreen();
     }
 
     _loadChannels();
-    _injectPlayReminder(); // حقن overlay التذكير
     _atBindWidget();
     // Run entrance animation if tasks page is active on load
     if (document.getElementById('page-tasks')?.classList.contains('active')) {

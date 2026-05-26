@@ -25,21 +25,11 @@ let   _unread = 0;
 /**
  * pushNotif(type, title, body)
  * type: 'gold' | 'ton' | 'error'
- * يضيف للقائمة + يحدث الـ badge مع retry إذا الـ DOM غير جاهز
+ * يضيف للقائمة + يحدث الـ badge
  */
 export function pushNotif(type, title, body) {
     _NOTIFS.unshift({ type, title, body, ts: Date.now(), read: false });
     _unread++;
-    _tryUpdateNotifBadge(0);
-}
-
-function _tryUpdateNotifBadge(retries) {
-    const badge = document.getElementById('notif-badge');
-    if (!badge) {
-        // retry حتى 6 مرات إذا الـ DOM ما يكون حاضر بعد
-        if (retries < 6) setTimeout(() => _tryUpdateNotifBadge(retries + 1), 500);
-        return;
-    }
     _updateNotifBadge();
 }
 
@@ -121,31 +111,13 @@ const _ICONS = {
     error:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#f87171" stroke-width="1.8"/><path d="M12 8v4M12 16h.01" stroke="#f87171" stroke-width="1.8" stroke-linecap="round"/></svg>`,
 };
 
-// ══════════════════════════════════════════════════════════
-// TOAST QUEUE — نظام قائمة + retry آمن
-// ══════════════════════════════════════════════════════════
-const _TOAST_QUEUE = [];
-let   _toastBusy   = false;
-
-async function _drainToastQueue() {
-    if (_toastBusy || !_TOAST_QUEUE.length) return;
-    _toastBusy = true;
-    while (_TOAST_QUEUE.length) {
-        const item = _TOAST_QUEUE.shift();
-        _renderToast(item);
-        // فاصل بسيط بين الـ toasts المتتالية
-        await new Promise(r => setTimeout(r, 350));
+export function showToast(icon, title, desc, color, badge) {
+    if (color === 'green') {
+        try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
+        try { if (navigator.vibrate) navigator.vibrate([80,40,80]); } catch(e){}
     }
-    _toastBusy = false;
-}
-
-function _renderToast({ icon, title, desc, color, badge }, retries = 0) {
     const container = document.getElementById('ad-toast-container');
-    if (!container) {
-        // retry — الـ container ممكن ما يكون محمّل بعد
-        if (retries < 5) setTimeout(() => _renderToast({ icon, title, desc, color, badge }, retries + 1), 500);
-        return;
-    }
+    if (!container) return;
     const el = document.createElement('div');
     el.className = 'ad-toast';
     el.innerHTML = `
@@ -161,15 +133,6 @@ function _renderToast({ icon, title, desc, color, badge }, retries = 0) {
         el.classList.add('hide'); el.classList.remove('show');
         setTimeout(() => el.remove(), 400);
     }, 3200);
-}
-
-export function showToast(icon, title, desc, color, badge) {
-    if (color === 'green') {
-        try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
-        try { if (navigator.vibrate) navigator.vibrate([80,40,80]); } catch(e){}
-    }
-    _TOAST_QUEUE.push({ icon, title, desc, color, badge });
-    _drainToastQueue();
 }
 
 // ══════════════════════════════════════════════════════════
