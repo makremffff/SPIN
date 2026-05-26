@@ -122,6 +122,7 @@ const AD_PRELOAD     = 1;
 
 let _adController    = null;
 let _adStartedAt     = 0;
+let _adElapsedMs     = 0;       // مدة الإعلان الفعلية من controller.show()
 let _adRetryCount    = 0;
 let _isClaimingAd    = false;   // ← guard ضد double-claim
 
@@ -214,21 +215,24 @@ export function updateAdUI() {
 // SHOW AD (Adsgram SDK)
 // ══════════════════════════════════════════════════════════
 function _showAd() {
+    // يرجع { ok: true, elapsed_ms } أو { ok: false }
     return new Promise(async resolve => {
         const controller = _initAdController();
-        if (!controller) { resolve(false); return; }
+        if (!controller) { resolve({ ok: false }); return; }
 
         await fetchApi({ type:'track_ad_event', data:{ event:'ad_requested', ad_type:'daily_ad', meta:{ block_id:AD_BLOCK_ID } } });
-        _adStartedAt = Date.now();
+
+        // نسجل الوقت مباشرة قبل controller.show() — هذا هو الوقت الحقيقي للإعلان
+        const showStart = Date.now();
 
         try {
             const result = await controller.show();
             if (result?.done===true) {
-                const elapsed = Date.now()-_adStartedAt;
-                if (elapsed<AD_MIN_MS) { resolve(false); return; }
+                const elapsed = Date.now() - showStart;
+                if (elapsed < AD_MIN_MS) { resolve({ ok: false }); return; }
                 _adRetryCount=0;
-                resolve(true);
-            } else { resolve(false); }
+                resolve({ ok: true, elapsed_ms: elapsed });
+            } else { resolve({ ok: false }); }
         } catch(result) {
             if (result?.error===true && _adRetryCount<AD_MAX_RETRIES) {
                 _adRetryCount++;
@@ -237,7 +241,7 @@ function _showAd() {
                 return;
             }
             _adRetryCount=0;
-            resolve(false);
+            resolve({ ok: false });
         }
     });
 }
@@ -291,13 +295,14 @@ export async function watchAd() {
         await new Promise(r=>setTimeout(r,600));
         if (overlay) overlay.classList.remove('visible');
 
-        const done = await _showAd();
-        if (!done) {
+        const adResult = await _showAd();
+        if (!adResult.ok) {
             ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
             if (preBar) preBar.style.width='0%';
             showToast('coin','الإعلان لم يكتمل','شاهد الإعلان حتى النهاية','red','');
             return;
         }
+        _adElapsedMs = adResult.elapsed_ms; // نحفظ elapsed الحقيقي
         successCount++;
 
         if (i<AD_PRELOAD-1) {
@@ -337,9 +342,9 @@ export async function watchAd() {
         return;
     }
 
-    // [2] reward_ad — نونس يُرسَل مرة وحدة كـ external nonce
+    // [2] reward_ad — نرسل elapsed_ms الحقيقي من controller.show()
     const result = await _dbCall('reward_ad',
-        { ad_started_at: _adStartedAt, preload_count: successCount },
+        { ad_elapsed_ms: _adElapsedMs, preload_count: successCount },
         adNonce  // ← external nonce من start_ad
     );
 
