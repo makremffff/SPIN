@@ -45,7 +45,6 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
 </style>
 <div style="
     background:linear-gradient(black,transparent);
-    border:1.5px solid rgba(251,191,36,.25);
     border-radius:22px;
     padding:28px 24px 22px;
     max-width:300px;
