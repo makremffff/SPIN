@@ -21,6 +21,98 @@ const _AS = APP_STATE;
 const _AC = APP_CONFIG;
 
 // ══════════════════════════════════════════════════════════
+// PARTIAL AD REWARD NOTICE — إشعار وسط الشاشة
+// ══════════════════════════════════════════════════════════
+function _showPartialAdNotice(ptsEarned, fullPts) {
+    // منع تكرار
+    const existing = document.getElementById('partial-ad-notice');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'partial-ad-notice';
+    overlay.style.cssText = [
+        'position:fixed', 'inset:0', 'z-index:99999',
+        'display:flex', 'align-items:center', 'justify-content:center',
+        'background:rgba(0,0,0,0.72)', 'backdrop-filter:blur(6px)',
+        '-webkit-backdrop-filter:blur(6px)',
+        'animation:_panFadeIn .25s ease',
+    ].join(';');
+
+    overlay.innerHTML = `
+<style>
+@keyframes _panFadeIn  { from { opacity:0; transform:scale(.92) } to { opacity:1; transform:scale(1) } }
+@keyframes _panFadeOut { from { opacity:1; transform:scale(1) } to { opacity:0; transform:scale(.92) } }
+</style>
+<div style="
+    background:linear-gradient(145deg,rgba(30,20,10,.97),rgba(45,28,8,.97));
+    border:1.5px solid rgba(251,191,36,.25);
+    border-radius:22px;
+    padding:28px 24px 22px;
+    max-width:300px;
+    width:88%;
+    text-align:center;
+    box-shadow:0 8px 40px rgba(0,0,0,.7),0 0 0 1px rgba(251,191,36,.07);
+    position:relative;
+">
+    <img src="asesst/play.jpg" style="
+        width:300px; height:130px;
+        object-fit:cover;
+        border-radius:17px;
+        margin-bottom:16px;
+        max-width:100%;
+        display:block;
+        margin-left:auto;
+        margin-right:auto;
+    " alt="">
+
+    <div style="
+        font-family:'DynaPuff',sans-serif;
+        font-size:15px;
+        font-weight:700;
+        color:#fbbf24;
+        line-height:1.5;
+        margin-bottom:10px;
+    ">⚠️ يجب عليك التفاعل مع الإعلان<br>للحصول على الجائزة الكاملة</div>
+
+    <div style="
+        font-size:13px;
+        color:rgba(255,255,255,.65);
+        margin-bottom:18px;
+        line-height:1.5;
+    ">حصلت على <span style="color:#fbbf24;font-weight:700;">+${ptsEarned}</span> نقطة (50%)<br>
+    بدلاً من <span style="color:#34d399;font-weight:700;">+${fullPts}</span> نقطة كاملة</div>
+
+    <button id="partial-ad-notice-close" style="
+        background:linear-gradient(135deg,#f59e0b,#d97706);
+        border:none;
+        border-radius:12px;
+        padding:11px 32px;
+        font-family:'DynaPuff',sans-serif;
+        font-size:14px;
+        font-weight:700;
+        color:#1a0f00;
+        cursor:pointer;
+        width:100%;
+        letter-spacing:.3px;
+    ">حسناً، فهمت!</button>
+</div>`;
+
+    document.body.appendChild(overlay);
+
+    // إغلاق بالزر أو بالضغط خارج الكارد
+    const closeNotice = () => {
+        overlay.style.animation = '_panFadeOut .2s ease forwards';
+        setTimeout(() => overlay.remove(), 220);
+    };
+    document.getElementById('partial-ad-notice-close')?.addEventListener('click', closeNotice);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeNotice(); });
+
+    // إغلاق تلقائي بعد 8 ثوانٍ
+    setTimeout(closeNotice, 8000);
+}
+
+
+// ══════════════════════════════════════════════════════════
 // AD CONTROLLER (daily ads only)
 // ══════════════════════════════════════════════════════════
 const AD_BLOCK_ID    = '30161';
@@ -263,14 +355,22 @@ export async function watchAd() {
 
         if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
 
-        const pts = _AC.rewards?.points_per_ad||50;
+        const fullPts = _AC.rewards?.points_per_ad||50;
+        const pts     = result.points_awarded !== undefined ? result.points_awarded : fullPts;
+        const isPartial = !!result.partial;
 
         // فيبريشن صريح
         try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
         try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
-        showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
-        pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
+        if (isPartial) {
+            // إشعار وسط الشاشة — مكافأة جزئية
+            _showPartialAdNotice(pts, fullPts);
+            pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${pts} نقطة (50%)`);
+        } else {
+            showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
+            pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
+        }
 
         // ── عدّاد تنازلي داخل الزر ──
         if (ads.remaining > 0 && btn) {
