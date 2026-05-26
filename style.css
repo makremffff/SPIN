@@ -3003,3 +3003,117 @@
             color:rgba(245,200,66,.65);
         }
         .tasks-add-channel-btn:active { transform:scale(.98); }
+
+        /* ═══════════════════════════════════════════════════════════
+           PLAY REMINDER OVERLAY — وسط الشاشة · تختفي تلقائياً
+           ═══════════════════════════════════════════════════════════ */
+        #play-reminder-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99980;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.38s cubic-bezier(0.22,1,0.36,1);
+        }
+        #play-reminder-overlay.plr-visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .plr-card {
+            position: relative;
+            background: rgba(5, 3, 18, 0.94);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(251,191,36,0.28);
+            border-radius: 26px;
+            padding: 30px 32px 26px;
+            max-width: 305px;
+            width: 83vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 13px;
+            text-align: center;
+            direction: rtl;
+            box-shadow:
+                0 28px 70px rgba(0,0,0,0.8),
+                0 0 0 1px rgba(251,191,36,0.05) inset,
+                0 0 80px rgba(251,191,36,0.07);
+            transform: scale(0.87) translateY(14px);
+            transition: transform 0.46s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        #play-reminder-overlay.plr-visible .plr-card {
+            transform: scale(1) translateY(0);
+        }
+        .plr-pulse {
+            position: absolute;
+            inset: -1px;
+            border-radius: 26px;
+            border: 1.5px solid rgba(251,191,36,0.38);
+            pointer-events: none;
+            animation: plrPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes plrPulse {
+            0%,100% { opacity: 0.3; box-shadow: 0 0 0 0 rgba(251,191,36,0.22); }
+            50%      { opacity: 0.8; box-shadow: 0 0 0 10px rgba(251,191,36,0); }
+        }
+        .plr-icon {
+            width: 62px; height: 62px;
+            border-radius: 50%;
+            background: rgba(251,191,36,0.08);
+            border: 1.5px solid rgba(251,191,36,0.32);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 26px rgba(251,191,36,0.18);
+            animation: plrIconPulse 2s ease-in-out infinite;
+        }
+        @keyframes plrIconPulse {
+            0%,100% { transform: scale(1);    box-shadow: 0 0 26px rgba(251,191,36,0.18); }
+            50%      { transform: scale(1.07); box-shadow: 0 0 36px rgba(251,191,36,0.32); }
+        }
+        .plr-title {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 15px;
+            font-weight: 800;
+            color: rgba(255,255,255,0.92);
+            line-height: 1.35;
+        }
+        .plr-gold { color: #fbbf24; }
+        .plr-body {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.55;
+        }
+        .plr-body strong {
+            color: rgba(251,191,36,0.88);
+            font-weight: 800;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           DUNFF (DynaPuff) — على كل عناصر الأرقام والتوقيتات
+           ═══════════════════════════════════════════════════════════ */
+        #ads-remaining,
+        #ads-watched,
+        #earned-today,
+        #ads-daily-limit,
+        #atask-cooldown-timer,
+        #atask-done-count,
+        #atask-daily-limit,
+        #atask-reward-label,
+        #adsgram-reward-badge,
+        #ad-btn-countdown,
+        .toast-badge,
+        .notif-item-time,
+        .earn-cta-rnum,
+        .withdraw-hist-pts,
+        .withdraw-hist-ton,
+        .referral-reward-text,
+        .ad-quota-total,
+        .uc-balance-num,
+        .balance-hero-number {
+            font-family: 'DynaPuff', 'Tajawal', monospace !important;
+        }

@@ -2,8 +2,6 @@
 // app-ads.js — Daily Ads · Tasks · Channels · Init
 // ══════════════════════════════════════════════════════════
 
-import { AdSessionEngine } from './ad-session-engine.js';
-
 import {
     APP_STATE, APP_CONFIG, _SERVER_CONFIG as _SC,
     WITHDRAW_HISTORY as _WH,
@@ -34,6 +32,88 @@ let _adController    = null;
 let _adStartedAt     = 0;
 let _adRetryCount    = 0;
 let _isClaimingAd    = false;   // ← guard ضد double-claim
+
+// ══════════════════════════════════════════════════════════
+// AD SESSION MANAGER — جودة ذكية + توقيتات تصاعدية طبيعية
+// ══════════════════════════════════════════════════════════
+const _AD_SESSION = {
+    consecutiveCount:  0,
+    lastAdCompletedAt: 0,
+
+    // عتبات المكافأة (ms)
+    BASIC_MS: 30000,   // 30–31s → مكافأة أساسية
+    FULL_MS:  32000,   // 32s+   → مكافأة كاملة
+
+    // cooldown تصاعدي: 1→60s · 2→90s · 3+→120s
+    _steps: [60000, 90000, 120000],
+
+    // Jitter طبيعي — يمنع التوقيتات المتطابقة دائماً (1200–4000ms)
+    _jitter() { return 1200 + Math.floor(Math.random() * 2800); },
+
+    getCooldown() {
+        const idx = Math.min(this.consecutiveCount, this._steps.length - 1);
+        return this._steps[idx] + this._jitter();
+    },
+
+    getQuality(ms) {
+        if (ms >= this.FULL_MS)  return 'full';
+        if (ms >= this.BASIC_MS) return 'basic';
+        return 'incomplete';
+    },
+
+    // إعادة الإحصاء إذا أخذ المستخدم استراحة أكثر من 5 دقائق
+    checkStreak() {
+        if (this.lastAdCompletedAt && Date.now() - this.lastAdCompletedAt > 300000)
+            this.consecutiveCount = 0;
+    },
+
+    markComplete() {
+        this.lastAdCompletedAt = Date.now();
+        if (this.consecutiveCount < this._steps.length - 1) this.consecutiveCount++;
+    },
+};
+
+// ══════════════════════════════════════════════════════════
+// PLAY REMINDER — تذكير وسط الشاشة · ≥ 4 ثوانٍ
+// ══════════════════════════════════════════════════════════
+let _playReminderInjected = false;
+
+function _injectPlayReminder() {
+    if (_playReminderInjected || document.getElementById('play-reminder-overlay')) return;
+    _playReminderInjected = true;
+    const el = document.createElement('div');
+    el.id = 'play-reminder-overlay';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `
+        <div class="plr-card">
+            <div class="plr-pulse"></div>
+            <div class="plr-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10"
+                        fill="rgba(251,191,36,.12)"
+                        stroke="rgba(251,191,36,.55)" stroke-width="1.5"/>
+                    <path d="M9.5 7.5l7 4.5-7 4.5V7.5z" fill="#fbbf24"/>
+                </svg>
+            </div>
+            <div class="plr-title">للحصول على <span class="plr-gold">كامل الجائزة</span></div>
+            <div class="plr-body">اضغط <strong>▶ تشغيل</strong> وتفاعل مع الإعلان</div>
+        </div>`;
+    document.body.appendChild(el);
+}
+
+function _showPlayReminder() {
+    _injectPlayReminder();
+    return new Promise(resolve => {
+        const ov = document.getElementById('play-reminder-overlay');
+        if (!ov) { resolve(); return; }
+        ov.classList.add('plr-visible');
+        // مدة عرض ≥ 4 ثوانٍ كما هو مطلوب، ثم يختفي تلقائياً
+        setTimeout(() => {
+            ov.classList.remove('plr-visible');
+            setTimeout(resolve, 380); // انتظر نهاية الـ transition
+        }, 4300);
+    });
+}
 
 function _initAdController() {
     if (!window.Adsgram||_adController) return _adController;
@@ -163,13 +243,6 @@ export async function watchAd() {
         return;
     }
 
-    // ── [ENGINE] تحضير الجلسة — فحص الشبكة + بدء FPS/Engagement tracking ──
-    const _sessPrep = await AdSessionEngine.prepareSession('standard');
-    if (!_sessPrep.ok) {
-        showToast('coin','الاتصال غير مستقر','تحقق من شبكتك وأعد المحاولة','red','');
-        return;
-    }
-
     ads.isWatching=true;
     const btn      = document.getElementById('ad-watch-btn');
     const overlay  = document.getElementById('ad-watch-overlay');
@@ -178,11 +251,15 @@ export async function watchAd() {
     const preBar   = document.getElementById('ad-preload-bar');
     if (btn) btn.classList.add('disabled');
 
+    // ── تذكير اضغط ▶ — وسط الشاشة ≥ 4 ثوانٍ قبل تحميل الإعلان ──
+    _AD_SESSION.checkStreak();
+    await _showPlayReminder();
+    // ─────────────────────────────────────────────────────────────
+
     // SDK check
     if (!window.Adsgram||window._adsgramLoadStatus!=='loaded') {
         if (window._adsgramLoadStatus==='failed') {
             ads.isWatching=false; if(btn) btn.classList.remove('disabled');
-            AdSessionEngine.handleFailure('sdk_failed');
             showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
@@ -196,7 +273,6 @@ export async function watchAd() {
         if (overlay) overlay.classList.remove('visible');
         if (!loaded) {
             ads.isWatching=false; if(btn) btn.classList.remove('disabled');
-            AdSessionEngine.handleFailure('sdk_load_timeout');
             showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
@@ -213,7 +289,6 @@ export async function watchAd() {
         if (!done) {
             ads.isWatching=false; if(btn) btn.classList.remove('disabled');
             if (preBar) preBar.style.width='0%';
-            AdSessionEngine.handleFailure('ad_not_completed');
             showToast('coin','الإعلان لم يكتمل','شاهد الإعلان حتى النهاية','red','');
             return;
         }
@@ -233,19 +308,6 @@ export async function watchAd() {
         }
     }
     if (preBar) { preBar.style.width='100%'; preBar.style.background='linear-gradient(90deg,#34d399,#10b981)'; }
-
-    // ── [ENGINE] تحليل الجلسة بعد انتهاء العرض ──────────────────
-    const _sessResult = AdSessionEngine.finalizeSession(successCount);
-    if (!_sessResult.ok) {
-        // الجلسة غير صالحة (backgrounded, implausible duration, etc.)
-        ads.isWatching=false; if(btn) btn.classList.remove('disabled');
-        if (preBar) preBar.style.width='0%';
-        const _flagMsg = _sessResult.analysis?.flags?.includes('backgrounded')
-            ? 'لا تُغلق التطبيق أثناء مشاهدة الإعلان'
-            : 'شاهد الإعلان بالكامل دون مقاطعة';
-        showToast('coin','الإعلان لم يُحتسب', _flagMsg,'red','');
-        return;
-    }
 
     // [1] start_ad → نحصل على nonce من السيرفر
     _isClaimingAd = true;
@@ -269,10 +331,10 @@ export async function watchAd() {
         return;
     }
 
-    // [2] reward_ad — يُرسل الـ payload الغني من الـ engine + nonce
+    // [2] reward_ad — نونس يُرسَل مرة وحدة كـ external nonce
     const result = await _dbCall('reward_ad',
-        _sessResult.payload,   // ← يحتوي على ad_started_at + كل metadata
-        adNonce
+        { ad_started_at: _adStartedAt, preload_count: successCount },
+        adNonce  // ← external nonce من start_ad
     );
 
     ads.isWatching=false;
@@ -283,11 +345,6 @@ export async function watchAd() {
         ads.remaining    = result.remaining;
         ads.watched      = result.watchedToday;
         ads.earned       = result.earnedToday;
-        // ── [ENGINE] cooldown ديناميكي بدل الثابت ────────────────
-        const cdMs = _sessResult.cooldownMs || result.cooldown_ms || _AC.ads?.cooldown_ms || 60000;
-        ads.cooldownUntil= Date.now()+cdMs;
-        AdSessionEngine.resetRetries();
-
         if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
 
         const pts = _AC.rewards?.points_per_ad||50;
@@ -296,11 +353,20 @@ export async function watchAd() {
         try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
         try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
-        showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
+        // ── تحديد جودة الجلسة للإشعار ──
+        const _sessionElapsed = Date.now() - _adStartedAt;
+        const _sessionQuality = _AD_SESSION.getQuality(_sessionElapsed);
+        const _qualityLabel   = _sessionQuality === 'full'
+            ? `شاهدت ${result.watchedToday} إعلان · جائزة كاملة ✨`
+            : `شاهدت ${result.watchedToday} إعلان اليوم`;
+
+        showToast('trophy',`تم إضافة +${pts} نقطة 🎉`, _qualityLabel,'green',`+${pts}`);
         pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
 
-        // ── عدّاد تنازلي داخل الزر ──
-        if (ads.remaining > 0 && btn) {
+        // ── cooldown تصاعدي ذكي بدلاً من الثابت ──
+        _AD_SESSION.markComplete();
+        const cdMs = _AD_SESSION.getCooldown();
+        ads.cooldownUntil= Date.now()+cdMs;
             // أوقف أي عدّاد قديم
             if (ads._cooldownTimer) { clearInterval(ads._cooldownTimer); ads._cooldownTimer = null; }
             btn.classList.add('disabled');
@@ -735,6 +801,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     _loadChannels();
+    _injectPlayReminder(); // حقن overlay التذكير
     _atBindWidget();
     // Run entrance animation if tasks page is active on load
     if (document.getElementById('page-tasks')?.classList.contains('active')) {
