@@ -1989,9 +1989,9 @@
             text-align: center;
         }
         .earn-stat-val {
-            font-family: 'Tajawal', sans-serif;
+            font-family: 'DynaPuff', sans-serif;
             font-size: 20px;
-            font-weight: 900;
+            font-weight: 700;
             color: var(--gold);
         }
         .earn-stat-label {
@@ -2265,7 +2265,7 @@
         }
 
         .toast-badge {
-            font-family: 'Tajawal', sans-serif;
+            font-family: 'DynaPuff', sans-serif;
             font-size: 14px;
             font-weight: 900;
             padding: 4px 10px;
@@ -2520,7 +2520,8 @@
         .invite-stat-card::before { display: none; }
 
         .invite-stat-val {
-            font-size: 28px; font-weight: 900;
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 28px; font-weight: 700;
             line-height: 1; margin-bottom: 6px;
             display: flex; align-items: center; justify-content: center; gap: 6px;
         }

@@ -44,7 +44,7 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
 @keyframes _panFadeOut { from { opacity:1; transform:scale(1) } to { opacity:0; transform:scale(.92) } }
 </style>
 <div style="
-    background:linear-gradient(145deg,rgba(30,20,10,.97),rgba(45,28,8,.97));
+    background:linear-gradient(black,transparent);
     border:1.5px solid rgba(251,191,36,.25);
     border-radius:22px;
     padding:28px 24px 22px;
