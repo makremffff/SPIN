@@ -682,8 +682,46 @@ async function _loadChannels() {
 }
 
 // ══════════════════════════════════════════════════════════
-// MAIN INIT
+// CHECK CHANNEL MEMBERSHIP
+// يفحص إذا المستخدم غادر أي قناة مكتملة → خصم 250 + إعادة المهمة
 // ══════════════════════════════════════════════════════════
+let _chkRunning = false;
+async function _checkChannelMembership() {
+    if (_chkRunning) return;
+    _chkRunning = true;
+    try {
+        const result = await fetchApi({ type: 'check_channel_membership', data: {} });
+        if (!result.ok || !Array.isArray(result.penalties) || !result.penalties.length) return;
+
+        // تحديث الرصيد
+        if (result.points !== undefined) {
+            animateBalance(_AS.balance, result.points, 800);
+            _AS.balance = result.points;
+        }
+
+        // إشعار لكل قناة تركها
+        for (const p of result.penalties) {
+            showToast(
+                'coin',
+                `غادرت قناة "${p.title}" ⚠️`,
+                `تم خصم ${p.penalty} نقطة · انضم مجدداً لاستعادة المهمة`,
+                'red',
+                `-${p.penalty}`
+            );
+            // delay بين الإشعارات إذا أكثر من قناة
+            if (result.penalties.length > 1) await new Promise(r => setTimeout(r, 2500));
+        }
+
+        // إعادة تحميل القنوات حتى تظهر المهمة مفتوحة مرة أخرى
+        await _loadChannels();
+    } catch(e) {
+        console.warn('[CHECK_CH]', e.message);
+    } finally {
+        _chkRunning = false;
+    }
+}
+
+
 window.addEventListener('DOMContentLoaded', async () => {
     initTelegramUser();
     window._REFERRAL_LINK = REFERRAL_LINK;
@@ -820,6 +858,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     _loadChannels();
+    _checkChannelMembership(); // ← فحص فوري عند الفتح
     _atBindWidget();
     // Run entrance animation if tasks page is active on load
     if (document.getElementById('page-tasks')?.classList.contains('active')) {

@@ -123,7 +123,7 @@ async function _getServerNonce(action) {
 // هذه الـ actions لا تحتاج nonce (polling / session / tracking فقط)
 const SKIP_NONCE = new Set([
     'create_session', 'get_state', 'load',
-    'track_ad_event', 'get_channels', 'get_referrals',
+    'track_ad_event', 'get_channels', 'get_referrals', 'check_channel_membership',
     'start_adsgram_task', // السيرفر لا يتحقق من nonce لهذا الـ action
 ]);
 
