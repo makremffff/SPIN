@@ -31,6 +31,14 @@ export function pushNotif(type, title, body) {
     _NOTIFS.unshift({ type, title, body, ts: Date.now(), read: false });
     _unread++;
     _updateNotifBadge();
+    // لو الـ panel مفتوح الآن → حدّث العرض مباشرة بدون إغلاق وإعادة فتح
+    const panel = document.getElementById('notif-panel');
+    if (panel && panel.classList.contains('open')) {
+        _NOTIFS[0].read = true; // المستخدم شايف الـ panel → اعتبره مقروء فوراً
+        _unread = Math.max(0, _unread - 1);
+        _updateNotifBadge();
+        _renderNotifPanel();
+    }
 }
 
 function _updateNotifBadge() {

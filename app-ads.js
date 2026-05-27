@@ -953,21 +953,32 @@ export async function startAdsgramTask() {
 // ── ربط الـ widget بالسيرفر ────────────────────────────────
 // start_adsgram_task يُستدعى لحظة ظهور الـ widget للمستخدم
 // هكذا adsgram_started_at يُسجل مبكراً وlapsed يتجاوز min_watch_ms
-let _atPendingNonce = null;
+let _atPendingNonce    = null;
+let _atPrestartInFlight = null; // Promise — يمنع race بين prestart والـ reward event
 
 async function _atPrestart() {
     if (_AT.doneCount >= _AT.dailyLimit) return;
-    if (_atPendingNonce) return; // نonce موجود مسبقاً
-    const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
-    if (!startRes.ok) {
-        if (startRes.error === 'daily_limit_reached') {
-            _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
-        } else if (startRes.error === 'cooldown_active') {
-            _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
+    if (_atPendingNonce) return; // nonce موجود مسبقاً
+    if (_atPrestartInFlight) return; // طلب قيد التنفيذ — لا تكرر
+
+    _atPrestartInFlight = (async () => {
+        try {
+            const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+            if (!startRes.ok) {
+                if (startRes.error === 'daily_limit_reached') {
+                    _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
+                } else if (startRes.error === 'cooldown_active') {
+                    _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
+                }
+                return;
+            }
+            _atPendingNonce = startRes.task_nonce;
+        } finally {
+            _atPrestartInFlight = null;
         }
-        return;
-    }
-    _atPendingNonce = startRes.task_nonce;
+    })();
+
+    return _atPrestartInFlight;
 }
 
 function _atBindWidget() {
@@ -984,22 +995,28 @@ function _atBindWidget() {
             return;
         }
 
-        // إذا ما عندنا nonce بعد → اطلبه الحين
+        // إذا ما عندنا nonce بعد → استنى prestart إن كان in-flight، أو ابدأ من جديد
         if (!_atPendingNonce) {
-            const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
-            if (!startRes.ok) {
-                if (startRes.error === 'daily_limit_reached') {
-                    _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
-                    document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
-                } else if (startRes.error === 'cooldown_active') {
-                    _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
-                } else {
-                    _atShow(null);
-                    showToast('coin', 'خطأ في التحقق', startRes.error || '', 'red', '!');
+            // لو prestart قيد التنفيذ — استنيه بدل ما تبدأ نسخة ثانية
+            if (_atPrestartInFlight) await _atPrestartInFlight;
+
+            // لو لسا ما وصل nonce → ابدأ من جديد
+            if (!_atPendingNonce) {
+                const startRes = await fetchApi({ type: 'start_adsgram_task', data: {} });
+                if (!startRes.ok) {
+                    if (startRes.error === 'daily_limit_reached') {
+                        _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
+                        document.getElementById('atask-card')?.style.setProperty('opacity', '0.7');
+                    } else if (startRes.error === 'cooldown_active') {
+                        _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
+                    } else {
+                        _atShow(null);
+                        showToast('coin', 'خطأ في التحقق', startRes.error || '', 'red', '!');
+                    }
+                    return;
                 }
-                return;
+                _atPendingNonce = startRes.task_nonce;
             }
-            _atPendingNonce = startRes.task_nonce;
         }
 
         const taskNonce = _atPendingNonce;
@@ -1076,6 +1093,15 @@ function _atBindWidget() {
 
     widget.addEventListener('onError', () => {
         showToast('coin', 'خطأ في تحميل المهمة', 'حاول لاحقاً', 'red', '!');
+    });
+
+    // ── عند رجوع المستخدم من miniapp إعلاني → أعد إصدار nonce إن لم يكن موجوداً ──
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        if (_AT.doneCount >= _AT.dailyLimit) return;
+        if (_atPendingNonce || _atPrestartInFlight) return; // موجود بالفعل
+        // صفحة رجعت للـ foreground ولا يوجد nonce جاهز → أعد الإصدار مباشرة
+        _atPrestart();
     });
 }
 

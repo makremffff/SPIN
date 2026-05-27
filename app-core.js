@@ -124,6 +124,7 @@ async function _getServerNonce(action) {
 const SKIP_NONCE = new Set([
     'create_session', 'get_state', 'load',
     'track_ad_event', 'get_channels', 'get_referrals',
+    'start_adsgram_task', // السيرفر لا يتحقق من nonce لهذا الـ action
 ]);
 
 // ══════════════════════════════════════════════════════════
