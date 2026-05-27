@@ -8,7 +8,7 @@ const {
   handleGetConfig, handleCreateSession, handleLoad, handleGetState,
   handleStartAd, handleRewardAd, handleStartAdsgramTask, handleClaimAdsgramTask,
   handleClaimDailyMission, handleClaimGift, handleGetChannels,
-  handleVerifyChannelTask, handleVerifyTgTask, handleSubmitWithdraw,
+  handleVerifyChannelTask, handleCheckChannelMembership, handleVerifyTgTask, handleSubmitWithdraw,
   handleGetReferrals, handleTrackAdEvent, handleAdmin, handleAdsgramCallback,
 } = require('../lib/services');
 
@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
   try { fpData = JSON.parse(fpRaw); } catch (_) {}
   const fpHash = hashFp(fpData);
 
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad', 'check_channel_membership'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -125,6 +125,7 @@ module.exports = async function handler(req, res) {
       case 'submit_withdraw':     result = await handleSubmitWithdraw(userId, body, rawNonce, sessionId, fpHash, ipHash); break;
       case 'get_channels':        result = await handleGetChannels(userId); break;
       case 'verify_channel_task': result = await handleVerifyChannelTask(userId, body, rawNonce, sessionId, fpHash, ipHash); break;
+      case 'check_channel_membership': result = await handleCheckChannelMembership(userId); break;
       case 'get_referrals':       result = await handleGetReferrals(userId); break;
       case 'track_ad_event':      result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash); break;
       default:
