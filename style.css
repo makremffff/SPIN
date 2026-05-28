@@ -1984,6 +1984,255 @@
             margin-top: 2px;
         }
 
+        /* ── Providers dual-button section ── */
+        .earn-providers-wrap {
+            width: 100%;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .earn-providers-card {
+            width: 90%;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,.08);
+            background: rgba(255,255,255,.03);
+            overflow: hidden;
+        }
+        .earn-prov-row {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 14px 16px;
+            position: relative;
+        }
+        .earn-prov-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+            margin: 0 14px;
+        }
+        /* Mini ring */
+        .earn-prov-ring-wrap {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+        }
+        .earn-prov-ring-svg {
+            width: 40px;
+            height: 40px;
+            transform: rotate(-90deg);
+        }
+        .earn-prov-rt {
+            fill: none;
+            stroke: rgba(255,255,255,.06);
+            stroke-width: 4;
+        }
+        .earn-prov-rf {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 94.25;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset .7s cubic-bezier(.22,1,.36,1);
+        }
+        .earn-prov-ring-num {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        /* Info */
+        .earn-prov-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .earn-prov-name {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: .2px;
+        }
+        .earn-prov-count {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+        /* Points badge */
+        .earn-prov-pts-badge {
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 10px;
+            padding: 5px 9px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 3px;
+        }
+        .earn-prov-pts-unit {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 9px;
+            font-weight: 700;
+            opacity: .7;
+        }
+        .earn-prov-pts-badge-t {
+            color: #67e8f9;
+            background: rgba(6,182,212,.10);
+            border: 1px solid rgba(6,182,212,.20);
+        }
+        .earn-prov-pts-badge-a {
+            color: #fde68a;
+            background: rgba(251,191,36,.10);
+            border: 1px solid rgba(251,191,36,.20);
+        }
+        /* Watch button */
+        .earn-prov-btn {
+            flex-shrink: 0;
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 11px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: transform .15s, opacity .15s;
+            border: none;
+        }
+        .earn-prov-btn:active { transform: scale(.95); }
+        .earn-prov-btn.disabled { opacity: .35; cursor: not-allowed; pointer-events: none; }
+        .earn-prov-btn-shimmer {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+            animation: earnBtnShimmer 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .earn-prov-btn-t {
+            background: rgba(6,182,212,.15);
+            border: 1px solid rgba(6,182,212,.35) !important;
+            color: #67e8f9;
+            box-shadow: 0 2px 12px rgba(6,182,212,.15);
+        }
+        .earn-prov-btn-t:hover {
+            background: rgba(6,182,212,.22);
+            box-shadow: 0 4px 18px rgba(6,182,212,.25);
+        }
+        .earn-prov-btn-a {
+            background: rgba(251,191,36,.12);
+            border: 1px solid rgba(251,191,36,.32) !important;
+            color: #fde68a;
+            box-shadow: 0 2px 12px rgba(245,158,11,.12);
+        }
+        .earn-prov-btn-a:hover {
+            background: rgba(251,191,36,.20);
+            box-shadow: 0 4px 18px rgba(245,158,11,.22);
+        }
+        /* Done row */
+        /* ── Earn Provider Cooldown Overlay ── */
+        .epc-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(6, 6, 18, 0.93);
+            border-radius: inherit;
+        }
+        .epc-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .epc-ring-wrap {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+        }
+        .epc-ring-svg {
+            width: 38px;
+            height: 38px;
+            transform: rotate(-90deg);
+        }
+        .epc-ring-bg {
+            fill: none;
+            stroke: rgba(255,255,255,.07);
+            stroke-width: 4;
+        }
+        .epc-ring-track {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 150.8;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 0.9s linear;
+        }
+        .epc-ring-track-t {
+            stroke: #06b6d4;
+            filter: drop-shadow(0 0 6px rgba(6,182,212,.75));
+        }
+        .epc-ring-track-a {
+            stroke: #fbbf24;
+            filter: drop-shadow(0 0 6px rgba(251,191,36,.75));
+        }
+        .epc-num {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'DynaPuff', sans-serif;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .epc-content-t .epc-num { color: #67e8f9; text-shadow: 0 0 10px rgba(6,182,212,.6); }
+        .epc-content-a .epc-num { color: #fde68a; text-shadow: 0 0 10px rgba(251,191,36,.6); }
+        .epc-text {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .epc-label {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255,255,255,.70);
+            letter-spacing: .3px;
+        }
+        .epc-sublabel {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            color: rgba(255,255,255,.35);
+        }
+
+        .earn-prov-done-row {
+            padding: 6px 16px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: #34d399;
+            opacity: .75;
+        }
+
         /* ── Stats row ── */
         .earn-stats {
             border-radius: var(--radius-xl);
@@ -1993,6 +2242,11 @@
             display: flex;
             align-items: center;
             gap: 0;
+            background: transparent !important;
+            border: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: none !important;
         }
         .earn-stat {
             flex: 1;

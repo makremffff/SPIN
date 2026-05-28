@@ -87,6 +87,20 @@ export function _applyConfigToUI() {
             el.textContent = pts.toLocaleString('en-US') + ' نقطة';
         }
     });
+    // ── قيم جوائز الإعلانات الديناميكية ──
+    const adsgramPts = APP_CONFIG.rewards?.points_per_ad || 60;
+    document.querySelectorAll('.earn-cta-rnum').forEach(el => { el.textContent = adsgramPts; });
+    if (APP_CONFIG.taddy_ads?.points_per_ad) {
+        const taddyPts = APP_CONFIG.taddy_ads.points_per_ad;
+        const taddyBadge = document.getElementById('taddy-pts-val');
+        if (taddyBadge) taddyBadge.textContent = taddyPts;
+    }
+    if (APP_CONFIG.taddy_ads) {
+        if (APP_CONFIG.taddy_ads.daily_limit) {
+            const tEl = document.getElementById('taddy-total');
+            if (tEl) tEl.textContent = APP_CONFIG.taddy_ads.daily_limit;
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════
