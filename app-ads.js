@@ -914,6 +914,14 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (s.ad_cooldown_ms>0) ads.cooldownUntil=Date.now()+s.ad_cooldown_ms;
                 updateAdUI();
             }
+            // ── sync Taddy state من السيرفر (بدون تدخل لو في مشاهدة حالية) ──
+            if (s.taddy_ads && !_TS.isWatching) {
+                const td = s.taddy_ads;
+                if (td.watched_today != null) _TS.watched   = td.watched_today;
+                if (td.remaining     != null) _TS.remaining = td.remaining;
+                if (td.daily_limit   != null) _TS.total     = td.daily_limit;
+                updateTaddyUI();
+            }
             if (s.points!==undefined&&s.points!==_lastPts) {
                 animateBalance(_lastPts,s.points,800);
                 _lastPts=s.points; _AS.balance=s.points;
@@ -1124,8 +1132,9 @@ export async function watchTaddyAd() {
 
         if (result?.ok) {
             const pts = result.points_awarded || _TS.reward || 30;
-            _TS.remaining  = result.remaining    ?? Math.max(0, _TS.remaining - 1);
-            _TS.watched    = result.watchedToday ?? (_TS.watched + 1);
+            // نزيد دائماً بـ 1 محلياً أولاً، ثم نُصحّح من السيرفر لو القيمة صحيحة
+            _TS.remaining  = (result.remaining  != null) ? result.remaining  : Math.max(0, _TS.remaining - 1);
+            _TS.watched    = (result.watchedToday > 0)   ? result.watchedToday : (_TS.watched + 1);
             _TS.earned    += pts;
             const cdMs     = result.cooldown_ms || 30000;
             _TS.cooldownUntil = Date.now() + cdMs;
