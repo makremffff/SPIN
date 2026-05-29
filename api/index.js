@@ -50,7 +50,14 @@ module.exports = async function handler(req, res) {
   const sidMatch     = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
   const sessionFromCookie = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
   const sessionFromHeader = req.headers['x-session-id'] || req.headers['x-session-Id'] || '';
-  const sessionId = sessionFromCookie || sessionFromHeader;
+  // إذا وُجد session من مصدرين مختلفين — سجّل للمراجعة (قد يكون replay attempt)
+  let sessionId = sessionFromCookie || sessionFromHeader;
+  if (sessionFromCookie && sessionFromHeader && sessionFromCookie !== sessionFromHeader) {
+    console.warn('[SESSION] Dual session sources detected — cookie vs header mismatch. Possible replay attempt.',
+      { type, ip: ipHash?.slice(0,8) });
+    // نستخدم الـ cookie كمصدر موثوق (HttpOnly) ونتجاهل الـ header
+    sessionId = sessionFromCookie;
+  }
 
   const fpRaw    = req.headers['x-fingerprint']  || '{}';
   const rawNonce = req.headers['x-nonce']        || '';
@@ -65,6 +72,10 @@ module.exports = async function handler(req, res) {
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
+  // حماية إضافية لـ create_session — 5 محاولات فقط في الدقيقة لكل IP
+  if (type === 'create_session' && !rateLimit(`ip_${ipHash}_session_strict`, CFG.RATE_SESSION_MAX)) {
+    return res.status(429).json({ ok: false, error: 'rate_limited' });
+  }
 
   try {
     if (type === 'admin') {
@@ -76,7 +87,24 @@ module.exports = async function handler(req, res) {
       if (!sessionId) return res.status(401).json({ ok: false, error: 'session_required' });
       const session = await validateSession(sessionId, ipHash, fpHash);
       if (!session) return res.status(401).json({ ok: false, error: 'session_invalid_or_expired' });
-      const action = body?.data?.action || 'general';
+      const ALLOWED_NONCE_ACTIONS = new Set([
+        'claim_gift', 'claim_daily_mission', 'verify_tg_task',
+        'verify_channel_task', 'submit_withdraw', 'claim_adsgram_task',
+      ]);
+      const action = body?.data?.action || '';
+      if (!action || !ALLOWED_NONCE_ACTIONS.has(action)) {
+        return res.status(400).json({ ok: false, error: 'invalid_nonce_action' });
+      }
+      // منع nonce farming — تحقق أنه ما في nonce غير مستخدم لنفس الـ action
+      const existingNonce = await (require('../lib/db').sql)(
+        `SELECT id FROM nonces WHERE session_id=$1 AND user_id=$2 AND action=$3
+         AND used=FALSE AND expires_at > NOW() LIMIT 1`,
+        [sessionId, session.user_id, action]
+      );
+      if (existingNonce.length) {
+        // أعد نفس الـ nonce بدل إنشاء واحد جديد
+        return res.status(429).json({ ok: false, error: 'nonce_already_pending' });
+      }
       const nonce = await issueNonce(sessionId, session.user_id, ipHash, fpHash, action);
       return res.status(200).json({ ok: true, nonce });
     }
@@ -139,11 +167,12 @@ module.exports = async function handler(req, res) {
 
   } catch (e) {
     console.error(`[${type}] Error:`, e.message, e.stack?.split('\n')[1]);
+    // لا نكشف تفاصيل الخطأ الداخلية في الإنتاج
+    const IS_PROD = process.env.NODE_ENV === 'production';
     return res.status(500).json({
       ok: false,
       error: 'internal_server_error',
-      detail: e.message,
-      type,
+      ...(IS_PROD ? {} : { detail: e.message, type }),
     });
   }
 };
