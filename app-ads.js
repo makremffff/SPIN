@@ -155,9 +155,10 @@ function _updateAdUINoBtn() {
     const ads = _AS.ads;
     const r   = ads.remaining;
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    const _combinedWatched1 = (ads.watched||0) + (_TS.watched||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', ads.watched);
+    setText('ads-watched-total', _combinedWatched1);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
     const progBar = document.getElementById('ads-progress');
@@ -177,9 +178,10 @@ export function updateAdUI() {
     const r   = ads.remaining;
 
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    const _combinedWatched2 = (ads.watched||0) + (_TS.watched||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', ads.watched);
+    setText('ads-watched-total', _combinedWatched2);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
 
@@ -914,12 +916,9 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (s.ad_cooldown_ms>0) ads.cooldownUntil=Date.now()+s.ad_cooldown_ms;
                 updateAdUI();
             }
-            // ── sync Taddy state من السيرفر (بدون تدخل لو في مشاهدة حالية) ──
-            if (s.taddy_ads && !_TS.isWatching) {
-                const td = s.taddy_ads;
-                if (td.watched_today != null) _TS.watched   = td.watched_today;
-                if (td.remaining     != null) _TS.remaining = td.remaining;
-                if (td.daily_limit   != null) _TS.total     = td.daily_limit;
+            if (s.taddy_watched_today!==undefined&&!_TS.isWatching) {
+                _TS.watched   = s.taddy_watched_today;
+                _TS.remaining = s.taddy_remaining ?? Math.max(0, _TS.total - _TS.watched);
                 updateTaddyUI();
             }
             if (s.points!==undefined&&s.points!==_lastPts) {
@@ -1132,14 +1131,14 @@ export async function watchTaddyAd() {
 
         if (result?.ok) {
             const pts = result.points_awarded || _TS.reward || 30;
-            // نزيد دائماً بـ 1 محلياً أولاً، ثم نُصحّح من السيرفر لو القيمة صحيحة
-            _TS.remaining  = (result.remaining  != null) ? result.remaining  : Math.max(0, _TS.remaining - 1);
-            _TS.watched    = (result.watchedToday > 0)   ? result.watchedToday : (_TS.watched + 1);
+            _TS.remaining  = result.remaining    ?? Math.max(0, _TS.remaining - 1);
+            _TS.watched    = result.watchedToday ?? (_TS.watched + 1);
             _TS.earned    += pts;
             const cdMs     = result.cooldown_ms || 30000;
             _TS.cooldownUntil = Date.now() + cdMs;
 
             updateTaddyUI();
+            updateAdUI();
             animateBalance(pts);
             updateBalanceUI(_AS.balance + pts);
             _AS.balance += pts;
