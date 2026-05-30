@@ -748,6 +748,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     try {
         await createSession();
         const load=await fetchApi({ type:'load', data:{} });
+        console.log('[BOOT] session ok, load result:', load?.ok, 'points:', load?.points, 'error:', load?.error);
 
         if (load.ok) {
             const pts=parseInt(load.points)||0;
@@ -885,7 +886,11 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (load.taddy_ads) initTaddyUI(load.taddy_ads);
 
         } else {
+            // load فشل — اعرض الرصيد من create_session + سجل السحب الفارغ
+            updateBalanceUI(_AS.balance);
+            renderWithdrawHistory();
             setTimeout(()=>runCounters(document),350);
+            console.warn('[BOOT] load failed:', load?.error);
         }
     } catch(e) {
         console.error('[INIT]',e.message);
