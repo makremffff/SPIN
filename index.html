@@ -958,6 +958,54 @@
 
         </div>
     </main>
+    </main>
+
+    <!-- ══════════════════════════════════════════
+         SOCIAL TASKS PAGE
+    ══════════════════════════════════════════ -->
+    <main id="page-social" class="page">
+        <div class="page-wrap" style="padding-bottom:90px;">
+
+            <!-- ══ PROMO HEADER ══ -->
+            <div class="sc-promo-header">
+                <div class="sc-promo-badge">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
+                    إضافة مهمة خاصة
+                </div>
+                <div class="sc-promo-title">هل تريد الترويج لمنتجك أو قناتك؟</div>
+                <div class="sc-promo-sub">أضف مهمتك الخاصة على منصتك المفضلة<br>وحدد المكافأة التي تريد منحها للمستخدمين</div>
+                <div class="sc-platforms-row">
+                    <div class="sc-platform-chip sc-p-fb">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        فيسبوك
+                    </div>
+                    <div class="sc-platform-chip sc-p-tw">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.261 5.635zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        تويتر
+                    </div>
+                    <div class="sc-platform-chip sc-p-tt">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.86 4.86 0 01-1.01-.07z"/></svg>
+                        تيكتوك
+                    </div>
+                </div>
+                <button class="sc-btn-contact" onclick="_socialOpenDev()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>
+                    تواصل مع المطور
+                </button>
+            </div>
+
+            <!-- section label -->
+            <div class="sc-sec-lbl">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                المهام المتاحة
+            </div>
+
+            <!-- Cards injected by JS -->
+            <div id="social-cards-wrap"></div>
+
+        </div>
+    </main>
+
     <!-- ══════════════════════════════════════════
          BOTTOM NAV
     ══════════════════════════════════════════ -->
@@ -1001,6 +1049,16 @@
                     </svg>
                 </div>
                 <span class="nav-label" data-i18n="nav_withdraw">السحب</span>
+                <div class="nav-pill"></div>
+            </button>
+
+            <button class="nav-item" onclick="showPage('social', this); initSocialPage();" data-page="social" aria-label="تواصل">
+                <div class="nav-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
+                    </svg>
+                </div>
+                <span class="nav-label">تواصل</span>
                 <div class="nav-pill"></div>
             </button>
 
@@ -1326,6 +1384,13 @@
             else window.open(url, '_blank');
         }
     </script>
-    <script type="module" src="app-ads.js"></script>
+    <script type="module" src="app-social.js"></script>
+    <script>
+      function _socialOpenDev() {
+        const url = 'https://t.me/arabicwin_founder';
+        if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(url);
+        else window.open(url, '_blank');
+      }
+    </script>
 </body>
 </html>
