@@ -1,5 +1,13 @@
 'use strict';
 
+const {
+  handleSocialGetTasks,
+  handleSocialSubmitProof,
+  handleSocialAdminGetProofs,
+  handleSocialAdminReview,
+  handleSocialAdminTasks,
+} = require('../lib/services-social');
+
 const { CFG, ADMIN_SECRET } = require('../lib/config');
 const { rateLimitMap, ensureBootstrap } = require('../lib/db');
 const { hashIp, hashFp, getIp, rateLimit } = require('../lib/utils');
@@ -80,6 +88,13 @@ module.exports = async function handler(req, res) {
   try {
     if (type === 'admin') {
       if (adminKey !== ADMIN_SECRET) return res.status(403).json({ ok: false, error: 'forbidden' });
+      // Social admin sub-routes
+      if (body?.action?.startsWith?.('social_')) {
+        const act = body.action;
+        if (act === 'social_proofs')       return res.status(200).json(await handleSocialAdminGetProofs(body));
+        if (act === 'social_review')       return res.status(200).json(await handleSocialAdminReview(body));
+        if (act === 'social_tasks')        return res.status(200).json(await handleSocialAdminTasks(body));
+      }
       return res.status(200).json(await handleAdmin(body?.action, body));
     }
 
@@ -158,6 +173,9 @@ module.exports = async function handler(req, res) {
       case 'check_channel_membership': result = await handleCheckChannelMembership(userId); break;
       case 'get_referrals':       result = await handleGetReferrals(userId); break;
       case 'track_ad_event':      result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash); break;
+      // ── Social Tasks ──
+      case 'social_get_tasks':    result = await handleSocialGetTasks(userId); break;
+      case 'social_submit_proof': result = await handleSocialSubmitProof(userId, body); break;
       default:
         await writeAudit(userId, sessionId, type, 'unknown_action', ipHash, fpHash, { type });
         result = { ok: false, error: 'unknown_action' };
