@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
   const ipHash = hashIp(getIp(req));
   let fpData = {};
   try { fpData = JSON.parse(fpRaw); } catch (_) {}
-  const fpHash = hashFp(fpData, sessionId);
+  const fpHash = hashFp(fpData);
 
   const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad', 'start_taddy_ad', 'check_channel_membership'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
