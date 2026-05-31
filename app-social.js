@@ -1,6 +1,6 @@
 /**
- * app-social.js — Social Tasks Page Logic
- * يعمل مستقل لا يمس باقي الملفات
+ * app-social.js — Social Tasks Page Logic (new design)
+ * كل تصميم الكروت والشيت من النسخة الجديدة
  */
 
 'use strict';
@@ -9,220 +9,303 @@
 const SOCIAL = {
   tasks: [],
   loading: false,
+  loadError: false,
   cardState: {},    // { taskId: 'idle' | 'upload' | 'pending' | 'approved' | 'rejected' }
-  pendingFiles: {}, // FIX-1: per-task file storage — كان متغير واحد مشترك يسبب تضارب الصور
+  pendingFiles: {}, // per-task file storage
 };
 
-/* ─── API base (نفس نمط المشروع) ─── */
-const _SOCIAL_API = '/api';
+/* ─── SVG icons (new design — per platform color) ─── */
+const _SC_ICONS = {
+  facebook: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`,
+  twitter:  `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.261 5.635zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
+  tiktok:   `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.86 4.86 0 01-1.01-.07z"/></svg>`,
+  youtube:  `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l6-3.5-6-3.5v7z"/></svg>`,
+  instagram:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>`,
+  telegram: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.236 7.262l-1.69 7.966c-.127.567-.461.706-.934.44l-2.582-1.903-1.246 1.2c-.138.137-.253.253-.52.253l.185-2.641 4.8-4.336c.209-.185-.045-.288-.324-.103l-5.932 3.732-2.554-.797c-.555-.173-.567-.554.116-.82l9.97-3.843c.463-.168.868.103.711.852z"/></svg>`,
+  default:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>`,
+};
 
+/* platform → CSS class suffix (matches new design p-fb / p-tw …) */
+const _SC_PCLS = {
+  facebook:'fb', twitter:'tw', tiktok:'tt', youtube:'yt', instagram:'ig', telegram:'tg',
+};
+const _SC_PLATNAME = {
+  facebook:'فيسبوك', twitter:'تويتر', tiktok:'تيكتوك',
+  youtube:'يوتيوب', instagram:'انستغرام', telegram:'تيليغرام',
+};
+
+/* ─── API ─── */
+const _SOCIAL_API = '/api';
 async function _socialFetch(body) {
   const sid = window._APP_SESSION || localStorage.getItem('_sid') || '';
   const r = await fetch(_SOCIAL_API, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Session-Id': sid,
-    },
+    headers: { 'Content-Type': 'application/json', 'X-Session-Id': sid },
     credentials: 'include',
     body: JSON.stringify(body),
   });
   return r.json();
 }
 
-/* ─── Load tasks from server ─── */
+/* ─── Load tasks ─── */
 async function socialLoadTasks() {
   const wrap = document.getElementById('social-cards-wrap');
   if (!wrap) return;
 
-  // skeleton
   wrap.innerHTML = `
-    <div class="sc-skeleton">
-      <div class="sc-skel-row"></div>
-      <div class="sc-skel-row" style="width:70%;margin-top:8px;opacity:.6"></div>
-    </div>
-    <div class="sc-skeleton" style="margin-top:10px">
-      <div class="sc-skel-row"></div>
-      <div class="sc-skel-row" style="width:60%;margin-top:8px;opacity:.6"></div>
-    </div>`;
+    <div class="sc-skeleton"><div class="sc-skel-row"></div><div class="sc-skel-row" style="width:70%;margin-top:8px;opacity:.6"></div></div>
+    <div class="sc-skeleton" style="margin-top:10px"><div class="sc-skel-row"></div><div class="sc-skel-row" style="width:60%;margin-top:8px;opacity:.6"></div></div>`;
 
   try {
     const res = await _socialFetch({ type: 'social_get_tasks' });
     SOCIAL.tasks = res.tasks || [];
-    // FIX-2: مزامنة حالة الكروت مع السيرفر — كان يُتجاهل user_status فتظهر المهام المنجزة من جديد
+    SOCIAL.loadError = false;
     for (const t of SOCIAL.tasks) {
       if (t.user_status && t.user_status !== 'idle' && !SOCIAL.cardState[t.id]) {
-        SOCIAL.cardState[t.id] = t.user_status; // 'pending' | 'approved' | 'rejected'
+        SOCIAL.cardState[t.id] = t.user_status;
       }
     }
     _socialRenderCards();
   } catch (e) {
+    SOCIAL.loadError = true;
     wrap.innerHTML = `<div class="sc-empty">تعذّر تحميل المهام — حاول مجدداً</div>`;
   }
 }
 
-/* ─── Render cards ─── */
+/* ─── Render cards list ─── */
 function _socialRenderCards() {
   const wrap = document.getElementById('social-cards-wrap');
   if (!wrap) return;
-
   if (!SOCIAL.tasks.length) {
     wrap.innerHTML = `<div class="sc-empty">لا توجد مهام متاحة الآن</div>`;
     return;
   }
-
-  wrap.innerHTML = SOCIAL.tasks.map((t, i) => _socialCardHTML(t, i)).join('');
+  wrap.innerHTML = SOCIAL.tasks.map((t, i) => _scCardHTML(t, i)).join('');
 }
 
-function _socialCardHTML(task, idx) {
-  const state = SOCIAL.cardState[task.id] || 'idle';
-  const iconSVG = _socialIcon(task.icon);
-  const delay = 60 + idx * 80;
+/* ─── Card HTML (new design) ─── */
+function _scCardHTML(task, idx) {
+  const state   = SOCIAL.cardState[task.id] || 'idle';
+  const pcls    = _SC_PCLS[task.icon] || 'default';
+  const icon    = _SC_ICONS[task.icon] || _SC_ICONS.default;
+  const delay   = 60 + idx * 65;
+  const isDone  = state === 'approved';
+  const clickable = !isDone;
 
   return `
-<div class="sc-card sc-anim" style="animation-delay:${delay}ms" id="sc-card-${task.id}">
-  <div class="sc-card-head">
-    <div class="sc-card-ico sc-ico-${task.icon || 'default'}">${iconSVG}</div>
-    <div class="sc-card-meta">
-      <div class="sc-card-title">${_esc(task.title)}</div>
-      <div class="sc-card-desc">${_esc(task.description || '')}</div>
-    </div>
-    <div class="sc-reward-chip">
-      <img src="asesst/coins.png" width="15" height="15" style="object-fit:contain">
-      ${Number(task.reward).toLocaleString('ar')}
-    </div>
+<div class="task-card p-${pcls} sc-anim" style="animation-delay:${delay}ms;${isDone?'opacity:.65;pointer-events:none':''}" id="sc-card-${task.id}" ${clickable ? `onclick="_scOpenSheet(${task.id})"` : ''}>
+  <div class="c-icon p-${pcls}">${icon}</div>
+  <div class="c-body">
+    <div class="c-title">${_esc(task.title)}</div>
+    <div class="c-desc">${_esc(task.description || '')}</div>
   </div>
-  <div class="sc-card-body">
-    ${state === 'idle'     ? _socialStepIdle(task)     : ''}
-    ${state === 'upload'   ? _socialStepUpload(task)   : ''}
-    ${state === 'pending'  ? _socialStepPending(task)  : ''}
-    ${state === 'approved' ? _socialStepApproved(task) : ''}
-    ${state === 'rejected' ? _socialStepRejected(task) : ''}
-  </div>
+  <div id="sc-startbtn-${task.id}">${_scStartBtn(task.id, task.reward)}</div>
 </div>`;
 }
 
-function _socialStepIdle(task) {
-  const noteHTML = task.note
-    ? `<div class="sc-note-box">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(42,171,238,.85)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
-        <p>${_esc(task.note)}</p>
-       </div>` : '';
+/* start button states (new design) */
+function _scStartBtn(taskId, pts) {
+  const state = SOCIAL.cardState[taskId] || 'idle';
+  if (state === 'approved') {
+    return `<div class="c-start state-done">
+      <div class="done-check"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="start-lbl">تم ✓</span>
+    </div>`;
+  }
+  if (state === 'pending') {
+    return `<div class="c-start state-review">
+      <div class="review-pulse"></div>
+      <span class="start-lbl">مراجعة...</span>
+    </div>`;
+  }
+  if (state === 'rejected') {
+    return `<div class="c-start" style="background:linear-gradient(135deg,rgba(239,68,68,.18),rgba(239,68,68,.08));border-color:rgba(239,68,68,.3);cursor:pointer">
+      <span class="start-pts" style="color:#f87171;font-size:11px">مرفوض ↩</span>
+    </div>`;
+  }
+  // idle / upload
+  return `<div class="c-start">
+    <span class="start-pts">${Number(pts).toLocaleString('ar')}<img class="coin-img" src="asesst/coins.png" alt=""></span>
+    <span class="start-lbl">· ابدأ</span>
+  </div>`;
+}
 
-  const promoHTML = task.promo_text
-    ? `<div class="sc-promo-box">
-        <div class="sc-promo-top">
-          <span class="sc-promo-lbl">المنشور الترويجي</span>
-          <button class="sc-copy-btn" onclick="socialCopyPromo(${task.id})">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+/* ─── Sheet open ─── */
+function _scOpenSheet(taskId) {
+  const task = SOCIAL.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const state = SOCIAL.cardState[taskId] || 'idle';
+  const pcls  = _SC_PCLS[task.icon] || 'default';
+  const icon  = _SC_ICONS[task.icon] || _SC_ICONS.default;
+
+  /* note block */
+  const noteHTML = task.note ? `
+    <div class="sheet-section">
+      <div class="sheet-sec-lbl">تعليمات المهمة</div>
+      <div class="note-box">${_esc(task.note)}</div>
+    </div>` : `
+    <div class="sheet-section">
+      <div class="sheet-sec-lbl">تعليمات المهمة</div>
+      <div class="note-box">${_esc(task.description || '')}</div>
+    </div>`;
+
+  /* promo block */
+  const promoHTML = task.promo_text ? `
+    <div class="sheet-section">
+      <div class="sheet-sec-lbl">نص ترويجي جاهز (اختياري)</div>
+      <div class="promo-box">
+        <div class="promo-box-top">
+          <div class="promo-text" id="sc-promo-${task.id}">${_esc(task.promo_text)}</div>
+          <button class="btn-copy" id="sc-copybtn-${task.id}" onclick="socialCopyPromo(${task.id})">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             نسخ
           </button>
         </div>
-        <div class="sc-promo-txt" id="sc-promo-${task.id}">${_esc(task.promo_text)}</div>
-       </div>` : '';
-
-  const btnLabel = task.proof_required ? 'ابدأ المهمة' : 'إنجاز المهمة';
-
-  return `
-    ${noteHTML}
-    ${promoHTML}
-    <button class="sc-btn sc-btn-main" onclick="socialStartTask(${task.id}, '${_esc(task.task_url || '')}', ${!!task.proof_required})">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
-      ${btnLabel}
-    </button>`;
-}
-
-function _socialStepUpload(task) {
-  return `
-    <div class="sc-proof-lbl">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-      أرسل لقطة شاشة تُثبت التنفيذ
-    </div>
-    <div class="sc-upload-preview" id="sc-prev-${task.id}">
-      <img id="sc-prev-img-${task.id}" src="" alt="">
-    </div>
-    <div class="sc-upload-zone" id="sc-zone-${task.id}" onclick="document.getElementById('sc-file-${task.id}').click()">
-      <div class="sc-upload-ico">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
       </div>
-      <div class="sc-upload-txt" id="sc-zone-txt-${task.id}">اختر صورة من المعرض</div>
-      <div class="sc-upload-sub">JPG أو PNG — حتى 10MB</div>
-    </div>
-    <input type="file" id="sc-file-${task.id}" accept="image/*" onchange="socialHandleFile(event, ${task.id})">
-    <button class="sc-btn sc-btn-main" id="sc-submit-${task.id}" onclick="socialSubmitProof(${task.id})" disabled>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
-      إرسال للمراجعة
-    </button>
-    <button class="sc-btn sc-btn-ghost" onclick="socialCancelUpload(${task.id})">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-      إلغاء
-    </button>`;
-}
+    </div>` : '';
 
-function _socialStepPending(task) {
-  return `
-    <div class="sc-pending-wrap">
-      <div class="sc-pending-ico">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--sc-amber)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      </div>
-      <div class="sc-pending-title">قيد المراجعة</div>
-      <div class="sc-pending-sub">تم إرسال صورتك إلى المشرف<br>سيُضاف <span class="sc-pending-pts">${Number(task.reward).toLocaleString('ar')} نقطة</span> فور الموافقة</div>
-    </div>`;
-}
-
-// FIX-5: إضافة حالتَي approved و rejected — كانتا مدعومتَين في السيرفر لكن لا تُعرضان في الواجهة
-function _socialStepApproved(task) {
-  return `
-    <div class="sc-pending-wrap">
-      <div class="sc-pending-ico">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      </div>
-      <div class="sc-pending-title" style="color:#22c55e">تمت الموافقة ✓</div>
-      <div class="sc-pending-sub">تم إضافة <span class="sc-pending-pts">${Number(task.reward).toLocaleString('ar')} نقطة</span> إلى رصيدك</div>
-    </div>`;
-}
-
-function _socialStepRejected(task) {
-  return `
-    <div class="sc-pending-wrap">
-      <div class="sc-pending-ico">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      </div>
-      <div class="sc-pending-title" style="color:#ef4444">تم رفض الإثبات</div>
-      <div class="sc-pending-sub">لم يتم قبول الصورة المرسلة<br>
-        <button class="sc-btn sc-btn-ghost" style="margin-top:10px" onclick="socialRetryTask(${task.id}, '${_esc(task.task_url || '')}', ${!!task.proof_required})">
+  /* action block based on state */
+  let actionHTML = '';
+  if (state === 'pending') {
+    actionHTML = `
+      <div class="sheet-section">
+        <div class="review-banner">
+          <div class="review-banner-dot"></div>
+          <div>
+            <div class="review-banner-txt">تحت المراجعة</div>
+            <div class="review-banner-sub">سيتم مراجعة إثباتك وإضافة النقاط قريباً</div>
+          </div>
+        </div>
+      </div>`;
+  } else if (state === 'approved') {
+    actionHTML = `
+      <div class="sheet-section">
+        <div class="review-banner" style="background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.2)">
+          <div class="done-check" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div>
+            <div class="review-banner-txt" style="color:#4ade80">تمت الموافقة ✓</div>
+            <div class="review-banner-sub" style="color:rgba(74,222,128,.5)">تم إضافة النقاط إلى رصيدك</div>
+          </div>
+        </div>
+      </div>`;
+  } else if (state === 'rejected') {
+    actionHTML = `
+      <div class="sheet-section">
+        <div class="review-banner" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2)">
+          <div>
+            <div class="review-banner-txt" style="color:#f87171">تم رفض الإثبات</div>
+            <div class="review-banner-sub" style="color:rgba(248,113,113,.5)">لم يتم قبول الصورة المرسلة</div>
+          </div>
+        </div>
+        <button class="btn-submit" id="sc-retry-btn-${task.id}" style="margin-top:10px" onclick="scRetryTask(${task.id})">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           إعادة المحاولة
         </button>
+      </div>`;
+  } else if (state === 'upload') {
+    actionHTML = `
+      <div class="sheet-section">
+        <div class="sheet-sec-lbl">إرسال صورة الإثبات</div>
+        <div class="upload-area" id="sc-uploadArea-${task.id}">
+          <input type="file" accept="image/*" id="sc-file-${task.id}" onchange="socialHandleFile(event,${task.id})">
+          <img class="preview-img" id="sc-prev-img-${task.id}" alt="preview">
+          <div class="upload-placeholder" id="sc-uploadPH-${task.id}">
+            <div class="upload-svg-wrap">
+              <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+                <circle cx="30" cy="30" r="29" stroke="rgba(59,130,246,0.18)" stroke-width="1.2" stroke-dasharray="4 3"/>
+                <circle cx="30" cy="30" r="22" fill="rgba(59,130,246,0.10)"/>
+                <path d="M30 38V24" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                <path d="M24 30l6-7 6 7" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M22 42h16" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                <circle cx="18" cy="18" r="2" fill="rgba(59,130,246,0.25)"/>
+                <circle cx="42" cy="18" r="2" fill="rgba(59,130,246,0.25)"/>
+                <circle cx="18" cy="42" r="2" fill="rgba(59,130,246,0.25)"/>
+                <circle cx="42" cy="42" r="2" fill="rgba(59,130,246,0.25)"/>
+              </svg>
+            </div>
+            <div class="upload-lbl">ارفع لقطة الإثبات</div>
+            <div class="upload-sub">PNG أو JPG — اضغط للاختيار</div>
+          </div>
+        </div>
       </div>
-    </div>`;
-}
+      <div class="sheet-section">
+        <button class="btn-submit" id="sc-submitbtn-${task.id}" disabled onclick="socialSubmitProof(${task.id})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+          إرسال للمراجعة
+        </button>
+        <button class="btn-submit" style="margin-top:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);box-shadow:none;color:rgba(255,255,255,.45)" onclick="socialCancelUpload(${task.id})">
+          إلغاء
+        </button>
+      </div>`;
+  } else {
+    /* idle — فتح مباشر بـ upload area */
+    if (task.task_url) {
+      if (window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(task.task_url);
+      else window.open(task.task_url, '_blank');
+    }
+    actionHTML = `
+      <div class="sheet-section">
+        <div class="sheet-sec-lbl">إرسال صورة الإثبات</div>
+        <div class="upload-area" id="sc-uploadArea-${task.id}">
+          <input type="file" accept="image/*" id="sc-file-${task.id}" onchange="socialHandleFile(event,${task.id})">
+          <img class="preview-img" id="sc-prev-img-${task.id}" alt="preview">
+          <div class="upload-placeholder" id="sc-uploadPH-${task.id}">
+            <div class="upload-svg-wrap">
+              <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+                <circle cx="30" cy="30" r="29" stroke="rgba(59,130,246,0.18)" stroke-width="1.2" stroke-dasharray="4 3"/>
+                <circle cx="30" cy="30" r="22" fill="rgba(59,130,246,0.10)"/>
+                <path d="M30 38V24" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                <path d="M24 30l6-7 6 7" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M22 42h16" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                <circle cx="18" cy="18" r="2" fill="rgba(59,130,246,0.25)"/>
+                <circle cx="42" cy="18" r="2" fill="rgba(59,130,246,0.25)"/>
+                <circle cx="18" cy="42" r="2" fill="rgba(59,130,246,0.25)"/>
+                <circle cx="42" cy="42" r="2" fill="rgba(59,130,246,0.25)"/>
+              </svg>
+            </div>
+            <div class="upload-lbl">ارفع لقطة الإثبات</div>
+            <div class="upload-sub">PNG أو JPG — اضغط للاختيار</div>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-section">
+        <button class="btn-submit" id="sc-submitbtn-${task.id}" disabled onclick="socialSubmitProof(${task.id})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          إرسال المهمة
+        </button>
+      </div>`;
+  }
 
-/* ─── Icon helper ─── */
-function _socialIcon(name) {
-  const icons = {
-    facebook: `<svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(42,171,238,.85)"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`,
-    twitter:  `<svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(42,171,238,.85)"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.261 5.635zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
-    tiktok:   `<svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(42,171,238,.85)"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.86 4.86 0 01-1.01-.07z"/></svg>`,
-    telegram: `<svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(42,171,238,.85)"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.236 7.262l-1.69 7.966c-.127.567-.461.706-.934.44l-2.582-1.903-1.246 1.2c-.138.137-.253.253-.52.253l.185-2.641 4.8-4.336c.209-.185-.045-.288-.324-.103l-5.932 3.732-2.554-.797c-.555-.173-.567-.554.116-.82l9.97-3.843c.463-.168.868.103.711.852z"/></svg>`,
-    instagram:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(42,171,238,.85)" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.2" fill="rgba(42,171,238,.85)" stroke="none"/></svg>`,
-    youtube:  `<svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(42,171,238,.85)"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l6-3.5-6-3.5v7z"/></svg>`,
-    default:  `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(42,171,238,.85)" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>`,
-  };
-  return icons[name] || icons.default;
+  document.getElementById('sheet-content').innerHTML = `
+    <div class="sheet-head">
+      <div class="sheet-icon p-${pcls}" style="width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${icon}</div>
+      <div class="sheet-meta">
+        <div class="sheet-title">${_esc(task.title)}</div>
+        <div class="sheet-plat">${_SC_PLATNAME[task.icon] || task.icon}</div>
+      </div>
+      <div class="sheet-pts-badge">
+        <span class="sheet-pts-num">${Number(task.reward).toLocaleString('ar')}<img src="asesst/coins.png" alt="" style="width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(245,158,11,.5))"></span>
+        <span class="sheet-pts-lbl">نقطة</span>
+      </div>
+    </div>
+    ${noteHTML}
+    ${promoHTML}
+    ${actionHTML}`;
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
 
 /* ─── Actions ─── */
 function socialStartTask(taskId, url, proofRequired) {
   if (url) {
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url);
-    } else {
-      window.open(url, '_blank');
-    }
+    if (window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(url);
+    else window.open(url, '_blank');
   }
   if (proofRequired) {
     SOCIAL.cardState[taskId] = 'upload';
-    _socialRefreshCard(taskId);
+    _scRefreshSheet(taskId);
     _socialToast('📋 أكمل المهمة ثم أرسل لقطة الإثبات');
   } else {
     socialSubmitNoProof(taskId);
@@ -231,16 +314,58 @@ function socialStartTask(taskId, url, proofRequired) {
 
 function socialCancelUpload(taskId) {
   SOCIAL.cardState[taskId] = 'idle';
-  _socialRefreshCard(taskId);
+  _scRefreshSheet(taskId);
 }
 
-// FIX-5: إعادة المحاولة بعد الرفض — يُعيد ضبط الحالة المحلية فقط (السيرفر يسمح بإعادة الإرسال)
-function socialRetryTask(taskId, url, proofRequired) {
+/* ─── إعادة المحاولة بعد الرفض — بنيت من صفر ─────────────────── */
+async function scRetryTask(taskId) {
+  taskId = Number(taskId);
+  const task = SOCIAL.tasks.find(t => t.id === taskId);
+  if (!task) { _socialToast('⚠️ المهمة غير موجودة'); return; }
+
+  // امسح أي ملف معلّق
   delete SOCIAL.pendingFiles[taskId];
-  SOCIAL.cardState[taskId] = 'idle';
-  _socialRefreshCard(taskId);
-  socialStartTask(taskId, url, proofRequired);
+
+  // افتح الرابط
+  if (task.task_url) {
+    try {
+      if (window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(task.task_url);
+      else window.open(task.task_url, '_blank');
+    } catch (_) {}
+  }
+
+  if (task.proof_required) {
+    // مهمة تتطلب إثباتاً → state=upload وأعد فتح الشيت
+    SOCIAL.cardState[taskId] = 'upload';
+    _scRefreshCard(taskId);
+    // أغلق الشيت ثم أعد فتحه بالحالة الجديدة
+    _scCloseSheet();
+    setTimeout(() => _scOpenSheet(taskId), 80);
+    _socialToast('📋 ارفع صورة إثبات جديدة');
+    return;
+  }
+
+  // مهمة بدون إثبات → أرسل مباشرة للـ API
+  const btn = document.getElementById('sc-retry-btn-' + taskId);
+  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ...'; }
+
+  try {
+    const res = await _socialFetch({ type: 'social_submit_proof', task_id: taskId, proof_image: '' });
+    if (res.ok) {
+      SOCIAL.cardState[taskId] = res.status === 'approved' ? 'approved' : 'pending';
+      _scRefreshCard(taskId);
+      _scCloseSheet();
+      _socialToast(res.status === 'approved' ? '✅ تم وإضافة النقاط' : '✅ تم الإرسال — بانتظار المراجعة');
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = 'إعادة المحاولة'; }
+      _socialToast('⚠️ ' + (res.error || 'خطأ'));
+    }
+  } catch {
+    if (btn) { btn.disabled = false; btn.textContent = 'إعادة المحاولة'; }
+    _socialToast('⚠️ تعذّر الإرسال');
+  }
 }
+
 
 function socialHandleFile(e, taskId) {
   const file = e.target.files[0];
@@ -249,42 +374,33 @@ function socialHandleFile(e, taskId) {
   const reader = new FileReader();
   reader.onload = r => {
     const img  = document.getElementById(`sc-prev-img-${taskId}`);
-    const prev = document.getElementById(`sc-prev-${taskId}`);
-    const zone = document.getElementById(`sc-zone-${taskId}`);
-    const txt  = document.getElementById(`sc-zone-txt-${taskId}`);
-    const btn  = document.getElementById(`sc-submit-${taskId}`);
-    if (img)  img.src = r.target.result;
-    if (prev) prev.style.display = 'block';
-    if (zone) zone.classList.add('has');
-    if (txt)  txt.textContent = '✓ ' + file.name;
-    if (btn)  btn.disabled = false;
-    // FIX-1: حفظ الصورة لكل مهمة منفصلة — كان متغير واحد يُستبدل فتُرسل صورة مهمة أخرى
+    const ph   = document.getElementById(`sc-uploadPH-${taskId}`);
+    const btn  = document.getElementById(`sc-submitbtn-${taskId}`);
+    if (img) { img.src = r.target.result; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+    if (btn) btn.disabled = false;
     SOCIAL.pendingFiles[taskId] = { file, dataUrl: r.target.result };
   };
   reader.readAsDataURL(file);
 }
 
 async function socialSubmitProof(taskId) {
-  const btn = document.getElementById(`sc-submit-${taskId}`);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="sc-btn-spin"></div> جارٍ الإرسال...'; }
+  const btn = document.getElementById(`sc-submitbtn-${taskId}`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div style="display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></div> جارٍ الإرسال...'; }
   _socialToast('📤 جارٍ إرسال الصورة...');
-
   try {
-    // FIX-1: قراءة الصورة الخاصة بهذه المهمة تحديداً
     const fileData = SOCIAL.pendingFiles[taskId]?.dataUrl || '';
-    const res = await _socialFetch({
-      type: 'social_submit_proof',
-      task_id: taskId,
-      proof_image: fileData,
-    });
+    const res = await _socialFetch({ type: 'social_submit_proof', task_id: taskId, proof_image: fileData });
     if (res.ok) {
-      SOCIAL.cardState[taskId] = 'pending';
-      delete SOCIAL.pendingFiles[taskId]; // FIX-1: تنظيف الصورة بعد الإرسال الناجح
-      _socialRefreshCard(taskId);
-      _socialToast('✅ تم الإرسال — بانتظار موافقة المشرف');
+      SOCIAL.cardState[taskId] = res.status === 'approved' ? 'approved' : 'pending';
+      delete SOCIAL.pendingFiles[taskId];
+      _scRefreshCard(taskId);
+      _scCloseSheet();
+      const msg = res.status === 'approved' ? '✅ تم إنجاز المهمة وإضافة النقاط' : '✅ تم الإرسال — بانتظار موافقة المشرف';
+      _socialToast(msg);
     } else {
       if (btn) { btn.disabled = false; btn.innerHTML = 'إرسال للمراجعة'; }
-      _socialToast('⚠️ ' + (res.error || 'خطأ في الإرسال'));
+      _socialToast('⚠️ ' + (typeof res.error === 'string' ? res.error : 'خطأ في الإرسال'));
     }
   } catch {
     if (btn) { btn.disabled = false; btn.innerHTML = 'إرسال للمراجعة'; }
@@ -292,20 +408,17 @@ async function socialSubmitProof(taskId) {
   }
 }
 
-// FIX-4: لا تُرسل المهمة كمنجزة إذا لم يكن هناك رابط يُفتح فعلياً
 async function socialSubmitNoProof(taskId) {
   const task = SOCIAL.tasks.find(t => t.id === taskId);
-  if (!task?.task_url) {
-    // لا رابط = لا إجراء حقيقي — لا نعدّها منجزة
-    _socialToast('⚠️ لا يوجد رابط لهذه المهمة');
-    return;
-  }
+  if (!task?.task_url) { _socialToast('⚠️ لا يوجد رابط لهذه المهمة'); return; }
   try {
     const res = await _socialFetch({ type: 'social_submit_proof', task_id: taskId, proof_image: '' });
     if (res.ok) {
-      SOCIAL.cardState[taskId] = 'pending';
-      _socialRefreshCard(taskId);
-      _socialToast('✅ تم تسجيل إنجاز المهمة');
+      SOCIAL.cardState[taskId] = res.status === 'approved' ? 'approved' : 'pending';
+      _scRefreshCard(taskId);
+      _scCloseSheet();
+      const msg = res.status === 'approved' ? '✅ تم إنجاز المهمة وإضافة النقاط' : '✅ تم تسجيل إنجاز المهمة';
+      _socialToast(msg);
     }
   } catch { _socialToast('⚠️ تعذّر التسجيل'); }
 }
@@ -313,56 +426,86 @@ async function socialSubmitNoProof(taskId) {
 function socialCopyPromo(taskId) {
   const el = document.getElementById(`sc-promo-${taskId}`);
   if (!el) return;
-  navigator.clipboard?.writeText(el.textContent).then(() => _socialToast('✅ تم نسخ المنشور'));
+  navigator.clipboard?.writeText(el.textContent).then(() => {
+    _socialToast('✅ تم نسخ المنشور');
+    const btn = document.getElementById(`sc-copybtn-${taskId}`);
+    if (btn) {
+      btn.classList.add('copied');
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> تم النسخ!`;
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> نسخ النص`;
+      }, 2200);
+    }
+  });
 }
 
-/* ─── Re-render single card ─── */
-function _socialRefreshCard(taskId) {
+/* ─── Refresh helpers ─── */
+function _scRefreshCard(taskId) {
   const task = SOCIAL.tasks.find(t => t.id === taskId);
   if (!task) return;
   const card = document.getElementById(`sc-card-${taskId}`);
   if (!card) return;
   const idx = SOCIAL.tasks.indexOf(task);
-  card.outerHTML = _socialCardHTML(task, idx);
+  card.outerHTML = _scCardHTML(task, idx);
+}
+
+function _scRefreshSheet(taskId) {
+  // re-open sheet with updated state
+  _scOpenSheet(taskId);
+}
+
+function _scCloseSheet() {
+  document.getElementById('overlay')?.classList.remove('open');
+  document.getElementById('sheet')?.classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 /* ─── Toast ─── */
-let _scToastTimer;
 function _socialToast(msg) {
-  // reuse app toast if available, else use own
-  if (typeof window.showToast === 'function') { window.showToast(msg); return; }
+  if (typeof window.showToast === 'function') {
+    if (msg.startsWith('✅')) {
+      window.showToast('trophy', msg.slice(1).trim(), '', 'green', '✓');
+    } else if (msg.startsWith('⚠️')) {
+      window.showToast('error', msg.slice(2).trim(), '', 'gold', '!');
+    } else {
+      const spaceIdx = msg.indexOf(' ');
+      const title = spaceIdx > -1 ? msg.slice(spaceIdx).trim() : msg;
+      window.showToast('coin', title || msg, '', 'gold', '•');
+    }
+    return;
+  }
   let el = document.getElementById('sc-toast');
   if (!el) {
     el = document.createElement('div');
     el.id = 'sc-toast';
-    el.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(14px);background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.11);border-radius:30px;padding:9px 20px;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;pointer-events:none;z-index:9999;opacity:0;transition:opacity .3s,transform .3s;';
+    el.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(14px);background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.11);border-radius:30px;padding:9px 20px;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;pointer-events:none;z-index:9999;opacity:0;transition:opacity .3s,transform .3s;';
     document.body.appendChild(el);
   }
   el.textContent = msg;
-  el.style.opacity = '1';
-  el.style.transform = 'translateX(-50%) translateY(0)';
-  clearTimeout(_scToastTimer);
-  _scToastTimer = setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(-50%) translateY(14px)';
+  el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(window._scToastTimer);
+  window._scToastTimer = setTimeout(() => {
+    el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(14px)';
   }, 2800);
 }
 
-/* ─── Escape helper ─── */
+/* ─── Escape ─── */
 function _esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ─── Init when social page is shown ─── */
+/* ─── Init ─── */
 function initSocialPage() {
-  if (!SOCIAL.tasks.length) socialLoadTasks();
+  if (!SOCIAL.tasks.length || SOCIAL.loadError) socialLoadTasks();
 }
 
-// expose to global
+/* ─── Expose globals ─── */
 window.socialStartTask    = socialStartTask;
 window.socialCancelUpload = socialCancelUpload;
-window.socialRetryTask    = socialRetryTask;
+window.scRetryTask        = scRetryTask;
 window.socialHandleFile   = socialHandleFile;
 window.socialSubmitProof  = socialSubmitProof;
 window.socialCopyPromo    = socialCopyPromo;
 window.initSocialPage     = initSocialPage;
+window._scOpenSheet       = _scOpenSheet;

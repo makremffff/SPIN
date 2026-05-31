@@ -746,7 +746,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     window._REFERRAL_LINK = REFERRAL_LINK;
 
     try {
-        await createSession();
+        const sessionOk = await createSession();
+        if (!sessionOk) {
+            // session فشلت (ban / timeout / خطأ شبكة) — أخفِ شاشة التحميل وأوقف البوت
+            console.warn('[BOOT] session failed — hiding loading screen');
+            _hideLoadingScreen();
+            return;
+        }
         const load=await fetchApi({ type:'load', data:{} });
         console.log('[BOOT] session ok, load result:', load?.ok, 'points:', load?.points, 'error:', load?.error);
 
