@@ -14,7 +14,7 @@ const { hashIp, hashFp, getIp, rateLimit } = require('../lib/utils');
 const { validateSession, issueNonce, writeAudit } = require('../lib/security');
 const {
   handleGetConfig, handleCreateSession, handleLoad, handleGetState,
-  handleStartAd, handleRewardAd, handleStartTaddyAd, handleRewardTaddyAd, handleStartAdsgramTask, handleClaimAdsgramTask,
+  handleStartAd, handleRewardAd, handleStartAdsgramTask, handleClaimAdsgramTask,
   handleClaimDailyMission, handleClaimGift, handleGetChannels,
   handleVerifyChannelTask, handleCheckChannelMembership, handleVerifyTgTask, handleSubmitWithdraw,
   handleGetReferrals, handleTrackAdEvent, handleAdmin, handleAdsgramCallback,
@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
   try { fpData = JSON.parse(fpRaw); } catch (_) {}
   const fpHash = hashFp(fpData);
 
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad', 'start_taddy_ad', 'check_channel_membership'].includes(type);
+  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad', 'check_channel_membership'].includes(type);
   if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
@@ -160,8 +160,6 @@ module.exports = async function handler(req, res) {
       case 'get_state':           result = await handleGetState(userId); break;
       case 'start_ad':            result = await handleStartAd(userId, sessionId, ipHash, fpHash); break;
       case 'reward_ad':           result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce); break;
-      case 'start_taddy_ad':      result = await handleStartTaddyAd(userId, sessionId, ipHash, fpHash); break;
-      case 'reward_taddy_ad':     result = await handleRewardTaddyAd(userId, sessionId, ipHash, fpHash, body, rawNonce); break;
       case 'start_adsgram_task':  result = await handleStartAdsgramTask(userId, sessionId, ipHash, fpHash); break;
       case 'claim_adsgram_task':  result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash, rawNonce); break;
       case 'claim_daily_mission': result = await handleClaimDailyMission(userId, body, rawNonce, sessionId, fpHash, ipHash); break;
