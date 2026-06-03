@@ -84,7 +84,7 @@ export function _applyConfigToUI() {
         if (el.textContent.startsWith('+')) {
             el.textContent = '+' + pts.toLocaleString('en-US');
         } else {
-            el.textContent = pts.toLocaleString('en-US') + ' نقطة';
+            el.textContent = pts.toLocaleString('en-US') + ' تذكره';
         }
     });
     // ── قيم جوائز الإعلانات الديناميكية ──
