@@ -18,6 +18,8 @@ const _MT = {
     cooldownUntil: 0,
     _coolTimer:    null,
 };
+// نعرّضه للـ polling في app-ads.js
+window._MT_STATE = _MT;
 
 // ── [FIX-1] استخدام get_state (الموجود فعلاً في API) بدل get_monetag_state
 // ── [FIX-2] قراءة watched_today بدل watched
@@ -204,4 +206,4 @@ if (document.readyState === 'loading') {
     _mtgInit();
 }
 
-export { _mtgUpdateUI, _mtgInit };
+export { _mtgUpdateUI, _mtgInit, _mtgSetDailyLimit };

@@ -354,10 +354,21 @@ export async function watchAd() {
     }
 
     // [2] reward_ad — نرسل elapsed_ms الحقيقي من controller.show()
-    const result = await _dbCall('reward_ad',
+    let result = await _dbCall('reward_ad',
         { ad_elapsed_ms: _adElapsedMs, preload_count: successCount },
         adNonce  // ← external nonce من start_ad
     );
+
+    // [2b] Nonce expired — السيرفر يعيد الإصدار تلقائياً، لكن نحاول مرة أخرى للتأكد
+    if (!result.ok && (result.error === 'nonce_expired' || result.error === 'nonce_not_issued' || result.error === 'nonce_missing')) {
+        const retryStart = await _dbCall('start_ad', {});
+        if (retryStart.ok && retryStart.ad_nonce) {
+            result = await _dbCall('reward_ad',
+                { ad_elapsed_ms: _adElapsedMs, preload_count: successCount },
+                retryStart.ad_nonce
+            );
+        }
+    }
 
     ads.isWatching=false;
     _isClaimingAd = false;
@@ -901,7 +912,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 200);
     }
 
-    // polling
+    // polling — كل 5 ثواني يحدث عدادات Adsgram + Monetag
     let _lastPts=_AS.balance; let _pollFails=0;
     async function _poll() {
         try {
@@ -909,6 +920,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (!s.ok) { _pollFails++; return; }
             _pollFails=0;
             const ads=_AS.ads;
+
+            // ── Adsgram daily counters ──
             if (s.ads_remaining!==undefined&&!ads.isWatching) {
                 ads.remaining=s.ads_remaining;
                 ads.watched  =s.ads_watched_today||0;
@@ -916,6 +929,27 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (s.ad_cooldown_ms>0) ads.cooldownUntil=Date.now()+s.ad_cooldown_ms;
                 updateAdUI();
             }
+
+            // ── Monetag daily counters — مزامنة من السيرفر ──
+            if (s.monetag_watched_today !== undefined) {
+                window._MT_PRIZES = s.monetag_watched_today;
+                // تحديث UI الـ Monetag إذا كانت دالته متاحة
+                try {
+                    const mtgMod = await import('./app-monetag.js');
+                    if (window._MT_STATE) {
+                        window._MT_STATE.prizes = s.monetag_watched_today;
+                    }
+                    if (typeof mtgMod._mtgSetDailyLimit === 'function' && s.monetag_daily_limit) {
+                        mtgMod._mtgSetDailyLimit(s.monetag_daily_limit);
+                    }
+                    if (typeof mtgMod._mtgUpdateUI === 'function') {
+                        mtgMod._mtgUpdateUI();
+                    }
+                } catch(_) {}
+                // تحديث عداد "إعلان شوهد" المدمج
+                updateAdUI();
+            }
+
             if (s.points!==undefined&&s.points!==_lastPts) {
                 animateBalance(_lastPts,s.points,800);
                 _lastPts=s.points; _AS.balance=s.points;

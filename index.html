@@ -102,7 +102,7 @@
     .cp-lc:hover { transform:translateY(-2px);border-color:#242424; }
     .cp-lc-stripe { width:4px;align-self:stretch;flex-shrink:0;border-radius:0 4px 4px 0;background:var(--cp-c);opacity:.7; }
     .cp-lc-rank { width:30px;height:30px;border-radius:50%;background:#0c0c0c;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;font-family:'DynaPuff',cursive;font-size:12px;font-weight:700;color:#3a3a3a; }
-    .cp-lc-av { width:46px;height:46px;border-radius:50%;overflow:hidden;border:2px solid var(--cp-c);box-shadow:0 0 10px var(--cp-cg);display:block; }
+    .cp-lc-av { width:46px;height:46px;border-radius:50%;overflow:hidden;border:2px solid var(--cp-c);box-shadow:0 0 10px var(--cp-cg);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
     .cp-lc-name { font-size:13px;font-weight:700;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
     .cp-lc-count { font-family:'DynaPuff',cursive;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0; }
 
@@ -867,12 +867,12 @@
                 <div class="inv-reward-pills">
                     <div class="inv-reward-pill">
                         <div class="inv-pill-icon">
-                            <img src="asesst/coins.png" alt="coins" width="22" height="22"
-                                style="filter:drop-shadow(0 0 5px rgba(251,191,36,0.65));object-fit:contain;">
+                            <img src="asesst/ticket.jpg" alt="ticket" width="30" height="40"
+                                style="object-fit:contain;border-radius:3px;">
                         </div>
                         <div class="inv-pill-text">
                             <div class="inv-pill-label">مكافأة انضمام الصديق</div>
-                            <div class="inv-pill-val gold inv-referral-pts-badge">500 نقطة</div>
+                            <div class="inv-pill-val gold inv-referral-pts-badge">500 تذكرة</div>
                         </div>
                         <div class="inv-pill-badge gold">فوري</div>
                     </div>
@@ -1666,7 +1666,7 @@
                 const div = document.createElement('div');
                 div.className = 'cp-pod-item ' + RCLASS[xi];
                 const avatarContent = u.photo_url
-                    ? `<img src="${u.photo_url}" style="width:${sz}px;height:${sz}px;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';" alt=""/>`
+                    ? `<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';" alt=""/>`
                     : `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" fill="none">
                         <circle cx="${sz/2}" cy="${sz*.4}" r="${sz*.18}" fill="${av.c}30"/>
                         <ellipse cx="${sz/2}" cy="${sz*.86}" rx="${sz*.3}" ry="${sz*.2}" fill="${av.c}30"/>
@@ -1702,7 +1702,7 @@
                 card.className = 'cp-lc';
                 card.style.cssText = `animation-delay:${i * .06}s;--cp-c:${av.c};--cp-cg:${av.cg};`;
                 const avatarContent = u.photo_url
-                    ? `<img src="${u.photo_url}" style="width:46px;height:46px;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';" alt=""/>`
+                    ? `<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';" alt=""/>`
                     : `<svg width="46" height="46" viewBox="0 0 46 46" fill="none">
                         <circle cx="23" cy="18" r="9" fill="${av.c}25"/>
                         <ellipse cx="23" cy="40" rx="16" ry="11" fill="${av.c}25"/>
