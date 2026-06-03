@@ -153,7 +153,7 @@ function _updateAdUINoBtn() {
     const ads = _AS.ads;
     const r   = ads.remaining;
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-    const _combinedWatched1 = ads.watched||0;
+    const _combinedWatched1 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
     setText('ads-watched-total', _combinedWatched1);
@@ -176,7 +176,7 @@ export function updateAdUI() {
     const r   = ads.remaining;
 
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-    const _combinedWatched2 = ads.watched||0;
+    const _combinedWatched2 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
     setText('ads-watched-total', _combinedWatched2);
@@ -859,6 +859,14 @@ window.addEventListener('DOMContentLoaded', async () => {
             } else {
                 _atShow('atask-start-btn');
             }
+
+            // ── Monetag init ──────────────────────────────────────
+            if (load.monetag) {
+                initMonetag(load.monetag);
+            } else {
+                initMonetag(null);
+            }
+
             // tgVerified UI
             if (_AS.tasks.tgVerified) {
                 document.getElementById('tg-join-btn')?.style.setProperty('display','none');
@@ -1194,3 +1202,247 @@ export function initAdsgramTaskUI(adsgramTaskData) {
 // ── expose ────────────────────────────────────────────────
 window.startAdsgramTask    = startAdsgramTask;
 window.initAdsgramTaskUI   = initAdsgramTaskUI;
+
+
+// ══════════════════════════════════════════════════════════════════
+// MONETAG — Rewarded Interstitial (أعلى CPM)
+// حد يومي: 250 | جائزة: 20 نقطة | cooldown في الزر مثل Adsgram
+// ══════════════════════════════════════════════════════════════════
+
+const _MG = {
+    watched:           0,
+    dailyLimit:        250,
+    reward:            20,
+    cooldownMs:        20 * 1000,
+    cooldownUntil:     0,
+    _cooldownTimer:    null,
+    _btnCooldownActive:false,
+    _preloadCount:     0,     // عدد الإعلانات المحملة مسبقاً
+    _inFlight:         false,
+};
+
+// ── زر shortcut ─────────────────────────────────────────
+const _mgBtn = () => document.getElementById('monetag-watch-btn');
+
+// ── HTML الزر في حالة ready ──────────────────────────────
+const _mgBtnReady = () =>
+    `<div class="earn-prov-btn-shimmer"></div>`
+    + `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>`
+    + `شاهد`;
+
+// ── HTML الزر في حالة loading ────────────────────────────
+const _mgBtnLoading = () =>
+    `<img src="asesst/loading.gif" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;">`
+    + `<span style="font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;color:#c084fc;">جارٍ...</span>`;
+
+// ── HTML الزر في حالة cooldown (عد تنازلي) ───────────────
+const _mgBtnCooldown = (s) =>
+    `<img src="asesst/loading.gif" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;">`
+    + `<span style="font-family:'DynaPuff',sans-serif;font-size:12px;font-weight:900;color:#c084fc;line-height:1;">${s}</span>`;
+
+// ── Update Monetag UI ────────────────────────────────────
+function _mgUpdateUI() {
+    const remaining  = Math.max(0, _MG.dailyLimit - _MG.watched);
+    const isDone     = _MG.watched >= _MG.dailyLimit;
+    const inCooldown = !isDone && _MG.cooldownUntil > Date.now();
+
+    const rowEl   = document.getElementById('monetag-prov-row');
+    const doneEl  = document.getElementById('monetag-done-state');
+    const remEl   = document.getElementById('monetag-remaining');
+    const watchEl = document.getElementById('monetag-watched');
+    const limEl   = document.getElementById('monetag-daily-limit');
+    // إخفاء cooldown msg التحتي دائماً — العد في الزر الآن
+    const coolEl  = document.getElementById('monetag-cooldown-msg');
+    if (coolEl) coolEl.style.display = 'none';
+
+    if (remEl)   remEl.textContent = remaining;
+    if (watchEl) watchEl.textContent = _MG.watched;
+    if (limEl)   limEl.textContent = _MG.dailyLimit;
+
+    // SVG ring progress
+    const ringEl = document.getElementById('monetag-mini-ring');
+    if (ringEl) {
+        const circumference = 2 * Math.PI * 15;
+        const pct = _MG.dailyLimit > 0 ? _MG.watched / _MG.dailyLimit : 0;
+        ringEl.style.strokeDasharray  = circumference;
+        ringEl.style.strokeDashoffset = circumference * (1 - pct);
+    }
+
+    if (isDone) {
+        if (rowEl)  rowEl.style.display  = 'none';
+        if (doneEl) doneEl.style.display = 'flex';
+        return;
+    }
+    if (rowEl)  rowEl.style.display  = '';
+    if (doneEl) doneEl.style.display = 'none';
+
+    // إذا الزر عنده عداد نشط — لا تتدخل
+    if (_MG._btnCooldownActive || _MG._inFlight) return;
+
+    const btn = _mgBtn();
+    if (!btn) return;
+    if (inCooldown) {
+        _mgStartBtnCooldown();
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('disabled');
+        btn.innerHTML = _mgBtnReady();
+    }
+}
+
+// ── Cooldown داخل الزر (عد تنازلي) ──────────────────────
+function _mgStartBtnCooldown() {
+    if (_MG._btnCooldownActive) return;
+    const btn = _mgBtn();
+    if (!btn) return;
+
+    _MG._btnCooldownActive = true;
+    btn.disabled = true;
+    btn.classList.add('disabled');
+
+    let remSec = Math.ceil((_MG.cooldownUntil - Date.now()) / 1000);
+    btn.innerHTML = _mgBtnCooldown(remSec);
+
+    if (_MG._cooldownTimer) { clearInterval(_MG._cooldownTimer); _MG._cooldownTimer = null; }
+    _MG._cooldownTimer = setInterval(() => {
+        remSec--;
+        const left = Math.max(0, remSec);
+        const b = _mgBtn();
+        if (b) b.innerHTML = _mgBtnCooldown(left);
+        if (remSec <= 0) {
+            clearInterval(_MG._cooldownTimer);
+            _MG._cooldownTimer = null;
+            _MG._btnCooldownActive = false;
+            const bFinal = _mgBtn();
+            if (bFinal) {
+                bFinal.innerHTML = _mgBtnReady();
+                bFinal.disabled = false;
+                bFinal.classList.remove('disabled');
+            }
+        }
+    }, 1000);
+}
+
+// ── Preload — يحمّل إعلان واحد مسبقاً (Monetag لا يدعم queue) ──
+function _mgPreload() {
+    const showFn = _mgGetShowFn();
+    if (!showFn || _MG._preloadCount > 0 || _MG._inFlight) return;
+    showFn({ type: 'preload' }).then(() => {
+        _MG._preloadCount = 1;
+    }).catch(() => {
+        _MG._preloadCount = 0;
+    });
+}
+
+function _mgGetShowFn() {
+    return typeof window['show_10245709'] === 'function' ? window['show_10245709'] : null;
+}
+
+// ── Main watch function ──────────────────────────────────
+export async function watchMonetag() {
+    if (_MG._inFlight || _MG._btnCooldownActive) return;
+    if (_MG.watched >= _MG.dailyLimit) { _mgUpdateUI(); return; }
+    if (_MG.cooldownUntil > Date.now()) {
+        _mgStartBtnCooldown();
+        return;
+    }
+
+    const showFn = _mgGetShowFn();
+    if (!showFn) {
+        showToast('coin', 'Monetag', 'جارٍ تحميل SDK...', 'red', '');
+        return;
+    }
+
+    _MG._inFlight = true;
+    const btn = _mgBtn();
+    if (btn) { btn.disabled = true; btn.classList.add('disabled'); btn.innerHTML = _mgBtnLoading(); }
+
+    try {
+        const ymid = String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'u');
+
+        if (_MG._preloadCount > 0) {
+            // إعلان محمّل مسبقاً — عرضه فوراً
+            _MG._preloadCount = 0;
+            await showFn({ ymid });
+        } else {
+            // مافي preload — عرض مباشر (Monetag يحمّل داخلياً)
+            await showFn({ ymid });
+        }
+
+        // ✅ المشاهدة اكتملت
+        await _mgOnComplete();
+
+    } catch (err) {
+        // المستخدم أغلق أو فشل
+        _MG._inFlight = false;
+        const b = _mgBtn();
+        if (b) { b.disabled = false; b.classList.remove('disabled'); b.innerHTML = _mgBtnReady(); }
+        return;
+    }
+
+    _MG._inFlight = false;
+    // حمّل الإعلان التالي في الخلفية فوراً
+    setTimeout(_mgPreload, 800);
+}
+
+async function _mgOnComplete() {
+    // ── Loading gift animation في الزر ──────────────────
+    const btn = _mgBtn();
+    if (btn) btn.innerHTML = `<img src="asesst/loading.gif" style="width:20px;height:20px;object-fit:contain;">`;
+
+    try {
+        const result = await _dbCall('monetag_reward', {});
+        if (!result?.ok) {
+            const msg = result?.error === 'daily_limit_reached'
+                ? 'وصلت الحد اليومي لـ Monetag'
+                : result?.error === 'cooldown_active'
+                    ? `انتظر ${Math.ceil((result.wait_ms||20000)/1000)} ثانية`
+                    : 'حدث خطأ، حاول مرة أخرى';
+            showToast('coin', 'Monetag', msg, 'red', '');
+            if (result?.error === 'daily_limit_reached') _MG.watched = _MG.dailyLimit;
+            if (result?.error === 'cooldown_active' && result.wait_ms)
+                _MG.cooldownUntil = Date.now() + result.wait_ms;
+        } else {
+            _MG.watched       = result.watched_today ?? (_MG.watched + 1);
+            _MG.cooldownUntil = Date.now() + (result.cooldown_ms || _MG.cooldownMs);
+
+            const pts = result.points_awarded ?? _MG.reward;
+            if (result.points !== undefined) {
+                animateBalance(_AS.balance, result.points, 1000);
+                _AS.balance = result.points;
+            }
+            // vibration
+            try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(_){}
+
+            // loading gift قصير ثم toast
+            setTimeout(() => {
+                showToast('coin', 'Monetag ✓', `+${pts} نقطة`, 'green', `+${pts}`);
+            }, 400);
+        }
+    } catch (e) {
+        showToast('coin', 'Monetag', 'خطأ في الاتصال', 'red', '');
+    }
+
+    _mgUpdateUI();
+    // إذا في cooldown — ابدأ العداد في الزر
+    if (_MG.cooldownUntil > Date.now()) {
+        _mgStartBtnCooldown();
+    }
+}
+
+// ── Init from server load data ───────────────────────────
+export function initMonetag(data) {
+    if (!data) { _mgUpdateUI(); setTimeout(_mgPreload, 2000); return; }
+
+    if (data.watched_today  !== undefined) _MG.watched    = parseInt(data.watched_today) || 0;
+    if (data.daily_limit    !== undefined) _MG.dailyLimit = parseInt(data.daily_limit)   || 250;
+    if (data.reward         !== undefined) _MG.reward     = parseInt(data.reward)        || 20;
+    if (data.cooldown_ms    !== undefined) _MG.cooldownMs = parseInt(data.cooldown_ms)   || 20000;
+    if (data.cooldown_until !== undefined) _MG.cooldownUntil = data.cooldown_until;
+
+    _mgUpdateUI();
+    setTimeout(_mgPreload, 2000);
+}
+
+window.watchMonetag  = watchMonetag;
+window.initMonetag   = initMonetag;

@@ -395,6 +395,7 @@
                 0 0 18px rgba(251, 191, 36, 0.65),
                 0 0 45px rgba(251, 191, 36, 0.28),
                 0 2px 8px rgba(0, 0, 0, 0.5);
+                margin-top: 15px;
         }
 
         .section-label {
@@ -2068,14 +2069,16 @@
         /* Points badge */
         .earn-prov-pts-badge {
             font-family: 'DynaPuff', sans-serif;
-            font-size: 12px;
+            font-size: 15px;
             font-weight: 700;
             border-radius: 10px;
             padding: 5px 9px;
             flex-shrink: 0;
             display: flex;
-            align-items: baseline;
-            gap: 3px;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            
         }
         .earn-prov-pts-unit {
             font-family: 'Tajawal', sans-serif;
@@ -2090,8 +2093,8 @@
         }
         .earn-prov-pts-badge-a {
             color: #fde68a;
-            background: rgba(251,191,36,.10);
-            border: 1px solid rgba(251,191,36,.20);
+            
+     
         }
         /* Watch button */
         .earn-prov-btn {
@@ -2140,6 +2143,14 @@
             background: rgba(251,191,36,.20);
             box-shadow: 0 4px 18px rgba(245,158,11,.22);
         }
+        /* Monetag button variant */
+        #monetag-watch-btn:hover {
+            background: rgba(139,92,246,.35) !important;
+            box-shadow: 0 4px 18px rgba(124,58,237,.28) !important;
+        }
+        #monetag-watch-btn:active { transform: scale(.95); }
+        #monetag-watch-btn:disabled { opacity: .35; cursor: not-allowed; pointer-events: none; }
+        #monetag-cooldown-msg { display:none; gap:5px; justify-content:center; align-items:center; }
         /* Done row */
         /* ── Earn Provider Cooldown Overlay ── */
         .epc-overlay {
@@ -3612,3 +3623,8 @@ font-family: Tajawal;
 .review-banner-dot { width:8px; height:8px; border-radius:50%; background:#818cf8; flex-shrink:0; animation:pulse-dot 1.6s ease-in-out infinite; }
 .review-banner-txt { font-size:13px; font-weight:700; color:#a5b4fc; }
 .review-banner-sub { font-size:11px; color:rgba(165,180,252,.55); margin-top:2px; }
+
+@keyframes pulse-chip {
+  0%,100% { box-shadow: 0 0 0 0 rgba(244,114,182,0); }
+  50%      { box-shadow: 0 0 0 4px rgba(244,114,182,0.18); }
+}

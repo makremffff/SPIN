@@ -20,6 +20,8 @@
     <link rel="stylesheet" href="style.css">
     <!-- Adsgram SDK -->
     <script src="adsgram-sdk.js"></script>
+    <!-- Monetag SDK — Rewarded Interstitial (highest CPM) -->
+    <script src="//libtl.com/sdk.js" data-zone="10245709" data-sdk="show_10245709"></script>
 </head>
 <body>
 
@@ -48,7 +50,71 @@
             50%  { background:rgba(255,255,255,0.08); }
             100% { background:rgba(255,255,255,0.04); }
         }
-    </style>
+    
+    /* ══ COMPETITION PAGE ══ */
+    @keyframes cp-blink  { 0%,100%{color:#282828} 50%{color:#141414} }
+    @keyframes cp-skel   { to{background-position:-200% 0} }
+    @keyframes cp-card-in{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes cp-flipIn { from{transform:translateY(-6px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    /* ── COUNTDOWN ── */
+    .cp-cd-label { display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:600;color:#555;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px; }
+    .cp-cd-grid  { display:flex;align-items:center;justify-content:center;gap:6px; }
+    .cp-cd-unit  { display:flex;flex-direction:column;align-items:center;gap:10px; }
+    .cp-cd-box   { width:48px;background:transparent;border:none;border-radius:12px;padding:10px 6px;text-align:center;font-family:'DynaPuff',cursive;font-size:28px;font-weight:700;color:#E8B84B;line-height:1; }
+    .cp-cd-name  { font-size:10px;font-weight:600;color:#555;letter-spacing:.5px; }
+    .cp-cd-sep   { font-family:'DynaPuff',cursive;font-size:24px;font-weight:700;color:#1E1E1E;margin-bottom:18px;animation:cp-blink 1s step-end infinite; }
+    .cp-flipping { animation:cp-flipIn .22s ease; }
+
+    /* ── SECTION LABEL ── */
+    .cp-sec-lbl       { display:flex;align-items:center;justify-content:center;margin-bottom:22px; }
+    .cp-sec-lbl-inner { display:flex;align-items:center;gap:8px;background:#111;border:1px solid #1e1e1e;border-radius:30px;padding:6px 16px; }
+    .cp-sec-lbl-inner span { font-size:11px;font-weight:700;color:#555;letter-spacing:2px;text-transform:uppercase; }
+
+    /* ── PODIUM ── */
+    .cp-podium    { display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:28px; }
+    .cp-pod-item  { flex:1;display:flex;flex-direction:column;align-items:center; }
+    .cp-pod-ring  { border-radius:50%;padding:2px;display:inline-block;line-height:0;margin-bottom:8px; }
+    .cp-pod-inner { border-radius:50%;background:#0d0d0d;padding:2px;display:block; }
+    .cp-pod-face  { border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden; }
+    .cp-r1 .cp-pod-face { width:78px;height:78px; }
+    .cp-r2 .cp-pod-face,
+    .cp-r3 .cp-pod-face { width:60px;height:60px; }
+    .cp-r1 .cp-pod-ring { background:conic-gradient(#E8B84B,#FFF5C0,#C9922A,#E8B84B,#FFF5C0,#C9922A,#E8B84B); }
+    .cp-r2 .cp-pod-ring { background:conic-gradient(#9EAAB8,#D4DCE4,#6A7A88,#9EAAB8,#D4DCE4,#6A7A88,#9EAAB8); }
+    .cp-r3 .cp-pod-ring { background:conic-gradient(#B87333,#D4975A,#7A4F20,#B87333,#D4975A,#7A4F20,#B87333); }
+    .cp-pod-name  { font-size:11.5px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;margin-bottom:5px; }
+    .cp-r1 .cp-pod-name { color:#E8B84B;font-size:12.5px; }
+    .cp-r2 .cp-pod-name { color:#9EAAB8; }
+    .cp-r3 .cp-pod-name { color:#B87333; }
+    .cp-tkt-badge { display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-family:'DynaPuff',cursive;font-size:11px;font-weight:600;margin-bottom:8px; }
+    .cp-tkt-badge img { width:24px;height:24px;object-fit:contain;border-radius:3px; }
+    .cp-r1 .cp-tkt-badge { background:#191300;border:1px solid #2E2400;color:#E8B84B; }
+    .cp-r2 .cp-tkt-badge { background:#101418;border:1px solid #1C2430;color:#9EAAB8; }
+    .cp-r3 .cp-tkt-badge { background:#120A04;border:1px solid #221408;color:#B87333; }
+    .cp-prize { font-family:'DynaPuff',cursive;font-size:13px;font-weight:700;margin-bottom:6px; }
+    .cp-r1 .cp-prize { color:#E8B84B; }
+    .cp-r2 .cp-prize { color:#9EAAB8; }
+    .cp-r3 .cp-prize { color:#B87333; }
+
+    /* ── LIST CARDS ── */
+    .cp-lc { background:linear-gradient(135deg,#121212 0%,#0e0e0e 100%);border:1px solid #1a1a1a;border-radius:18px;display:flex;align-items:center;gap:0;padding:10px 0;margin-bottom:10px;animation:cp-card-in .45s both ease-out;overflow:hidden;position:relative;transition:transform .18s,border-color .18s;cursor:default; }
+    .cp-lc:hover { transform:translateY(-2px);border-color:#242424; }
+    .cp-lc-stripe { width:4px;align-self:stretch;flex-shrink:0;border-radius:0 4px 4px 0;background:var(--cp-c);opacity:.7; }
+    .cp-lc-rank { width:30px;height:30px;border-radius:50%;background:#0c0c0c;border:1px solid #1e1e1e;display:flex;align-items:center;justify-content:center;font-family:'DynaPuff',cursive;font-size:12px;font-weight:700;color:#3a3a3a; }
+    .cp-lc-av { width:46px;height:46px;border-radius:50%;overflow:hidden;border:2px solid var(--cp-c);box-shadow:0 0 10px var(--cp-cg);display:block; }
+    .cp-lc-name { font-size:13px;font-weight:700;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .cp-lc-count { font-family:'DynaPuff',cursive;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0; }
+
+    /* ── AVATAR COLORS ── */
+    .av-purple { background:linear-gradient(135deg,#1a1230,#281d44); }
+    .av-teal   { background:linear-gradient(135deg,#081e1e,#0f3030); }
+    .av-rose   { background:linear-gradient(135deg,#200814,#381020); }
+    .av-amber  { background:linear-gradient(135deg,#1c1000,#2c1e00); }
+    .av-sky    { background:linear-gradient(135deg,#081420,#102030); }
+    .av-green  { background:linear-gradient(135deg,#081408,#103018); }
+    .av-indigo { background:linear-gradient(135deg,#101028,#1a1a3a); }
+</style>
 
     <!-- ══════════════════════════════════════════
          OFFLINE BANNER
@@ -283,7 +349,7 @@
                     </svg>
                 </div>
                 مهام إعلانية
-                <span class="tasks-slabel-badge" style="background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.12);color:rgba(245,200,66,.6);">+<span id="adsgram-reward-badge">50</span> نقطة</span>
+                <span class="tasks-slabel-badge" style="background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.12);color:rgba(245,200,66,.6);display:inline-flex;align-items:center;gap:3px;">+<span id="adsgram-reward-badge">50</span><img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;opacity:.9;"/></span>
             </div>
 
             <!-- ══ ADSGRAM TASK ══ -->
@@ -300,7 +366,7 @@
                         <div class="tasks-chips">
                             <div class="tasks-chip tasks-chip-g">
                                 <div class="tasks-chip-dot"></div>
-                                +<span id="atask-reward-label">50</span> نقطة
+                                +<span id="atask-reward-label">50</span><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;opacity:.85;flex-shrink:0;"/>
                             </div>
                             <div class="tasks-chip tasks-chip-m">
                                 <span id="atask-done-count">0</span>/<span id="atask-daily-limit">3</span> اليوم
@@ -538,7 +604,7 @@
                                 <span id="ads-watched">0</span>/<span id="ads-daily-limit">7</span> اليوم
                             </div>
                         </div>
-                        <div class="earn-prov-pts-badge earn-prov-pts-badge-a">+<span class="earn-cta-rnum">60</span> <span class="earn-prov-pts-unit">نقطة</span></div>
+                        <div class="earn-prov-pts-badge earn-prov-pts-badge-a" style="align-items:center;gap:4px;">+<span class="earn-cta-rnum">60</span><img src="asesst/coins.png" alt="" style="width:15px;height:15px;object-fit:contain;flex-shrink:0;"/></div>
                         <button class="earn-prov-btn earn-prov-btn-a" id="ad-watch-btn" onclick="watchAd()">
                             <div class="earn-prov-btn-shimmer"></div>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
@@ -555,6 +621,54 @@
                         </div>
                         <div class="ad-done-title" data-i18n="all_done_title" style="font-size:13px;">أحسنت! انتهيت من كل الإعلانات</div>
                         <div class="ad-done-sub" data-i18n="all_done_sub" style="font-size:11px;">عد غداً للحصول على إعلانات جديدة</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ── MONETAG PROVIDER CARD ── -->
+            <div class="earn-providers-wrap earn-e" data-earn-d="290" data-earn-dir="up" style="margin-top:8px;">
+                <div class="earn-providers-card glass">
+
+                    <!-- ── Monetag Row ── -->
+                    <div class="earn-prov-row" id="monetag-prov-row">
+                        <div class="earn-prov-ring-wrap">
+                            <svg class="earn-prov-ring-svg" viewBox="0 0 40 40">
+                                <defs>
+                                    <linearGradient id="monetagRg" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#7c3aed"/>
+                                        <stop offset="100%" stop-color="#c084fc"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle class="earn-prov-rt" cx="20" cy="20" r="15"/>
+                                <circle class="earn-prov-rf" id="monetag-mini-ring" cx="20" cy="20" r="15"
+                                    stroke="url(#monetagRg)" style="filter:drop-shadow(0 0 4px rgba(139,92,246,.6));"/>
+                            </svg>
+                            <span class="earn-prov-ring-num" id="monetag-remaining" style="color:#c084fc;">250</span>
+                        </div>
+                        <div class="earn-prov-info">
+                            <div class="earn-prov-name"><img src="asesst/monetage.jpg" style="height:22px;object-fit:contain;vertical-align:middle;border-radius:4px;" alt="Monetag" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';"><span style="display:none;color:#c084fc;font-weight:800;font-size:13px;">Monetag</span></div>
+                            <div class="earn-prov-count">
+                                <span id="monetag-watched">0</span>/<span id="monetag-daily-limit">250</span> اليوم
+                            </div>
+                        </div>
+                        <div class="earn-prov-pts-badge" style="color:#c084fc;display:flex;align-items:center;gap:4px;">+<span class="monetag-pts-num">50</span><img src="asesst/ticket.png" alt="ticket" style="width:30px;height:45px;object-fit:contain;flex-shrink:0;" onerror="this.src=&apos;asesst/ticket.jpg&apos;"/></div>
+                        <button class="earn-prov-btn" id="monetag-watch-btn" onclick="watchMonetag()" style="background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(192,132,252,.15));border:1px solid rgba(139,92,246,.4);color:#c084fc;">
+                            <div class="earn-prov-btn-shimmer"></div>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                            شاهد
+                        </button>
+                    </div>
+
+                    <!-- Monetag done state -->
+                    <div id="monetag-done-state" style="display:none;padding:8px 0 4px;">
+                        <div class="ad-done-icon" style="background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.2);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M20 6L9 17l-5-5" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="ad-done-title" style="font-size:13px;color:#c084fc;">أحسنت! وصلت للحد اليومي لـ Monetag</div>
+                        <div class="ad-done-sub" style="font-size:11px;">عد غداً للحصول على إعلانات جديدة</div>
                     </div>
 
                 </div>
@@ -618,6 +732,29 @@
             </div>
 
             <!-- مكافأة يومية -->
+            <!-- المسابقة الأسبوعية -->
+            <div class="earn-feat-card earn-feat-p earn-e" data-earn-d="500" data-earn-dir="up" onclick="openCompetitionPage()" style="cursor:pointer;">
+                <div class="earn-shimmer"></div>
+                <div class="earn-fc-dot"></div>
+                <div class="earn-fc-ico earn-ico-p">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="1.85">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>
+                    </svg>
+                </div>
+                <div class="earn-fc-body">
+                    <div class="earn-fc-name earn-p-name" data-i18n="contests">المسابقة الأسبوعية</div>
+                    <div class="earn-fc-hint earn-p-hint" data-i18n="contests_sub">تنافس على جوائز كبرى</div>
+                </div>
+                <div class="earn-fc-end">
+                    <div class="earn-fc-chip earn-p-chip" style="background:rgba(244,114,182,.12);border:1px solid rgba(244,114,182,.25);color:#f472b6;">أسبوعي</div>
+                    <svg class="earn-fc-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2.3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- مكافأة يومية (الأصلي) -->
             <div class="earn-feat-card earn-feat-g earn-e" data-earn-d="540" data-earn-dir="up" onclick="openDailyGiftOverlay()">
                 <div class="earn-shimmer"></div>
                 <div class="earn-fc-dot"></div>
@@ -664,22 +801,6 @@
                 </div>
             </div>
 
-            <!-- المسابقات -->
-            <div class="earn-feat-card earn-feat-p earn-dim earn-e" data-earn-d="720" data-earn-dir="up">
-                <div class="earn-fc-ico earn-ico-p">
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="1.85">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>
-                    </svg>
-                </div>
-                <div class="earn-fc-body">
-                    <div class="earn-fc-name earn-p-name" data-i18n="contests">المسابقات</div>
-                    <div class="earn-fc-hint earn-p-hint" data-i18n="contests_sub">تنافس على جوائز كبرى</div>
-                </div>
-                <div class="earn-fc-end">
-                    <div class="earn-fc-chip earn-p-chip" data-i18n="soon">قريباً</div>
-                </div>
-            </div>
 
         </div>
     </main>
@@ -980,6 +1101,116 @@
 
             <!-- Cards injected by JS -->
             <div id="social-cards-wrap"></div>
+
+        </div>
+    </main>
+
+
+    <!-- ══════════════════════════════════════════
+         COMPETITION PAGE
+    ══════════════════════════════════════════ -->
+    <main id="page-competition" class="page">
+        <div class="page-wrap" style="max-width:460px;margin:0 auto;padding:0 16px 60px;">
+
+            <!-- Header -->
+            <div class="page-header" style="position:relative;">
+                <button class="inv-back-btn" onclick="showPage('earn', document.querySelector('[data-page=earn]'))">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+                    </svg>
+                </button>
+                <h1 class="site-title"><img src="asesst/ranking.png" width="80"></h1>
+               <span style="color: rgba(85,85,85);">قم بجمع تذاكر وكن انت الرابح</span>
+            </div>
+
+            <!-- ════ COUNTDOWN ════ -->
+            <div style="padding:4px 0 20px;">
+                <div class="cp-cd-label">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                        <circle cx="6.5" cy="6.5" r="5.5" stroke="#555" stroke-width="1.1"/>
+                        <path d="M6.5 3.5V7L9 8.5" stroke="#555" stroke-width="1.1" stroke-linecap="round"/>
+                    </svg>
+                    الوقت المتبقي
+                </div>
+                <div class="cp-cd-grid">
+                    <div class="cp-cd-unit">
+                        <div class="cp-cd-box" id="cp-cd-days">--</div>
+                        <div class="cp-cd-name">يوم</div>
+                    </div>
+                    <div class="cp-cd-sep">:</div>
+                    <div class="cp-cd-unit">
+                        <div class="cp-cd-box" id="cp-cd-hours">--</div>
+                        <div class="cp-cd-name">ساعة</div>
+                    </div>
+                    <div class="cp-cd-sep">:</div>
+                    <div class="cp-cd-unit">
+                        <div class="cp-cd-box" id="cp-cd-mins">--</div>
+                        <div class="cp-cd-name">دقيقة</div>
+                    </div>
+                    <div class="cp-cd-sep">:</div>
+                    <div class="cp-cd-unit">
+                        <div class="cp-cd-box" id="cp-cd-secs">--</div>
+                        <div class="cp-cd-name">ثانية</div>
+                    </div>
+                </div>
+                <div style="text-align:center;margin-top:12px;font-size:13px;font-weight:700;color:#555;">
+                    جائزة <span style="font-family:'DynaPuff',cursive;color:#E8B84B;font-size:15px;" id="cp-prize-text">10$</span> لأفضل ثلاثة
+                </div>
+            </div>
+
+
+            <!-- ════ SECTION LABEL: المتصدرون ════ -->
+            <div class="cp-sec-lbl">
+                <div class="cp-sec-lbl-inner">
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 13.5C7.24 13.5 5 11.26 5 8.5V3.5H15V8.5C15 11.26 12.76 13.5 10 13.5Z" fill="#555"/>
+                        <path d="M5 5H3C3 5 2 5 2 7C2 9 3.5 10 5 10.5" stroke="#555" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                        <path d="M15 5H17C17 5 18 5 18 7C18 9 16.5 10 15 10.5" stroke="#555" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                        <rect x="7.5" y="13.5" width="5" height="2.5" rx="0.5" fill="#555"/>
+                        <rect x="6" y="16" width="8" height="1.5" rx="0.75" fill="#555"/>
+                        <path d="M8 7.5C8 7.5 8.5 9 10 9C11.5 9 12 7.5 12 7.5" stroke="#333" stroke-width="0.8" stroke-linecap="round" fill="none"/>
+                    </svg>
+                    <span>المتصدرون</span>
+                </div>
+            </div>
+
+            <!-- ════ PODIUM (skeleton → filled by JS) ════ -->
+            <div id="cp-podium" class="cp-podium">
+                <!-- skeleton -->
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <div style="width:38px;height:30px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:6px;"></div>
+                    <div style="width:64px;height:64px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:50%;"></div>
+                    <div style="width:70px;height:12px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:6px;"></div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <div style="width:58px;height:46px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:6px;"></div>
+                    <div style="width:82px;height:82px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:50%;"></div>
+                    <div style="width:80px;height:13px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:6px;"></div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <div style="width:38px;height:30px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:6px;"></div>
+                    <div style="width:64px;height:64px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:50%;"></div>
+                    <div style="width:70px;height:12px;background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:cp-skel 1.4s infinite;border-radius:6px;"></div>
+                </div>
+            </div>
+
+            <!-- ════ SECTION LABEL: باقي المتصدرين ════ -->
+            <div class="cp-sec-lbl">
+                <div class="cp-sec-lbl-inner">
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+                        <rect x="2"  y="10" width="4" height="8" rx="1" fill="#555"/>
+                        <rect x="8"  y="5"  width="4" height="13" rx="1" fill="#555"/>
+                        <rect x="14" y="8"  width="4" height="10" rx="1" fill="#555"/>
+                        <rect x="1"  y="18" width="18" height="1.2" rx="0.6" fill="#444"/>
+                        <circle cx="4"  cy="8.5" r="1.5" fill="#666"/>
+                        <circle cx="10" cy="3.5" r="1.8" fill="#666"/>
+                        <circle cx="16" cy="6.5" r="1.5" fill="#666"/>
+                    </svg>
+                    <span>باقي المتصدرين</span>
+                </div>
+            </div>
+
+            <div id="cp-lb-list"></div>
 
         </div>
     </main>
@@ -1362,6 +1593,7 @@
         </div>
     </div>
     <script type="module" src="app-ads.js"></script>
+    <script type="module" src="app-monetag.js"></script>
     <script src="settings.js"></script>
     <script>
         /* openDepositSupport — لم يُنقل بعد إلى الملفات الجديدة */
@@ -1398,6 +1630,183 @@
         document.getElementById("sheet")?.classList.remove("open");
         document.body.style.overflow = "";
       }
+    </script>
+
+    <!-- ════ COMPETITION PAGE LOGIC ════ -->
+    <script>
+    (function() {
+        const CROWN1 = `<svg width="58" height="46" viewBox="0 0 58 46" fill="none"><path d="M4 40L10.5 13L21 28L29 4L37 28L47.5 13L54 40Z" fill="#161200" stroke="#E8B84B" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 40L10.5 13L21 28L29 4L37 28L47.5 13L54 40Z" fill="url(#gf1)" opacity=".2"/><circle cx="10.5" cy="13" r="3.8" fill="#E8B84B" stroke="#C9922A" stroke-width=".8"/><circle cx="10.5" cy="13" r="1.6" fill="#FFF5C0"/><circle cx="29" cy="4" r="4.2" fill="#CC2222" stroke="#E84444" stroke-width=".8"/><circle cx="29" cy="4" r="2" fill="#FF9999" opacity=".6"/><circle cx="47.5" cy="13" r="3.8" fill="#E8B84B" stroke="#C9922A" stroke-width=".8"/><circle cx="47.5" cy="13" r="1.6" fill="#FFF5C0"/><rect x="4" y="38" width="50" height="7.5" rx="3" fill="#E8B84B"/><rect x="4" y="38" width="50" height="3" rx="3" fill="#FFF5C0" opacity=".2"/><circle cx="16" cy="41.7" r="2" fill="#CC2222"/><circle cx="29" cy="41.7" r="2.5" fill="#2299BB"/><circle cx="42" cy="41.7" r="2" fill="#CC2222"/><circle cx="29" cy="41.7" r="1.2" fill="#88EEFF" opacity=".6"/><defs><linearGradient id="gf1" x1="29" y1="4" x2="29" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF5C0"/><stop offset="1" stop-color="#E8B84B" stop-opacity="0"/></linearGradient></defs></svg>`;
+        const CROWN2 = `<svg width="38" height="30" viewBox="0 0 38 30" fill="none"><path d="M3 26L7.5 10L14.5 19.5L19 5L23.5 19.5L30.5 10L35 26Z" fill="#0F1318" stroke="#9EAAB8" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7.5" cy="10" r="2.8" fill="#9EAAB8"/><circle cx="19" cy="5" r="2.8" fill="#D4DCE4"/><circle cx="30.5" cy="10" r="2.8" fill="#9EAAB8"/><rect x="3" y="24.5" width="32" height="5" rx="2.5" fill="#9EAAB8"/><rect x="3" y="24.5" width="32" height="2.2" rx="2" fill="#D4DCE4" opacity=".3"/></svg>`;
+        const CROWN3 = `<svg width="38" height="30" viewBox="0 0 38 30" fill="none"><path d="M3 26L7.5 10L14.5 19.5L19 5L23.5 19.5L30.5 10L35 26Z" fill="#120A04" stroke="#B87333" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7.5" cy="10" r="2.8" fill="#B87333"/><circle cx="19" cy="5" r="2.8" fill="#D4975A"/><circle cx="30.5" cy="10" r="2.8" fill="#B87333"/><rect x="3" y="24.5" width="32" height="5" rx="2.5" fill="#B87333"/><rect x="3" y="24.5" width="32" height="2.2" rx="2" fill="#D4975A" opacity=".3"/></svg>`;
+        const CROWNS  = [CROWN1, CROWN2, CROWN3];
+        const PRIZES  = ['5$', '3$', '2$'];
+        const AV_COLORS = [
+            { cls:'av-purple', c:'#7c6fff', cg:'rgba(124,111,255,0.15)' },
+            { cls:'av-teal',   c:'#2dd4bf', cg:'rgba(45,212,191,0.12)'  },
+            { cls:'av-rose',   c:'#f472b6', cg:'rgba(244,114,182,0.12)' },
+            { cls:'av-amber',  c:'#fbbf24', cg:'rgba(251,191,36,0.12)'  },
+            { cls:'av-sky',    c:'#38bdf8', cg:'rgba(56,189,248,0.12)'  },
+            { cls:'av-green',  c:'#4ade80', cg:'rgba(74,222,128,0.12)'  },
+            { cls:'av-indigo', c:'#818cf8', cg:'rgba(129,140,248,0.12)' },
+        ];
+
+
+        function renderPodium(top3) {
+            const ORDER  = [1, 0, 2]; // عرض: 2nd, 1st, 3rd
+            const RCLASS = ['cp-r2', 'cp-r1', 'cp-r3'];
+            const SIZES  = [60, 78, 60];
+            const wrap   = document.getElementById('cp-podium');
+            if (!wrap) return;
+            wrap.innerHTML = '';
+            ORDER.forEach((di, xi) => {
+                const u  = top3[di];
+                if (!u) return;
+                const av = AV_COLORS[di % AV_COLORS.length];
+                const sz = SIZES[xi];
+                const div = document.createElement('div');
+                div.className = 'cp-pod-item ' + RCLASS[xi];
+                const avatarContent = u.photo_url
+                    ? `<img src="${u.photo_url}" style="width:${sz}px;height:${sz}px;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';" alt=""/>`
+                    : `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" fill="none">
+                        <circle cx="${sz/2}" cy="${sz*.4}" r="${sz*.18}" fill="${av.c}30"/>
+                        <ellipse cx="${sz/2}" cy="${sz*.86}" rx="${sz*.3}" ry="${sz*.2}" fill="${av.c}30"/>
+                        <circle cx="${sz/2}" cy="${sz*.4}" r="${sz*.15}" fill="${av.c}90"/>
+                        <ellipse cx="${sz/2}" cy="${sz*.85}" rx="${sz*.24}" ry="${sz*.17}" fill="${av.c}90"/>
+                        <text x="${sz/2}" y="${sz*.44}" text-anchor="middle" dominant-baseline="middle" font-family="Tajawal,sans-serif" font-size="${sz*.22}" font-weight="800" fill="${av.c}">${(u.name||'?').trim().charAt(0)}</text>
+                       </svg>`;
+                div.innerHTML = `
+                    <div style="margin-bottom:5px;">${CROWNS[di]}</div>
+                    <div class="cp-pod-ring">
+                        <div class="cp-pod-inner">
+                            <div class="cp-pod-face ${u.photo_url ? '' : av.cls}">${avatarContent}</div>
+                        </div>
+                    </div>
+                    <div class="cp-pod-name">${u.name}</div>
+                    <div class="cp-tkt-badge">
+                        <img src="asesst/ticket.png" alt="t" onerror="this.src='asesst/ticket.jpg'"/>
+                        <span>${u.tickets.toLocaleString('ar')}</span>
+                    </div>
+                    <div class="cp-prize">${PRIZES[di]}</div>
+                `;
+                wrap.appendChild(div);
+            });
+        }
+
+        function renderList(rest) {
+            const list = document.getElementById('cp-lb-list');
+            if (!list) return;
+            list.innerHTML = '';
+            rest.forEach((u, i) => {
+                const av   = AV_COLORS[(i + 3) % AV_COLORS.length];
+                const card = document.createElement('div');
+                card.className = 'cp-lc';
+                card.style.cssText = `animation-delay:${i * .06}s;--cp-c:${av.c};--cp-cg:${av.cg};`;
+                const avatarContent = u.photo_url
+                    ? `<img src="${u.photo_url}" style="width:46px;height:46px;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';" alt=""/>`
+                    : `<svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+                        <circle cx="23" cy="18" r="9" fill="${av.c}25"/>
+                        <ellipse cx="23" cy="40" rx="16" ry="11" fill="${av.c}25"/>
+                        <circle cx="23" cy="18" r="7" fill="${av.c}80"/>
+                        <ellipse cx="23" cy="39" rx="12" ry="9" fill="${av.c}80"/>
+                        <text x="23" y="22" text-anchor="middle" dominant-baseline="middle" font-family="Tajawal,sans-serif" font-size="11" font-weight="800" fill="${av.c}">${(u.name||'?').trim().charAt(0)}</text>
+                       </svg>`;
+                card.innerHTML = `
+                    <div class="cp-lc-stripe"></div>
+                    <div style="width:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <div class="cp-lc-rank">${u.rank}</div>
+                    </div>
+                    <div style="flex-shrink:0;margin-left:12px;">
+                        <div class="cp-lc-av ${u.photo_url ? '' : av.cls}">${avatarContent}</div>
+                    </div>
+                    <div style="flex:1;min-width:0;padding:13px 12px 13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <div class="cp-lc-name">${u.name}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                            <div style="width:28px;height:28px;border-radius:4px;overflow:hidden;border:1px solid #1e1e1e;opacity:.85;display:flex;align-items:center;justify-content:center;">
+                                <img src="asesst/ticket.png" style="width:100%;height:100%;object-fit:contain;" alt="t" onerror="this.src='asesst/ticket.jpg'"/>
+                            </div>
+                            <div class="cp-lc-count" style="color:${av.c};">${u.tickets.toLocaleString('ar')}</div>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        let _cpCountdownTimer = null;
+        function startCpCountdown(endDate) {
+            if (_cpCountdownTimer) clearInterval(_cpCountdownTimer);
+            function pad(n){ return String(n).padStart(2,'0'); }
+            function tick() {
+                const d = endDate - Date.now();
+                if (d <= 0) {
+                    ['cp-cd-days','cp-cd-hours','cp-cd-mins','cp-cd-secs'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.textContent = '00';
+                    });
+                    clearInterval(_cpCountdownTimer);
+                    return;
+                }
+                const days  = Math.floor(d / 86400000);
+                const hours = Math.floor((d % 86400000) / 3600000);
+                const mins  = Math.floor((d % 3600000) / 60000);
+                const secs  = Math.floor((d % 60000) / 1000);
+                const ids   = ['cp-cd-days','cp-cd-hours','cp-cd-mins','cp-cd-secs'];
+                const vals  = [days, hours, mins, secs];
+                ids.forEach((id,i) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = pad(vals[i]);
+                });
+            }
+            tick();
+            _cpCountdownTimer = setInterval(tick, 1000);
+        }
+
+        let _cpInitialized = false;
+        let _cpRefreshTimer = null;
+
+        async function loadCompetition() {
+            try {
+                const _sid = window._APP_SESSION || '';
+                const res = await fetch('/api/competition?action=leaderboard', {
+                    headers: _sid ? { 'X-Session-Id': _sid } : {}
+                });
+                const data = await res.json();
+                if (!data.ok) return;
+
+                if (!_cpInitialized) {
+                    _cpInitialized = true;
+                    if (data.end_date) startCpCountdown(new Date(data.end_date));
+                    if (data.prize_text) {
+                        const pt = document.getElementById('cp-prize-text');
+                        if (pt) pt.textContent = data.prize_text;
+                    }
+                }
+
+                const lb = data.leaderboard || [];
+                renderPodium(lb.slice(0, 3));
+                renderList(lb.slice(3));
+
+            } catch(e) {
+                console.warn('[Competition]', e);
+            }
+        }
+
+        window.openCompetitionPage = function() {
+            if (window.showPage) window.showPage('competition', null);
+            loadCompetition();
+            // تحديث كل 5 ثواني
+            if (_cpRefreshTimer) clearInterval(_cpRefreshTimer);
+            _cpRefreshTimer = setInterval(loadCompetition, 5000);
+        };
+
+        // إيقاف التحديث عند مغادرة صفحة المسابقة
+        document.addEventListener('pagechange', function(e) {
+            if (e.detail?.page !== 'competition' && _cpRefreshTimer) {
+                clearInterval(_cpRefreshTimer);
+                _cpRefreshTimer = null;
+            }
+        });
+    })();
     </script>
 </body>
 </html>
