@@ -165,30 +165,11 @@ function _startCountdown(end) {
   })();
 }
 
-// ── SVG crowns (same as competition HTML) ────────────────────────────────────
+// ── Crown images ─────────────────────────────────────────────────────────────
 function _crown1() {
-  return `<svg width="58" height="46" viewBox="0 0 58 46" fill="none">
-    <path d="M4 40L10.5 13L21 28L29 4L37 28L47.5 13L54 40Z" fill="#161200" stroke="#E8B84B" stroke-width="1.5" stroke-linejoin="round"/>
-    <circle cx="10.5" cy="13" r="3.8" fill="#E8B84B" stroke="#C9922A" stroke-width=".8"/>
-    <circle cx="10.5" cy="13" r="1.6" fill="#FFF5C0"/>
-    <circle cx="29"   cy="4"  r="4.2" fill="#CC2222" stroke="#E84444" stroke-width=".8"/>
-    <circle cx="47.5" cy="13" r="3.8" fill="#E8B84B" stroke="#C9922A" stroke-width=".8"/>
-    <circle cx="47.5" cy="13" r="1.6" fill="#FFF5C0"/>
-    <rect x="4" y="38" width="50" height="7.5" rx="3" fill="#E8B84B"/>
-    <rect x="4" y="38" width="50" height="3"   rx="3" fill="#FFF5C0" opacity=".2"/>
-  </svg>`;
+  return `<img src="asesst/frst.png" alt="🥇" draggable="false" style="width:116px;height:92px;object-fit:contain;display:block;"/>`;
 }
 function _crownSmall(cls) {
-  const isS = cls === 'rank-2-item';
-  const sc = isS ? '#9EAAB8' : '#B87333';
-  const sc2 = isS ? '#D4DCE4' : '#D4975A';
-  const bg  = isS ? '#0F1318' : '#120A04';
-  return `<svg width="38" height="30" viewBox="0 0 38 30" fill="none">
-    <path d="M3 26L7.5 10L14.5 19.5L19 5L23.5 19.5L30.5 10L35 26Z" fill="${bg}" stroke="${sc}" stroke-width="1.3" stroke-linejoin="round"/>
-    <circle cx="7.5"  cy="10" r="2.8" fill="${sc}"/>
-    <circle cx="19"   cy="5"  r="2.8" fill="${sc2}"/>
-    <circle cx="30.5" cy="10" r="2.8" fill="${sc}"/>
-    <rect x="3" y="24.5" width="32" height="5" rx="2.5" fill="${sc}"/>
-    <rect x="3" y="24.5" width="32" height="2.2" rx="2" fill="${sc2}" opacity=".3"/>
-  </svg>`;
+  const src = cls === 'rank-2-item' ? 'asesst/sec.png' : 'asesst/thrd.png';
+  return `<img src="${src}" alt="🏅" draggable="false" style="width:76px;height:60px;object-fit:contain;display:block;"/>`;
 }
