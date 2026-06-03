@@ -750,6 +750,25 @@ async function _checkChannelMembership() {
 }
 
 
+// ── تحديث تذاكر + ترتيب المسابقة في الهوم (بعد boot مباشرةً) ──────────────
+async function _syncHomeCompStats() {
+    try {
+        const sid = window._APP_SESSION || '';
+        if (!sid) return;
+        const res  = await fetch('/api/competition?action=leaderboard', {
+            headers: { 'X-Session-Id': sid }
+        });
+        const data = await res.json();
+        if (!data?.ok) return;
+
+        const rankEl    = document.getElementById('hm-user-rank');
+        const ticketsEl = document.getElementById('uc-tickets-val');
+
+        if (rankEl)    rankEl.textContent    = data.my_rank ? '#' + data.my_rank : '#--';
+        if (ticketsEl) ticketsEl.textContent = (data.my_tickets || 0).toLocaleString('ar');
+    } catch (_) {}
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
     initTelegramUser();
     window._REFERRAL_LINK = REFERRAL_LINK;
@@ -906,6 +925,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     _loadChannels();
     _checkChannelMembership(); // ← فحص فوري عند الفتح
+    _syncHomeCompStats();      // ← تذاكر + ترتيب المسابقة في الهوم
     _atBindWidget();
     // Run entrance animation if tasks page is active on load
     if (document.getElementById('page-tasks')?.classList.contains('active')) {

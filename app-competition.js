@@ -43,6 +43,12 @@ async function _loadCompetition() {
       }
     }
 
+    // ── sync home screen rank & tickets ──────────────────────────────────────
+    const homeRankEl   = document.getElementById('hm-user-rank');
+    const homeTicketsEl = document.getElementById('uc-tickets-val');
+    if (homeRankEl)    homeRankEl.textContent    = data.my_rank ? '#' + data.my_rank : '#--';
+    if (homeTicketsEl) homeTicketsEl.textContent = (data.my_tickets || 0).toLocaleString('ar');
+
     document.getElementById('comp-loading')?.remove();
     document.getElementById('comp-content').style.display = 'block';
 
