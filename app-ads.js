@@ -17,9 +17,6 @@ import {
     renderReferralList, renderWithdrawHistory, _timeAgo,
 } from './app-ui.js';
 
-
-const _t = (k) => typeof window.T === 'function' ? (window.T(k) ?? '') : '';
-
 const _AS = APP_STATE;
 const _AC = APP_CONFIG;
 
@@ -74,14 +71,15 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
         color:#fbbf24;
         line-height:1.5;
         margin-bottom:10px;
-    ">${_t('partial_ad_warning')}</div>
+    ">⚠️ يجب عليك التفاعل مع الإعلان<br>للحصول على الجائزة الكاملة</div>
 
     <div style="
         font-size:13px;
         color:rgba(255,255,255,.65);
         margin-bottom:18px;
         line-height:1.5;
-    ">${_t('partial_ad_got')} <span style="color:#fbbf24;font-weight:700;">+${ptsEarned}</span> ${_t('partial_ad_pts_pct')}<br>${_t('partial_ad_instead')} <span style="color:#34d399;font-weight:700;">+${fullPts}</span> ${_t('partial_ad_full_pts')}</div>
+    ">حصلت على <span style="color:#fbbf24;font-weight:700;">+${ptsEarned}</span> نقطة (50%)<br>
+    بدلاً من <span style="color:#34d399;font-weight:700;">+${fullPts}</span> نقطة كاملة</div>
 
     <button id="partial-ad-notice-close" style="
         background:linear-gradient(135deg,#f59e0b,#d97706);
@@ -95,7 +93,7 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
         cursor:pointer;
         width:100%;
         letter-spacing:.3px;
-    ">${_t('partial_ad_ok')}</button>
+    ">حسناً، فهمت!</button>
 </div>`;
 
     document.body.appendChild(overlay);
@@ -155,10 +153,9 @@ function _updateAdUINoBtn() {
     const ads = _AS.ads;
     const r   = ads.remaining;
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-    const _combinedWatched1 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', _combinedWatched1);
+    setText('ads-watched-total', ads.watched);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
     const progBar = document.getElementById('ads-progress');
@@ -178,10 +175,9 @@ export function updateAdUI() {
     const r   = ads.remaining;
 
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-    const _combinedWatched2 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', _combinedWatched2);
+    setText('ads-watched-total', ads.watched);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
 
@@ -266,7 +262,7 @@ export async function watchAd() {
     const ads = _AS.ads;
     if (ads.remaining<=0||ads.isWatching||_isClaimingAd) return;
     if (ads.cooldownUntil&&Date.now()<ads.cooldownUntil) {
-        showToast('coin',_t('wait_a_moment'),`${Math.ceil((ads.cooldownUntil-Date.now())/1000)} ${_t('seconds_suffix')}`,'red','');
+        showToast('coin','انتظر قليلاً',`${Math.ceil((ads.cooldownUntil-Date.now())/1000)} ثانية`,'red','');
         return;
     }
 
@@ -283,7 +279,7 @@ export async function watchAd() {
     if (!window.Adsgram||window._adsgramLoadStatus!=='loaded') {
         if (window._adsgramLoadStatus==='failed') {
             ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
-            showToast('coin',_t('ad_sdk_failed'),_t('check_connection'),'red','');
+            showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
         if (overlay) { if(countEl) countEl.innerHTML='<img src="asesst/loading.gif" style="width:40px;height:40px;object-fit:contain;border-radius:8px;">'; overlay.classList.add('visible'); }
@@ -296,14 +292,14 @@ export async function watchAd() {
         if (overlay) overlay.classList.remove('visible');
         if (!loaded) {
             ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
-            showToast('coin',_t('ad_sdk_failed'),_t('check_connection'),'red','');
+            showToast('coin','تعذّر تحميل الإعلان','تحقق من اتصالك','red','');
             return;
         }
     }
 
     let successCount=0;
     for (let i=0;i<AD_PRELOAD;i++) {
-        if (overlay) { if(countEl) countEl.textContent=`${i+1}/${AD_PRELOAD}`; if(labelEl) labelEl.textContent=_t('ad_loading_label'); overlay.classList.add('visible'); }
+        if (overlay) { if(countEl) countEl.textContent=`${i+1}/${AD_PRELOAD}`; if(labelEl) labelEl.textContent='جاري تحميل الإعلان...'; overlay.classList.add('visible'); }
         if (preBar) { preBar.style.width=(i/AD_PRELOAD*100)+'%'; preBar.style.background='linear-gradient(90deg,#f59e0b,#fbbf24)'; }
         await new Promise(r=>setTimeout(r,600));
         if (overlay) overlay.classList.remove('visible');
@@ -312,7 +308,7 @@ export async function watchAd() {
         if (!adResult.ok) {
             ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
             if (preBar) preBar.style.width='0%';
-            showToast('coin',_t('ad_incomplete'),_t('watch_ad_to_end'),'red','');
+            showToast('coin','الإعلان لم يكتمل','شاهد الإعلان حتى النهاية','red','');
             return;
         }
         _adElapsedMs = adResult.elapsed_ms; // نحفظ elapsed الحقيقي
@@ -325,7 +321,7 @@ export async function watchAd() {
                 const tick=setInterval(()=>{
                     rem--;
                     if(countEl) countEl.textContent=`${rem}s`;
-                    if(labelEl) labelEl.textContent=`${_t('ad_word')} ${successCount} ${_t('ad_next_after')} ${rem}s`;
+                    if(labelEl) labelEl.textContent=`إعلان ${successCount} ✓ — التالي بعد ${rem}s`;
                     if(rem<=0){ clearInterval(tick); if(overlay) overlay.classList.remove('visible'); resolve(); }
                 },1000);
             });
@@ -342,7 +338,7 @@ export async function watchAd() {
         if (preBar) preBar.style.width='0%';
         if (startRes.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); }
         else if (startRes.error==='cooldown_active') { ads.cooldownUntil=Date.now()+(startRes.wait_ms||30000); updateAdUI(); }
-        else showToast('coin',_t('processing_error'),_t('try_again'),'red','');
+        else showToast('coin','خطأ في المعالجة','حاول مرة أخرى','red','');
         return;
     }
 
@@ -351,7 +347,7 @@ export async function watchAd() {
         ads.isWatching=false; if(_btn()) _btn().classList.remove('disabled');
         _isClaimingAd = false;
         if (preBar) preBar.style.width='0%';
-        showToast('coin',_t('processing_error'),_t('try_again'),'red','');
+        showToast('coin','خطأ في المعالجة','حاول مرة أخرى','red','');
         return;
     }
 
@@ -415,7 +411,7 @@ export async function watchAd() {
                     if (bFinal) {
                         bFinal.innerHTML = `<div class="earn-prov-btn-shimmer"></div>`
                             + `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>`
-                            + _t('watch_btn');
+                            + `شاهد`;
                         bFinal.classList.remove('disabled');
                     }
                 }
@@ -435,19 +431,19 @@ export async function watchAd() {
 
             if (isPartial) {
                 _showPartialAdNotice(pts, fullPts);
-                pushNotif('coin',`${_t('partial_ad_notif')} #${result.watchedToday}`,`+${pts} ${_t('pts_pct_label')}`);
+                pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${pts} نقطة (50%)`);
             } else {
-                showToast('trophy',`${_t('added_prefix')}${pts} ${_t('pts_suffix')} 🎉`,`${_t('watched_prefix')} ${result.watchedToday} ${_t('ads_today_suffix')}`,'green',`+${pts}`);
-                pushNotif('gold',`${_t('ad_reward_notif')} #${result.watchedToday}`,`+${pts} ${_t('pts_added_to_bal')}`);
+                showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
+                pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
             }
         }, 350);
 
     } else {
         if (_btn()) _btn().classList.remove('disabled');
         if (result.error==='cooldown_active') { ads.cooldownUntil=Date.now()+(result.wait_ms||30000); updateAdUI(); }
-        else if (result.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); showToast('trophy',_t('daily_ads_done_toast'),_t('come_back_tomorrow'),'green',''); }
-        else if (result.error==='ad_duration_invalid') showToast('coin',_t('ad_incomplete'),_t('watch_ad_to_end'),'red','');
-        else showToast('coin',_t('processing_error'),_t('try_again'),'red','');
+        else if (result.error==='daily_limit_reached') { ads.remaining=0; updateAdUI(); showToast('trophy','انتهت إعلانات اليوم 🏆','عُد غداً لمزيد من النقاط','green',''); }
+        else if (result.error==='ad_duration_invalid') showToast('coin','الإعلان لم يكتمل','شاهد الإعلان بالكامل','red','');
+        else showToast('coin','خطأ في المعالجة','حاول مرة أخرى','red','');
         updateAdUI();
         // تأكد الزر يرجع حالته
         const bErr = _btn(); if (bErr) bErr.classList.remove('disabled');
@@ -527,8 +523,8 @@ export async function claimDailyMission(taskType) {
     if (btn) { btn.disabled=false; btn.style.opacity='1'; }
 
     if (!result.ok) {
-        if (result.error==='task_not_completed_or_already_claimed') showToast('coin',_t('already_claimed'),'','gold','✓');
-        else showToast('coin',_t('error_occurred'),result.error||'','error','!');
+        if (result.error==='task_not_completed_or_already_claimed') showToast('coin','تم الاستلام مسبقاً','','gold','✓');
+        else showToast('coin','حدث خطأ',result.error||'','error','!');
         return;
     }
 
@@ -539,8 +535,8 @@ export async function claimDailyMission(taskType) {
     if (claimedBadge) claimedBadge.style.display='inline-flex';
 
     const reward=result.reward||0;
-    showToast('trophy',_t('mission_reward_title'),`+${reward.toLocaleString('en-US')} ${_t('pts_suffix')}`,'green',`+${reward}`);
-    pushNotif('gold',_t('daily_mission_notif'),`+${reward.toLocaleString('en-US')} ${_t('pts_suffix')}`);
+    showToast('trophy',`مكافأة المهمة ✓`,`+${reward.toLocaleString('en-US')} نقطة`,'green',`+${reward}`);
+    pushNotif('gold','مكافأة مهمة يومية ✓',`+${reward.toLocaleString('en-US')} نقطة`);
 }
 
 export function handleDailyTask(type) {
@@ -580,13 +576,13 @@ export async function verifyTelegramTask() {
 
     if (!result.ok) {
         if (result.error==='not_in_channel') {
-            showToast('coin',_t('not_joined_channel'),_t('click_join_first'),'red','!');
+            showToast('coin','لم تنضم للقناة بعد ❌','اضغط «انضم» أولاً','red','!');
             document.getElementById('tg-join-btn')?.style.setProperty('display','inline-flex');
             if (vbtn) vbtn.style.display='none';
         } else if (result.error==='already_verified') {
-            showToast('coin',_t('already_verified'),'','green','✓');
+            showToast('coin','تم التحقق مسبقاً ✓','','green','✓');
         } else {
-            showToast('coin',_t('make_sure_joined'),_t('then_retry'),'gold','!');
+            showToast('coin','تأكد من انضمامك للقناة','ثم أعد المحاولة','gold','!');
         }
         return;
     }
@@ -603,8 +599,8 @@ export async function verifyTelegramTask() {
     document.getElementById('tg-task-card')?.classList.add('completed');
 
     const reward=parseInt(result.reward)||_AC.rewards.telegram_task||200;
-    showToast('trophy',_t('joined_channel_toast'),`+${reward.toLocaleString('en-US')} ${_t('pts_suffix')}`,'gold',`+${reward}`);
-    pushNotif('gold',_t('tg_channel_task_notif'),`+${reward.toLocaleString('en-US')} ${_t('pts_suffix')}`);
+    showToast('trophy','انضممت للقناة! 🎉',`+${reward.toLocaleString('en-US')} نقطة`,'gold',`+${reward}`);
+    pushNotif('gold','مهمة قناة تيليغرام ✓',`+${reward.toLocaleString('en-US')} نقطة`);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -631,22 +627,22 @@ export async function verifyChannelTask(channelId) {
 
     if (!result.ok) {
         if (result.error==='not_in_channel') {
-            showToast('coin',_t('not_joined_channel'),_t('click_join_first'),'red','!');
+            showToast('coin','لم تنضم للقناة بعد ❌','اضغط «انضم» أولاً','red','!');
             document.getElementById('ch-join-btn-'+channelId)?.style.setProperty('display','inline-flex');
             if (vbtn) vbtn.style.display='none';
         } else if (result.error==='already_verified') {
-            showToast('coin',_t('already_verified'),'','green','✓');
+            showToast('coin','تم التحقق مسبقاً ✓','','green','✓');
             _chMarkDone(channelId);
         } else {
-            showToast('coin',_t('make_sure_joined'),'','gold','!');
+            showToast('coin','تأكد من انضمامك للقناة','','gold','!');
         }
         return;
     }
 
     if (result.points!==undefined) { animateBalance(_AS.balance,result.points); _AS.balance=result.points; }
     const reward=result.reward||2500;
-    showToast('trophy',_t('joined_channel_toast'),`+${reward.toLocaleString('en-US')} ${_t('pts_suffix')}`,'gold',`+${reward}`);
-    pushNotif('gold',_t('channel_task_notif'),`+${reward.toLocaleString('en-US')} ${_t('pts_suffix')}`);
+    showToast('trophy','انضممت للقناة! 🎉',`+${reward.toLocaleString('en-US')} نقطة`,'gold',`+${reward}`);
+    pushNotif('gold','مهمة قناة ✓',`+${reward.toLocaleString('en-US')} نقطة`);
     _chMarkDone(channelId);
 }
 
@@ -661,7 +657,7 @@ function _chMarkDone(id) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
-            <span style="font-size:12px;font-weight:800;color:#34d399;font-family:'Tajawal',sans-serif;">${_t('completed_badge')}</span>
+            <span style="font-size:12px;font-weight:800;color:#34d399;font-family:'Tajawal',sans-serif;">مكتمل</span>
         </div>`;
     if (card) card.style.background='rgba(52,211,153,0.04)';
 }
@@ -680,28 +676,28 @@ function _renderChannels(channels) {
             </div>
             <div class="tasks-rbody">
                 <div class="tasks-rname">${ch.title}</div>
-                <div class="tasks-rsub">+${(ch.reward||2500).toLocaleString('en-US')} ${_t('pts_suffix')}${ch.max_members>0?` · ${_t('max_members')} ${ch.max_members.toLocaleString('en-US')} ${_t('members_suffix')}`:''}</div>
+                <div class="tasks-rsub">+${(ch.reward||2500).toLocaleString('en-US')} نقطة${ch.max_members>0?` · أقصى ${ch.max_members.toLocaleString('en-US')} عضو`:''}</div>
             </div>
             <div id="ch-action-${id}" style="flex-shrink:0;">
                 ${done
                     ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:10px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                           <span style="font-size:11px;font-weight:800;color:#3ddc84;font-family:'Tajawal',sans-serif;">${_t('completed_badge')}</span>
+                           <span style="font-size:11px;font-weight:800;color:#3ddc84;font-family:'Tajawal',sans-serif;">مكتمل</span>
                        </div>`
                     : `<button id="ch-join-btn-${id}" onclick="window.handleChannelJoin(${id},'${ch.url}')"
                            class="tasks-rbtn tasks-btn-blue">
                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M21.44 3.29a1.5 1.5 0 00-1.6-.22L2.87 10.6a1.5 1.5 0 00.07 2.76l3.71 1.37 1.41 4.5a1 1 0 001.73.34l2.04-2.13 3.99 2.93a1.5 1.5 0 002.31-1.01L22 4.75a1.5 1.5 0 00-.56-1.46z" fill="rgba(94,206,255,.9)"/></svg>
-                           ${_t('join_channel_btn')}
+                           اشترك
                        </button>
                        <button id="ch-verify-btn-${id}" onclick="window.verifyChannelTask(${id})"
                            style="display:none;" class="tasks-rbtn" style="background:rgba(61,220,132,.08);border:1px solid rgba(61,220,132,.22);color:#3ddc84;">
-                           ${_t('verify_channel_btn')}
+                           تحقق
                        </button>`
                 }
             </div>
         </div>
         ${!done?`<div id="ch-hint-${id}" style="display:none;margin:0 12px 8px;padding:8px 12px;border-radius:10px;background:rgba(94,206,255,.05);border:1px solid rgba(94,206,255,.1);">
-            <span style="font-size:11px;color:rgba(94,206,255,.6);font-weight:600;font-family:'Tajawal',sans-serif;">${_t('channel_hint_text')}</span>
+            <span style="font-size:11px;color:rgba(94,206,255,.6);font-weight:600;font-family:'Tajawal',sans-serif;">اضغط «تحقق» بعد الاشتراك في القناة</span>
         </div>`:''}`;
     }).join('');
 }
@@ -733,8 +729,8 @@ async function _checkChannelMembership() {
         for (const p of result.penalties) {
             showToast(
                 'coin',
-                `${_t('left_channel_toast')} "${p.title}" ⚠️`,
-                `${_t('penalty_pts_prefix')} ${p.penalty} ${_t('pts_suffix')} · ${_t('rejoin_to_restore')}`,
+                `غادرت قناة "${p.title}" ⚠️`,
+                `تم خصم ${p.penalty} نقطة · انضم مجدداً لاستعادة المهمة`,
                 'red',
                 `-${p.penalty}`
             );
@@ -834,7 +830,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             document.querySelectorAll('.uc-stat-val.gold').forEach(el=>{ el.textContent=earnedRefs.toLocaleString('en-US'); });
             document.querySelectorAll('.uc-stat-val.blue').forEach(el=>{ el.textContent=load.completed_tasks?.length||0; });
             const refBadge=document.getElementById('referral-friends-badge');
-            if (refBadge) refBadge.textContent=totalRefs+' '+_t('n_friends_badge');
+            if (refBadge) refBadge.textContent=totalRefs+' صديق';
             // تحديث دائرة التقدم لمهمة الدعوة 3
             if (window.updateCircle) window.updateCircle('invite3', Math.min(totalRefs,3), 3);
             const inv3fill=document.getElementById('invite3-fill');
@@ -873,11 +869,6 @@ window.addEventListener('DOMContentLoaded', async () => {
                 _atShow('atask-start-btn');
             }
 
-            // ── Monetag init ──────────────────────────────────────
-            if (load.monetag) {
-                initMonetag(load.monetag);
-            } else {
-                initMonetag(null);
             }
 
             // tgVerified UI
@@ -914,7 +905,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 200);
     }
 
-    // polling — كل 5 ثواني يحدث عدادات Adsgram + Monetag
+    // polling — كل 5 ثواني يحدث عدادات Adsgram
     let _lastPts=_AS.balance; let _pollFails=0;
     async function _poll() {
         try {
@@ -929,26 +920,6 @@ window.addEventListener('DOMContentLoaded', async () => {
                 ads.watched  =s.ads_watched_today||0;
                 ads.earned   =s.earned_today||0;
                 if (s.ad_cooldown_ms>0) ads.cooldownUntil=Date.now()+s.ad_cooldown_ms;
-                updateAdUI();
-            }
-
-            // ── Monetag daily counters — مزامنة من السيرفر ──
-            if (s.monetag_watched_today !== undefined) {
-                window._MT_PRIZES = s.monetag_watched_today;
-                // تحديث UI الـ Monetag إذا كانت دالته متاحة
-                try {
-                    const mtgMod = await import('./app-monetag.js');
-                    if (window._MT_STATE) {
-                        window._MT_STATE.prizes = s.monetag_watched_today;
-                    }
-                    if (typeof mtgMod._mtgSetDailyLimit === 'function' && s.monetag_daily_limit) {
-                        mtgMod._mtgSetDailyLimit(s.monetag_daily_limit);
-                    }
-                    if (typeof mtgMod._mtgUpdateUI === 'function') {
-                        mtgMod._mtgUpdateUI();
-                    }
-                } catch(_) {}
-                // تحديث عداد "إعلان شوهد" المدمج
                 updateAdUI();
             }
 
@@ -998,7 +969,7 @@ const _AT = {
     isRunning:     false,
     cooldownTimer: null,
     // values loaded from server (defaults match config)
-    reward:        50,
+    reward:        80,
     dailyLimit:    3,
     doneCount:     0,
     cooldownMs:    60000,
@@ -1122,7 +1093,7 @@ function _atBindWidget() {
                         _atStartCooldown(startRes.wait_ms || _AT.cooldownMs);
                     } else {
                         _atShow(null);
-                        showToast('coin', _t('verify_error'), startRes.error || '', 'red', '!');
+                        showToast('coin', 'خطأ في التحقق', startRes.error || '', 'red', '!');
                     }
                     return;
                 }
@@ -1140,12 +1111,12 @@ function _atBindWidget() {
             const pts = claimRes.points;
             if (pts !== undefined) { animateBalance(_AS.balance, pts, 1200); _AS.balance = pts; }
 
-            const earned = claimRes.earned || claimRes.reward || _AT.reward;
+            const earned = claimRes.tickets_awarded || claimRes.earned || claimRes.reward || _AT.reward;
             _AT.doneCount = claimRes.adsgram_task_today_count || (_AT.doneCount + 1);
             _atUpdateCounter();
 
-            showToast('trophy', _t('ad_task_done'), `+${earned.toLocaleString('en-US')} ${_t('pts_added_to_bal')}`, 'green', `+${earned}`);
-            pushNotif('gold', _t('ad_task_notif'), `+${earned.toLocaleString('en-US')} ${_t('pts_suffix')}`);
+            showToast('trophy', 'مهمة إعلانية مكتملة 🎉', `+${earned.toLocaleString('en-US')} تذكرة أُضيفت`, 'green', `+${earned}`);
+            pushNotif('gold', 'مهمة إعلانية ✓', `+${earned.toLocaleString('en-US')} تذكرة`);
 
             const icon = document.getElementById('atask-icon');
             if (icon) {
@@ -1178,7 +1149,7 @@ function _atBindWidget() {
                 _AT.doneCount = _AT.dailyLimit; _atUpdateCounter(); _atShow('atask-maxed-state');
             } else {
                 _atShow(null);
-                showToast('coin', _t('processing_error'), claimRes.error || '', 'red', '!');
+                showToast('coin', 'خطأ في المعالجة', claimRes.error || '', 'red', '!');
             }
         }
     });
@@ -1194,16 +1165,16 @@ function _atBindWidget() {
         // نعرض حالة انتظر مخصصة
         const action = document.getElementById('atask-action');
         if (action) {
-            action.innerHTML = `<div style="display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.35);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">${_t('wait_btn')}</div>`;
+            action.innerHTML = `<div style="display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.35);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">انتظر</div>`;
         }
     });
 
     widget.addEventListener('onTooLongSession', () => {
-        showToast('coin', _t('restart_app'), _t('session_too_long'), 'red', '!');
+        showToast('coin', 'أعد تشغيل التطبيق', 'الجلسة طويلة جداً', 'red', '!');
     });
 
     widget.addEventListener('onError', () => {
-        showToast('coin', _t('task_load_error'), _t('try_later'), 'red', '!');
+        showToast('coin', 'خطأ في تحميل المهمة', 'حاول لاحقاً', 'red', '!');
     });
 
     // ── عند رجوع المستخدم من miniapp إعلاني → أعد إصدار nonce إن لم يكن موجوداً ──
@@ -1240,245 +1211,3 @@ window.startAdsgramTask    = startAdsgramTask;
 window.initAdsgramTaskUI   = initAdsgramTaskUI;
 
 
-// ══════════════════════════════════════════════════════════════════
-// MONETAG — Rewarded Interstitial (أعلى CPM)
-// حد يومي: 250 | جائزة: 20 نقطة | cooldown في الزر مثل Adsgram
-// ══════════════════════════════════════════════════════════════════
-
-const _MG = {
-    watched:           0,
-    dailyLimit:        250,
-    reward:            20,
-    cooldownMs:        20 * 1000,
-    cooldownUntil:     0,
-    _cooldownTimer:    null,
-    _btnCooldownActive:false,
-    _preloadCount:     0,     // عدد الإعلانات المحملة مسبقاً
-    _inFlight:         false,
-};
-
-// ── زر shortcut ─────────────────────────────────────────
-const _mgBtn = () => document.getElementById('monetag-watch-btn');
-
-// ── HTML الزر في حالة ready ──────────────────────────────
-const _mgBtnReady = () =>
-    `<div class="earn-prov-btn-shimmer"></div>`
-    + `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>`
-    + _t('watch_btn');
-
-// ── HTML الزر في حالة loading ────────────────────────────
-const _mgBtnLoading = () =>
-    `<img src="asesst/loading.gif" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;">`
-    + `<span style="font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;color:#c084fc;">${_t('monetag_loading')}</span>`;
-
-// ── HTML الزر في حالة cooldown (عد تنازلي) ───────────────
-const _mgBtnCooldown = (s) =>
-    `<img src="asesst/loading.gif" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;">`
-    + `<span style="font-family:'DynaPuff',sans-serif;font-size:12px;font-weight:900;color:#c084fc;line-height:1;">${s}</span>`;
-
-// ── Update Monetag UI ────────────────────────────────────
-function _mgUpdateUI() {
-    const remaining  = Math.max(0, _MG.dailyLimit - _MG.watched);
-    const isDone     = _MG.watched >= _MG.dailyLimit;
-    const inCooldown = !isDone && _MG.cooldownUntil > Date.now();
-
-    const rowEl   = document.getElementById('monetag-prov-row');
-    const doneEl  = document.getElementById('monetag-done-state');
-    const remEl   = document.getElementById('monetag-remaining');
-    const watchEl = document.getElementById('monetag-watched');
-    const limEl   = document.getElementById('monetag-daily-limit');
-    // إخفاء cooldown msg التحتي دائماً — العد في الزر الآن
-    const coolEl  = document.getElementById('monetag-cooldown-msg');
-    if (coolEl) coolEl.style.display = 'none';
-
-    if (remEl)   remEl.textContent = remaining;
-    if (watchEl) watchEl.textContent = _MG.watched;
-    if (limEl)   limEl.textContent = _MG.dailyLimit;
-
-    // SVG ring progress
-    const ringEl = document.getElementById('monetag-mini-ring');
-    if (ringEl) {
-        const circumference = 2 * Math.PI * 15;
-        const pct = _MG.dailyLimit > 0 ? _MG.watched / _MG.dailyLimit : 0;
-        ringEl.style.strokeDasharray  = circumference;
-        ringEl.style.strokeDashoffset = circumference * (1 - pct);
-    }
-
-    if (isDone) {
-        if (rowEl)  rowEl.style.display  = 'none';
-        if (doneEl) doneEl.style.display = 'flex';
-        return;
-    }
-    if (rowEl)  rowEl.style.display  = '';
-    if (doneEl) doneEl.style.display = 'none';
-
-    // إذا الزر عنده عداد نشط — لا تتدخل
-    if (_MG._btnCooldownActive || _MG._inFlight) return;
-
-    const btn = _mgBtn();
-    if (!btn) return;
-    if (inCooldown) {
-        _mgStartBtnCooldown();
-    } else {
-        btn.disabled = false;
-        btn.classList.remove('disabled');
-        btn.innerHTML = _mgBtnReady();
-    }
-}
-
-// ── Cooldown داخل الزر (عد تنازلي) ──────────────────────
-function _mgStartBtnCooldown() {
-    if (_MG._btnCooldownActive) return;
-    const btn = _mgBtn();
-    if (!btn) return;
-
-    _MG._btnCooldownActive = true;
-    btn.disabled = true;
-    btn.classList.add('disabled');
-
-    let remSec = Math.ceil((_MG.cooldownUntil - Date.now()) / 1000);
-    btn.innerHTML = _mgBtnCooldown(remSec);
-
-    if (_MG._cooldownTimer) { clearInterval(_MG._cooldownTimer); _MG._cooldownTimer = null; }
-    _MG._cooldownTimer = setInterval(() => {
-        remSec--;
-        const left = Math.max(0, remSec);
-        const b = _mgBtn();
-        if (b) b.innerHTML = _mgBtnCooldown(left);
-        if (remSec <= 0) {
-            clearInterval(_MG._cooldownTimer);
-            _MG._cooldownTimer = null;
-            _MG._btnCooldownActive = false;
-            const bFinal = _mgBtn();
-            if (bFinal) {
-                bFinal.innerHTML = _mgBtnReady();
-                bFinal.disabled = false;
-                bFinal.classList.remove('disabled');
-            }
-        }
-    }, 1000);
-}
-
-// ── Preload — يحمّل إعلان واحد مسبقاً (Monetag لا يدعم queue) ──
-function _mgPreload() {
-    const showFn = _mgGetShowFn();
-    if (!showFn || _MG._preloadCount > 0 || _MG._inFlight) return;
-    showFn({ type: 'preload' }).then(() => {
-        _MG._preloadCount = 1;
-    }).catch(() => {
-        _MG._preloadCount = 0;
-    });
-}
-
-function _mgGetShowFn() {
-    return typeof window['show_10245709'] === 'function' ? window['show_10245709'] : null;
-}
-
-// ── Main watch function ──────────────────────────────────
-export async function watchMonetag() {
-    if (_MG._inFlight || _MG._btnCooldownActive) return;
-    if (_MG.watched >= _MG.dailyLimit) { _mgUpdateUI(); return; }
-    if (_MG.cooldownUntil > Date.now()) {
-        _mgStartBtnCooldown();
-        return;
-    }
-
-    const showFn = _mgGetShowFn();
-    if (!showFn) {
-        showToast('coin', 'Monetag', _t('loading_sdk'), 'red', '');
-        return;
-    }
-
-    _MG._inFlight = true;
-    const btn = _mgBtn();
-    if (btn) { btn.disabled = true; btn.classList.add('disabled'); btn.innerHTML = _mgBtnLoading(); }
-
-    try {
-        const ymid = String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'u');
-
-        if (_MG._preloadCount > 0) {
-            // إعلان محمّل مسبقاً — عرضه فوراً
-            _MG._preloadCount = 0;
-            await showFn({ ymid });
-        } else {
-            // مافي preload — عرض مباشر (Monetag يحمّل داخلياً)
-            await showFn({ ymid });
-        }
-
-        // ✅ المشاهدة اكتملت
-        await _mgOnComplete();
-
-    } catch (err) {
-        // المستخدم أغلق أو فشل
-        _MG._inFlight = false;
-        const b = _mgBtn();
-        if (b) { b.disabled = false; b.classList.remove('disabled'); b.innerHTML = _mgBtnReady(); }
-        return;
-    }
-
-    _MG._inFlight = false;
-    // حمّل الإعلان التالي في الخلفية فوراً
-    setTimeout(_mgPreload, 800);
-}
-
-async function _mgOnComplete() {
-    // ── Loading gift animation في الزر ──────────────────
-    const btn = _mgBtn();
-    if (btn) btn.innerHTML = `<img src="asesst/loading.gif" style="width:20px;height:20px;object-fit:contain;">`;
-
-    try {
-        const result = await _dbCall('monetag_reward', {});
-        if (!result?.ok) {
-            const msg = result?.error === 'daily_limit_reached'
-                ? _t('monetag_daily_limit_reached')
-                : result?.error === 'cooldown_active'
-                    ? `${_t('wait_n_sec_prefix')} ${Math.ceil((result.wait_ms||20000)/1000)} ${_t('seconds_suffix')}`
-                    : _t('error_try_again');
-            showToast('coin', 'Monetag', msg, 'red', '');
-            if (result?.error === 'daily_limit_reached') _MG.watched = _MG.dailyLimit;
-            if (result?.error === 'cooldown_active' && result.wait_ms)
-                _MG.cooldownUntil = Date.now() + result.wait_ms;
-        } else {
-            _MG.watched       = result.watched_today ?? (_MG.watched + 1);
-            _MG.cooldownUntil = Date.now() + (result.cooldown_ms || _MG.cooldownMs);
-
-            const pts = result.points_awarded ?? _MG.reward;
-            if (result.points !== undefined) {
-                animateBalance(_AS.balance, result.points, 1000);
-                _AS.balance = result.points;
-            }
-            // vibration
-            try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(_){}
-
-            // loading gift قصير ثم toast
-            setTimeout(() => {
-                showToast('coin', 'Monetag ✓', `+${pts} ${_t('pts_suffix')}`, 'green', `+${pts}`);
-            }, 400);
-        }
-    } catch (e) {
-        showToast('coin', 'Monetag', _t('connection_error'), 'red', '');
-    }
-
-    _mgUpdateUI();
-    // إذا في cooldown — ابدأ العداد في الزر
-    if (_MG.cooldownUntil > Date.now()) {
-        _mgStartBtnCooldown();
-    }
-}
-
-// ── Init from server load data ───────────────────────────
-export function initMonetag(data) {
-    if (!data) { _mgUpdateUI(); setTimeout(_mgPreload, 2000); return; }
-
-    if (data.watched_today  !== undefined) _MG.watched    = parseInt(data.watched_today) || 0;
-    if (data.daily_limit    !== undefined) _MG.dailyLimit = parseInt(data.daily_limit)   || 250;
-    if (data.reward         !== undefined) _MG.reward     = parseInt(data.reward)        || 20;
-    if (data.cooldown_ms    !== undefined) _MG.cooldownMs = parseInt(data.cooldown_ms)   || 20000;
-    if (data.cooldown_until !== undefined) _MG.cooldownUntil = data.cooldown_until;
-
-    _mgUpdateUI();
-    setTimeout(_mgPreload, 2000);
-}
-
-window.watchMonetag  = watchMonetag;
-window.initMonetag   = initMonetag;
