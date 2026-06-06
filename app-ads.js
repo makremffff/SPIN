@@ -175,7 +175,7 @@ function _showAd() {
                 if (elapsed < AD_MIN_MS) { resolve({ ok: false }); return; }
                 _adRetryCount=0;
                 // أقل من 30 ثانية = نصف جائزة، 30+ = كاملة
-                const partial = elapsed < 30000;
+                const partial = elapsed < 33000;
                 resolve({ ok: true, elapsed_ms: elapsed, partial });
             } else { resolve({ ok: false }); }
         } catch(result) {
