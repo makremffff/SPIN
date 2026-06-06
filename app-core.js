@@ -9,6 +9,7 @@ export const APP_STATE = {
     balance: 0,
     level:   1,
     usdt_balance: 0,
+    tickets: 0,
     first_withdraw_done: false,
 
     ads: {
@@ -283,6 +284,7 @@ export async function _createSession() {
                     if (u.points       !== undefined) APP_STATE.balance       = parseInt(u.points)           || 0;
                     if (u.level        !== undefined) APP_STATE.level         = parseInt(u.level)            || 1;
                     if (u.usdt_balance !== undefined) APP_STATE.usdt_balance  = parseFloat(u.usdt_balance)  || 0;
+                    if (u.my_tickets   !== undefined) APP_STATE.tickets       = parseInt(u.my_tickets)       || 0;
                     if (u.tg_verified  !== undefined) APP_STATE.tasks.tgVerified = !!u.tg_verified;
                     if (u.streak_day  !== undefined) APP_STATE.dailyGift.dayNumber = Math.max(1,(parseInt(u.streak_day)||0)+1);
                     const today = new Date().toISOString().slice(0,10);

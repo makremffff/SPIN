@@ -339,6 +339,12 @@ export async function watchAd() {
 
             showToast('trophy',`تم إضافة +${ticketsPts} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${ticketsPts}`);
             pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة أُضيفت لرصيدك`);
+            // تحديث عداد التيكيت في الصفحة الرئيسية
+            if (result.total_tickets !== undefined) {
+                _AS.tickets = parseInt(result.total_tickets) || 0;
+                const tickEl = document.getElementById('uc-tickets-val');
+                if (tickEl) tickEl.textContent = _AS.tickets.toLocaleString('ar');
+            }
         }, 350);
 
     } else {
@@ -692,6 +698,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             _AS.first_withdraw_done = !!load.first_withdraw_done;
             _AS.tasks.tgVerified    = !!load.tg_verified;
             if (load.usdt_balance !== undefined) _AS.usdt_balance = parseFloat(load.usdt_balance)||0;
+            if (load.my_tickets   !== undefined) _AS.tickets      = parseInt(load.my_tickets)||0;
 
             // config
             if (load.config) {

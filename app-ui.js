@@ -11,9 +11,6 @@ import {
     _updateReferralLinkUI,
 } from './app-core.js';
 
-
-const _t = (k) => typeof window.T === 'function' ? (window.T(k) ?? '') : '';
-
 const _AS = APP_STATE;
 const _AC = APP_CONFIG;
 
@@ -177,6 +174,7 @@ export function updateBalanceUI(pts) {
     const tonSh  = document.getElementById('ton-sheet-pts');
     const tonEq  = document.getElementById('ton-sheet-equiv');
     const usdtEl = document.getElementById('uc-usdt-val');
+    const ticketsEl = document.getElementById('uc-tickets-val');
     const xpLvl  = document.querySelector('.uc-xp-level');
     const xpPct  = document.querySelector('.uc-xp-pct');
     const xpFill = document.querySelector('.uc-xp-fill');
@@ -185,11 +183,12 @@ export function updateBalanceUI(pts) {
     if (tonSh)  tonSh.textContent = f;
     if (tonEq)  tonEq.textContent = '≈ '+(pts/(_SC.pts_per_ton||100000)).toFixed(3)+' TON';
     if (usdtEl) usdtEl.textContent = (_AS.usdt_balance||0).toFixed(2);
+    if (ticketsEl) ticketsEl.textContent = (_AS.tickets||0).toLocaleString('ar');
     const lvl = _AS.level||1;
     const TH  = [0,0,500,1500,3500,8000,16000,30000,55000,90000,150000];
     const cur = TH[lvl]||0; const nxt = TH[lvl+1]||cur+10000;
     const pct = nxt>cur ? Math.min(100,Math.floor((pts-cur)/(nxt-cur)*100)) : 100;
-    if (xpLvl)  xpLvl.textContent = `${_t('level_prefix')} ${lvl}`;
+    if (xpLvl)  xpLvl.textContent = `المستوى ${lvl}`;
     if (xpPct)  xpPct.textContent = pct+'%';
     if (xpFill) xpFill.style.width = pct+'%';
     // ── Home ring + tier update ──
@@ -215,11 +214,16 @@ function _updateHomeRing(lvl) {
     const tierLabel = document.getElementById('hm-tier-label');
     if (!cont) return;
     if (ringNum) ringNum.textContent = lvl;
-    const tier = lvl >= 7 ? 'gold' : lvl >= 4 ? 'silver' : 'green';
-    const labels = { gold: _t('tier_gold_label'), silver: _t('tier_silver_label'), green: _t('tier_green_label') };
+    // تحديد التير حسب المستوى
+    let tier, label;
+    if      (lvl >= 9) { tier = 'gold';   label = 'مستوى ماسي';    }
+    else if (lvl >= 7) { tier = 'gold';   label = 'مستوى ذهبي';    }
+    else if (lvl >= 5) { tier = 'silver'; label = 'مستوى فضي';     }
+    else if (lvl >= 3) { tier = 'green';  label = 'مستوى برونزي';  }
+    else               { tier = 'green';  label = 'مستوى مبتدئ';   }
     cont.classList.remove('tier-gold', 'tier-silver', 'tier-green');
     cont.classList.add('tier-' + tier);
-    if (tierLabel) tierLabel.textContent = labels[tier];
+    if (tierLabel) tierLabel.textContent = label;
 }
 
 function _updateHomeTicker(pts, lvl) {
@@ -230,11 +234,11 @@ function _updateHomeTicker(pts, lvl) {
     const friends = (document.querySelector('.uc-stat-val.green') || {}).textContent || '0';
     const tasks   = (document.querySelector('.uc-stat-val.blue')  || {}).textContent || '0';
     const items = [
-        { cls: 'hm-y', label: _t('ticker_balance'),  val: bal + ' ' + _t('ticker_pts') },
+        { cls: 'hm-y', label: 'رصيدك',   val: bal + ' نقطة' },
         { cls: 'hm-g', label: 'USDT',     val: usdt           },
-        { cls: 'hm-y', label: _t('ticker_level'),   val: String(lvl) },
-        { cls: 'hm-g', label: _t('ticker_friends'), val: friends },
-        { cls: 'hm-y', label: _t('ticker_tasks'),   val: tasks },
+        { cls: 'hm-y', label: 'المستوى',  val: String(lvl)   },
+        { cls: 'hm-g', label: 'أصدقاء',  val: friends        },
+        { cls: 'hm-y', label: 'مهام',     val: tasks          },
     ];
     // duplicate for seamless infinite scroll
     const html = [...items, ...items]
@@ -289,7 +293,7 @@ async function _loadInvitePage() {
         if (statVals[0]) { statVals[0].textContent = totalRefs.toLocaleString('en-US'); statVals[0].dataset.target = totalRefs; }
         if (statVals[1]) { statVals[1].textContent = earnedRefs.toLocaleString('en-US'); statVals[1].dataset.target = earnedRefs; }
         const refBadge = document.getElementById('referral-friends-badge');
-        if (refBadge) refBadge.textContent = totalRefs + ' ' + _t('n_friends_badge');
+        if (refBadge) refBadge.textContent = totalRefs + ' صديق';
         // render list
         if (Array.isArray(res.referral_list) && res.referral_list.length) {
             renderReferralList(res.referral_list, totalRefs);
@@ -318,10 +322,10 @@ export function _hideLoadingScreen() {
 // ══════════════════════════════════════════════════════════
 export function _timeAgo(ts) {
     const d = Math.floor((Date.now()-ts)/1000);
-    if (d<60)    return _t('time_now');
-    if (d<3600)  return _t('time_ago_min_fmt').replace('{n}', Math.floor(d/60));
-    if (d<86400) return _t('time_ago_hr_fmt').replace('{n}', Math.floor(d/3600));
-    return _t('time_ago_day_fmt').replace('{n}', Math.floor(d/86400));
+    if (d<60)    return 'الآن';
+    if (d<3600)  return `منذ ${Math.floor(d/60)} دقيقة`;
+    if (d<86400) return `منذ ${Math.floor(d/3600)} ساعة`;
+    return `منذ ${Math.floor(d/86400)} يوم`;
 }
 
 export function renderReferralList(list, total) {
@@ -336,7 +340,7 @@ export function renderReferralList(list, total) {
     const pts = _AC.rewards.referral||100;
     let html = list.map((r,i) => {
         const c = colors[i%colors.length];
-        const initials = (r.name||_t('default_username')||'?')[0].toUpperCase();
+        const initials = (r.name||'م')[0].toUpperCase();
         const avatarHtml = r.photo_url
             ? `<img src="${r.photo_url}" alt="${initials}"
                  style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
@@ -345,11 +349,11 @@ export function renderReferralList(list, total) {
         const rewardHtml = r.activated
             ? `<img src="asesst/coins.png" alt="" style="width:14px;height:14px;object-fit:contain;">
                <span class="referral-reward-text">+${pts}</span>`
-            : `<span class="referral-reward-text" style="font-size:11px;color:rgba(255,255,255,0.45);background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:20px;">${_t('pending_activation')}</span>`;
+            : `<span class="referral-reward-text" style="font-size:11px;color:rgba(255,255,255,0.45);background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:20px;">بانتظار</span>`;
         return `<div class="referral-item">
             <div class="referral-avatar" style="background:${c.bg};border-color:${c.border};color:${c.color};overflow:hidden;">${avatarHtml}</div>
             <div class="referral-info">
-                <div class="referral-name">${r.name||_t('default_username')}</div>
+                <div class="referral-name">${r.name||'مستخدم'}</div>
                 <div class="referral-date">${_timeAgo(r.ts||Date.now())}</div>
             </div>
             <div class="referral-reward">
@@ -359,7 +363,7 @@ export function renderReferralList(list, total) {
     }).join('');
     // extra: إذا كان هناك إحالات أكثر من المعروضة (20 كحد أقصى) نعرض الباقي
     const extra = Math.max(0, total - list.length);
-    if (extra>0) html += `<div style="text-align:center;padding:12px 0 4px;"><span style="font-size:12px;font-weight:700;color:var(--purple);opacity:0.7;">+${extra} ${_t('n_more_friends_suffix')}</span></div>`;
+    if (extra>0) html += `<div style="text-align:center;padding:12px 0 4px;"><span style="font-size:12px;font-weight:700;color:var(--purple);opacity:0.7;">+${extra} صديق آخر</span></div>`;
     container.innerHTML = html;
     // hide empty state if visible
     const emptyState = document.getElementById('referral-empty-state');
@@ -372,7 +376,7 @@ export function renderWithdrawHistory() {
     const badge  = document.getElementById('withdraw-count-badge');
     if (!_WH.length) { if(emptyEl) emptyEl.style.display=''; if(badge) badge.style.display='none'; return; }
     if (emptyEl) emptyEl.style.display='none';
-    if (badge)   { badge.style.display=''; badge.textContent=_WH.length+' '+_t('n_requests_suffix'); }
+    if (badge)   { badge.style.display=''; badge.textContent=_WH.length+' طلب'; }
     if (!listEl) return;
     listEl.innerHTML = _WH.slice().reverse().map(item => {
         const ton   = (item.pts/100000).toFixed(3);
@@ -380,14 +384,14 @@ export function renderWithdrawHistory() {
         return `<div class="withdraw-hist-item">
             <div class="withdraw-hist-icon"><img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;"></div>
             <div class="withdraw-hist-info">
-                <div class="withdraw-hist-name">${_t('withdraw_ton_label')}</div>
+                <div class="withdraw-hist-name">سحب TON</div>
                 <div class="withdraw-hist-addr">${addr}</div>
                 <div class="withdraw-hist-time">${_timeAgo(item.ts)}</div>
             </div>
             <div class="withdraw-hist-right">
                 <div class="withdraw-hist-pts">${item.pts.toLocaleString('en-US')}</div>
                 <div class="withdraw-hist-ton">${ton} TON</div>
-                <div class="withdraw-hist-badge ${item.status||"pending"}">${item.status==="completed"?_t('status_completed'):item.status==="rejected"?_t('status_rejected'):_t('status_pending')}</div>
+                <div class="withdraw-hist-badge ${item.status||"pending"}">${item.status==="completed"?"مكتمل":item.status==="rejected"?"مرفوض":"قيد المعالجة"}</div>
             </div>
         </div>`;
     }).join('');
@@ -396,16 +400,23 @@ export function renderWithdrawHistory() {
 // ══════════════════════════════════════════════════════════
 // DAILY GIFT
 // ══════════════════════════════════════════════════════════
-const _GIFT_PTS_FB = [100,150,200,250,300,400,750];
+const GIFT_FB = [
+    {day:'اليوم الأول',  desc:'مبروك! استمر يومياً لتضاعف مكافآتك!', pts:100},
+    {day:'اليوم الثاني', desc:'يومان متتاليان! المثابرة مفتاح النجاح.', pts:150},
+    {day:'اليوم الثالث', desc:'ثلاثة أيام متتالية!', pts:200},
+    {day:'اليوم الرابع', desc:'أسبوعك يقترب!', pts:250},
+    {day:'اليوم الخامس',desc:'خمسة أيام!', pts:300},
+    {day:'اليوم السادس',desc:'يوم واحد ويكتمل أسبوعك!', pts:400},
+    {day:'اليوم السابع', desc:'أسبوع كامل! مكافأة ضخمة.', pts:750},
+];
 
 function _giftData(day) {
     const idx = Math.max(0,day-1);
     const sv  = _AC.daily_gift||{};
-    const n   = Math.min(idx,6)+1;
     return {
-        day:  sv.titles_ar?.[idx]||_t('gift_day_'+n)||(_t('gift_day_prefix')+' '+day),
-        desc: sv.descs_ar?.[idx] ||_t('gift_day_'+n+'_desc')||'',
-        pts:  sv.rewards?.[idx]  ??_GIFT_PTS_FB[Math.min(idx,6)]??100,
+        day:    sv.titles_ar?.[idx]||GIFT_FB[Math.min(idx,6)]?.day||('اليوم '+day),
+        desc:   sv.descs_ar?.[idx] ||GIFT_FB[Math.min(idx,6)]?.desc||'',
+        pts:    sv.rewards?.[idx]  ??GIFT_FB[Math.min(idx,6)]?.pts??100,
     };
 }
 
@@ -448,7 +459,7 @@ export function openDailyGiftOverlay() {
     overlay.style.opacity='1'; overlay.style.pointerEvents='all';
 
     if (_DGS.claimed) {
-        if (label) { label.textContent=_t('gift_already_claimed_today'); label.style.color='#34d399'; label.style.fontWeight='700'; }
+        if (label) { label.textContent='تم استلام هديتك اليوم ✓'; label.style.color='#34d399'; label.style.fontWeight='700'; }
         _DGS.isOpening=false;
         setTimeout(()=>closeDailyGiftOverlay(), 2200);
         return;
@@ -491,13 +502,13 @@ export async function claimGift() {
     if (ring) ring.innerHTML=`<path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
     const btn=document.getElementById('gift-claim-btn');
     if (btn) {
-        btn.textContent=_t('gift_claimed_btn');
+        btn.textContent='تم الاستلام ✓';
         btn.style.background='rgba(52,211,153,0.15)'; btn.style.color='#34d399';
         btn.style.border='1px solid rgba(52,211,153,0.28)'; btn.style.cursor='default'; btn.onclick=null;
     }
     const reward=result.reward||0;
-    showToast('trophy',_t('gift_claimed_toast'),`+${reward} ${_t('pts_suffix')}`,'green',`+${reward}`);
-    pushNotif('gold',_t('gift_daily_notif'),`+${reward} ${_t('pts_added_to_bal')}`);
+    showToast('trophy','تم استلام هديتك!',`+${reward} نقطة`,'green',`+${reward}`);
+    pushNotif('gold','هدية يومية ✓',`+${reward} نقطة أُضيفت لرصيدك`);
     setTimeout(()=>closeDailyGiftOverlay(), 1600);
 }
 
@@ -528,7 +539,7 @@ export function openTonWithdraw() {
 
     levelWarn.style.display='none'; ptsWarn.style.display='none';
     const chip=document.getElementById('ton-min-chip-val');
-    if (chip) { chip.textContent=minPts.toLocaleString('en-US')+' '+_t('pts_suffix'); chip.style.color=fw?'var(--gold)':'var(--green)'; }
+    if (chip) { chip.textContent=minPts.toLocaleString('en-US')+' نقطة'; chip.style.color=fw?'var(--gold)':'var(--green)'; }
     const firstOffer=document.getElementById('first-withdraw-offer');
     if (firstOffer) firstOffer.style.display=fw?'none':'flex';
     const minPtsEl=document.getElementById('ton-min-pts');
@@ -568,14 +579,14 @@ export async function submitTonWithdraw() {
 
     if (!_isValidTonAddr(addr)) { errEl.style.display='block'; input.style.borderColor='rgba(248,113,113,0.5)'; return; }
 
-    submitBtn.disabled=true; submitBtn.innerHTML='<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;margin-left:4px;"> '+_t('sending_label');
+    submitBtn.disabled=true; submitBtn.innerHTML='<img src="asesst/loading.gif" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;border-radius:2px;margin-left:4px;"> جاري الإرسال...';
     const result = await _fetchApi({ type:'submit_withdraw', data:{address:addr} });
-    submitBtn.disabled=false; submitBtn.textContent=_t('submit_withdraw_btn');
+    submitBtn.disabled=false; submitBtn.textContent='إرسال طلب السحب';
 
     if (!result.ok) {
-        errEl.textContent = result.error==='insufficient_balance'?_t('insufficient_balance_err')
-            : result.error==='level_too_low'?`${_t('level_required_prefix')} ${result.required_level||5} ${_t('level_required_suffix')}`
-            : _t('error_try_again');
+        errEl.textContent = result.error==='insufficient_balance'?'رصيدك غير كافٍ'
+            : result.error==='level_too_low'?`يتطلب المستوى ${result.required_level||5} للسحب`
+            : 'حدث خطأ، حاول مجدداً';
         errEl.style.display='block'; return;
     }
 
@@ -586,8 +597,8 @@ export async function submitTonWithdraw() {
     _WH.push(item);
     renderWithdrawHistory();
     closeTonWithdraw();
-    showToast('trophy',_t('withdraw_sent_toast'),_t('withdraw_processing_desc'),'green','✓');
-    pushNotif('ton',_t('withdraw_ton_notif'),`${item.pts.toLocaleString('en-US')} ${_t('pts_processing_suffix')}`);
+    showToast('trophy','تم إرسال طلب السحب! 🎉','سيتم معالجة طلبك قريباً','green','✓');
+    pushNotif('ton','طلب سحب TON مُرسَل',`${item.pts.toLocaleString('en-US')} نقطة قيد المعالجة`);
 }
 
 export function copyReferralLink() {
@@ -598,22 +609,22 @@ export function copyReferralLink() {
         document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     });
     btn.classList.add('copied');
-    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>${_t('copy_btn_done')}`;
-    showToast('trophy',_t('toast_copy_title'),_t('toast_copy_desc'),'green','🔗');
+    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>تم النسخ!`;
+    showToast('trophy','تم نسخ الرابط ✓','شارك رابطك مع أصدقائك','green','🔗');
     setTimeout(()=>{
         btn.classList.remove('copied');
-        btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>${_t('copy_svg_label')}`;
+        btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>نسخ`;
     },2500);
 }
 
 export function shareTelegram() {
     const link=window._REFERRAL_LINK||'';
-    window.open('https://t.me/share/url?url='+encodeURIComponent(link)+'&text='+encodeURIComponent(_t('share_msg_text')+'\n'+link),'_blank');
+    window.open('https://t.me/share/url?url='+encodeURIComponent(link)+'&text='+encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n'+link),'_blank');
 }
 
 export function shareWhatsApp() {
     const link=window._REFERRAL_LINK||'';
-    window.open('https://wa.me/?text='+encodeURIComponent(_t('share_msg_text')+'\n'+link),'_blank');
+    window.open('https://wa.me/?text='+encodeURIComponent('انضم معي في تطبيق الربح العربي واربح نقاط مجانية! 🎁\n'+link),'_blank');
 }
 
 // ── expose ────────────────────────────────────────────────
