@@ -381,12 +381,8 @@ export async function watchAd() {
         const cdMs       = result.cooldown_ms||_AC.ads?.cooldown_ms||30000;
         ads.cooldownUntil= Date.now()+cdMs;
 
-        if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
-
-        const fullPts     = _AC.rewards?.points_per_ad   || 80;
-        const fullTickets = _AC.rewards?.tickets_per_ad  || 500;
-        const pts         = result.points_awarded   !== undefined ? result.points_awarded   : fullPts;
-        const tickets     = result.tickets_awarded  !== undefined ? result.tickets_awarded  : fullTickets;
+        const fullTickets = _AC.rewards?.tickets_per_ad || 500;
+        const tickets     = result.tickets_awarded !== undefined ? result.tickets_awarded : fullTickets;
         const isPartial   = !!result.partial;
 
         // ── عداد تنازلي نظيف داخل الزر (ring SVG بدون gif) ──
