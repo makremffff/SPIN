@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════
 // api/competition.js — Weekly Ticket Competition API
 // GET  /api/competition?action=leaderboard  → قائمة المتصدرين
-// POST /api/competition  body: { action: 'earn_ticket', count: N }  → منح تذاكر
+// POST — earn_ticket مُلغى (استُبدل بـ grant_competition_tickets في api/index.js)
 // ══════════════════════════════════════════════════════════
 
 const { sql, ensureBootstrap } = require('../lib/db');
@@ -111,7 +111,9 @@ async function handleLeaderboard(req, res, userId) {
   });
 }
 
-// ── منح تذاكر (يُستدعى من monetag_reward) ────────────────
+// ── منح تذاكر (يُستدعى داخلياً فقط — من services.js أو index.js) ─────
+// [FIX-1] إزالة الـ POST /earn_ticket العام تماماً — كان بدون مصادقة
+// [FIX-3] إضافة حد يومي: MAX_TICKETS_PER_DAY
 async function grantTickets(userId, count) {
   await ensureCompetitionTables();
   const season = await getActiveSeason();
@@ -119,6 +121,31 @@ async function grantTickets(userId, count) {
   // تحقق أن الموسم لم ينته
   if (new Date(season.end_date) < new Date()) return { ok: false, error: 'season_ended' };
 
+  // [FIX-3] التحقق من الحد اليومي للتذاكر
+  const MAX_DAILY = CFG.COMPETITION_MAX_TICKETS_PER_DAY;   // من config.js
+  const MAX_GRANT = CFG.COMPETITION_MAX_GRANT_PER_CALL;    // حد كل عملية منح واحدة
+
+  // تحقق من أن الـ count ضمن الحد المسموح للعملية الواحدة
+  const safeCount = Math.min(Math.max(1, parseInt(count) || 1), MAX_GRANT);
+
+  // اعرف كم تذكرة منح اليوم للمستخدم
+  const todayRow = await sql(
+    `SELECT COALESCE(SUM(tickets_delta), 0) AS today_total
+     FROM competition_ticket_log
+     WHERE user_id=$1 AND season_id=$2 AND log_date=CURRENT_DATE`,
+    [userId, season.id]
+  ).catch(() => [{ today_total: 0 }]);
+
+  const todayTotal = parseInt(todayRow[0]?.today_total) || 0;
+  if (todayTotal >= MAX_DAILY) {
+    return { ok: false, error: 'daily_ticket_limit_reached', today: todayTotal };
+  }
+
+  // تأكد أنك لا تعطي أكثر من الحد اليومي المتبقي
+  const allowed = Math.min(safeCount, MAX_DAILY - todayTotal);
+  if (allowed <= 0) return { ok: false, error: 'daily_ticket_limit_reached', today: todayTotal };
+
+  // Upsert
   const r = await sql(
     `INSERT INTO competition_tickets(season_id, user_id, tickets)
      VALUES($1, $2, $3)
@@ -126,17 +153,40 @@ async function grantTickets(userId, count) {
        SET tickets    = competition_tickets.tickets + $3,
            updated_at = NOW()
      RETURNING tickets`,
-    [season.id, userId, count]
+    [season.id, userId, allowed]
   );
-  return { ok: true, tickets: parseInt(r[0]?.tickets) || 0 };
+
+  // سجّل في جدول اللوج اليومي (CREATE IF NOT EXISTS أول مرة يُستدعى)
+  await sql(
+    `CREATE TABLE IF NOT EXISTS competition_ticket_log (
+       id           BIGSERIAL PRIMARY KEY,
+       user_id      BIGINT      NOT NULL,
+       season_id    BIGINT      NOT NULL,
+       tickets_delta BIGINT     NOT NULL,
+       source       TEXT        DEFAULT 'unknown',
+       log_date     DATE        NOT NULL DEFAULT CURRENT_DATE,
+       created_at   TIMESTAMPTZ DEFAULT NOW()
+     )`
+  ).catch(() => {});
+  await sql(
+    `INSERT INTO competition_ticket_log(user_id, season_id, tickets_delta, source)
+     VALUES($1, $2, $3, 'grant')`,
+    [userId, season.id, allowed]
+  ).catch(() => {});
+
+  return { ok: true, tickets: parseInt(r[0]?.tickets) || 0, granted: allowed };
 }
 
 // ── Main Handler ──────────────────────────────────────────
 module.exports = async function handler(req, res) {
   try { await ensureBootstrap(); } catch (_) {}
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  // [FIX-4] تقييد CORS — لا نسمح * على endpoint يُعدّل بيانات
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || 'https://yourdomain.com';
+  const origin = req.headers['origin'] || '';
+  res.setHeader('Access-Control-Allow-Origin', origin === allowedOrigin ? origin : allowedOrigin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers',
     'Content-Type, X-Telegram-Init-Data, X-Session-Id, X-Session-ID'
   );
@@ -165,25 +215,11 @@ module.exports = async function handler(req, res) {
     return handleLeaderboard(req, res, userId);
   }
 
-  // ── POST earn_ticket ──────────────────────────────────
-  if (req.method === 'POST') {
-    let body = req.body;
-    if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch (_) { return res.status(400).json({ error: 'invalid_json' }); }
-    }
-    if (!body) body = {};
-
-    if (body.action === 'earn_ticket') {
-      const { userId, count } = body;
-      if (!userId || !count) return res.status(400).json({ error: 'missing_params' });
-
-      const result = await grantTickets(userId, count);
-      return res.status(200).json(result);
-    }
-  }
+  // [FIX-1] POST earn_ticket مُزال تماماً — لا يوجد endpoint عام لمنح تذاكر
+  // التذاكر تُمنح فقط من الداخل عبر grantTickets() في index.js
 
   return res.status(404).json({ error: 'not_found' });
 };
 
-// ── Export grantTickets للاستخدام الداخلي ─────────────────
+// ── Export grantTickets للاستخدام الداخلي فقط ──────────────
 module.exports.grantTickets = grantTickets;
