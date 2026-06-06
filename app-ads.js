@@ -23,7 +23,7 @@ const _AC = APP_CONFIG;
 // ══════════════════════════════════════════════════════════
 // PARTIAL AD REWARD NOTICE — إشعار وسط الشاشة
 // ══════════════════════════════════════════════════════════
-function _showPartialAdNotice(ptsEarned, fullPts) {
+function _showPartialAdNotice(ticketsEarned, fullTickets) {
     // منع تكرار
     const existing = document.getElementById('partial-ad-notice');
     if (existing) existing.remove();
@@ -78,8 +78,8 @@ function _showPartialAdNotice(ptsEarned, fullPts) {
         color:rgba(255,255,255,.65);
         margin-bottom:18px;
         line-height:1.5;
-    ">حصلت على <span style="color:#fbbf24;font-weight:700;">+${ptsEarned}</span> نقطة (50%)<br>
-    بدلاً من <span style="color:#34d399;font-weight:700;">+${fullPts}</span> نقطة كاملة</div>
+    ">حصلت على <span style="color:#fbbf24;font-weight:700;">+${ticketsEarned}</span> تذكرة (50%)<br>
+    بدلاً من <span style="color:#34d399;font-weight:700;">+${fullTickets}</span> تذكرة كاملة</div>
 
     <button id="partial-ad-notice-close" style="
         background:linear-gradient(135deg,#f59e0b,#d97706);
@@ -132,16 +132,15 @@ function _initAdController() {
     return _adController;
 }
 
-// ── حساب الحد اليومي الكامل بالنقاط ديناميكياً ──────────────────
+// ── حساب الحد اليومي الكامل بالتذاكر ديناميكياً ──────────────────
 function _updateDailyLimitPts() {
-    const adsgramTotal    = _AS.ads.total || _AC.ads?.daily_limit || 7;
-    const adsgramPts      = _AC.rewards?.points_per_ad || 60;
-    const maxPts          = adsgramTotal * adsgramPts;
+    const adsgramTotal    = _AS.ads.total || _AC.ads?.daily_limit || 12;
+    const ticketsPerAd    = _AC.rewards?.tickets_per_ad || 50;
+    const maxTickets      = adsgramTotal * ticketsPerAd;
     const el = document.getElementById('earn-daily-limit-pts');
     if (!el) return;
-    // نحفظ الصورة ونحدث النص فقط
     const img = el.querySelector('img');
-    el.textContent = maxPts.toLocaleString('en-US');
+    el.textContent = maxTickets.toLocaleString('en-US');
     if (img) el.prepend(img);
 }
 
@@ -153,10 +152,9 @@ function _updateAdUINoBtn() {
     const ads = _AS.ads;
     const r   = ads.remaining;
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-    const _combinedWatched1 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', _combinedWatched1);
+    setText('ads-watched-total', ads.watched);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
     const progBar = document.getElementById('ads-progress');
@@ -176,10 +174,9 @@ export function updateAdUI() {
     const r   = ads.remaining;
 
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-    const _combinedWatched2 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', _combinedWatched2);
+    setText('ads-watched-total', ads.watched);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
 
@@ -381,11 +378,11 @@ export async function watchAd() {
         const cdMs       = result.cooldown_ms||_AC.ads?.cooldown_ms||30000;
         ads.cooldownUntil= Date.now()+cdMs;
 
-        if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
+        // لا نحدث balance — الإعلانات اليومية تعطي tickets فقط
 
-        const fullPts   = _AC.rewards?.points_per_ad||50;
-        const pts       = result.points_awarded !== undefined ? result.points_awarded : fullPts;
-        const isPartial = !!result.partial;
+        const fullTickets = _AC.rewards?.tickets_per_ad || 50;
+        const tickets     = result.tickets_awarded !== undefined ? result.tickets_awarded : fullTickets;
+        const isPartial   = !!result.partial;
 
         // ── عداد تنازلي نظيف داخل الزر (ring SVG بدون gif) ──
         const bNow = _btn();
@@ -432,11 +429,11 @@ export async function watchAd() {
             try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
             if (isPartial) {
-                _showPartialAdNotice(pts, fullPts);
-                pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${pts} نقطة (50%)`);
+                _showPartialAdNotice(tickets, fullTickets);
+                pushNotif('coin',`تذاكر مسابقة جزئية #${result.watchedToday}`,`+${tickets} تذكرة (50%)`);
             } else {
-                showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
-                pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
+                showToast('trophy',`تم إضافة +${tickets} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${tickets}`);
+                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${tickets} تذكرة أُضيفت`);
             }
         }, 350);
 
@@ -750,25 +747,6 @@ async function _checkChannelMembership() {
 }
 
 
-// ── تحديث تذاكر + ترتيب المسابقة في الهوم (بعد boot مباشرةً) ──────────────
-async function _syncHomeCompStats() {
-    try {
-        const sid = window._APP_SESSION || '';
-        if (!sid) return;
-        const res  = await fetch('/api/competition?action=leaderboard', {
-            headers: { 'X-Session-Id': sid }
-        });
-        const data = await res.json();
-        if (!data?.ok) return;
-
-        const rankEl    = document.getElementById('hm-user-rank');
-        const ticketsEl = document.getElementById('uc-tickets-val');
-
-        if (rankEl)    rankEl.textContent    = data.my_rank ? '#' + data.my_rank : '#--';
-        if (ticketsEl) ticketsEl.textContent = (data.my_tickets || 0).toLocaleString('ar');
-    } catch (_) {}
-}
-
 window.addEventListener('DOMContentLoaded', async () => {
     initTelegramUser();
     window._REFERRAL_LINK = REFERRAL_LINK;
@@ -925,7 +903,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     _loadChannels();
     _checkChannelMembership(); // ← فحص فوري عند الفتح
-    _syncHomeCompStats();      // ← تذاكر + ترتيب المسابقة في الهوم
     _atBindWidget();
     // Run entrance animation if tasks page is active on load
     if (document.getElementById('page-tasks')?.classList.contains('active')) {
