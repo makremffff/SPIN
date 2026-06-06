@@ -87,8 +87,8 @@ export function _applyConfigToUI() {
             el.textContent = pts.toLocaleString('en-US') + ' تذكره';
         }
     });
-    // ── قيم جوائز الإعلانات الديناميكية ──
-    const adsgramTickets = APP_CONFIG.rewards?.tickets_per_ad || 50;
+    // ── قيمة تذاكر الإعلانات اليومية الديناميكية ──
+    const adsgramTickets = APP_CONFIG.rewards?.tickets_per_ad || 500;
     document.querySelectorAll('.earn-cta-rnum').forEach(el => { el.textContent = adsgramTickets; });
 }
 
