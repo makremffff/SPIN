@@ -7,7 +7,8 @@ import { APP_STATE, fetchApi } from './app-core.js';
 import { showToast, animateBalance, updateBalanceUI } from './app-ui.js';
 
 const MTG_DAILY_LIMIT  = 250;
-const MTG_TICKET_COUNT = 50;   // تذاكر مسابقة لكل إعلان
+const MTG_TICKET_COUNT = 50;   // fallback فقط — القيمة الحقيقية تأتي من السيرفر
+const _getTicketCount = () => window._COMP_TICKET_PER_AD || MTG_TICKET_COUNT;
 const MTG_COOLDOWN_MS  = 5_000;
 
 const _MT = {
@@ -28,7 +29,7 @@ async function _mtgLoadState() {
         const res = await fetchApi({ type: 'get_state', data: {} });
         if (res?.monetag) {
             _MT.prizes      = res.monetag.watched_today ?? 0;  // FIX-2: كان .watched
-            _MT.earnedToday = (_MT.prizes * MTG_TICKET_COUNT);
+            _MT.earnedToday = (_MT.prizes * _getTicketCount());
             window._MT_PRIZES = _MT.prizes;  // مزامنة العداد اليومي
             // مزامنة daily_limit و cooldown من السيرفر إن وُجدا
             if (res.monetag.daily_limit)  _mtgSetDailyLimit(res.monetag.daily_limit);
@@ -115,7 +116,7 @@ async function _mtgGrantReward() {
             if (res?.ok) {
                 // [FIX-2] حقل watched_today موجود في رد السيرفر
                 _MT.prizes      = res.watched_today  ?? (_MT.prizes + 1);
-                _MT.earnedToday = _MT.prizes * MTG_TICKET_COUNT;
+                _MT.earnedToday = _MT.prizes * _getTicketCount();
                 // مزامنة global للعداد اليومي في صفحة الربح
                 window._MT_PRIZES = _MT.prizes;
 
@@ -137,7 +138,7 @@ async function _mtgGrantReward() {
         } catch (_) {
             // fallback محلي لو الشبكة انقطعت
             _MT.prizes++;
-            _MT.earnedToday = _MT.prizes * MTG_TICKET_COUNT;
+            _MT.earnedToday = _MT.prizes * _getTicketCount();
             window._MT_PRIZES = _MT.prizes;
         }
 
@@ -145,11 +146,11 @@ async function _mtgGrantReward() {
         try {
             await fetchApi({
                 type: 'grant_competition_tickets',
-                data: { count: MTG_TICKET_COUNT },
+                data: { count: _getTicketCount() },
             });
         } catch (_) {}
 
-        showToast('trophy', 'Monetag 🎟️', `+${MTG_TICKET_COUNT} تذكرة مسابقة`, 'green', `+${MTG_TICKET_COUNT}`);
+        showToast('trophy', 'Monetag 🎟️', `+${_getTicketCount()} تذكرة مسابقة`, 'green', `+${_getTicketCount()}`);
 
         // [FIX-3] Refresh ثانٍ بعد منح التذاكر — يُحدّث كل الـ UI دفعةً واحدة
         _mtgUpdateUI();
