@@ -381,9 +381,11 @@ export async function watchAd() {
         const cdMs       = result.cooldown_ms||_AC.ads?.cooldown_ms||30000;
         ads.cooldownUntil= Date.now()+cdMs;
 
-        const fullTickets = _AC.rewards?.tickets_per_ad || 500;
-        const tickets     = result.tickets_awarded !== undefined ? result.tickets_awarded : fullTickets;
-        const isPartial   = !!result.partial;
+        if (result.points!==undefined) { animateBalance(_AS.balance,result.points,1200); _AS.balance=result.points; }
+
+        const fullPts   = _AC.rewards?.points_per_ad||50;
+        const pts       = result.points_awarded !== undefined ? result.points_awarded : fullPts;
+        const isPartial = !!result.partial;
 
         // ── عداد تنازلي نظيف داخل الزر (ring SVG بدون gif) ──
         const bNow = _btn();
@@ -431,10 +433,10 @@ export async function watchAd() {
 
             if (isPartial) {
                 _showPartialAdNotice(pts, fullPts);
-                pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${tickets} تذكرة (50%)`);
+                pushNotif('coin',`مكافأة إعلان جزئية #${result.watchedToday}`,`+${pts} نقطة (50%)`);
             } else {
-                showToast('trophy',`تم إضافة +${tickets} تذكرة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${tickets}`);
-                pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${tickets} تذكرة أُضيفت لرصيدك`);
+                showToast('trophy',`تم إضافة +${pts} نقطة 🎉`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${pts}`);
+                pushNotif('gold',`مكافأة إعلان #${result.watchedToday}`,`+${pts} نقطة أُضيفت لرصيدك`);
             }
         }, 350);
 
