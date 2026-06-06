@@ -20,96 +20,6 @@ import {
 const _AS = APP_STATE;
 const _AC = APP_CONFIG;
 
-// ══════════════════════════════════════════════════════════
-// PARTIAL AD REWARD NOTICE — إشعار وسط الشاشة
-// ══════════════════════════════════════════════════════════
-function _showPartialAdNotice(ticketsEarned, fullTickets) {
-    // منع تكرار
-    const existing = document.getElementById('partial-ad-notice');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'partial-ad-notice';
-    overlay.style.cssText = [
-        'position:fixed', 'inset:0', 'z-index:99999',
-        'display:flex', 'align-items:center', 'justify-content:center',
-        'background:rgba(0,0,0,0.72)', 'backdrop-filter:blur(6px)',
-        '-webkit-backdrop-filter:blur(6px)',
-        'animation:_panFadeIn .25s ease',
-    ].join(';');
-
-    overlay.innerHTML = `
-<style>
-@keyframes _panFadeIn  { from { opacity:0; transform:scale(.92) } to { opacity:1; transform:scale(1) } }
-@keyframes _panFadeOut { from { opacity:1; transform:scale(1) } to { opacity:0; transform:scale(.92) } }
-</style>
-<div style="
-    background:linear-gradient(black,transparent);
-    border-radius:22px;
-    padding:28px 24px 22px;
-    max-width:300px;
-    width:88%;
-    text-align:center;
-    box-shadow:0 8px 40px rgba(0,0,0,.7),0 0 0 1px rgba(251,191,36,.07);
-    position:relative;
-">
-    <img src="asesst/play.jpg" style="
-        width:300px; height:130px;
-        object-fit:cover;
-        border-radius:17px;
-        margin-bottom:16px;
-        max-width:100%;
-        display:block;
-        margin-left:auto;
-        margin-right:auto;
-    " alt="">
-
-    <div style="
-        font-family:'Tajawal',sans-serif;
-        font-size:15px;
-        font-weight:700;
-        color:#fbbf24;
-        line-height:1.5;
-        margin-bottom:10px;
-    ">⚠️ يجب عليك التفاعل مع الإعلان<br>للحصول على الجائزة الكاملة</div>
-
-    <div style="
-        font-size:13px;
-        color:rgba(255,255,255,.65);
-        margin-bottom:18px;
-        line-height:1.5;
-    ">حصلت على <span style="color:#fbbf24;font-weight:700;">+${ticketsEarned}</span> تذكرة (50%)<br>
-    بدلاً من <span style="color:#34d399;font-weight:700;">+${fullTickets}</span> تذكرة كاملة</div>
-
-    <button id="partial-ad-notice-close" style="
-        background:linear-gradient(135deg,#f59e0b,#d97706);
-        border:none;
-        border-radius:12px;
-        padding:11px 32px;
-        font-family:'Tajawal',sans-serif;
-        font-size:14px;
-        font-weight:700;
-        color:#1a0f00;
-        cursor:pointer;
-        width:100%;
-        letter-spacing:.3px;
-    ">حسناً، فهمت!</button>
-</div>`;
-
-    document.body.appendChild(overlay);
-
-    // إغلاق بالزر أو بالضغط خارج الكارد
-    const closeNotice = () => {
-        overlay.style.animation = '_panFadeOut .2s ease forwards';
-        setTimeout(() => overlay.remove(), 220);
-    };
-    document.getElementById('partial-ad-notice-close')?.addEventListener('click', closeNotice);
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeNotice(); });
-
-    // إغلاق تلقائي بعد 8 ثوانٍ
-    setTimeout(closeNotice, 8000);
-}
-
 
 // ══════════════════════════════════════════════════════════
 // AD CONTROLLER (daily ads only)
@@ -132,11 +42,11 @@ function _initAdController() {
     return _adController;
 }
 
-// ── حساب الحد اليومي الكامل بالنقاط ديناميكياً ──────────────────
+// ── حساب الحد اليومي الكامل بالتذاكر ديناميكياً ──────────────────
 function _updateDailyLimitPts() {
-    const adsgramTotal    = _AS.ads.total || _AC.ads?.daily_limit || 12;
-    const ticketsPerAd    = _AC.rewards?.tickets_per_ad || 50;
-    const maxTickets      = adsgramTotal * ticketsPerAd;
+    const adsgramTotal = _AS.ads.total || _AC.ads?.daily_limit || 20;
+    const ticketsPerAd = _AC.rewards?.tickets_per_ad || 500;
+    const maxTickets   = adsgramTotal * ticketsPerAd;
     const el = document.getElementById('earn-daily-limit-pts');
     if (!el) return;
     const img = el.querySelector('img');
@@ -152,9 +62,10 @@ function _updateAdUINoBtn() {
     const ads = _AS.ads;
     const r   = ads.remaining;
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    const _combinedWatched1 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', ads.watched);
+    setText('ads-watched-total', _combinedWatched1);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
     const progBar = document.getElementById('ads-progress');
@@ -174,9 +85,10 @@ export function updateAdUI() {
     const r   = ads.remaining;
 
     const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    const _combinedWatched2 = (ads.watched||0) + (window._MT_PRIZES||0);
     setText('ads-remaining', r);
     setText('ads-watched',       ads.watched);
-    setText('ads-watched-total', ads.watched);
+    setText('ads-watched-total', _combinedWatched2);
     setText('earned-today',  ads.earned.toLocaleString('en-US'));
     setText('ads-daily-limit', ads.total);
 
@@ -378,11 +290,8 @@ export async function watchAd() {
         const cdMs       = result.cooldown_ms||_AC.ads?.cooldown_ms||30000;
         ads.cooldownUntil= Date.now()+cdMs;
 
-        // لا نحدث balance — الإعلانات اليومية تعطي tickets فقط
-
-        const fullTickets = _AC.rewards?.tickets_per_ad || 50;
-        const tickets     = result.tickets_awarded !== undefined ? result.tickets_awarded : fullTickets;
-        const isPartial   = !!result.partial;
+        // الإعلانات تمنح تذاكر مسابقة (لا نقاط) — لا نحدّث الرصيد
+        const ticketsPts = result.tickets_awarded || _AC.rewards?.tickets_per_ad || 500;
 
         // ── عداد تنازلي نظيف داخل الزر (ring SVG بدون gif) ──
         const bNow = _btn();
@@ -422,22 +331,14 @@ export async function watchAd() {
         // updateAdUI بدون تدخّل بالزر إذا عنده عدّاد
         _updateAdUINoBtn();
 
-        // تحديث تذاكر + ترتيب في الهوم فوراً
-        _syncHomeCompStats();
-
         // ── Vibration + Toast + Notif بعد delay قصير عشان Adsgram SDK overlay يختفي ──
         setTimeout(() => {
             // فيبريشن صريح
             try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
             try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
-            if (isPartial) {
-                _showPartialAdNotice(tickets, fullTickets);
-                pushNotif('coin',`تذاكر مسابقة جزئية #${result.watchedToday}`,`+${tickets} تذكرة (50%)`);
-            } else {
-                showToast('trophy',`تم إضافة +${tickets} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${tickets}`);
-                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${tickets} تذكرة أُضيفت`);
-            }
+            showToast('trophy',`تم إضافة +${ticketsPts} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${ticketsPts}`);
+            pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة أُضيفت لرصيدك`);
         }, 350);
 
     } else {
@@ -890,13 +791,6 @@ window.addEventListener('DOMContentLoaded', async () => {
                 _atShow('atask-start-btn');
             }
 
-            // ── Monetag init ──────────────────────────────────────
-            if (load.monetag) {
-                initMonetag(load.monetag);
-            } else {
-                initMonetag(null);
-            }
-
             // tgVerified UI
             if (_AS.tasks.tgVerified) {
                 document.getElementById('tg-join-btn')?.style.setProperty('display','none');
@@ -932,7 +826,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { if (window.runTasksEntranceAnimation) window.runTasksEntranceAnimation(); }, 200);
     }
 
-    // polling — كل 5 ثواني يحدث عدادات Adsgram + Monetag
+    // polling — كل 5 ثواني يحدث عدادات Adsgram
     let _lastPts=_AS.balance; let _pollFails=0;
     async function _poll() {
         try {
@@ -1236,10 +1130,3 @@ export function initAdsgramTaskUI(adsgramTaskData) {
 // ── expose ────────────────────────────────────────────────
 window.startAdsgramTask    = startAdsgramTask;
 window.initAdsgramTaskUI   = initAdsgramTaskUI;
-
-
-
-// Monetag محذوف — stub فارغ لتجنب أي خطأ مرجعي
-export function initMonetag(_data) {}
-window.initMonetag  = initMonetag;
-window.watchMonetag = function() {};
