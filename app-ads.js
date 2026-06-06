@@ -33,6 +33,7 @@ let _adController    = null;
 let _adStartedAt     = 0;
 let _adElapsedMs     = 0;       // مدة الإعلان الفعلية من controller.show()
 let _adRetryCount    = 0;
+let _adIsPartial     = false;   // نصف إعلان (أقل من 30 ثانية)
 let _isClaimingAd    = false;   // ← guard ضد double-claim
 
 function _initAdController() {
@@ -134,6 +135,28 @@ export function updateAdUI() {
 // ══════════════════════════════════════════════════════════
 // SHOW AD (Adsgram SDK)
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// showPartialAdToast — إشعار نصف جائزة مع play.jpg
+// ══════════════════════════════════════════════════════════
+function showPartialAdToast(halfTickets) {
+    const container = document.getElementById('ad-toast-container');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = 'ad-toast ad-toast-partial';
+    el.innerHTML = `
+        <img src="asesst/play.jpg" class="partial-toast-img" alt="play" onerror="this.style.display='none'">
+        <div class="partial-toast-body">
+            <div class="partial-toast-title">حصلت على نصف الجائزة 🎟️</div>
+            <div class="partial-toast-desc">يجب عليك أن تتفاعل مع الإعلان حتى تحصل على <strong>100%</strong> من الجائزة<br>حصلت على <strong>+${halfTickets} تذكرة</strong> فقط</div>
+        </div>`;
+    container.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    setTimeout(() => {
+        el.classList.add('hide'); el.classList.remove('show');
+        setTimeout(() => el.remove(), 400);
+    }, 5000);
+}
+
 function _showAd() {
     // يرجع { ok: true, elapsed_ms } أو { ok: false }
     return new Promise(async resolve => {
@@ -151,7 +174,9 @@ function _showAd() {
                 const elapsed = Date.now() - showStart;
                 if (elapsed < AD_MIN_MS) { resolve({ ok: false }); return; }
                 _adRetryCount=0;
-                resolve({ ok: true, elapsed_ms: elapsed });
+                // أقل من 30 ثانية = نصف جائزة، 30+ = كاملة
+                const partial = elapsed < 30000;
+                resolve({ ok: true, elapsed_ms: elapsed, partial });
             } else { resolve({ ok: false }); }
         } catch(result) {
             if (result?.error===true && _adRetryCount<AD_MAX_RETRIES) {
@@ -176,6 +201,7 @@ export async function watchAd() {
         showToast('coin','انتظر قليلاً',`${Math.ceil((ads.cooldownUntil-Date.now())/1000)} ثانية`,'red','');
         return;
     }
+    _adIsPartial = false; // reset لكل إعلان جديد
 
     ads.isWatching=true;
     // نجيب الزر دايماً fresh — الـ Adsgram SDK قد يعمل re-render أثناء الإعلان
@@ -223,6 +249,7 @@ export async function watchAd() {
             return;
         }
         _adElapsedMs = adResult.elapsed_ms; // نحفظ elapsed الحقيقي
+        if (adResult.partial) _adIsPartial = true;
         successCount++;
 
         if (i<AD_PRELOAD-1) {
@@ -264,7 +291,7 @@ export async function watchAd() {
 
     // [2] reward_ad — نرسل elapsed_ms الحقيقي من controller.show()
     let result = await _dbCall('reward_ad',
-        { ad_elapsed_ms: _adElapsedMs, preload_count: successCount },
+        { ad_elapsed_ms: _adElapsedMs, preload_count: successCount, partial: _adIsPartial },
         adNonce  // ← external nonce من start_ad
     );
 
@@ -273,7 +300,7 @@ export async function watchAd() {
         const retryStart = await _dbCall('start_ad', {});
         if (retryStart.ok && retryStart.ad_nonce) {
             result = await _dbCall('reward_ad',
-                { ad_elapsed_ms: _adElapsedMs, preload_count: successCount },
+                { ad_elapsed_ms: _adElapsedMs, preload_count: successCount, partial: _adIsPartial },
                 retryStart.ad_nonce
             );
         }
@@ -337,8 +364,14 @@ export async function watchAd() {
             try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
             try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
-            showToast('trophy',`تم إضافة +${ticketsPts} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${ticketsPts}`);
-            pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة أُضيفت لرصيدك`);
+            if (result.partial) {
+                // نصف جائزة — toast مخصص مع play.jpg
+                showPartialAdToast(ticketsPts);
+                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة (نصف جائزة)`);
+            } else {
+                showToast('trophy',`تم إضافة +${ticketsPts} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${ticketsPts}`);
+                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة أُضيفت لرصيدك`);
+            }
             // تحديث عداد التيكيت في الصفحة الرئيسية
             if (result.total_tickets !== undefined) {
                 _AS.tickets = parseInt(result.total_tickets) || 0;
