@@ -811,6 +811,8 @@ window.addEventListener('DOMContentLoaded', async () => {
                 // ── competition ticket_per_ad ديناميكي من السيرفر ──
                 if (cfg.competition?.ticket_per_ad) {
                     window._COMP_TICKET_PER_AD = parseInt(cfg.competition.ticket_per_ad) || 50;
+                    const tcEl = document.getElementById('monetag-ticket-count');
+                    if (tcEl) tcEl.textContent = window._COMP_TICKET_PER_AD;
                 }
                 _applyConfigToUI();
             }
