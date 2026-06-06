@@ -2496,25 +2496,44 @@
 
         /* ── Partial Ad Toast ── */
         .ad-toast-partial {
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
-            align-self: stretch;
+            justify-content: center;
+            align-self: center;
             gap: 0;
             padding: 0;
-            width: 100%;
-            max-width: 100%;
-            height: 76px;
-            border-radius: 0;
-            background: rgba(10, 8, 18, 0.97);
-            border: none;
-            border-bottom: 1px solid rgba(251,191,36,0.18);
-            box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+            width: calc(100vw - 40px);
+            max-width: 360px;
+            height: 33vh;
+            min-height: 220px;
+            border-radius: 20px;
+            background: rgba(8, 6, 16, 0.98);
+            border: 1px solid rgba(251,191,36,0.2);
+            box-shadow:
+                0 24px 64px rgba(0,0,0,0.8),
+                0 0 0 1px rgba(255,255,255,0.04) inset;
             overflow: hidden;
+            transform: translateY(-50%) scale(0.9) !important;
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            margin-left: calc(-1 * (min(360px, calc(100vw - 40px)) / 2));
+            pointer-events: all;
+        }
+
+        .ad-toast-partial.show {
+            transform: translateY(-50%) scale(1) !important;
+            opacity: 1;
+        }
+
+        .ad-toast-partial.hide {
+            transform: translateY(-50%) scale(0.94) !important;
+            opacity: 0;
         }
 
         .partial-toast-img {
-            width: 76px;
-            height: 76px;
+            width: 100%;
+            height: 55%;
             object-fit: cover;
             flex-shrink: 0;
             display: block;
@@ -2522,33 +2541,37 @@
 
         .partial-toast-body {
             flex: 1;
-            padding: 10px 14px;
-            text-align: right;
+            padding: 12px 18px 14px;
+            text-align: center;
             direction: rtl;
             font-family: 'Tajawal', sans-serif;
-            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            width: 100%;
         }
 
         .partial-toast-title {
             font-family: 'Tajawal', sans-serif;
-            font-size: 13px;
-            font-weight: 800;
+            font-size: 15px;
+            font-weight: 900;
             color: #fbbf24;
             line-height: 1.3;
-            margin-bottom: 4px;
         }
 
         .partial-toast-desc {
             font-family: 'Tajawal', sans-serif;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 500;
-            color: rgba(255,255,255,0.65);
-            line-height: 1.4;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.5;
         }
 
         .partial-toast-desc strong {
-            color: rgba(255,255,255,0.9);
-            font-weight: 700;
+            color: rgba(255,255,255,0.92);
+            font-weight: 800;
         }
 
         .toast-icon-wrap {

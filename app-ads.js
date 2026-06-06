@@ -139,8 +139,6 @@ export function updateAdUI() {
 // showPartialAdToast — إشعار نصف جائزة مع play.jpg
 // ══════════════════════════════════════════════════════════
 function showPartialAdToast(halfTickets) {
-    const container = document.getElementById('ad-toast-container');
-    if (!container) return;
     const el = document.createElement('div');
     el.className = 'ad-toast ad-toast-partial';
     el.innerHTML = `
@@ -149,7 +147,7 @@ function showPartialAdToast(halfTickets) {
             <div class="partial-toast-title">حصلت على نصف الجائزة 🎟️</div>
             <div class="partial-toast-desc">يجب عليك أن تتفاعل مع الإعلان حتى تحصل على <strong>100%</strong> من الجائزة<br>حصلت على <strong>+${halfTickets} تذكرة</strong> فقط</div>
         </div>`;
-    container.appendChild(el);
+    document.body.appendChild(el);
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
     setTimeout(() => {
         el.classList.add('hide'); el.classList.remove('show');
@@ -174,7 +172,7 @@ function _showAd() {
                 const elapsed = Date.now() - showStart;
                 if (elapsed < AD_MIN_MS) { resolve({ ok: false }); return; }
                 _adRetryCount=0;
-                // أقل من 30 ثانية = نصف جائزة، 30+ = كاملة
+                // أقل من 33 ثانية = نصف جائزة، 33+ = كاملة
                 const partial = elapsed < 33000;
                 resolve({ ok: true, elapsed_ms: elapsed, partial });
             } else { resolve({ ok: false }); }
