@@ -20,7 +20,8 @@
     <link rel="stylesheet" href="style.css">
     <!-- Adsgram SDK -->
     <script src="adsgram-sdk.js"></script>
-
+    <!-- Monetag SDK — Rewarded Interstitial (highest CPM) -->
+    <script src="//libtl.com/sdk.js" data-zone="10245709" data-sdk="show_10245709"></script>
 </head>
 <body>
 
@@ -602,7 +603,7 @@
                                 <span id="ads-watched">0</span>/<span id="ads-daily-limit">7</span> اليوم
                             </div>
                         </div>
-                        <div class="earn-prov-pts-badge earn-prov-pts-badge-a" style="align-items:center;gap:4px;">+<span class="earn-cta-rnum">50</span><img src="asesst/ticket.png" alt="🎟️" style="width:22px;height:32px;object-fit:contain;flex-shrink:0;" onerror="this.src='asesst/ticket.jpg'"/></div>
+                        <div class="earn-prov-pts-badge earn-prov-pts-badge-a" style="align-items:center;gap:4px;">+<span class="earn-cta-rnum">500</span><img src="asesst/ticket.jpg" alt="" style="width:15px;height:15px;object-fit:contain;flex-shrink:0;" onerror="this.src='asesst/ticket.png'"/></div>
                         <button class="earn-prov-btn earn-prov-btn-a" id="ad-watch-btn" onclick="watchAd()">
                             <div class="earn-prov-btn-shimmer"></div>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
@@ -624,6 +625,54 @@
                 </div>
             </div>
 
+            <!-- ── MONETAG PROVIDER CARD ── -->
+            <div class="earn-providers-wrap earn-e" data-earn-d="290" data-earn-dir="up" style="margin-top:8px;">
+                <div class="earn-providers-card glass">
+
+                    <!-- ── Monetag Row ── -->
+                    <div class="earn-prov-row" id="monetag-prov-row">
+                        <div class="earn-prov-ring-wrap">
+                            <svg class="earn-prov-ring-svg" viewBox="0 0 40 40">
+                                <defs>
+                                    <linearGradient id="monetagRg" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#7c3aed"/>
+                                        <stop offset="100%" stop-color="#c084fc"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle class="earn-prov-rt" cx="20" cy="20" r="15"/>
+                                <circle class="earn-prov-rf" id="monetag-mini-ring" cx="20" cy="20" r="15"
+                                    stroke="url(#monetagRg)" style="filter:drop-shadow(0 0 4px rgba(139,92,246,.6));"/>
+                            </svg>
+                            <span class="earn-prov-ring-num" id="monetag-remaining" style="color:#c084fc;">250</span>
+                        </div>
+                        <div class="earn-prov-info">
+                            <div class="earn-prov-name"><img src="asesst/monetage.jpg" style="height:22px;object-fit:contain;vertical-align:middle;border-radius:4px;" alt="Monetag" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';"><span style="display:none;color:#c084fc;font-weight:800;font-size:13px;">Monetag</span></div>
+                            <div class="earn-prov-count">
+                                <span id="monetag-watched">0</span>/<span id="monetag-daily-limit">250</span> اليوم
+                            </div>
+                        </div>
+                        <div class="earn-prov-pts-badge" style="color:#c084fc;display:flex;align-items:center;gap:4px;">+<span class="monetag-pts-num">50</span><img src="asesst/ticket.png" alt="ticket" style="width:30px;height:45px;object-fit:contain;flex-shrink:0;" onerror="this.src=&apos;asesst/ticket.jpg&apos;"/></div>
+                        <button class="earn-prov-btn" id="monetag-watch-btn" onclick="watchMonetag()" style="background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(192,132,252,.15));border:1px solid rgba(139,92,246,.4);color:#c084fc;">
+                            <div class="earn-prov-btn-shimmer"></div>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                            شاهد
+                        </button>
+                    </div>
+
+                    <!-- Monetag done state -->
+                    <div id="monetag-done-state" style="display:none;padding:8px 0 4px;">
+                        <div class="ad-done-icon" style="background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.2);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M20 6L9 17l-5-5" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="ad-done-title" style="font-size:13px;color:#c084fc;">أحسنت! وصلت للحد اليومي لـ Monetag</div>
+                        <div class="ad-done-sub" style="font-size:11px;">عد غداً للحصول على إعلانات جديدة</div>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- Cooldown countdown -->
             <div id="ad-cooldown-msg" style="display:none;text-align:center;font-size:12px;color:rgba(251,191,36,0.7);font-weight:600;margin-top:10px;padding:6px 14px;border-radius:20px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.12);"></div>
 
@@ -639,7 +688,7 @@
             <div class="earn-stats glass earn-e" data-earn-d="340" data-earn-dir="up">
                 <div class="earn-stat">
                     <div class="earn-stat-val" id="earned-today">0</div>
-                    <div class="earn-stat-label">تذاكر اليوم</div>
+                    <div class="earn-stat-label" data-i18n="earned_today">مكتسب اليوم</div>
                 </div>
                 <div class="earn-stat-div"></div>
                 <div class="earn-stat">
@@ -648,7 +697,7 @@
                 </div>
                 <div class="earn-stat-div"></div>
                 <div class="earn-stat">
-                    <div class="earn-stat-val" id="earn-daily-limit-pts" style="display:flex;align-items:center;justify-content:center;gap:4px;"><img src="asesst/ticket.png" style="width:18px;height:26px;object-fit:contain;" alt="🎟️" onerror="this.src='asesst/ticket.jpg'">0</div>
+                    <div class="earn-stat-val" id="earn-daily-limit-pts" style="display:flex;align-items:center;justify-content:center;gap:4px;"><img src="asesst/coins.png" style="width:18px;height:18px;object-fit:contain;" alt="">0</div>
                     <div class="earn-stat-label" data-i18n="daily_limit">الحد اليومي</div>
                 </div>
             </div>
@@ -1543,6 +1592,7 @@
         </div>
     </div>
     <script type="module" src="app-ads.js"></script>
+    <script type="module" src="app-monetag.js"></script>
     <script src="settings.js"></script>
     <script>
         /* openDepositSupport — لم يُنقل بعد إلى الملفات الجديدة */

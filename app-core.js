@@ -88,8 +88,8 @@ export function _applyConfigToUI() {
         }
     });
     // ── قيم جوائز الإعلانات الديناميكية ──
-    const adsgramTickets = APP_CONFIG.rewards?.tickets_per_ad || 50;
-    document.querySelectorAll('.earn-cta-rnum').forEach(el => { el.textContent = adsgramTickets; });
+    const adsgramPts = APP_CONFIG.rewards?.tickets_per_ad || 500;
+    document.querySelectorAll('.earn-cta-rnum').forEach(el => { el.textContent = adsgramPts; });
 }
 
 // ══════════════════════════════════════════════════════════
