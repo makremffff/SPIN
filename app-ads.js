@@ -708,6 +708,9 @@ async function _syncHomeCompStats() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+    // انتظر حتى يختار المستخدم اللغة (أو إذا محفوظة → فوري)
+    if (window._langReady) await window._langReady;
+
     initTelegramUser();
     window._REFERRAL_LINK = REFERRAL_LINK;
 
