@@ -24,20 +24,115 @@
 <body>
 
     <!-- ══════════════════════════════════════════
+         LANGUAGE SELECTOR SCREEN
+    ══════════════════════════════════════════ -->
+    <div id="lang-select-screen" style="
+        position:fixed;inset:0;z-index:100000;
+        background:radial-gradient(ellipse at 50% 30%, #111827 0%, #000 100%);
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:0;
+        transition:opacity 0.4s ease,visibility 0.4s;
+    ">
+        <!-- شعار / أيقونة -->
+        <div style="margin-bottom:28px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+            <img src="asesst/online.gif" alt="" style="
+                width:90px;height:90px;object-fit:contain;
+                background:transparent;
+            ">
+            <div id="ls-title" data-i18n="lang_screen_title" style="font-family:'Tajawal',sans-serif;font-size:20px;font-weight:800;color:#fff;letter-spacing:0.5px;">اختر لغتك</div>
+            <div id="ls-sub" data-i18n="lang_screen_sub" style="font-family:'Tajawal',sans-serif;font-size:12px;color:rgba(255,255,255,0.4);font-weight:500;">يمكنك تغييرها لاحقاً من الإعدادات</div>
+        </div>
+
+        <!-- بطاقات اللغات -->
+        <div style="display:flex;flex-direction:column;gap:12px;width:min(300px,85vw);">
+            <!-- عربي -->
+            <button onclick="window._selectLang('ar')" id="lang-btn-ar" style="
+                background:rgba(255,255,255,0.05);
+                border:1.5px solid rgba(255,255,255,0.1);
+                border-radius:16px;padding:16px 20px;
+                display:flex;align-items:center;gap:14px;
+                cursor:pointer;transition:all 0.2s ease;
+                width:100%;text-align:right;
+            " onmouseenter="this.style.background='rgba(251,191,36,0.12)';this.style.borderColor='rgba(251,191,36,0.5)'"
+               onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)'">
+                <span style="font-size:28px;line-height:1;flex-shrink:0;">🇸🇦</span>
+                <div style="flex:1;">
+                    <div style="font-family:'Tajawal',sans-serif;font-size:16px;font-weight:700;color:#fff;">العربية</div>
+                    <div style="font-family:'Tajawal',sans-serif;font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">Arabic</div>
+                </div>
+                <div style="width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;" id="radio-ar"></div>
+            </button>
+
+            <!-- English -->
+            <button onclick="window._selectLang('en')" id="lang-btn-en" style="
+                background:rgba(255,255,255,0.05);
+                border:1.5px solid rgba(255,255,255,0.1);
+                border-radius:16px;padding:16px 20px;
+                display:flex;align-items:center;gap:14px;
+                cursor:pointer;transition:all 0.2s ease;
+                width:100%;text-align:left;
+            " onmouseenter="this.style.background='rgba(251,191,36,0.12)';this.style.borderColor='rgba(251,191,36,0.5)'"
+               onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)'">
+                <span style="font-size:28px;line-height:1;flex-shrink:0;">🇬🇧</span>
+                <div style="flex:1;text-align:left;">
+                    <div style="font-family:'Readex Pro',sans-serif;font-size:16px;font-weight:700;color:#fff;">English</div>
+                    <div style="font-family:'Readex Pro',sans-serif;font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">الإنجليزية</div>
+                </div>
+                <div style="width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;" id="radio-en"></div>
+            </button>
+
+            <!-- Русский -->
+            <button onclick="window._selectLang('ru')" id="lang-btn-ru" style="
+                background:rgba(255,255,255,0.05);
+                border:1.5px solid rgba(255,255,255,0.1);
+                border-radius:16px;padding:16px 20px;
+                display:flex;align-items:center;gap:14px;
+                cursor:pointer;transition:all 0.2s ease;
+                width:100%;text-align:left;
+            " onmouseenter="this.style.background='rgba(251,191,36,0.12)';this.style.borderColor='rgba(251,191,36,0.5)'"
+               onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)'">
+                <span style="font-size:28px;line-height:1;flex-shrink:0;">🇷🇺</span>
+                <div style="flex:1;text-align:left;">
+                    <div style="font-family:'Readex Pro',sans-serif;font-size:16px;font-weight:700;color:#fff;">Русский</div>
+                    <div style="font-family:'Readex Pro',sans-serif;font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">الروسية</div>
+                </div>
+                <div style="width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;" id="radio-ru"></div>
+            </button>
+        </div>
+
+        <!-- نقاط تزيينية -->
+        <div style="position:absolute;top:15%;left:10%;width:6px;height:6px;border-radius:50%;background:rgba(251,191,36,0.3);animation:ls-float 3s ease-in-out infinite;"></div>
+        <div style="position:absolute;top:25%;right:12%;width:4px;height:4px;border-radius:50%;background:rgba(251,191,36,0.2);animation:ls-float 4s ease-in-out infinite reverse;"></div>
+        <div style="position:absolute;bottom:20%;left:15%;width:5px;height:5px;border-radius:50%;background:rgba(251,191,36,0.25);animation:ls-float 3.5s ease-in-out infinite;"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
          LOADING SCREEN — Professional skeleton
     ══════════════════════════════════════════ -->
     <div id="app-loading-screen" style="
         position:fixed;inset:0;z-index:99999;
         background:#000;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        display:none;flex-direction:column;align-items:center;justify-content:center;
         gap:18px;
         transition:opacity 0.5s cubic-bezier(0.4,0,0.2,1),visibility 0.5s;
     ">
         <img src="asesst/loading.gif" alt="loading" style="width:100px;height:100px;object-fit:contain;">
-        <div style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;color:rgba(255,255,255,0.85);">جاري تحميل</div>
+        <div id="loading-text" data-i18n="loading_text" style="font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;color:rgba(255,255,255,0.85);">جاري التحميل...</div>
     </div>
 
     <style>
+        /* ══ LANGUAGE SCREEN ══ */
+        @keyframes ls-float {
+            0%,100% { transform:translateY(0px); opacity:0.6; }
+            50%      { transform:translateY(-10px); opacity:1; }
+        }
+        @keyframes ls-fadein {
+            from { opacity:0; transform:scale(0.96) translateY(8px); }
+            to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        #lang-select-screen { animation: ls-fadein 0.4s ease; }
+
+        /* ══ LOADING SCREEN ══ */
         @keyframes loadPulse {
             0%,100% { box-shadow:0 0 40px rgba(251,191,36,0.15); transform:scale(1); }
             50%      { box-shadow:0 0 60px rgba(251,191,36,0.3);  transform:scale(1.04); }
@@ -130,7 +225,7 @@
         transform:translateY(-100%);
         transition:transform 0.3s ease;
     ">
-        📵 أنت غير متصل بالإنترنت — سيتم إعادة الاتصال تلقائياً
+        <span data-i18n="offline_msg">📵 أنت غير متصل بالإنترنت — سيتم إعادة الاتصال تلقائياً</span>
     </div>
 
     <!-- ══════════════════════════════════════════
@@ -179,7 +274,7 @@
                 <div>
                     <div class="uc-greeting hm-greeting" data-i18n="user_greeting">مرحباً بعودتك</div>
                     <div class="uc-name hm-user-name-el" id="uc-user-name">@مستخدم</div>
-                    <div class="hm-rank-text">الترتيب <strong class="uc-rank-num" id="hm-user-rank">#--</strong></div>
+                    <div class="hm-rank-text"><span data-i18n="rank_label">الترتيب</span> <strong class="uc-rank-num" id="hm-user-rank">#--</strong></div>
                 </div>
             </div>
 
@@ -194,12 +289,12 @@
                     <div class="hm-bal-unit" data-i18n="pts">نقطة</div>
                 </div>
                 <div class="hm-bal-block">
-                    <div class="hm-bal-micro">تذاكري</div>
+                    <div class="hm-bal-micro" data-i18n="tickets_label">تذاكري</div>
                     <div class="hm-bal-row">
                         <img class="hm-bal-icon hm-ticket-img" src="asesst/ticket.png" onerror="this.src='asesst/ticket.jpg'" alt="ticket">
                         <div id="uc-tickets-val" class="hm-bal-num hm-green">0</div>
                     </div>
-                    <div class="hm-bal-unit">تذكرة</div>
+                    <div class="hm-bal-unit" data-i18n="ticket_unit">تذكرة</div>
                 </div>
             </div>
 
@@ -241,7 +336,7 @@
                 </div>
                 <div class="hm-stat">
                     <div class="uc-stat-val gold counter hm-stat-num" data-target="0">0</div>
-                    <div class="hm-stat-label">إجمالي المكتسب</div>
+                    <div class="hm-stat-label" data-i18n="total_earned_label">إجمالي المكتسب</div>
                 </div>
             </div>
 
@@ -256,7 +351,7 @@
                         <circle cx="45" cy="21" r="7" fill="#0d0a1a"/>
                         <path d="M45 17v8M41 21h8" stroke="#f0b429" stroke-width="1.8" stroke-linecap="round"/>
                     </svg>
-                    <span class="hm-act-label">شحن</span>
+                    <span class="hm-act-label" data-i18n="charge_btn">شحن</span>
                 </button>
                 <button class="hm-act-btn hm-withdraw-btn" onclick="showPage('withdraw', document.querySelector('[data-nav=withdraw]'))">
                     <svg width="62" height="62" viewBox="0 0 62 62" fill="none">
@@ -268,7 +363,7 @@
                         <circle cx="46" cy="20" r="7" fill="#0d0a1a"/>
                         <path d="M43 23l6-6M49 23v-6h-6" stroke="#2dd4a0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    <span class="hm-act-label">سحب</span>
+                    <span class="hm-act-label" data-i18n="withdraw_btn">سحب</span>
                 </button>
             </div>
 
@@ -310,7 +405,7 @@
 
             <!-- ══ HERO ══ -->
             <div class="tasks-hero tasks-e" data-tasks-d="40">
-                <p class="tasks-hero-p">أكمل المهام واجمع مكافآتك اليومية</p>
+                <p class="tasks-hero-p" data-i18n="tasks_hero_p">أكمل المهام واجمع مكافآتك اليومية</p>
             </div>
 
             <!-- ══ CHANNEL SECTION LABEL ══ -->
@@ -322,8 +417,8 @@
                         <circle cx="12" cy="12" r="1.5" fill="rgba(94,206,255,.65)" stroke="none"/>
                     </svg>
                 </div>
-                قناتنا الرسمية
-                <span class="tasks-slabel-badge" style="background:rgba(94,206,255,.06);border:1px solid rgba(94,206,255,.12);color:rgba(94,206,255,.6);">حصري</span>
+                <span data-i18n="our_channel">قناتنا الرسمية</span>
+                <span class="tasks-slabel-badge" style="background:rgba(94,206,255,.06);border:1px solid rgba(94,206,255,.12);color:rgba(94,206,255,.6);" data-i18n="exclusive_badge">حصري</span>
             </div>
 
             <!-- Channel Cards — يُملأ ديناميكياً من السيرفر -->
@@ -345,7 +440,7 @@
                         <path d="M13 2L4.5 13.5H11L10 22l9.5-12H13.5L13 2z"/>
                     </svg>
                 </div>
-                مهام إعلانية
+                <span data-i18n="ad_tasks_label">مهام إعلانية</span>
                 <span class="tasks-slabel-badge" style="background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.12);color:rgba(245,200,66,.6);display:inline-flex;align-items:center;gap:3px;">+<span id="adsgram-reward-badge">50</span><img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;opacity:.9;"/></span>
             </div>
 
@@ -359,14 +454,14 @@
                         </svg>
                     </div>
                     <div class="tasks-rbody">
-                        <div class="tasks-rname">مهمة إعلانية</div>
+                        <div class="tasks-rname" data-i18n="ad_task_name">مهمة إعلانية</div>
                         <div class="tasks-chips">
                             <div class="tasks-chip tasks-chip-g">
                                 <div class="tasks-chip-dot"></div>
                                 +<span id="atask-reward-label">50</span><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;opacity:.85;flex-shrink:0;"/>
                             </div>
                             <div class="tasks-chip tasks-chip-m">
-                                <span id="atask-done-count">0</span>/<span id="atask-daily-limit">3</span> اليوم
+                                <span id="atask-done-count">0</span>/<span id="atask-daily-limit">3</span> <span data-i18n="today">اليوم</span>
                             </div>
                         </div>
                     </div>
@@ -374,7 +469,7 @@
                     <div id="atask-action" style="flex-shrink:0;">
                         <div id="atask-loading-state" style="display:none;align-items:center;gap:7px;padding:7px 13px;border-radius:10px;border:1px solid rgba(245,200,66,.25);background:rgba(245,200,66,.06);color:rgba(245,200,66,.7);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">
                             <div style="width:12px;height:12px;border:2px solid rgba(245,200,66,.3);border-top-color:rgba(245,200,66,.9);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                            جاري...
+                            <span data-i18n="loading_short">جاري...</span>
                         </div>
                         <div id="atask-cooldown-state" style="display:none;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">
                             <img src="asesst/loading.gif" alt="loading" style="width:14px;height:14px;opacity:0.6;">
@@ -382,7 +477,7 @@
                         </div>
                         <div id="atask-maxed-state" style="display:none;align-items:center;gap:6px;padding:7px 13px;border-radius:10px;border:1px solid rgba(52,211,153,0.28);background:rgba(52,211,153,0.08);color:#3ddc84;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            اكتمل
+                            <span data-i18n="completed">اكتمل</span>
                         </div>
                     </div>
                 </div>
@@ -395,15 +490,15 @@
                         style="display:block;width:100%;--adsgram-task-font-size:13px;--adsgram-task-icon-size:36px;--adsgram-task-icon-border-radius:10px;--adsgram-task-button-width:70px;">
                         <div slot="button" id="atask-start-btn" style="display:inline-flex;align-items:center;gap:5px;padding:7px 15px;border-radius:10px;border:1px solid rgba(245,200,66,.45);background:rgba(245,200,66,.1);color:#f5c842;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
-                            ابدأ
+                            <span data-i18n="start_btn">ابدأ</span>
                         </div>
                         <div slot="claim" style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:10px;border:1px solid rgba(245,200,66,.25);background:rgba(245,200,66,.06);color:rgba(245,200,66,.8);font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;">
                             <div style="width:11px;height:11px;border:2px solid rgba(245,200,66,.3);border-top-color:rgba(245,200,66,.9);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                            تحقق...
+                            <span data-i18n="verify_btn">تحقق...</span>
                         </div>
                         <div slot="done" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:10px;border:1px solid rgba(52,211,153,0.28);background:rgba(52,211,153,0.08);color:#3ddc84;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            تم
+                            <span data-i18n="done_label">تم</span>
                         </div>
                     </adsgram-task>
                 </div>
@@ -417,7 +512,7 @@
                         <path d="M3 9h18M8 2v3M16 2v3"/>
                     </svg>
                 </div>
-                المهام اليومية
+                <span data-i18n="daily_tasks_section_lbl">المهام اليومية</span>
                 <span class="tasks-slabel-badge" id="daily-tasks-badge" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.25);">0 / 3</span>
             </div>
 
@@ -430,7 +525,7 @@
                         </svg>
                     </div>
                     <div class="tasks-rbody dtask-info" style="text-align:right;">
-                        <div class="tasks-rname dtask-title">شاهد 10 إعلانات اليوم</div>
+                        <div class="tasks-rname dtask-title" data-i18n="task_watch_10">شاهد 10 إعلانات اليوم</div>
                         <!-- circular progress + old mini-bar (hidden) for JS compat -->
                         <div class="tasks-cprog-wrap">
                             <div class="tasks-cprog" id="cprog-ads10">
@@ -443,7 +538,7 @@
                                 </svg>
                                 <div class="tasks-cprog-text" id="ctext-ads10">0</div>
                             </div>
-                            <span class="tasks-cprog-label" id="clabel-ads10">من أصل 10 إعلانات</span>
+                            <span class="tasks-cprog-label" id="clabel-ads10" data-i18n="task_watch_10_of">من أصل 10 إعلانات</span>
                         </div>
                         <!-- hidden legacy progress elements for JS compatibility -->
                         <div class="dtask-sub" style="display:none;">
@@ -453,10 +548,10 @@
                     </div>
                     <div class="tasks-rend dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
                         <span class="tasks-rreward tasks-rr-gold daily-ads10-reward-badge">+1,000</span>
-                        <button id="dtask-claim-ads_10" class="tasks-rbtn tasks-btn-gold" onclick="event.stopPropagation();claimDailyMission('ads_10')" style="display:none;">جمع</button>
+                        <button id="dtask-claim-ads_10" class="tasks-rbtn tasks-btn-gold" onclick="event.stopPropagation();claimDailyMission('ads_10')" style="display:none;" data-i18n="collect_btn">جمع</button>
                         <div class="dtask-claimed-badge" id="done-ads_10" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:9px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;">تم</span>
+                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;" data-i18n="done_label">تم</span>
                         </div>
                     </div>
                 </div>
@@ -473,7 +568,7 @@
                         </svg>
                     </div>
                     <div class="tasks-rbody dtask-info" style="text-align:right;">
-                        <div class="tasks-rname dtask-title">شاهد 25 إعلاناً</div>
+                        <div class="tasks-rname dtask-title" data-i18n="task_watch_25">شاهد 25 إعلاناً</div>
                         <div class="tasks-cprog-wrap">
                             <div class="tasks-cprog" id="cprog-ads25">
                                 <svg viewBox="0 0 34 34">
@@ -485,7 +580,7 @@
                                 </svg>
                                 <div class="tasks-cprog-text" id="ctext-ads25">0</div>
                             </div>
-                            <span class="tasks-cprog-label" id="clabel-ads25">من أصل 25 إعلاناً</span>
+                            <span class="tasks-cprog-label" id="clabel-ads25" data-i18n="task_watch_25_of">من أصل 25 إعلاناً</span>
                         </div>
                         <div class="dtask-sub" style="display:none;">
                             <div class="dtask-mini-bar"><div class="dtask-mini-fill blue" id="ads25-fill" style="width:0%"></div></div>
@@ -494,10 +589,10 @@
                     </div>
                     <div class="tasks-rend dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
                         <span class="tasks-rreward tasks-rr-blue daily-ads25-reward-badge">+2,200</span>
-                        <button id="dtask-claim-ads_25" class="tasks-rbtn tasks-btn-blue" onclick="event.stopPropagation();claimDailyMission('ads_25')" style="display:none;">جمع</button>
+                        <button id="dtask-claim-ads_25" class="tasks-rbtn tasks-btn-blue" onclick="event.stopPropagation();claimDailyMission('ads_25')" style="display:none;" data-i18n="collect_btn">جمع</button>
                         <div class="dtask-claimed-badge" id="done-ads_25" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:9px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;">تم</span>
+                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;" data-i18n="done_label">تم</span>
                         </div>
                     </div>
                 </div>
@@ -514,7 +609,7 @@
                         </svg>
                     </div>
                     <div class="tasks-rbody dtask-info" style="text-align:right;">
-                        <div class="tasks-rname dtask-title">ادعُ 3 أصدقاء</div>
+                        <div class="tasks-rname dtask-title" data-i18n="task_invite_3">ادعُ 3 أصدقاء</div>
                         <div class="tasks-cprog-wrap">
                             <div class="tasks-cprog" id="cprog-invite3">
                                 <svg viewBox="0 0 34 34">
@@ -526,7 +621,7 @@
                                 </svg>
                                 <div class="tasks-cprog-text" id="ctext-invite3">0</div>
                             </div>
-                            <span class="tasks-cprog-label" id="clabel-invite3">من أصل 3 أصدقاء</span>
+                            <span class="tasks-cprog-label" id="clabel-invite3" data-i18n="task_invite_3_of">من أصل 3 أصدقاء</span>
                         </div>
                         <div class="dtask-sub" style="display:none;">
                             <div class="dtask-mini-bar"><div class="dtask-mini-fill purple" id="invite3-fill" style="width:0%"></div></div>
@@ -535,10 +630,10 @@
                     </div>
                     <div class="tasks-rend dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
                         <span class="tasks-rreward tasks-rr-purple daily-refs3-reward-badge">+3,000</span>
-                        <button id="dtask-claim-daily_refs_3" class="tasks-rbtn" style="display:none;background:rgba(185,139,255,.1);border:1px solid rgba(185,139,255,.18);color:#b98bff;" onclick="event.stopPropagation();claimDailyMission('daily_refs_3')">جمع</button>
+                        <button id="dtask-claim-daily_refs_3" class="tasks-rbtn" style="display:none;background:rgba(185,139,255,.1);border:1px solid rgba(185,139,255,.18);color:#b98bff;" onclick="event.stopPropagation();claimDailyMission('daily_refs_3')" data-i18n="collect_btn">جمع</button>
                         <div class="dtask-claimed-badge" id="done-daily_refs_3" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:9px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;">تم</span>
+                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;" data-i18n="done_label">تم</span>
                         </div>
                     </div>
                 </div>
@@ -551,8 +646,8 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     </div>
                     <div style="flex:1;text-align:right;">
-                        <div style="font-family:'DynaPuff','Tajawal',sans-serif;font-size:13px;font-weight:700;line-height:1.2;margin-bottom:3px;">أضف قناتك</div>
-                        <div style="font-size:11px;font-weight:500;opacity:.65;line-height:1.3;">اربح من كل مشترك جديد</div>
+                        <div style="font-family:'DynaPuff','Tajawal',sans-serif;font-size:13px;font-weight:700;line-height:1.2;margin-bottom:3px;" data-i18n="add_channel_btn">أضف قناتك</div>
+                        <div style="font-size:11px;font-weight:500;opacity:.65;line-height:1.3;" data-i18n="add_channel_sub">اربح من كل مشترك جديد</div>
                     </div>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
                 </button>
@@ -598,14 +693,14 @@
                         <div class="earn-prov-info">
                             <div class="earn-prov-name"><img src="asesst/adsgram.jpg" style="height:22px;object-fit:contain;vertical-align:middle;border-radius:4px;" alt="Adsgram"></div>
                             <div class="earn-prov-count">
-                                <span id="ads-watched">0</span>/<span id="ads-daily-limit">7</span> اليوم
+                                <span id="ads-watched">0</span>/<span id="ads-daily-limit">7</span> <span data-i18n="today">اليوم</span>
                             </div>
                         </div>
                         <div class="earn-prov-pts-badge earn-prov-pts-badge-a" style="align-items:center;gap:4px;">+<span class="earn-cta-rnum">500</span><img src="asesst/ticket.png" onerror="this.src='asesst/ticket.jpg'" alt="ticket" style="width:30px;height:45px;object-fit:contain;flex-shrink:0;"/></div>
                         <button class="earn-prov-btn earn-prov-btn-a" id="ad-watch-btn" onclick="watchAd()">
                             <div class="earn-prov-btn-shimmer"></div>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
-                            شاهد
+                            <span data-i18n="watch_btn">شاهد</span>
                         </button>
                     </div>
 
@@ -638,7 +733,7 @@
             <div class="earn-stats glass earn-e" data-earn-d="340" data-earn-dir="up">
                 <div class="earn-stat">
                     <div class="earn-stat-val" id="earned-today">0</div>
-                    <div class="earn-stat-label">تذاكر اليوم</div>
+                    <div class="earn-stat-label" data-i18n="tickets_today">تذاكر اليوم</div>
                 </div>
                 <div class="earn-stat-div"></div>
                 <div class="earn-stat">
@@ -653,7 +748,7 @@
             </div>
 
             <!-- ── SECTION: اكسب أكثر ── -->
-            <p class="earn-sec-lbl earn-e" data-earn-d="420" data-earn-dir="up">اكسب أكثر</p>
+            <p class="earn-sec-lbl earn-e" data-earn-d="420" data-earn-dir="up" data-i18n="earn_more_label">اكسب أكثر</p>
 
             <!-- دعوة الأصدقاء -->
             <div class="earn-feat-card earn-feat-v earn-e" data-earn-d="480" data-earn-dir="up" onclick="showPage('invite', document.querySelector('[data-page=earn]'))">
@@ -696,7 +791,7 @@
                     <div class="earn-fc-hint earn-p-hint" data-i18n="contests_sub">تنافس على جوائز كبرى</div>
                 </div>
                 <div class="earn-fc-end">
-                    <div class="earn-fc-chip earn-p-chip" style="background:rgba(244,114,182,.12);border:1px solid rgba(244,114,182,.25);color:#f472b6;">أسبوعي</div>
+                    <div class="earn-fc-chip earn-p-chip" style="background:rgba(244,114,182,.12);border:1px solid rgba(244,114,182,.25);color:#f472b6;" data-i18n="weekly_badge">أسبوعي</div>
                     <svg class="earn-fc-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2.3">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
                     </svg>
@@ -795,19 +890,19 @@
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
                             </svg>
-                            نسخ
+                            <span data-i18n="copy_btn_text">نسخ</span>
                         </button>
                         <button class="invite-share-btn share-btn-telegram" onclick="shareTelegram()">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8l-1.68 7.92c-.12.56-.46.7-.94.43l-2.6-1.92-1.26 1.21c-.14.14-.26.26-.52.26l.18-2.64 4.72-4.26c.2-.18-.04-.28-.32-.1L7.3 14.6 4.74 13.8c-.56-.18-.58-.56.12-.82l9.12-3.52c.46-.18.88.1.66.34z"/>
                             </svg>
-                            تيليغرام
+                            <span data-i18n="telegram_share">تيليغرام</span>
                         </button>
                         <button class="invite-share-btn share-btn-whatsapp" onclick="shareWhatsApp()">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l5.07-1.35A9.96 9.96 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.03 14.23c-.22.62-1.28 1.18-1.75 1.22-.44.04-.86.2-2.9-.6-2.45-.96-4.02-3.43-4.14-3.59-.12-.16-.98-1.3-.98-2.48s.62-1.76.84-2c.22-.24.48-.3.64-.3.16 0 .32 0 .46.01.15.01.35-.06.54.42.2.5.68 1.72.74 1.84.06.12.1.27.02.43-.08.16-.12.26-.24.4-.12.14-.25.31-.36.42-.12.12-.24.25-.1.49.14.24.62.97 1.34 1.57.92.78 1.7 1.02 1.94 1.14.24.12.38.1.52-.06.14-.16.6-.7.76-.94.16-.24.32-.2.54-.12.22.08 1.4.66 1.64.78.24.12.4.18.46.28.06.1.06.56-.16 1.18z"/>
                             </svg>
-                            واتساب
+                            <span data-i18n="whatsapp_share">واتساب</span>
                         </button>
                     </div>
                 </div>
@@ -820,10 +915,10 @@
                                 style="object-fit:contain;border-radius:3px;">
                         </div>
                         <div class="inv-pill-text">
-                            <div class="inv-pill-label">مكافأة انضمام الصديق</div>
+                            <div class="inv-pill-label" data-i18n="ref_join_reward">مكافأة انضمام الصديق</div>
                             <div class="inv-pill-val gold inv-referral-pts-badge">500 تذكرة</div>
                         </div>
-                        <div class="inv-pill-badge gold">فوري</div>
+                        <div class="inv-pill-badge gold" data-i18n="instant_badge">فوري</div>
                     </div>
                     <div class="inv-reward-pill">
                         <div class="inv-pill-icon">
@@ -835,10 +930,10 @@
                             </svg>
                         </div>
                         <div class="inv-pill-text">
-                            <div class="inv-pill-label">من أرباح إعلانات صديقك</div>
-                            <div class="inv-pill-val purple">25% دائماً</div>
+                            <div class="inv-pill-label" data-i18n="ref_ads_share">من أرباح إعلانات صديقك</div>
+                            <div class="inv-pill-val purple" data-i18n="ref_pct">25% دائماً</div>
                         </div>
-                        <div class="inv-pill-badge">مستمر</div>
+                        <div class="inv-pill-badge" data-i18n="ongoing_badge">مستمر</div>
                     </div>
                 </div>
             </div>
@@ -863,7 +958,7 @@
             <!-- Referral List -->
             <div class="invite-list-card">
                 <div class="section-header" style="margin-bottom:14px;">
-                    <div class="section-title">الأصدقاء المدعوون</div>
+                    <div class="section-title" data-i18n="invited_friends_title">الأصدقاء المدعوون</div>
                     <div class="section-badge" id="referral-friends-badge">0 صديق</div>
                 </div>
 
@@ -876,8 +971,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
                             </svg>
                         </div>
-                        <div class="empty-title" style="font-size:13px;">لا يوجد أصدقاء مدعوون بعد</div>
-                        <div class="empty-desc">شارك رابطك وابدأ الكسب معاً</div>
+                        <div class="empty-title" style="font-size:13px;" data-i18n="no_friends_yet">لا يوجد أصدقاء مدعوون بعد</div>
+                        <div class="empty-desc" data-i18n="share_link_hint">شارك رابطك وابدأ الكسب معاً</div>
                     </div>
                 </div>
             </div>
@@ -981,7 +1076,7 @@
                             </svg>
                         </div>
                         <div class="empty-title" data-i18n="no_transactions">لا توجد سحوبات سابقة</div>
-                        <div class="empty-sub">ستظهر هنا بعد أول سحب</div>
+                        <div class="empty-sub" data-i18n="no_tx_sub">ستظهر هنا بعد أول سحب</div>
                     </div>
                 </div>
             </div>
@@ -1010,33 +1105,33 @@
     </lord-icon>
 
                 </div>
-                <div class="sc-top-title">هل تريد الترويج لمنتجك؟</div>
-                <div class="sc-top-sub">أضف مهمتك الخاصة على منصتك المفضلة وحدد المكافأة للمستخدمين</div>
+                <div class="sc-top-title" data-i18n="social_promo_title">هل تريد الترويج لمنتجك؟</div>
+                <div class="sc-top-sub" data-i18n="social_promo_sub">أضف مهمتك الخاصة على منصتك المفضلة وحدد المكافأة للمستخدمين</div>
                 <div class="sc-platforms-row">
                     <div class="sc-platform-chip sc-p-fb">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                        فيسبوك
+                        <span data-i18n="facebook">فيسبوك</span>
                     </div>
                     <div class="sc-platform-chip sc-p-tw">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.261 5.635zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                        تويتر
+                        <span data-i18n="twitter">تويتر</span>
                     </div>
                     <div class="sc-platform-chip sc-p-tt">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.86 4.86 0 01-1.01-.07z"/></svg>
-                        تيكتوك
+                        <span data-i18n="tiktok">تيكتوك</span>
                     </div>
                     <div class="sc-platform-chip sc-p-yt">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l6-3.5-6-3.5v7z"/></svg>
-                        يوتيوب
+                        <span data-i18n="youtube">يوتيوب</span>
                     </div>
                     <div class="sc-platform-chip sc-p-ig">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
-                        انستغرام
+                        <span data-i18n="instagram">انستغرام</span>
                     </div>
                 </div>
                 <button style="font-family: Tajawal;" class="sc-btn-contact" onclick="_socialOpenDev()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>
-                    تواصل مع المطور
+                    <span data-i18n="contact_dev">تواصل مع المطور</span>
                 </button>
             </div>
 
@@ -1045,7 +1140,7 @@
 
             <!-- section label -->
             <div class="sc-sec-lbl sc-sec-lbl-enhanced">
-                المهام المتاحة
+                <span data-i18n="available_tasks">المهام المتاحة</span>
             </div>
 
             <!-- Cards injected by JS -->
@@ -1069,7 +1164,7 @@
                     </svg>
                 </button>
                 <h1 class="site-title"><img src="asesst/ranking.png" width="80"></h1>
-               <span style="color: rgba(85,85,85);">قم بجمع تذاكر وكن انت الرابح</span>
+               <span style="color: rgba(85,85,85);" data-i18n="comp_subtitle">قم بجمع تذاكر وكن انت الرابح</span>
             </div>
 
             <!-- ════ COUNTDOWN ════ -->
@@ -1079,27 +1174,27 @@
                         <circle cx="6.5" cy="6.5" r="5.5" stroke="#555" stroke-width="1.1"/>
                         <path d="M6.5 3.5V7L9 8.5" stroke="#555" stroke-width="1.1" stroke-linecap="round"/>
                     </svg>
-                    الوقت المتبقي
+                    <span data-i18n="time_remaining">الوقت المتبقي</span>
                 </div>
                 <div class="cp-cd-grid">
                     <div class="cp-cd-unit">
                         <div class="cp-cd-box" id="cp-cd-days">--</div>
-                        <div class="cp-cd-name">يوم</div>
+                        <div class="cp-cd-name" data-i18n="day_unit">يوم</div>
                     </div>
                     <div class="cp-cd-sep">:</div>
                     <div class="cp-cd-unit">
                         <div class="cp-cd-box" id="cp-cd-hours">--</div>
-                        <div class="cp-cd-name">ساعة</div>
+                        <div class="cp-cd-name" data-i18n="hour_unit">ساعة</div>
                     </div>
                     <div class="cp-cd-sep">:</div>
                     <div class="cp-cd-unit">
                         <div class="cp-cd-box" id="cp-cd-mins">--</div>
-                        <div class="cp-cd-name">دقيقة</div>
+                        <div class="cp-cd-name" data-i18n="minute_unit">دقيقة</div>
                     </div>
                     <div class="cp-cd-sep">:</div>
                     <div class="cp-cd-unit">
                         <div class="cp-cd-box" id="cp-cd-secs">--</div>
-                        <div class="cp-cd-name">ثانية</div>
+                        <div class="cp-cd-name" data-i18n="second_unit">ثانية</div>
                     </div>
                 </div>
                 <div style="text-align:center;margin-top:12px;font-size:13px;font-weight:700;color:#555;">
@@ -1119,7 +1214,7 @@
                         <rect x="6" y="16" width="8" height="1.5" rx="0.75" fill="#555"/>
                         <path d="M8 7.5C8 7.5 8.5 9 10 9C11.5 9 12 7.5 12 7.5" stroke="#333" stroke-width="0.8" stroke-linecap="round" fill="none"/>
                     </svg>
-                    <span>المتصدرون</span>
+                    <span data-i18n="top_leaders">المتصدرون</span>
                 </div>
             </div>
 
@@ -1155,7 +1250,7 @@
                         <circle cx="10" cy="3.5" r="1.8" fill="#666"/>
                         <circle cx="16" cy="6.5" r="1.5" fill="#666"/>
                     </svg>
-                    <span>باقي المتصدرين</span>
+                    <span data-i18n="rest_leaders">باقي المتصدرين</span>
                 </div>
             </div>
 
@@ -1216,7 +1311,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
                     </svg>
                 </div>
-                <span class="nav-label">تواصل</span>
+                <span class="nav-label" data-i18n="nav_social">تواصل</span>
                 <div class="nav-pill"></div>
             </button>
 
@@ -1245,7 +1340,7 @@
             <div id="overlay-label"
                  style="font-family:'Readex Pro',sans-serif;font-size:13px;font-weight:600;
                         color:rgba(255,255,255,0.7);text-align:center;">
-                جاري تحميل الإعلان...
+                <span data-i18n="ad_loading">جاري تحميل الإعلان...</span>
             </div>
         </div>
     </div>
@@ -1329,7 +1424,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
-                <div class="ton-sheet-title">سحب TON</div>
+                <div class="ton-sheet-title" data-i18n="ton_withdraw_title">سحب TON</div>
                 <img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:34px;height:34px;border-radius:10px;object-fit:cover;">
             </div>
             <div class="ton-sheet-divider"></div>
@@ -1348,7 +1443,7 @@
                     <div style="font-size:22px;flex-shrink:0;">🎉</div>
                     <div>
                         <div style="font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;color:#34d399;margin-bottom:2px;">
-                            عرض السحب الأول!
+                            <span data-i18n="first_withdraw_title">عرض السحب الأول!</span>
                         </div>
                         <div style="font-family:'Readex Pro',sans-serif;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5;">
                             الحد الأدنى لأول سحبة
@@ -1359,7 +1454,7 @@
 
                 <!-- Balance row -->
                 <div class="ton-balance-row">
-                    <div class="ton-balance-label">رصيدك المتاح</div>
+                    <div class="ton-balance-label" data-i18n="your_avail_balance">رصيدك المتاح</div>
                     <div class="ton-balance-amount">
                         <img src="asesst/coins.png" alt="" style="width:16px;height:16px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(251,191,36,0.7));">
                         <span class="ton-balance-pts" id="ton-sheet-pts">12,450</span>
@@ -1377,7 +1472,7 @@
                     </div>
                     <div class="ton-info-chip">
                         <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                            <span class="ton-info-chip-label">معدل التحويل</span>
+                            <span class="ton-info-chip-label" data-i18n="conversion_rate">معدل التحويل</span>
                             <span class="ton-info-chip-val blue">100,000 = 1 TON</span>
                         </div>
                     </div>
@@ -1404,7 +1499,7 @@
                 </div>
 
                 <!-- Wallet address input -->
-                <div class="ton-input-label">عنوان محفظة TON</div>
+                <div class="ton-input-label" data-i18n="ton_address_label">عنوان محفظة TON</div>
                 <input
                     type="text"
                     class="ton-address-input"
@@ -1415,13 +1510,13 @@
                     spellcheck="false"
                     oninput="clearTonError()"
                 >
-                <div class="ton-error-msg" id="ton-error-msg">الرجاء إدخال عنوان محفظة TON صحيح</div>
+                <div class="ton-error-msg" id="ton-error-msg" data-i18n="ton_address_error">الرجاء إدخال عنوان محفظة TON صحيح</div>
 
                 <div style="height:18px;"></div>
 
                 <!-- Submit button -->
                 <button class="ton-submit-btn" id="ton-submit-btn" onclick="submitTonWithdraw()">
-                    إرسال طلب السحب
+                    <span data-i18n="submit_withdraw">إرسال طلب السحب</span>
                 </button>
 
             </div>
@@ -1448,12 +1543,12 @@
                         stroke="bold"
                         style="width:26px;height:26px">
                     </lord-icon>
-                    الإشعارات
+                    <span data-i18n="notifications_title">الإشعارات</span>
                 </div>
                 <div style="width:34px;"></div>
             </div>
             <div class="notif-list" id="notif-list">
-                <div class="notif-empty" id="notif-empty-msg">لا توجد إشعارات بعد</div>
+                <div class="notif-empty" id="notif-empty-msg" data-i18n="no_notifs">لا توجد إشعارات بعد</div>
             </div>
         </div>
     </div>
@@ -1761,6 +1856,271 @@
                 _cpRefreshTimer = null;
             }
         });
+    })();
+    </script>
+
+    <!-- ════════════════════════════════════════════
+         LANGUAGE SELECTION + I18N SYSTEM (inline, no module)
+    ════════════════════════════════════════════ -->
+    <script>
+    // ── قاموس الترجمات ─────────────────────────────
+    var _I18N = {
+      ar: {
+        // شاشة اللغة
+        lang_screen_title:'اختر لغتك',lang_screen_sub:'يمكنك تغييرها لاحقاً من الإعدادات',
+        // تحميل وشبكة
+        loading_text:'جاري التحميل...',offline_msg:'📵 أنت غير متصل بالإنترنت — سيتم إعادة الاتصال تلقائياً',
+        // الرئيسية
+        user_greeting:'مرحباً بعودتك',balance_label:'الرصيد الكلي',pts:'نقطة',
+        tickets_label:'تذاكري',ticket_unit:'تذكرة',rank_label:'الترتيب',
+        friends_label:'صديق مدعو',tasks_done_label:'مهمة منجزة',total_earned_label:'إجمالي المكتسب',
+        charge_btn:'شحن',withdraw_btn:'سحب',
+        // المهام
+        tasks_hero_p:'أكمل المهام واجمع مكافآتك اليومية',
+        our_channel:'قناتنا الرسمية',exclusive_badge:'حصري',
+        ad_tasks_label:'مهام إعلانية',ad_task_name:'مهمة إعلانية',
+        today:'اليوم',loading_short:'جاري...',completed:'اكتمل',
+        start_btn:'ابدأ',verify_btn:'تحقق...',done_label:'تم',
+        daily_tasks_section_lbl:'المهام اليومية',
+        task_watch_10:'شاهد 10 إعلانات اليوم',task_watch_10_of:'من أصل 10 إعلانات',
+        task_watch_25:'شاهد 25 إعلاناً',task_watch_25_of:'من أصل 25 إعلاناً',
+        task_invite_3:'ادعُ 3 أصدقاء',task_invite_3_of:'من أصل 3 أصدقاء',
+        collect_btn:'جمع',add_channel_btn:'أضف قناتك',add_channel_sub:'اربح من كل مشترك جديد',
+        // الربح
+        earn_title:'الربح',watch_btn:'شاهد',tickets_today:'تذاكر اليوم',
+        ads_watched:'إعلان شوهد',daily_limit:'الحد اليومي',
+        all_done_title:'أحسنت! انتهيت من كل الإعلانات',all_done_sub:'عد غداً للحصول على إعلانات جديدة',
+        earn_more_label:'اكسب أكثر',weekly_badge:'أسبوعي',
+        invite_btn_title:'دعوة الأصدقاء',invite_btn_sub:'ادعُ واربح معاً',
+        contests:'المسابقة الأسبوعية',contests_sub:'تنافس على جوائز كبرى',
+        gift_title:'مكافأة يومية',gift_sub:'استلم هديتك الآن',daily:'يومي',coming_soon:'قريباً',
+        achievements:'الإنجازات',achievements_sub:'اكسب شارات مميزة',soon:'قريباً',available_badge:'متاح',
+        // الدعوة
+        invite_page_title:'ادعُ أصدقاءك',invite_hero_title:'اربح مع أصدقائك',
+        invite_hero_sub:'احصل على مكافأة مقابل كل دعوة',your_ref_link:'رابط دعوتك',
+        copy_btn_text:'نسخ',telegram_share:'تيليغرام',whatsapp_share:'واتساب',
+        ref_join_reward:'مكافأة انضمام الصديق',instant_badge:'فوري',
+        ref_ads_share:'من أرباح إعلانات صديقك',ref_pct:'25% دائماً',ongoing_badge:'مستمر',
+        total_referrals:'إجمالي الدعوات',earned_from_refs:'مكتسب من الدعوات',
+        invited_friends_title:'الأصدقاء المدعوون',no_friends_yet:'لا يوجد أصدقاء مدعوون بعد',
+        share_link_hint:'شارك رابطك وابدأ الكسب معاً',
+        // السحب
+        balance_available:'الرصيد المتاح',withdraw_methods_title:'طرق السحب',
+        withdraw_history_title:'سجل السحب',no_transactions:'لا توجد معاملات',
+        no_tx_sub:'ستظهر هنا بعد أول سحب',min_label:'الحد الأدنى',
+        ton_wallet:'محفظة TON',paypal_name:'باي بال',fawry_name:'فوري',
+        // الصفحة الاجتماعية
+        social_promo_title:'هل تريد الترويج لمنتجك؟',
+        social_promo_sub:'أضف مهمتك الخاصة على منصتك المفضلة وحدد المكافأة للمستخدمين',
+        facebook:'فيسبوك',twitter:'تويتر',tiktok:'تيكتوك',youtube:'يوتيوب',instagram:'انستغرام',
+        contact_dev:'تواصل مع المطور',available_tasks:'المهام المتاحة',nav_social:'تواصل',
+        // المسابقة
+        comp_subtitle:'قم بجمع تذاكر وكن انت الرابح',time_remaining:'الوقت المتبقي',
+        day_unit:'يوم',hour_unit:'ساعة',minute_unit:'دقيقة',second_unit:'ثانية',
+        top_leaders:'المتصدرون',rest_leaders:'باقي المتصدرين',
+        // نافذة TON
+        ton_withdraw_title:'سحب TON',first_withdraw_title:'عرض السحب الأول!',
+        first_withdraw_sub:'الحد الأدنى لأول سحبة',first_withdraw_note:'نقطة فقط — بدون متطلب مستوى',
+        your_avail_balance:'رصيدك المتاح',min_chip_label:'الحد الأدنى',conversion_rate:'معدل التحويل',
+        ton_address_label:'عنوان محفظة TON',ton_address_error:'الرجاء إدخال عنوان محفظة TON صحيح',
+        submit_withdraw:'إرسال طلب السحب',
+        // إشعارات وإعدادات
+        notifications_title:'الإشعارات',no_notifs:'لا توجد إشعارات بعد',
+        settings_title:'الإعدادات',settings_lang_label:'اللغة',
+        // أوفرلاي
+        gift_claim_btn:'استلم',gift_preparing:'جاري تحضير هديتك...',ad_loading:'جاري تحميل الإعلان...',
+        // التنقل
+        nav_home:'الرئيسية',nav_earn:'اكسب',nav_tasks:'المهام',nav_withdraw:'السحب'
+      },
+      en: {
+        lang_screen_title:'Choose your language',lang_screen_sub:'You can change it later in settings',
+        loading_text:'Loading...',offline_msg:'📵 You are offline — reconnecting automatically',
+        user_greeting:'Welcome back',balance_label:'Total Balance',pts:'pts',
+        tickets_label:'My Tickets',ticket_unit:'ticket',rank_label:'Rank',
+        friends_label:'Friend invited',tasks_done_label:'Task completed',total_earned_label:'Total Earned',
+        charge_btn:'Deposit',withdraw_btn:'Withdraw',
+        tasks_hero_p:'Complete tasks and collect your daily rewards',
+        our_channel:'Our Official Channel',exclusive_badge:'Exclusive',
+        ad_tasks_label:'Ad Tasks',ad_task_name:'Ad Task',
+        today:'today',loading_short:'Loading...',completed:'Completed',
+        start_btn:'Start',verify_btn:'Verifying...',done_label:'Done',
+        daily_tasks_section_lbl:'Daily Tasks',
+        task_watch_10:'Watch 10 ads today',task_watch_10_of:'out of 10 ads',
+        task_watch_25:'Watch 25 ads',task_watch_25_of:'out of 25 ads',
+        task_invite_3:'Invite 3 friends',task_invite_3_of:'out of 3 friends',
+        collect_btn:'Claim',add_channel_btn:'Add Your Channel',add_channel_sub:'Earn from every new subscriber',
+        earn_title:'Earn',watch_btn:'Watch',tickets_today:"Today\'s Tickets",
+        ads_watched:'Ad watched',daily_limit:'Daily limit',
+        all_done_title:"Great! You\'ve watched all ads",all_done_sub:'Come back tomorrow for new ads',
+        earn_more_label:'Earn More',weekly_badge:'Weekly',
+        invite_btn_title:'Invite Friends',invite_btn_sub:'Invite & earn together',
+        contests:'Weekly Contest',contests_sub:'Compete for big prizes',
+        gift_title:'Daily Reward',gift_sub:'Claim your gift now',daily:'Daily',coming_soon:'Coming Soon',
+        achievements:'Achievements',achievements_sub:'Earn special badges',soon:'Soon',available_badge:'Available',
+        invite_page_title:'Invite Friends',invite_hero_title:'Earn with Friends',
+        invite_hero_sub:'Get a reward for every invite',your_ref_link:'Your Referral Link',
+        copy_btn_text:'Copy',telegram_share:'Telegram',whatsapp_share:'WhatsApp',
+        ref_join_reward:'Friend Join Reward',instant_badge:'Instant',
+        ref_ads_share:"From your friend\'s ad earnings",ref_pct:'25% always',ongoing_badge:'Ongoing',
+        total_referrals:'Total Referrals',earned_from_refs:'Earned from Referrals',
+        invited_friends_title:'Invited Friends',no_friends_yet:'No invited friends yet',
+        share_link_hint:'Share your link and start earning together',
+        balance_available:'Available Balance',withdraw_methods_title:'Withdrawal Methods',
+        withdraw_history_title:'Withdrawal History',no_transactions:'No transactions yet',
+        no_tx_sub:'They will appear here after your first withdrawal',min_label:'Minimum',
+        ton_wallet:'TON Wallet',paypal_name:'PayPal',fawry_name:'Fawry',
+        social_promo_title:'Want to promote your product?',
+        social_promo_sub:'Add your own task on your favorite platform and set the reward for users',
+        facebook:'Facebook',twitter:'Twitter',tiktok:'TikTok',youtube:'YouTube',instagram:'Instagram',
+        contact_dev:'Contact Developer',available_tasks:'Available Tasks',nav_social:'Social',
+        comp_subtitle:'Collect tickets and be the winner',time_remaining:'Time Remaining',
+        day_unit:'day',hour_unit:'hour',minute_unit:'min',second_unit:'sec',
+        top_leaders:'Top Leaders',rest_leaders:'Other Leaders',
+        ton_withdraw_title:'Withdraw TON',first_withdraw_title:'First Withdrawal Offer!',
+        first_withdraw_sub:'Minimum for first withdrawal',first_withdraw_note:'pts only — no level required',
+        your_avail_balance:'Your Available Balance',min_chip_label:'Minimum',conversion_rate:'Conversion Rate',
+        ton_address_label:'TON Wallet Address',ton_address_error:'Please enter a valid TON wallet address',
+        submit_withdraw:'Submit Withdrawal Request',
+        notifications_title:'Notifications',no_notifs:'No notifications yet',
+        settings_title:'Settings',settings_lang_label:'Language',
+        gift_claim_btn:'Claim',gift_preparing:'Preparing your gift...',ad_loading:'Loading ad...',
+        nav_home:'Home',nav_earn:'Earn',nav_tasks:'Tasks',nav_withdraw:'Withdraw'
+      },
+      ru: {
+        lang_screen_title:'Выберите язык',lang_screen_sub:'Вы можете изменить это позже в настройках',
+        loading_text:'Загрузка...',offline_msg:'📵 Нет подключения — переподключение...',
+        user_greeting:'Добро пожаловать',balance_label:'Общий баланс',pts:'очков',
+        tickets_label:'Мои билеты',ticket_unit:'билет',rank_label:'Место',
+        friends_label:'Приглашённый друг',tasks_done_label:'Выполненных задач',total_earned_label:'Всего заработано',
+        charge_btn:'Пополнить',withdraw_btn:'Вывести',
+        tasks_hero_p:'Выполняйте задания и собирайте ежедневные награды',
+        our_channel:'Наш официальный канал',exclusive_badge:'Эксклюзив',
+        ad_tasks_label:'Рекламные задания',ad_task_name:'Рекламное задание',
+        today:'сегодня',loading_short:'Загрузка...',completed:'Завершено',
+        start_btn:'Начать',verify_btn:'Проверка...',done_label:'Готово',
+        daily_tasks_section_lbl:'Ежедневные задания',
+        task_watch_10:'Посмотри 10 реклам сегодня',task_watch_10_of:'из 10 реклам',
+        task_watch_25:'Посмотри 25 реклам',task_watch_25_of:'из 25 реклам',
+        task_invite_3:'Пригласи 3 друзей',task_invite_3_of:'из 3 друзей',
+        collect_btn:'Получить',add_channel_btn:'Добавить канал',add_channel_sub:'Зарабатывай с каждого подписчика',
+        earn_title:'Заработок',watch_btn:'Смотреть',tickets_today:'Билеты сегодня',
+        ads_watched:'Реклам просмотрено',daily_limit:'Дневной лимит',
+        all_done_title:'Отлично! Все реклам просмотрены',all_done_sub:'Возвращайтесь завтра за новыми',
+        earn_more_label:'Зарабатывай больше',weekly_badge:'Еженедельно',
+        invite_btn_title:'Пригласить друзей',invite_btn_sub:'Приглашай и зарабатывай',
+        contests:'Еженедельный конкурс',contests_sub:'Соревнуйся за большие призы',
+        gift_title:'Ежедневная награда',gift_sub:'Получи свой подарок',daily:'Ежедневно',coming_soon:'Скоро',
+        achievements:'Достижения',achievements_sub:'Зарабатывай значки',soon:'Скоро',available_badge:'Доступно',
+        invite_page_title:'Пригласить друзей',invite_hero_title:'Зарабатывай с друзьями',
+        invite_hero_sub:'Получай награду за каждое приглашение',your_ref_link:'Ваша реферальная ссылка',
+        copy_btn_text:'Копировать',telegram_share:'Telegram',whatsapp_share:'WhatsApp',
+        ref_join_reward:'Награда за приглашение',instant_badge:'Мгновенно',
+        ref_ads_share:'С рекламного дохода друга',ref_pct:'25% всегда',ongoing_badge:'Постоянно',
+        total_referrals:'Всего рефералов',earned_from_refs:'Заработано с рефералов',
+        invited_friends_title:'Приглашённые друзья',no_friends_yet:'Пока нет приглашённых',
+        share_link_hint:'Поделись ссылкой и зарабатывай вместе',
+        balance_available:'Доступный баланс',withdraw_methods_title:'Методы вывода',
+        withdraw_history_title:'История вывода',no_transactions:'Нет транзакций',
+        no_tx_sub:'Появится после первого вывода',min_label:'Минимум',
+        ton_wallet:'TON Кошелёк',paypal_name:'PayPal',fawry_name:'Fawry',
+        social_promo_title:'Хотите рекламировать продукт?',
+        social_promo_sub:'Добавь задание на любой платформе и укажи награду для пользователей',
+        facebook:'Facebook',twitter:'Twitter',tiktok:'TikTok',youtube:'YouTube',instagram:'Instagram',
+        contact_dev:'Связаться с разработчиком',available_tasks:'Доступные задания',nav_social:'Соц. сети',
+        comp_subtitle:'Собирай билеты и стань победителем',time_remaining:'Осталось времени',
+        day_unit:'день',hour_unit:'час',minute_unit:'мин',second_unit:'сек',
+        top_leaders:'Лидеры',rest_leaders:'Другие лидеры',
+        ton_withdraw_title:'Вывод TON',first_withdraw_title:'Первый вывод!',
+        first_withdraw_sub:'Минимум для первого вывода',first_withdraw_note:'очков — без уровня',
+        your_avail_balance:'Доступный баланс',min_chip_label:'Минимум',conversion_rate:'Курс обмена',
+        ton_address_label:'Адрес кошелька TON',ton_address_error:'Введите корректный адрес кошелька TON',
+        submit_withdraw:'Отправить запрос на вывод',
+        notifications_title:'Уведомления',no_notifs:'Уведомлений пока нет',
+        settings_title:'Настройки',settings_lang_label:'Язык',
+        gift_claim_btn:'Получить',gift_preparing:'Подготовка подарка...',ad_loading:'Загрузка рекламы...',
+        nav_home:'Главная',nav_earn:'Заработок',nav_tasks:'Задания',nav_withdraw:'Вывод'
+      }
+    };
+
+    var _currentLang = 'ar';
+
+    function _t(key) {
+        return (_I18N[_currentLang] || _I18N['ar'])[key] || key;
+    }
+
+    function _applyTranslations(lang) {
+        _currentLang = lang || 'ar';
+        localStorage.setItem('app_lang', _currentLang);
+        var isRTL = (_currentLang === 'ar');
+        document.documentElement.lang = _currentLang;
+        document.documentElement.dir  = isRTL ? 'rtl' : 'ltr';
+        document.querySelectorAll('[data-i18n]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n');
+            var val = _t(key);
+            if (val) el.textContent = val;
+        });
+    }
+
+    // Promise يُحل بعد اختيار اللغة
+    var _langResolve;
+    window._langReady = new Promise(function(res) { _langResolve = res; });
+    window._t = _t;
+    window._applyTranslations = _applyTranslations;
+
+    // ── دالة اختيار اللغة ────────────────────────
+    window._selectLang = function(lang) {
+        var langScreen    = document.getElementById('lang-select-screen');
+        var loadingScreen = document.getElementById('app-loading-screen');
+        var loadingText   = document.getElementById('loading-text');
+
+        // تحديث حالة الراديو
+        ['ar','en','ru'].forEach(function(l) {
+            var btn   = document.getElementById('lang-btn-' + l);
+            var radio = document.getElementById('radio-' + l);
+            if (!btn || !radio) return;
+            if (l === lang) {
+                btn.style.background    = 'rgba(251,191,36,0.15)';
+                btn.style.borderColor   = 'rgba(251,191,36,0.7)';
+                radio.style.background  = '#fbbf24';
+                radio.style.borderColor = '#fbbf24';
+                radio.style.boxShadow   = '0 0 8px rgba(251,191,36,0.6)';
+            } else {
+                btn.style.background    = 'rgba(255,255,255,0.05)';
+                btn.style.borderColor   = 'rgba(255,255,255,0.1)';
+                radio.style.background  = 'transparent';
+                radio.style.borderColor = 'rgba(255,255,255,0.2)';
+                radio.style.boxShadow   = 'none';
+            }
+        });
+
+        langScreen.style.pointerEvents = 'none';
+        _applyTranslations(lang);
+        if (loadingText) loadingText.textContent = _t('loading_text');
+
+        loadingScreen.style.display = 'flex';
+        langScreen.style.opacity    = '0';
+        langScreen.style.visibility = 'hidden';
+        setTimeout(function() { langScreen.style.display = 'none'; }, 420);
+
+        _langResolve();
+    };
+
+    // ── تهيئة فورية ──────────────────────────────
+    (function() {
+        var saved = localStorage.getItem('app_lang');
+        var langScreen    = document.getElementById('lang-select-screen');
+        var loadingScreen = document.getElementById('app-loading-screen');
+        var loadingText   = document.getElementById('loading-text');
+        if (saved) {
+            langScreen.style.display    = 'none';
+            loadingScreen.style.display = 'flex';
+            _applyTranslations(saved);
+            if (loadingText) loadingText.textContent = _t('loading_text');
+            _langResolve();
+        } else {
+            langScreen.style.display    = 'flex';
+            loadingScreen.style.display = 'none';
+        }
     })();
     </script>
 </body>
