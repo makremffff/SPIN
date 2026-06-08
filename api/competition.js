@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════
 // api/competition.js — Weekly Ticket Competition API
 // GET  /api/competition?action=leaderboard  → قائمة المتصدرين
-// POST — earn_ticket مُلغى (استُبدل بـ grant_competition_tickets في api/index.js)
+// earn_ticket مُلغى — التذاكر تُمنح من index.js فقط بعد session
 // ══════════════════════════════════════════════════════════
 
 const { sql, ensureBootstrap } = require('../lib/db');
@@ -32,10 +32,25 @@ async function ensureCompetitionTables() {
       UNIQUE(season_id, user_id)
     )
   `);
-  // index للترتيب السريع
+  // [FIX-500] جدول اللوج اليومي — ينشأ هنا قبل أي query عليه
+  await sql(`
+    CREATE TABLE IF NOT EXISTS competition_ticket_log (
+      id            BIGSERIAL   PRIMARY KEY,
+      user_id       BIGINT      NOT NULL,
+      season_id     BIGINT      NOT NULL,
+      tickets_delta BIGINT      NOT NULL,
+      source        TEXT        DEFAULT 'unknown',
+      log_date      DATE        NOT NULL DEFAULT CURRENT_DATE,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
   await sql(`
     CREATE INDEX IF NOT EXISTS idx_comp_tickets_season_tickets
     ON competition_tickets(season_id, tickets DESC)
+  `).catch(() => {});
+  await sql(`
+    CREATE INDEX IF NOT EXISTS idx_comp_ticket_log_user_date
+    ON competition_ticket_log(user_id, season_id, log_date)
   `).catch(() => {});
 }
 
@@ -45,7 +60,6 @@ async function getActiveSeason() {
     `SELECT * FROM competition_seasons WHERE is_active=TRUE ORDER BY id DESC LIMIT 1`
   );
   if (rows.length === 0) {
-    // أنشئ موسم افتراضي 14 يوم
     const endDate = new Date(Date.now() + 14 * 86400000);
     const ins = await sql(
       `INSERT INTO competition_seasons(end_date, prize_text, is_active)
@@ -62,7 +76,6 @@ async function handleLeaderboard(req, res, userId) {
   await ensureCompetitionTables();
   const season = await getActiveSeason();
 
-  // أفضل 10
   const lb = await sql(
     `SELECT ct.user_id, ct.tickets,
             COALESCE(u.tg_first_name, u.tg_username, 'مستخدم') AS name,
@@ -76,7 +89,6 @@ async function handleLeaderboard(req, res, userId) {
     [season.id]
   );
 
-  // ترتيبي الشخصي
   let myRank = null;
   let myTickets = 0;
   if (userId) {
@@ -111,41 +123,36 @@ async function handleLeaderboard(req, res, userId) {
   });
 }
 
-// ── منح تذاكر (يُستدعى داخلياً فقط — من services.js أو index.js) ─────
-// [FIX-1] إزالة الـ POST /earn_ticket العام تماماً — كان بدون مصادقة
-// [FIX-3] إضافة حد يومي: MAX_TICKETS_PER_DAY
+// ── منح تذاكر (داخلي فقط — من index.js بعد session) ──────
 async function grantTickets(userId, count) {
   await ensureCompetitionTables();
   const season = await getActiveSeason();
 
-  // تحقق أن الموسم لم ينته
   if (new Date(season.end_date) < new Date()) return { ok: false, error: 'season_ended' };
 
-  // [FIX-3] التحقق من الحد اليومي للتذاكر
-  const MAX_DAILY = CFG.COMPETITION_MAX_TICKETS_PER_DAY;   // من config.js
-  const MAX_GRANT = CFG.COMPETITION_MAX_GRANT_PER_CALL;    // حد كل عملية منح واحدة
+  const MAX_DAILY = CFG.COMPETITION_MAX_TICKETS_PER_DAY;
+  const MAX_GRANT = CFG.COMPETITION_MAX_GRANT_PER_CALL;
 
-  // تحقق من أن الـ count ضمن الحد المسموح للعملية الواحدة
+  // count آمن — بين 1 والحد الأقصى للعملية الواحدة
   const safeCount = Math.min(Math.max(1, parseInt(count) || 1), MAX_GRANT);
 
-  // اعرف كم تذكرة منح اليوم للمستخدم
+  // [FIX-500] الجدول ينشأ في ensureCompetitionTables — الـ query آمنة الآن
   const todayRow = await sql(
     `SELECT COALESCE(SUM(tickets_delta), 0) AS today_total
      FROM competition_ticket_log
      WHERE user_id=$1 AND season_id=$2 AND log_date=CURRENT_DATE`,
     [userId, season.id]
-  ).catch(() => [{ today_total: 0 }]);
-
+  );
   const todayTotal = parseInt(todayRow[0]?.today_total) || 0;
+
   if (todayTotal >= MAX_DAILY) {
     return { ok: false, error: 'daily_ticket_limit_reached', today: todayTotal };
   }
 
-  // تأكد أنك لا تعطي أكثر من الحد اليومي المتبقي
   const allowed = Math.min(safeCount, MAX_DAILY - todayTotal);
   if (allowed <= 0) return { ok: false, error: 'daily_ticket_limit_reached', today: todayTotal };
 
-  // Upsert
+  // Atomic upsert
   const r = await sql(
     `INSERT INTO competition_tickets(season_id, user_id, tickets)
      VALUES($1, $2, $3)
@@ -156,18 +163,7 @@ async function grantTickets(userId, count) {
     [season.id, userId, allowed]
   );
 
-  // سجّل في جدول اللوج اليومي (CREATE IF NOT EXISTS أول مرة يُستدعى)
-  await sql(
-    `CREATE TABLE IF NOT EXISTS competition_ticket_log (
-       id           BIGSERIAL PRIMARY KEY,
-       user_id      BIGINT      NOT NULL,
-       season_id    BIGINT      NOT NULL,
-       tickets_delta BIGINT     NOT NULL,
-       source       TEXT        DEFAULT 'unknown',
-       log_date     DATE        NOT NULL DEFAULT CURRENT_DATE,
-       created_at   TIMESTAMPTZ DEFAULT NOW()
-     )`
-  ).catch(() => {});
+  // سجّل في اللوج اليومي
   await sql(
     `INSERT INTO competition_ticket_log(user_id, season_id, tickets_delta, source)
      VALUES($1, $2, $3, 'grant')`,
@@ -181,11 +177,7 @@ async function grantTickets(userId, count) {
 module.exports = async function handler(req, res) {
   try { await ensureBootstrap(); } catch (_) {}
 
-  // [FIX-4] تقييد CORS — لا نسمح * على endpoint يُعدّل بيانات
-  const allowedOrigin = process.env.ALLOWED_ORIGIN || 'https://yourdomain.com';
-  const origin = req.headers['origin'] || '';
-  res.setHeader('Access-Control-Allow-Origin', origin === allowedOrigin ? origin : allowedOrigin);
-  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers',
     'Content-Type, X-Telegram-Init-Data, X-Session-Id, X-Session-ID'
@@ -195,9 +187,8 @@ module.exports = async function handler(req, res) {
   const url    = req.url || '';
   const action = url.includes('action=') ? url.split('action=')[1].split('&')[0] : '';
 
-  // ── GET leaderboard (public) ──────────────────────────
+  // ── GET leaderboard ──────────────────────────────────
   if (req.method === 'GET' && action === 'leaderboard') {
-    // نحاول نجيب userId من initData لو موجود
     let userId = null;
     try {
       const sessionId =
@@ -215,11 +206,8 @@ module.exports = async function handler(req, res) {
     return handleLeaderboard(req, res, userId);
   }
 
-  // [FIX-1] POST earn_ticket مُزال تماماً — لا يوجد endpoint عام لمنح تذاكر
-  // التذاكر تُمنح فقط من الداخل عبر grantTickets() في index.js
-
+  // [FIX-1] earn_ticket العام مُزال — لا endpoint خارجي لمنح تذاكر
   return res.status(404).json({ error: 'not_found' });
 };
 
-// ── Export grantTickets للاستخدام الداخلي فقط ──────────────
 module.exports.grantTickets = grantTickets;
