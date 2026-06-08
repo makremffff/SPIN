@@ -376,287 +376,6 @@
 
         </div>
     </main>
-
-    <!-- ══════════════════════════════════════════
-         TASKS PAGE — PREMIUM REDESIGN
-    ══════════════════════════════════════════ -->
-    <main id="page-tasks" class="page">
-        <!-- SVG gradient defs for circular progress -->
-        <svg width="0" height="0" style="position:absolute;pointer-events:none;">
-            <defs>
-                <linearGradient id="tasks-grad-gold" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#f5c842"/>
-                    <stop offset="100%" stop-color="#ffe27a"/>
-                </linearGradient>
-                <linearGradient id="tasks-grad-blue" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#5eceff"/>
-                    <stop offset="100%" stop-color="#a8e8ff"/>
-                </linearGradient>
-                <linearGradient id="tasks-grad-purple" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#b98bff"/>
-                    <stop offset="100%" stop-color="#ddb6ff"/>
-                </linearGradient>
-            </defs>
-        </svg>
-
-        <div class="tasks-bg-mesh"></div>
-
-        <div class="page-wrap">
-
-            <!-- ══ HERO ══ -->
-            <div class="tasks-hero tasks-e" data-tasks-d="40">
-                <p class="tasks-hero-p" data-i18n="tasks_hero_p">أكمل المهام واجمع مكافآتك اليومية</p>
-            </div>
-
-            <!-- ══ CHANNEL SECTION LABEL ══ -->
-            <div class="tasks-slabel tasks-e" data-tasks-d="160">
-                <div class="tasks-slabel-ico" style="background:rgba(94,206,255,.07);">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(94,206,255,.65)" stroke-width="1.9" stroke-linecap="round">
-                        <path d="M5.636 5.636a9 9 0 1012.728 0"/>
-                        <path d="M8.464 8.464a5 5 0 017.072 0"/>
-                        <circle cx="12" cy="12" r="1.5" fill="rgba(94,206,255,.65)" stroke="none"/>
-                    </svg>
-                </div>
-                <span data-i18n="our_channel">قناتنا الرسمية</span>
-                <span class="tasks-slabel-badge" style="background:rgba(94,206,255,.06);border:1px solid rgba(94,206,255,.12);color:rgba(94,206,255,.6);" data-i18n="exclusive_badge">حصري</span>
-            </div>
-
-            <!-- Channel Cards — يُملأ ديناميكياً من السيرفر -->
-            <div id="channel-tasks-wrap" class="tasks-e" data-tasks-d="230" style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;">
-                <!-- Loading skeleton -->
-                <div id="channel-tasks-loading" class="tasks-row" style="cursor:default;opacity:.7;">
-                    <div class="tasks-ico tasks-ico-blue" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);"></div>
-                    <div class="tasks-rbody" style="display:flex;flex-direction:column;gap:6px;">
-                        <div style="height:11px;border-radius:6px;background:rgba(255,255,255,.06);width:55%;"></div>
-                        <div style="height:9px;border-radius:6px;background:rgba(255,255,255,.04);width:35%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ══ AD TASKS SECTION LABEL ══ -->
-            <div class="tasks-slabel tasks-e" data-tasks-d="340">
-                <div class="tasks-slabel-ico" style="background:rgba(245,200,66,.07);">
-                    <svg width="10" height="11" viewBox="0 0 24 24" fill="rgba(245,200,66,.7)">
-                        <path d="M13 2L4.5 13.5H11L10 22l9.5-12H13.5L13 2z"/>
-                    </svg>
-                </div>
-                <span data-i18n="ad_tasks_label">مهام إعلانية</span>
-                <span class="tasks-slabel-badge" style="background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.12);color:rgba(245,200,66,.6);display:inline-flex;align-items:center;gap:3px;">+<span id="adsgram-reward-badge">50</span><img src="asesst/coins.png" alt="" style="width:13px;height:13px;object-fit:contain;opacity:.9;"/></span>
-            </div>
-
-            <!-- ══ ADSGRAM TASK ══ -->
-            <div id="atask-outer" class="tasks-e" data-tasks-d="410" style="margin-bottom:4px;">
-                <div id="atask-card" class="tasks-row" style="cursor:default;">
-                    <div id="atask-icon" class="tasks-ico tasks-ico-adtask">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" fill="rgba(245,200,66,.85)"/>
-                            <path d="M18.5 12c0-2.77-1.52-5.19-3.76-6.49v12.97C17 17.19 18.5 14.77 18.5 12z" fill="rgba(245,200,66,.5)"/>
-                        </svg>
-                    </div>
-                    <div class="tasks-rbody">
-                        <div class="tasks-rname" data-i18n="ad_task_name">مهمة إعلانية</div>
-                        <div class="tasks-chips">
-                            <div class="tasks-chip tasks-chip-g">
-                                <div class="tasks-chip-dot"></div>
-                                +<span id="atask-reward-label">50</span><img src="asesst/coins.png" alt="" style="width:12px;height:12px;object-fit:contain;vertical-align:middle;opacity:.85;flex-shrink:0;"/>
-                            </div>
-                            <div class="tasks-chip tasks-chip-m">
-                                <span id="atask-done-count">0</span>/<span id="atask-daily-limit">3</span> <span data-i18n="today">اليوم</span>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- State indicators -->
-                    <div id="atask-action" style="flex-shrink:0;">
-                        <div id="atask-loading-state" style="display:none;align-items:center;gap:7px;padding:7px 13px;border-radius:10px;border:1px solid rgba(245,200,66,.25);background:rgba(245,200,66,.06);color:rgba(245,200,66,.7);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">
-                            <div style="width:12px;height:12px;border:2px solid rgba(245,200,66,.3);border-top-color:rgba(245,200,66,.9);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                            <span data-i18n="loading_short">جاري...</span>
-                        </div>
-                        <div id="atask-cooldown-state" style="display:none;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;">
-                            <img src="asesst/loading.gif" alt="loading" style="width:14px;height:14px;opacity:0.6;">
-                            <span id="atask-cooldown-timer">--</span>
-                        </div>
-                        <div id="atask-maxed-state" style="display:none;align-items:center;gap:6px;padding:7px 13px;border-radius:10px;border:1px solid rgba(52,211,153,0.28);background:rgba(52,211,153,0.08);color:#3ddc84;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span data-i18n="completed">اكتمل</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- adsgram-task widget -->
-                <div id="atask-widget-wrap" style="padding:0 12px 8px;display:none;">
-                    <adsgram-task
-                        id="atask-widget"
-                        data-block-id="task-30166"
-                        data-debug="false"
-                        style="display:block;width:100%;--adsgram-task-font-size:13px;--adsgram-task-icon-size:36px;--adsgram-task-icon-border-radius:10px;--adsgram-task-button-width:70px;">
-                        <div slot="button" id="atask-start-btn" style="display:inline-flex;align-items:center;gap:5px;padding:7px 15px;border-radius:10px;border:1px solid rgba(245,200,66,.45);background:rgba(245,200,66,.1);color:#f5c842;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
-                            <span data-i18n="start_btn">ابدأ</span>
-                        </div>
-                        <div slot="claim" style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border-radius:10px;border:1px solid rgba(245,200,66,.25);background:rgba(245,200,66,.06);color:rgba(245,200,66,.8);font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;">
-                            <div style="width:11px;height:11px;border:2px solid rgba(245,200,66,.3);border-top-color:rgba(245,200,66,.9);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-                            <span data-i18n="verify_btn">تحقق...</span>
-                        </div>
-                        <div slot="done" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:10px;border:1px solid rgba(52,211,153,0.28);background:rgba(52,211,153,0.08);color:#3ddc84;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span data-i18n="done_label">تم</span>
-                        </div>
-                    </adsgram-task>
-                </div>
-            </div>
-
-            <!-- ══ DAILY TASKS SECTION LABEL ══ -->
-            <div class="tasks-slabel tasks-e" data-tasks-d="530">
-                <div class="tasks-slabel-ico" style="background:rgba(255,255,255,.04);">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="17" rx="3"/>
-                        <path d="M3 9h18M8 2v3M16 2v3"/>
-                    </svg>
-                </div>
-                <span data-i18n="daily_tasks_section_lbl">المهام اليومية</span>
-                <span class="tasks-slabel-badge" id="daily-tasks-badge" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.25);">0 / 3</span>
-            </div>
-
-            <!-- Task 1 — watch 10 ads -->
-            <div class="tasks-e" data-tasks-d="600">
-                <div class="tasks-row dtask-card" id="dtask-ads10" onclick="handleDailyTask('ads10', this)">
-                    <div class="tasks-ico tasks-ico-gold">
-                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 3.5c-.5 2-1.5 3.8-1.5 5.5 0 .8.3 1.5.8 2-.2-.8-.3-1.6-.3-2 0 0 3 2.5 3 6a4 4 0 01-8 0c0-3.5 2.5-6.5 3.5-8 0 0 .2 1.8 1.5 3-.7-1.5-1-3-.5-5.5 1 1.5 1.5 3.2 1.5 4.5 0-.5.5-4-0-6z" fill="rgba(245,200,66,.82)" stroke="rgba(245,200,66,.2)" stroke-width=".4" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                    <div class="tasks-rbody dtask-info" style="text-align:right;">
-                        <div class="tasks-rname dtask-title" data-i18n="task_watch_10">شاهد 10 إعلانات اليوم</div>
-                        <!-- circular progress + old mini-bar (hidden) for JS compat -->
-                        <div class="tasks-cprog-wrap">
-                            <div class="tasks-cprog" id="cprog-ads10">
-                                <svg viewBox="0 0 34 34">
-                                    <circle class="tasks-cprog-track" cx="17" cy="17" r="14"/>
-                                    <circle class="tasks-cprog-fill tasks-cprog-fill-gold" id="cfill-ads10"
-                                        cx="17" cy="17" r="14"
-                                        stroke-dasharray="87.96"
-                                        stroke-dashoffset="87.96"/>
-                                </svg>
-                                <div class="tasks-cprog-text" id="ctext-ads10">0</div>
-                            </div>
-                            <span class="tasks-cprog-label" id="clabel-ads10" data-i18n="task_watch_10_of">من أصل 10 إعلانات</span>
-                        </div>
-                        <!-- hidden legacy progress elements for JS compatibility -->
-                        <div class="dtask-sub" style="display:none;">
-                            <div class="dtask-mini-bar"><div class="dtask-mini-fill" id="ads10-fill" style="width:0%"></div></div>
-                            <span class="dtask-progress" id="ads10-prog">0 / 10</span>
-                        </div>
-                    </div>
-                    <div class="tasks-rend dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
-                        <span class="tasks-rreward tasks-rr-gold daily-ads10-reward-badge">+1,000</span>
-                        <button id="dtask-claim-ads_10" class="tasks-rbtn tasks-btn-gold" onclick="event.stopPropagation();claimDailyMission('ads_10')" style="display:none;" data-i18n="collect_btn">جمع</button>
-                        <div class="dtask-claimed-badge" id="done-ads_10" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:9px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;" data-i18n="done_label">تم</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Task 2 — watch 25 ads -->
-            <div class="tasks-e" data-tasks-d="660">
-                <div class="tasks-row dtask-card" id="dtask-ads25" onclick="handleDailyTask('ads25', this)">
-                    <div class="tasks-ico tasks-ico-blue2">
-                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(94,206,255,.8)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            <circle cx="12" cy="12" r="2.8" fill="rgba(94,206,255,.18)" stroke="rgba(94,206,255,.7)"/>
-                            <circle cx="12" cy="12" r="1" fill="rgba(94,206,255,.9)" stroke="none"/>
-                        </svg>
-                    </div>
-                    <div class="tasks-rbody dtask-info" style="text-align:right;">
-                        <div class="tasks-rname dtask-title" data-i18n="task_watch_25">شاهد 25 إعلاناً</div>
-                        <div class="tasks-cprog-wrap">
-                            <div class="tasks-cprog" id="cprog-ads25">
-                                <svg viewBox="0 0 34 34">
-                                    <circle class="tasks-cprog-track" cx="17" cy="17" r="14"/>
-                                    <circle class="tasks-cprog-fill tasks-cprog-fill-blue" id="cfill-ads25"
-                                        cx="17" cy="17" r="14"
-                                        stroke-dasharray="87.96"
-                                        stroke-dashoffset="87.96"/>
-                                </svg>
-                                <div class="tasks-cprog-text" id="ctext-ads25">0</div>
-                            </div>
-                            <span class="tasks-cprog-label" id="clabel-ads25" data-i18n="task_watch_25_of">من أصل 25 إعلاناً</span>
-                        </div>
-                        <div class="dtask-sub" style="display:none;">
-                            <div class="dtask-mini-bar"><div class="dtask-mini-fill blue" id="ads25-fill" style="width:0%"></div></div>
-                            <span class="dtask-progress" id="ads25-prog">0 / 25</span>
-                        </div>
-                    </div>
-                    <div class="tasks-rend dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
-                        <span class="tasks-rreward tasks-rr-blue daily-ads25-reward-badge">+2,200</span>
-                        <button id="dtask-claim-ads_25" class="tasks-rbtn tasks-btn-blue" onclick="event.stopPropagation();claimDailyMission('ads_25')" style="display:none;" data-i18n="collect_btn">جمع</button>
-                        <div class="dtask-claimed-badge" id="done-ads_25" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:9px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;" data-i18n="done_label">تم</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Task 3 — invite 3 friends -->
-            <div class="tasks-e" data-tasks-d="720">
-                <div class="tasks-row dtask-card" id="dtask-invite3" onclick="handleDailyTask('invite3', this)">
-                    <div class="tasks-ico tasks-ico-purple">
-                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(185,139,255,.82)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="9.5" cy="7" r="3.2"/>
-                            <path d="M2.5 20.5c0-3.3 2.6-6 7-6 1.2 0 2.2.2 3.1.6"/>
-                            <path d="M18.5 14v6M15.5 17h6"/>
-                        </svg>
-                    </div>
-                    <div class="tasks-rbody dtask-info" style="text-align:right;">
-                        <div class="tasks-rname dtask-title" data-i18n="task_invite_3">ادعُ 3 أصدقاء</div>
-                        <div class="tasks-cprog-wrap">
-                            <div class="tasks-cprog" id="cprog-invite3">
-                                <svg viewBox="0 0 34 34">
-                                    <circle class="tasks-cprog-track" cx="17" cy="17" r="14"/>
-                                    <circle class="tasks-cprog-fill tasks-cprog-fill-purple" id="cfill-invite3"
-                                        cx="17" cy="17" r="14"
-                                        stroke-dasharray="87.96"
-                                        stroke-dashoffset="87.96"/>
-                                </svg>
-                                <div class="tasks-cprog-text" id="ctext-invite3">0</div>
-                            </div>
-                            <span class="tasks-cprog-label" id="clabel-invite3" data-i18n="task_invite_3_of">من أصل 3 أصدقاء</span>
-                        </div>
-                        <div class="dtask-sub" style="display:none;">
-                            <div class="dtask-mini-bar"><div class="dtask-mini-fill purple" id="invite3-fill" style="width:0%"></div></div>
-                            <span class="dtask-progress" id="invite3-prog">0 / 3</span>
-                        </div>
-                    </div>
-                    <div class="tasks-rend dtask-reward" style="flex-direction:column;align-items:flex-end;gap:5px;">
-                        <span class="tasks-rreward tasks-rr-purple daily-refs3-reward-badge">+3,000</span>
-                        <button id="dtask-claim-daily_refs_3" class="tasks-rbtn" style="display:none;background:rgba(185,139,255,.1);border:1px solid rgba(185,139,255,.18);color:#b98bff;" onclick="event.stopPropagation();claimDailyMission('daily_refs_3')" data-i18n="collect_btn">جمع</button>
-                        <div class="dtask-claimed-badge" id="done-daily_refs_3" style="display:none;align-items:center;gap:4px;padding:4px 10px;border-radius:9px;background:rgba(61,220,132,.05);border:1px solid rgba(61,220,132,.14);">
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
-                            <span style="font-size:9.5px;font-weight:800;color:#3ddc84;" data-i18n="done_label">تم</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ══ ADD CHANNEL ══ -->
-            <div class="tasks-e" data-tasks-d="860">
-                <button class="tasks-add-channel-btn" onclick="alert('قريباً: إمكانية إضافة قناتك الخاصة')">
-                    <div class="tasks-ico tasks-ico-dim" style="flex-shrink:0;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                    </div>
-                    <div style="flex:1;text-align:right;">
-                        <div style="font-family:'DynaPuff','Tajawal',sans-serif;font-size:13px;font-weight:700;line-height:1.2;margin-bottom:3px;" data-i18n="add_channel_btn">أضف قناتك</div>
-                        <div style="font-size:11px;font-weight:500;opacity:.65;line-height:1.3;" data-i18n="add_channel_sub">اربح من كل مشترك جديد</div>
-                    </div>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
-                </button>
-            </div>
-
-        </div>
-    </main>
-
-
     <!-- ═══���══════════════════════════════════════
          EARN PAGE
     ══════════════════════════════════════════ -->
@@ -1272,16 +991,6 @@
                     </svg>
                 </div>
                 <span class="nav-label" data-i18n="nav_home">الرئيسية</span>
-                <div class="nav-pill"></div>
-            </button>
-
-            <button class="nav-item" onclick="showPage('tasks', this)" data-page="tasks" aria-label="المهام">
-                <div class="nav-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <span class="nav-label" data-i18n="nav_tasks">المهام</span>
                 <div class="nav-pill"></div>
             </button>
 
@@ -1913,6 +1622,23 @@
         social_promo_title:'هل تريد الترويج لمنتجك؟',
         social_promo_sub:'أضف مهمتك الخاصة على منصتك المفضلة وحدد المكافأة للمستخدمين',
         facebook:'فيسبوك',twitter:'تويتر',tiktok:'تيكتوك',youtube:'يوتيوب',instagram:'انستغرام',
+        sc_upload_lbl:'ارفع لقطة الإثبات',sc_upload_sub:'PNG أو JPG — اضغط للاختيار',
+        sc_send_review:'إرسال للمراجعة',sc_cancel:'إلغاء',sc_task_instr:'تعليمات المهمة',
+        sc_proof_lbl:'إرسال صورة الإثبات',sc_under_review:'تحت المراجعة',
+        sc_review_sub:'سيتم مراجعة إثباتك وإضافة التذاكر قريباً',
+        sc_approved:'تمت الموافقة ✓',sc_approved_sub:'تم إضافة التذاكر إلى رصيدك',
+        sc_rejected:'تم رفض الإثبات',sc_rejected_sub:'لم يتم قبول الصورة المرسلة',
+        sc_retry:'إعادة المحاولة',sc_send_task:'إرسال المهمة',
+        sc_done:'تم ✓',sc_reviewing:'مراجعة...',sc_rejected_short:'مرفوض ↩',
+        sc_start_lbl:'· ابدأ',sc_pts_added:'✅ تم إنجاز المهمة وإضافة التذاكر',
+        sc_sent_review:'✅ تم الإرسال — بانتظار موافقة المشرف',
+        sc_upload_toast:'📋 أكمل المهمة ثم أرسل لقطة الإثبات',
+        sc_sending:'📤 جارٍ إرسال الصورة...',sc_sending_inline:'جارٍ الإرسال...',
+        sc_no_tasks:'لا توجد مهام متاحة الآن',sc_load_err:'تعذّر تحميل المهام — حاول مجدداً',
+        sc_copied:'✅ تم نسخ المنشور',sc_copy_done:'تم النسخ!',sc_copy_btn:'نسخ النص',
+        sc_promo_lbl:'نص ترويجي جاهز (اختياري)',
+        sc_plat_facebook:'فيسبوك',sc_plat_twitter:'تويتر',sc_plat_tiktok:'تيكتوك',
+        sc_plat_youtube:'يوتيوب',sc_plat_instagram:'انستغرام',sc_plat_telegram:'تيليغرام',
         contact_dev:'تواصل مع المطور',available_tasks:'المهام المتاحة',nav_social:'تواصل',
         // المسابقة
         comp_subtitle:'قم بجمع تذاكر وكن انت الرابح',time_remaining:'الوقت المتبقي',
@@ -1972,6 +1698,23 @@
         social_promo_title:'Want to promote your product?',
         social_promo_sub:'Add your own task on your favorite platform and set the reward for users',
         facebook:'Facebook',twitter:'Twitter',tiktok:'TikTok',youtube:'YouTube',instagram:'Instagram',
+        sc_upload_lbl:'Upload Proof Screenshot',sc_upload_sub:'PNG or JPG — tap to choose',
+        sc_send_review:'Send for Review',sc_cancel:'Cancel',sc_task_instr:'Task Instructions',
+        sc_proof_lbl:'Submit Proof Image',sc_under_review:'Under Review',
+        sc_review_sub:'Your proof will be reviewed and tickets added soon',
+        sc_approved:'Approved ✓',sc_approved_sub:'Tickets added to your balance',
+        sc_rejected:'Proof Rejected',sc_rejected_sub:'Submitted image was not accepted',
+        sc_retry:'Retry',sc_send_task:'Submit Task',
+        sc_done:'Done ✓',sc_reviewing:'Reviewing...',sc_rejected_short:'Rejected ↩',
+        sc_start_lbl:'· Start',sc_pts_added:'✅ Task completed and tickets added',
+        sc_sent_review:'✅ Submitted — awaiting admin approval',
+        sc_upload_toast:'📋 Complete the task then upload a proof screenshot',
+        sc_sending:'📤 Uploading image...',sc_sending_inline:'Submitting...',
+        sc_no_tasks:'No tasks available right now',sc_load_err:'Failed to load tasks — try again',
+        sc_copied:'✅ Post copied',sc_copy_done:'Copied!',sc_copy_btn:'Copy Text',
+        sc_promo_lbl:'Ready Promo Text (optional)',
+        sc_plat_facebook:'Facebook',sc_plat_twitter:'Twitter',sc_plat_tiktok:'TikTok',
+        sc_plat_youtube:'YouTube',sc_plat_instagram:'Instagram',sc_plat_telegram:'Telegram',
         contact_dev:'Contact Developer',available_tasks:'Available Tasks',nav_social:'Social',
         comp_subtitle:'Collect tickets and be the winner',time_remaining:'Time Remaining',
         day_unit:'day',hour_unit:'hour',minute_unit:'min',second_unit:'sec',
@@ -2026,6 +1769,23 @@
         social_promo_title:'Хотите рекламировать продукт?',
         social_promo_sub:'Добавь задание на любой платформе и укажи награду для пользователей',
         facebook:'Facebook',twitter:'Twitter',tiktok:'TikTok',youtube:'YouTube',instagram:'Instagram',
+        sc_upload_lbl:'Загрузите скриншот',sc_upload_sub:'PNG или JPG — нажмите для выбора',
+        sc_send_review:'Отправить на проверку',sc_cancel:'Отмена',sc_task_instr:'Инструкции',
+        sc_proof_lbl:'Отправить фото подтверждения',sc_under_review:'На проверке',
+        sc_review_sub:'Ваше подтверждение будет проверено и билеты добавлены скоро',
+        sc_approved:'Одобрено ✓',sc_approved_sub:'Билеты добавлены на баланс',
+        sc_rejected:'Подтверждение отклонено',sc_rejected_sub:'Отправленное изображение не принято',
+        sc_retry:'Повторить',sc_send_task:'Отправить задание',
+        sc_done:'Готово ✓',sc_reviewing:'Проверка...',sc_rejected_short:'Отклонено ↩',
+        sc_start_lbl:'· Начать',sc_pts_added:'✅ Задание выполнено, билеты добавлены',
+        sc_sent_review:'✅ Отправлено — ожидает проверки',
+        sc_upload_toast:'📋 Выполните задание, затем загрузите скриншот',
+        sc_sending:'📤 Загрузка изображения...',sc_sending_inline:'Отправка...',
+        sc_no_tasks:'Нет доступных заданий',sc_load_err:'Не удалось загрузить — попробуйте снова',
+        sc_copied:'✅ Текст скопирован',sc_copy_done:'Скопировано!',sc_copy_btn:'Копировать текст',
+        sc_promo_lbl:'Готовый промо-текст (необязательно)',
+        sc_plat_facebook:'Facebook',sc_plat_twitter:'Twitter',sc_plat_tiktok:'TikTok',
+        sc_plat_youtube:'YouTube',sc_plat_instagram:'Instagram',sc_plat_telegram:'Telegram',
         contact_dev:'Связаться с разработчиком',available_tasks:'Доступные задания',nav_social:'Соц. сети',
         comp_subtitle:'Собирай билеты и стань победителем',time_remaining:'Осталось времени',
         day_unit:'день',hour_unit:'час',minute_unit:'мин',second_unit:'сек',
