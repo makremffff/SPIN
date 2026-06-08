@@ -88,9 +88,11 @@ export function _applyConfigToUI() {
             el.textContent = pts.toLocaleString('en-US') + ' تذكره';
         }
     });
-    // ── قيمة تذاكر الإعلانات اليومية الديناميكية ──
+    // ── قيمة تذاكر + USDT الإعلانات اليومية الديناميكية ──
     const adsgramTickets = APP_CONFIG.rewards?.tickets_per_ad || 500;
+    const adsgramUsdt    = APP_CONFIG.rewards?.usdt_per_ad    || 0.001;
     document.querySelectorAll('.earn-cta-rnum').forEach(el => { el.textContent = adsgramTickets; });
+    document.querySelectorAll('.earn-cta-usdt').forEach(el => { el.textContent = adsgramUsdt; });
 }
 
 // ══════════════════════════════════════════════════════════
