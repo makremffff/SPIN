@@ -108,6 +108,17 @@ function _scCardHTML(task, idx) {
 </div>`;
 }
 
+
+/* ── USDT reward formatter ── */
+function _fmtUSDT(val) {
+  const n = parseFloat(val) || 0;
+  if (n === 0) return '0';
+  if (n < 0.001) return n.toFixed(6).replace(/\.?0+$/, '');
+  if (n < 0.01)  return n.toFixed(4).replace(/\.?0+$/, '');
+  if (n < 1)     return n.toFixed(3).replace(/\.?0+$/, '');
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
 /* start button states (new design) */
 function _scStartBtn(taskId, reward) {
   const state = SOCIAL.cardState[taskId] || 'idle';
@@ -130,7 +141,7 @@ function _scStartBtn(taskId, reward) {
   }
   // idle / upload — عرض التذاكر بدل النقاط
   return `<div class="c-start">
-    <span class="start-pts">${Number(reward).toLocaleString()}<img class="coin-img" src="asesst/dollar.png" alt="" onerror="this.src='asesst/dollar.png'"></span>
+    <span class="start-pts">${_fmtUSDT(reward)} <span style="font-size:9px;opacity:.8;font-weight:600">USDT</span></span>
     <span class="start-lbl">${_st('sc_start_lbl')}</span>
   </div>`;
 }
@@ -179,6 +190,10 @@ function _scOpenSheet(taskId) {
           <div>
             <div class="review-banner-txt">${_st('sc_under_review')}</div>
             <div class="review-banner-sub">${_st('sc_review_sub')}</div>
+          </div>
+        </div>
+      </div>`;
+            <div class="review-banner-sub">سيتم مراجعة إثباتك وإضافة النقاط قريباً</div>
           </div>
         </div>
       </div>`;
@@ -289,8 +304,8 @@ function _scOpenSheet(taskId) {
         <div class="sheet-plat">${_scPlatName(task.icon)}</div>
       </div>
       <div class="sheet-pts-badge">
-        <span class="sheet-pts-num">${Number(task.reward).toLocaleString()}<img src="asesst/dollar.png" onerror="this.src='asesst/dollar.png'" alt="" style="width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(99,220,130,.4))"></span>
-        <span class="sheet-pts-lbl">${_st('ticket_unit')}</span>
+        <span class="sheet-pts-num">${_fmtUSDT(task.reward)} <span style="font-size:11px;opacity:.8;font-weight:600">USDT</span></span>
+        <span class="sheet-pts-lbl">مكافأة</span>
       </div>
     </div>
     ${noteHTML}
