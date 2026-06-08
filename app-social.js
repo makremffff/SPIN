@@ -29,10 +29,10 @@ const _SC_ICONS = {
 const _SC_PCLS = {
   facebook:'fb', twitter:'tw', tiktok:'tt', youtube:'yt', instagram:'ig', telegram:'tg',
 };
-const _SC_PLATNAME = {
-  facebook:'فيسبوك', twitter:'تويتر', tiktok:'تيكتوك',
-  youtube:'يوتيوب', instagram:'انستغرام', telegram:'تيليغرام',
-};
+function _scPlatName(key) {
+  const t = typeof window._t === 'function' ? window._t : function(k){ return k; };
+  return t('sc_plat_' + key) || key;
+}
 
 /* ─── API ─── */
 const _SOCIAL_API = '/api';
@@ -45,6 +45,11 @@ async function _socialFetch(body) {
     body: JSON.stringify(body),
   });
   return r.json();
+}
+
+/* ─── i18n helper shortcut ─── */
+function _st(key) {
+  return typeof window._t === 'function' ? window._t(key) : key;
 }
 
 /* ─── Load tasks ─── */
@@ -68,7 +73,7 @@ async function socialLoadTasks() {
     _socialRenderCards();
   } catch (e) {
     SOCIAL.loadError = true;
-    wrap.innerHTML = `<div class="sc-empty">تعذّر تحميل المهام — حاول مجدداً</div>`;
+    wrap.innerHTML = `<div class="sc-empty">${_st('sc_load_err')}</div>`;
   }
 }
 
@@ -77,7 +82,7 @@ function _socialRenderCards() {
   const wrap = document.getElementById('social-cards-wrap');
   if (!wrap) return;
   if (!SOCIAL.tasks.length) {
-    wrap.innerHTML = `<div class="sc-empty">لا توجد مهام متاحة الآن</div>`;
+    wrap.innerHTML = `<div class="sc-empty">${_st('sc_no_tasks')}</div>`;
     return;
   }
   wrap.innerHTML = SOCIAL.tasks.map((t, i) => _scCardHTML(t, i)).join('');
@@ -104,29 +109,29 @@ function _scCardHTML(task, idx) {
 }
 
 /* start button states (new design) */
-function _scStartBtn(taskId, pts) {
+function _scStartBtn(taskId, reward) {
   const state = SOCIAL.cardState[taskId] || 'idle';
   if (state === 'approved') {
     return `<div class="c-start state-done">
       <div class="done-check"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
-      <span class="start-lbl">تم ✓</span>
+      <span class="start-lbl">${_st('sc_done')}</span>
     </div>`;
   }
   if (state === 'pending') {
     return `<div class="c-start state-review">
       <div class="review-pulse"></div>
-      <span class="start-lbl">مراجعة...</span>
+      <span class="start-lbl">${_st('sc_reviewing')}</span>
     </div>`;
   }
   if (state === 'rejected') {
     return `<div class="c-start" style="background:linear-gradient(135deg,rgba(239,68,68,.18),rgba(239,68,68,.08));border-color:rgba(239,68,68,.3);cursor:pointer">
-      <span class="start-pts" style="color:#f87171;font-size:11px">مرفوض ↩</span>
+      <span class="start-pts" style="color:#f87171;font-size:11px">${_st('sc_rejected_short')}</span>
     </div>`;
   }
-  // idle / upload
+  // idle / upload — عرض التذاكر بدل النقاط
   return `<div class="c-start">
-    <span class="start-pts">${Number(pts).toLocaleString('ar')}<img class="coin-img" src="asesst/coins.png" alt=""></span>
-    <span class="start-lbl">· ابدأ</span>
+    <span class="start-pts">${Number(reward).toLocaleString()}<img class="coin-img" src="asesst/ticket.png" alt="" onerror="this.src='asesst/ticket.jpg'"></span>
+    <span class="start-lbl">${_st('sc_start_lbl')}</span>
   </div>`;
 }
 
@@ -141,24 +146,24 @@ function _scOpenSheet(taskId) {
   /* note block */
   const noteHTML = task.note ? `
     <div class="sheet-section">
-      <div class="sheet-sec-lbl">تعليمات المهمة</div>
+      <div class="sheet-sec-lbl">${_st('sc_task_instr')}</div>
       <div class="note-box">${_esc(task.note)}</div>
     </div>` : `
     <div class="sheet-section">
-      <div class="sheet-sec-lbl">تعليمات المهمة</div>
+      <div class="sheet-sec-lbl">${_st('sc_task_instr')}</div>
       <div class="note-box">${_esc(task.description || '')}</div>
     </div>`;
 
   /* promo block */
   const promoHTML = task.promo_text ? `
     <div class="sheet-section">
-      <div class="sheet-sec-lbl">نص ترويجي جاهز (اختياري)</div>
+      <div class="sheet-sec-lbl">${_st('sc_promo_lbl')}</div>
       <div class="promo-box">
         <div class="promo-box-top">
           <div class="promo-text" id="sc-promo-${task.id}">${_esc(task.promo_text)}</div>
           <button class="btn-copy" id="sc-copybtn-${task.id}" onclick="socialCopyPromo(${task.id})">
             <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            نسخ
+            ${_st('sc_copy_btn')}
           </button>
         </div>
       </div>
@@ -172,7 +177,11 @@ function _scOpenSheet(taskId) {
         <div class="review-banner">
           <div class="review-banner-dot"></div>
           <div>
-            <div class="review-banner-txt">تحت المراجعة</div>
+            <div class="review-banner-txt">${_st('sc_under_review')}</div>
+            <div class="review-banner-sub">${_st('sc_review_sub')}</div>
+          </div>
+        </div>
+      </div>`;
             <div class="review-banner-sub">سيتم مراجعة إثباتك وإضافة النقاط قريباً</div>
           </div>
         </div>
@@ -183,8 +192,8 @@ function _scOpenSheet(taskId) {
         <div class="review-banner" style="background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.2)">
           <div class="done-check" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg></div>
           <div>
-            <div class="review-banner-txt" style="color:#4ade80">تمت الموافقة ✓</div>
-            <div class="review-banner-sub" style="color:rgba(74,222,128,.5)">تم إضافة النقاط إلى رصيدك</div>
+            <div class="review-banner-txt" style="color:#4ade80">${_st('sc_approved')}</div>
+            <div class="review-banner-sub" style="color:rgba(74,222,128,.5)">${_st('sc_approved_sub')}</div>
           </div>
         </div>
       </div>`;
@@ -193,19 +202,19 @@ function _scOpenSheet(taskId) {
       <div class="sheet-section">
         <div class="review-banner" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2)">
           <div>
-            <div class="review-banner-txt" style="color:#f87171">تم رفض الإثبات</div>
-            <div class="review-banner-sub" style="color:rgba(248,113,113,.5)">لم يتم قبول الصورة المرسلة</div>
+            <div class="review-banner-txt" style="color:#f87171">${_st('sc_rejected')}</div>
+            <div class="review-banner-sub" style="color:rgba(248,113,113,.5)">${_st('sc_rejected_sub')}</div>
           </div>
         </div>
         <button class="btn-submit" id="sc-retry-btn-${task.id}" style="margin-top:10px" onclick="scRetryTask(${task.id})">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          إعادة المحاولة
+          ${_st('sc_retry')}
         </button>
       </div>`;
   } else if (state === 'upload') {
     actionHTML = `
       <div class="sheet-section">
-        <div class="sheet-sec-lbl">إرسال صورة الإثبات</div>
+        <div class="sheet-sec-lbl">${_st('sc_proof_lbl')}</div>
         <div class="upload-area" id="sc-uploadArea-${task.id}">
           <input type="file" accept="image/*" id="sc-file-${task.id}" onchange="socialHandleFile(event,${task.id})">
           <img class="preview-img" id="sc-prev-img-${task.id}" alt="preview">
@@ -223,18 +232,18 @@ function _scOpenSheet(taskId) {
                 <circle cx="42" cy="42" r="2" fill="rgba(59,130,246,0.25)"/>
               </svg>
             </div>
-            <div class="upload-lbl">ارفع لقطة الإثبات</div>
-            <div class="upload-sub">PNG أو JPG — اضغط للاختيار</div>
+            <div class="upload-lbl">${_st('sc_upload_lbl')}</div>
+            <div class="upload-sub">${_st('sc_upload_sub')}</div>
           </div>
         </div>
       </div>
       <div class="sheet-section">
         <button class="btn-submit" id="sc-submitbtn-${task.id}" disabled onclick="socialSubmitProof(${task.id})">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
-          إرسال للمراجعة
+          ${_st('sc_send_review')}
         </button>
         <button class="btn-submit" style="margin-top:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);box-shadow:none;color:rgba(255,255,255,.45)" onclick="socialCancelUpload(${task.id})">
-          إلغاء
+          ${_st('sc_cancel')}
         </button>
       </div>`;
   } else {
@@ -245,7 +254,7 @@ function _scOpenSheet(taskId) {
     }
     actionHTML = `
       <div class="sheet-section">
-        <div class="sheet-sec-lbl">إرسال صورة الإثبات</div>
+        <div class="sheet-sec-lbl">${_st('sc_proof_lbl')}</div>
         <div class="upload-area" id="sc-uploadArea-${task.id}">
           <input type="file" accept="image/*" id="sc-file-${task.id}" onchange="socialHandleFile(event,${task.id})">
           <img class="preview-img" id="sc-prev-img-${task.id}" alt="preview">
@@ -263,15 +272,15 @@ function _scOpenSheet(taskId) {
                 <circle cx="42" cy="42" r="2" fill="rgba(59,130,246,0.25)"/>
               </svg>
             </div>
-            <div class="upload-lbl">ارفع لقطة الإثبات</div>
-            <div class="upload-sub">PNG أو JPG — اضغط للاختيار</div>
+            <div class="upload-lbl">${_st('sc_upload_lbl')}</div>
+            <div class="upload-sub">${_st('sc_upload_sub')}</div>
           </div>
         </div>
       </div>
       <div class="sheet-section">
         <button class="btn-submit" id="sc-submitbtn-${task.id}" disabled onclick="socialSubmitProof(${task.id})">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          إرسال المهمة
+          ${_st('sc_send_task')}
         </button>
       </div>`;
   }
@@ -281,11 +290,11 @@ function _scOpenSheet(taskId) {
       <div class="sheet-icon p-${pcls}" style="width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${icon}</div>
       <div class="sheet-meta">
         <div class="sheet-title">${_esc(task.title)}</div>
-        <div class="sheet-plat">${_SC_PLATNAME[task.icon] || task.icon}</div>
+        <div class="sheet-plat">${_scPlatName(task.icon)}</div>
       </div>
       <div class="sheet-pts-badge">
-        <span class="sheet-pts-num">${Number(task.reward).toLocaleString('ar')}<img src="asesst/coins.png" alt="" style="width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(245,158,11,.5))"></span>
-        <span class="sheet-pts-lbl">نقطة</span>
+        <span class="sheet-pts-num">${Number(task.reward).toLocaleString()}<img src="asesst/ticket.png" onerror="this.src='asesst/ticket.jpg'" alt="" style="width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(99,220,130,.4))"></span>
+        <span class="sheet-pts-lbl">${_st('ticket_unit')}</span>
       </div>
     </div>
     ${noteHTML}
@@ -306,7 +315,7 @@ function socialStartTask(taskId, url, proofRequired) {
   if (proofRequired) {
     SOCIAL.cardState[taskId] = 'upload';
     _scRefreshSheet(taskId);
-    _socialToast('📋 أكمل المهمة ثم أرسل لقطة الإثبات');
+    _socialToast(_st('sc_upload_toast'));
   } else {
     socialSubmitNoProof(taskId);
   }
@@ -341,13 +350,13 @@ async function scRetryTask(taskId) {
     // أغلق الشيت ثم أعد فتحه بالحالة الجديدة
     _scCloseSheet();
     setTimeout(() => _scOpenSheet(taskId), 80);
-    _socialToast('📋 ارفع صورة إثبات جديدة');
+    _socialToast(_st('sc_upload_toast'));
     return;
   }
 
   // مهمة بدون إثبات → أرسل مباشرة للـ API
   const btn = document.getElementById('sc-retry-btn-' + taskId);
-  if (btn) { btn.disabled = true; btn.textContent = 'جارٍ...'; }
+  if (btn) { btn.disabled = true; btn.textContent = _st('sc_sending_inline'); }
 
   try {
     const res = await _socialFetch({ type: 'social_submit_proof', task_id: taskId, proof_image: '' });
@@ -355,14 +364,14 @@ async function scRetryTask(taskId) {
       SOCIAL.cardState[taskId] = res.status === 'approved' ? 'approved' : 'pending';
       _scRefreshCard(taskId);
       _scCloseSheet();
-      _socialToast(res.status === 'approved' ? '✅ تم وإضافة النقاط' : '✅ تم الإرسال — بانتظار المراجعة');
+      _socialToast(res.status === 'approved' ? _st('sc_pts_added') : _st('sc_sent_review'));
     } else {
-      if (btn) { btn.disabled = false; btn.textContent = 'إعادة المحاولة'; }
+      if (btn) { btn.disabled = false; btn.textContent = _st('sc_retry'); }
       _socialToast('⚠️ ' + (res.error || 'خطأ'));
     }
   } catch {
-    if (btn) { btn.disabled = false; btn.textContent = 'إعادة المحاولة'; }
-    _socialToast('⚠️ تعذّر الإرسال');
+    if (btn) { btn.disabled = false; btn.textContent = _st('sc_retry'); }
+    _socialToast('⚠️ ' + _st('sc_load_err'));
   }
 }
 
@@ -386,8 +395,8 @@ function socialHandleFile(e, taskId) {
 
 async function socialSubmitProof(taskId) {
   const btn = document.getElementById(`sc-submitbtn-${taskId}`);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div style="display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></div> جارٍ الإرسال...'; }
-  _socialToast('📤 جارٍ إرسال الصورة...');
+  if (btn) { btn.disabled = true; btn.innerHTML = `<div style="display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></div> ${_st('sc_sending_inline')}`; }
+  _socialToast(_st('sc_sending'));
   try {
     const fileData = SOCIAL.pendingFiles[taskId]?.dataUrl || '';
     const res = await _socialFetch({ type: 'social_submit_proof', task_id: taskId, proof_image: fileData });
@@ -396,45 +405,45 @@ async function socialSubmitProof(taskId) {
       delete SOCIAL.pendingFiles[taskId];
       _scRefreshCard(taskId);
       _scCloseSheet();
-      const msg = res.status === 'approved' ? '✅ تم إنجاز المهمة وإضافة النقاط' : '✅ تم الإرسال — بانتظار موافقة المشرف';
+      const msg = res.status === 'approved' ? _st('sc_pts_added') : _st('sc_sent_review');
       _socialToast(msg);
     } else {
-      if (btn) { btn.disabled = false; btn.innerHTML = 'إرسال للمراجعة'; }
-      _socialToast('⚠️ ' + (typeof res.error === 'string' ? res.error : 'خطأ في الإرسال'));
+      if (btn) { btn.disabled = false; btn.innerHTML = _st('sc_send_review'); }
+      _socialToast('⚠️ ' + (typeof res.error === 'string' ? res.error : _st('sc_load_err')));
     }
   } catch {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'إرسال للمراجعة'; }
-    _socialToast('⚠️ تعذّر الإرسال');
+    if (btn) { btn.disabled = false; btn.innerHTML = _st('sc_send_review'); }
+    _socialToast('⚠️ ' + _st('sc_load_err'));
   }
 }
 
 async function socialSubmitNoProof(taskId) {
   const task = SOCIAL.tasks.find(t => t.id === taskId);
-  if (!task?.task_url) { _socialToast('⚠️ لا يوجد رابط لهذه المهمة'); return; }
+  if (!task?.task_url) { _socialToast('⚠️ ' + _st('sc_load_err')); return; }
   try {
     const res = await _socialFetch({ type: 'social_submit_proof', task_id: taskId, proof_image: '' });
     if (res.ok) {
       SOCIAL.cardState[taskId] = res.status === 'approved' ? 'approved' : 'pending';
       _scRefreshCard(taskId);
       _scCloseSheet();
-      const msg = res.status === 'approved' ? '✅ تم إنجاز المهمة وإضافة النقاط' : '✅ تم تسجيل إنجاز المهمة';
+      const msg = res.status === 'approved' ? _st('sc_pts_added') : _st('sc_sent_review');
       _socialToast(msg);
     }
-  } catch { _socialToast('⚠️ تعذّر التسجيل'); }
+  } catch { _socialToast('⚠️ ' + _st('sc_load_err')); }
 }
 
 function socialCopyPromo(taskId) {
   const el = document.getElementById(`sc-promo-${taskId}`);
   if (!el) return;
   navigator.clipboard?.writeText(el.textContent).then(() => {
-    _socialToast('✅ تم نسخ المنشور');
+    _socialToast(_st('sc_copied'));
     const btn = document.getElementById(`sc-copybtn-${taskId}`);
     if (btn) {
       btn.classList.add('copied');
-      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> تم النسخ!`;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> ${_st('sc_copy_done')}`;
       setTimeout(() => {
         btn.classList.remove('copied');
-        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> نسخ النص`;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> ${_st('sc_copy_btn')}`;
       }, 2200);
     }
   });

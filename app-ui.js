@@ -168,7 +168,9 @@ export function animateBalance(from, to, dur) {
 
 export function updateBalanceUI(pts) {
     pts = parseInt(pts)||0;
-    const f    = pts.toLocaleString('en-US');
+    const usdt   = (_AS.usdt_balance||0);
+    const fUsdt  = usdt.toFixed(4);
+    const fPts   = pts.toLocaleString('en-US');
     const balEl  = document.getElementById('uc-balance-num');
     const heroEl = document.querySelector('.balance-hero-number');
     const tonSh  = document.getElementById('ton-sheet-pts');
@@ -178,11 +180,13 @@ export function updateBalanceUI(pts) {
     const xpLvl  = document.querySelector('.uc-xp-level');
     const xpPct  = document.querySelector('.uc-xp-pct');
     const xpFill = document.querySelector('.uc-xp-fill');
-    if (balEl)  { balEl.textContent  = f; balEl.dataset.target  = pts; }
-    if (heroEl) { heroEl.textContent = f; heroEl.dataset.target = pts; }
-    if (tonSh)  tonSh.textContent = f;
-    if (tonEq)  tonEq.textContent = '≈ '+(pts/(_SC.pts_per_ton||100000)).toFixed(3)+' TON';
-    if (usdtEl) usdtEl.textContent = (_AS.usdt_balance||0).toFixed(2);
+    // الرصيد الرئيسي الآن USDT
+    if (balEl)  { balEl.textContent  = fUsdt; balEl.dataset.target = pts; }
+    if (heroEl) { heroEl.textContent = fUsdt; heroEl.dataset.target = pts; }
+    // TON sheet يعرض USDT
+    if (tonSh)  tonSh.textContent = fUsdt;
+    if (tonEq)  tonEq.textContent = '';
+    if (usdtEl) usdtEl.textContent = fUsdt;
     if (ticketsEl) ticketsEl.textContent = (_AS.tickets||0).toLocaleString('ar');
     const lvl = _AS.level||1;
     const TH  = [0,0,500,1500,3500,8000,16000,30000,55000,90000,150000];
@@ -229,18 +233,15 @@ function _updateHomeRing(lvl) {
 function _updateHomeTicker(pts, lvl) {
     const el = document.getElementById('hm-ticker-inner');
     if (!el) return;
-    const bal     = pts.toLocaleString('en-US');
-    const usdt    = (_AS.usdt_balance||0).toFixed(2);
+    const usdt    = (_AS.usdt_balance||0).toFixed(4);
     const friends = (document.querySelector('.uc-stat-val.green') || {}).textContent || '0';
     const tasks   = (document.querySelector('.uc-stat-val.blue')  || {}).textContent || '0';
     const items = [
-        { cls: 'hm-y', label: 'رصيدك',   val: bal + ' نقطة' },
-        { cls: 'hm-g', label: 'USDT',     val: usdt           },
-        { cls: 'hm-y', label: 'المستوى',  val: String(lvl)   },
-        { cls: 'hm-g', label: 'أصدقاء',  val: friends        },
-        { cls: 'hm-y', label: 'مهام',     val: tasks          },
+        { cls: 'hm-y', label: 'رصيدك',   val: usdt + ' USDT' },
+        { cls: 'hm-g', label: 'المستوى',  val: String(lvl)   },
+        { cls: 'hm-y', label: 'أصدقاء',  val: friends        },
+        { cls: 'hm-g', label: 'مهام',     val: tasks          },
     ];
-    // duplicate for seamless infinite scroll
     const html = [...items, ...items]
         .map(i => `<div class="hm-tick ${i.cls}">${i.label} <strong>${i.val}</strong></div>`)
         .join('');
@@ -303,11 +304,11 @@ async function _loadInvitePage() {
 
 function _refreshWithdrawUI() {
     const heroEl = document.getElementById('withdraw-balance-hero');
-    if (heroEl) heroEl.textContent = _AS.balance.toLocaleString('en-US');
+    if (heroEl) heroEl.textContent = (_AS.usdt_balance||0).toFixed(4);
     const fw  = _AS.first_withdraw_done;
-    const min = fw ? (_AC.withdraw.normal_min||20000) : (_AC.withdraw.first_min||3000);
+    const min = fw ? (_AC.withdraw.normal_min||0.03) : (_AC.withdraw.first_min||0.03);
     const el  = document.getElementById('withdraw-ton-min-display');
-    if (el) el.textContent = min.toLocaleString('en-US');
+    if (el) el.textContent = min + ' USDT';
 }
 
 export function _hideLoadingScreen() {
@@ -379,18 +380,17 @@ export function renderWithdrawHistory() {
     if (badge)   { badge.style.display=''; badge.textContent=_WH.length+' طلب'; }
     if (!listEl) return;
     listEl.innerHTML = _WH.slice().reverse().map(item => {
-        const ton   = (item.pts/100000).toFixed(3);
+        const usdtAmt = parseFloat(item.pts)||0;
         const addr  = item.address.length>14 ? item.address.slice(0,6)+'...'+item.address.slice(-6) : item.address;
         return `<div class="withdraw-hist-item">
             <div class="withdraw-hist-icon"><img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;"></div>
             <div class="withdraw-hist-info">
-                <div class="withdraw-hist-name">سحب TON</div>
+                <div class="withdraw-hist-name">سحب USDT</div>
                 <div class="withdraw-hist-addr">${addr}</div>
                 <div class="withdraw-hist-time">${_timeAgo(item.ts)}</div>
             </div>
             <div class="withdraw-hist-right">
-                <div class="withdraw-hist-pts">${item.pts.toLocaleString('en-US')}</div>
-                <div class="withdraw-hist-ton">${ton} TON</div>
+                <div class="withdraw-hist-pts">${usdtAmt.toFixed(4)} USDT</div>
                 <div class="withdraw-hist-badge ${item.status||"pending"}">${item.status==="completed"?"مكتمل":item.status==="rejected"?"مرفوض":"قيد المعالجة"}</div>
             </div>
         </div>`;
@@ -527,28 +527,28 @@ export function openTonWithdraw() {
     const errEl     = document.getElementById('ton-error-msg');
 
     input.value=''; errEl.style.display='none';
-    const ptsPerTon = _SC.pts_per_ton||100000;
-    ptsEl.textContent  = _AS.balance.toLocaleString('en-US');
-    equivEl.textContent= '≈ '+(_AS.balance/ptsPerTon).toFixed(3)+' TON';
+    const usdtBal = _AS.usdt_balance || 0;
+    if (ptsEl)  ptsEl.textContent  = usdtBal.toFixed(4);
+    if (equivEl) equivEl.textContent = '';
 
     const fw      = _AS.first_withdraw_done;
-    const minPts  = fw ? (_AC.withdraw.normal_min||20000) : (_AC.withdraw.first_min||3000);
+    const minUsdt = fw ? (_AC.withdraw.normal_min||0.03) : (_AC.withdraw.first_min||0.03);
     const minLvl  = fw ? (_AC.withdraw.normal_level||5)  : 0;
     const hasLvl  = fw ? _AS.level>=minLvl : true;
-    const hasPts  = _AS.balance>=minPts;
+    const hasUsdt = usdtBal >= minUsdt;
 
     levelWarn.style.display='none'; ptsWarn.style.display='none';
     const chip=document.getElementById('ton-min-chip-val');
-    if (chip) { chip.textContent=minPts.toLocaleString('en-US')+' نقطة'; chip.style.color=fw?'var(--gold)':'var(--green)'; }
+    if (chip) { chip.textContent=minUsdt+' USDT'; chip.style.color=fw?'var(--gold)':'var(--green)'; }
     const firstOffer=document.getElementById('first-withdraw-offer');
     if (firstOffer) firstOffer.style.display=fw?'none':'flex';
     const minPtsEl=document.getElementById('ton-min-pts');
-    if (minPtsEl) minPtsEl.textContent=minPts.toLocaleString('en-US');
+    if (minPtsEl) minPtsEl.textContent=minUsdt+' USDT';
     const warnMin=document.getElementById('ton-pts-warn-min');
-    if (warnMin) warnMin.textContent=minPts.toLocaleString('en-US');
+    if (warnMin) warnMin.textContent=minUsdt+' USDT';
 
     if (!hasLvl) { levelWarn.style.display=''; if(curLvlEl) curLvlEl.textContent=_AS.level; submitBtn.disabled=true; }
-    else if (!hasPts) { ptsWarn.style.display=''; submitBtn.disabled=true; }
+    else if (!hasUsdt) { ptsWarn.style.display=''; submitBtn.disabled=true; }
     else submitBtn.disabled=false;
 
     overlay.classList.add('visible');
@@ -598,7 +598,7 @@ export async function submitTonWithdraw() {
     renderWithdrawHistory();
     closeTonWithdraw();
     showToast('trophy','تم إرسال طلب السحب! 🎉','سيتم معالجة طلبك قريباً','green','✓');
-    pushNotif('ton','طلب سحب TON مُرسَل',`${item.pts.toLocaleString('en-US')} نقطة قيد المعالجة`);
+    pushNotif('ton','طلب سحب TON مُرسَل',`${(parseFloat(item.pts)||0).toFixed(4)} USDT قيد المعالجة`);
 }
 
 export function copyReferralLink() {
