@@ -353,12 +353,6 @@ export async function watchAd() {
             bNow.classList.remove('disabled');
         }
 
-        // تحديث رصيد USDT من السيرفر
-        if (result.usdt_balance !== undefined) {
-            _AS.usdt_balance = parseFloat(result.usdt_balance) || 0;
-        }
-        updateBalanceUI(_AS.balance);
-
         // updateAdUI بدون تدخّل بالزر إذا عنده عدّاد
         _updateAdUINoBtn();
 
@@ -369,12 +363,12 @@ export async function watchAd() {
             try { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); } catch(e){}
 
             if (result.partial) {
+                // نصف جائزة — toast مخصص مع play.jpg
                 showPartialAdToast(ticketsPts);
-                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة (نصف جائزة) +$${(result.usdt_earned||0.0005).toFixed(4)}`);
+                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة (نصف جائزة)`);
             } else {
-                const usdtEarned = result.usdt_earned || 0.001;
-                showToast('trophy',`+${ticketsPts} تذكرة 🎟 +$${usdtEarned.toFixed(4)} USDT`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${ticketsPts}`);
-                pushNotif('gold',`إعلان #${result.watchedToday}`,`+${ticketsPts} تذكرة • +$${usdtEarned.toFixed(4)} USDT`);
+                showToast('trophy',`تم إضافة +${ticketsPts} تذكرة 🎟️`,`شاهدت ${result.watchedToday} إعلان اليوم`,'green',`+${ticketsPts}`);
+                pushNotif('gold',`تذاكر مسابقة #${result.watchedToday}`,`+${ticketsPts} تذكرة أُضيفت لرصيدك`);
             }
             // تحديث عداد التيكيت في الصفحة الرئيسية
             if (result.total_tickets !== undefined) {

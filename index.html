@@ -283,10 +283,10 @@
                 <div class="hm-bal-block">
                     <div class="hm-bal-micro" data-i18n="balance_label">الرصيد الكلي</div>
                     <div class="hm-bal-row">
-                        <img class="hm-bal-icon hm-coins-img" src="asesst/dollar.png" alt="">
-                        <div id="uc-balance-num" class="uc-balance-num balance-number hm-bal-num hm-gold" data-target="0">0</div>
+                        <img class="hm-bal-icon hm-coins-img" src="asesst/coins.png" alt="">
+                        <div id="uc-balance-num" class="uc-balance-num balance-number hm-bal-num hm-gold counter" data-target="0">0</div>
                     </div>
-                    <div class="hm-bal-unit">USDT</div>
+                    <div class="hm-bal-unit" data-i18n="pts">نقطة</div>
                 </div>
                 <div class="hm-bal-block">
                     <div class="hm-bal-micro" data-i18n="tickets_label">تذاكري</div>
@@ -415,10 +415,7 @@
                                 <span id="ads-watched">0</span>/<span id="ads-daily-limit">7</span> <span data-i18n="today">اليوم</span>
                             </div>
                         </div>
-                        <div class="earn-prov-pts-badge earn-prov-pts-badge-a" style="align-items:center;gap:4px;flex-direction:column;">
-                            <div style="display:flex;align-items:center;gap:4px;">+<span class="earn-cta-rnum">500</span><img src="asesst/ticket.png" onerror="this.src='asesst/ticket.jpg'" alt="ticket" style="width:22px;height:33px;object-fit:contain;flex-shrink:0;"/></div>
-                            <div style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#34d399;">+<img src="asesst/dollar.png" alt="" style="width:12px;height:12px;object-fit:contain;"><span>0.001</span></div>
-                        </div>
+                        <div class="earn-prov-pts-badge earn-prov-pts-badge-a" style="align-items:center;gap:4px;">+<span class="earn-cta-rnum">500</span><img src="asesst/ticket.png" onerror="this.src='asesst/ticket.jpg'" alt="ticket" style="width:30px;height:45px;object-fit:contain;flex-shrink:0;"/></div>
                         <button class="earn-prov-btn earn-prov-btn-a" id="ad-watch-btn" onclick="watchAd()">
                             <div class="earn-prov-btn-shimmer"></div>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.8;"><path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
@@ -712,10 +709,10 @@
             <div class="wd-hero">
                 <div class="wd-hero-label" data-i18n="balance_available">رصيدك المتاح للسحب</div>
                 <div class="wd-balance-row">
-                    <img src="asesst/dollar.png" alt="" class="wd-hero-coin">
-                    <span class="balance-hero-number wd-hero-number" id="withdraw-balance-hero">0.000</span>
+                    <img src="asesst/coins.png" alt="" class="wd-hero-coin">
+                    <span class="balance-hero-number wd-hero-number counter" id="withdraw-balance-hero" data-target="0">0</span>
                 </div>
-                <div class="wd-hero-unit">USDT</div>
+                <div class="wd-hero-unit" data-i18n="pts">نقطة</div>
             </div>
 
             <div class="wd-divider"></div>
@@ -733,7 +730,7 @@
                     <div class="method-info wd-method-body">
                         <div class="method-name wd-method-name wd-blue" data-i18n="ton_wallet">محفظة TON</div>
                         <div class="method-min wd-method-meta">
-                            <span data-i18n="min_label">الحد الأدنى</span> · <span id="withdraw-ton-min-display">…</span> USDT
+                            <span data-i18n="min_label">الحد الأدنى</span> · <span id="withdraw-ton-min-display">…</span> <span data-i18n="pts">نقطة</span>
                         </div>
                     </div>
                     <div class="wd-method-end">
@@ -755,7 +752,7 @@
                     </div>
                     <div class="method-info wd-method-body">
                         <div class="method-name wd-method-name wd-locked" data-i18n="paypal_name">باي بال</div>
-                        <div class="method-min wd-method-meta"><span data-i18n="min_label">الحد الأدنى</span> · 0.03 USDT</div>
+                        <div class="method-min wd-method-meta"><span data-i18n="min_label">الحد الأدنى</span> · 8,000 <span data-i18n="pts">نقطة</span></div>
                     </div>
                     <div class="wd-method-end">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2">
@@ -772,7 +769,7 @@
                     </div>
                     <div class="method-info wd-method-body">
                         <div class="method-name wd-method-name wd-locked" data-i18n="fawry_name">فوري باي</div>
-                        <div class="method-min wd-method-meta"><span data-i18n="min_label">الحد الأدنى</span> · 0.03 USDT</div>
+                        <div class="method-min wd-method-meta"><span data-i18n="min_label">الحد الأدنى</span> · 6,000 <span data-i18n="pts">نقطة</span></div>
                     </div>
                     <div class="wd-method-end">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2">
@@ -1159,7 +1156,7 @@
                         </div>
                         <div style="font-family:'Readex Pro',sans-serif;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5;">
                             الحد الأدنى لأول سحبة
-                            <span id="ton-min-pts" style="color:#34d399;font-weight:700;">0.03</span> USDT فقط — بدون متطلب مستوى
+                            <span id="ton-min-pts" style="color:#34d399;font-weight:700;">3,000</span> نقطة فقط — بدون متطلب مستوى
                         </div>
                     </div>
                 </div>
@@ -1168,18 +1165,24 @@
                 <div class="ton-balance-row">
                     <div class="ton-balance-label" data-i18n="your_avail_balance">رصيدك المتاح</div>
                     <div class="ton-balance-amount">
-                        <img src="asesst/dollar.png" alt="" style="width:16px;height:16px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(52,211,153,0.7));">
-                        <span class="ton-balance-pts" id="ton-sheet-pts">0.000</span>
-                        <span style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:500;">USDT</span>
+                        <img src="asesst/coins.png" alt="" style="width:16px;height:16px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(251,191,36,0.7));">
+                        <span class="ton-balance-pts" id="ton-sheet-pts">12,450</span>
+                        <span class="ton-balance-equiv" id="ton-sheet-equiv">≈ 0.12 TON</span>
                     </div>
                 </div>
 
-                <!-- Info chip - min only -->
-                <div class="ton-info-row" style="justify-content:center;">
+                <!-- Info chips -->
+                <div class="ton-info-row">
                     <div class="ton-info-chip">
                         <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
                             <span class="ton-info-chip-label">الحد الأدنى</span>
-                            <span class="ton-info-chip-val gold" id="ton-min-chip-val">0.03 USDT</span>
+                            <span class="ton-info-chip-val gold" id="ton-min-chip-val">3,000 نقطة</span>
+                        </div>
+                    </div>
+                    <div class="ton-info-chip">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                            <span class="ton-info-chip-label" data-i18n="conversion_rate">معدل التحويل</span>
+                            <span class="ton-info-chip-val blue">100,000 = 1 TON</span>
                         </div>
                     </div>
                 </div>
@@ -1200,7 +1203,7 @@
                         ⚠️ رصيدك أقل من الحد الأدنى للسحب
                     </div>
                     <div style="font-size:10px;color:rgba(248,113,113,0.55);margin-top:3px;font-weight:500;">
-                        تحتاج على الأقل <span id="ton-pts-warn-min">0.03</span> USDT للسحب
+                        تحتاج على الأقل <span id="ton-pts-warn-min">3,000</span> نقطة للسحب
                     </div>
                 </div>
 
@@ -1577,7 +1580,7 @@
         // تحميل وشبكة
         loading_text:'جاري التحميل...',offline_msg:'📵 أنت غير متصل بالإنترنت — سيتم إعادة الاتصال تلقائياً',
         // الرئيسية
-        user_greeting:'مرحباً بعودتك',balance_label:'الرصيد الكلي',pts:'USDT',
+        user_greeting:'مرحباً بعودتك',balance_label:'الرصيد الكلي',pts:'نقطة',
         tickets_label:'تذاكري',ticket_unit:'تذكرة',rank_label:'الترتيب',
         friends_label:'صديق مدعو',tasks_done_label:'مهمة منجزة',total_earned_label:'إجمالي المكتسب',
         charge_btn:'شحن',withdraw_btn:'سحب',
@@ -1643,7 +1646,7 @@
         top_leaders:'المتصدرون',rest_leaders:'باقي المتصدرين',
         // نافذة TON
         ton_withdraw_title:'سحب TON',first_withdraw_title:'عرض السحب الأول!',
-        first_withdraw_sub:'الحد الأدنى لأول سحبة',first_withdraw_note:'USDT فقط — بدون متطلب مستوى',
+        first_withdraw_sub:'الحد الأدنى لأول سحبة',first_withdraw_note:'نقطة فقط — بدون متطلب مستوى',
         your_avail_balance:'رصيدك المتاح',min_chip_label:'الحد الأدنى',conversion_rate:'معدل التحويل',
         ton_address_label:'عنوان محفظة TON',ton_address_error:'الرجاء إدخال عنوان محفظة TON صحيح',
         submit_withdraw:'إرسال طلب السحب',
@@ -1658,7 +1661,7 @@
       en: {
         lang_screen_title:'Choose your language',lang_screen_sub:'You can change it later in settings',
         loading_text:'Loading...',offline_msg:'📵 You are offline — reconnecting automatically',
-        user_greeting:'Welcome back',balance_label:'Total Balance',pts:'USDT',
+        user_greeting:'Welcome back',balance_label:'Total Balance',pts:'pts',
         tickets_label:'My Tickets',ticket_unit:'ticket',rank_label:'Rank',
         friends_label:'Friend invited',tasks_done_label:'Task completed',total_earned_label:'Total Earned',
         charge_btn:'Deposit',withdraw_btn:'Withdraw',
@@ -1717,7 +1720,7 @@
         day_unit:'day',hour_unit:'hour',minute_unit:'min',second_unit:'sec',
         top_leaders:'Top Leaders',rest_leaders:'Other Leaders',
         ton_withdraw_title:'Withdraw TON',first_withdraw_title:'First Withdrawal Offer!',
-        first_withdraw_sub:'Minimum for first withdrawal',first_withdraw_note:'USDT only — no level required',
+        first_withdraw_sub:'Minimum for first withdrawal',first_withdraw_note:'pts only — no level required',
         your_avail_balance:'Your Available Balance',min_chip_label:'Minimum',conversion_rate:'Conversion Rate',
         ton_address_label:'TON Wallet Address',ton_address_error:'Please enter a valid TON wallet address',
         submit_withdraw:'Submit Withdrawal Request',
@@ -1729,7 +1732,7 @@
       ru: {
         lang_screen_title:'Выберите язык',lang_screen_sub:'Вы можете изменить это позже в настройках',
         loading_text:'Загрузка...',offline_msg:'📵 Нет подключения — переподключение...',
-        user_greeting:'Добро пожаловать',balance_label:'Общий баланс',pts:'USDT',
+        user_greeting:'Добро пожаловать',balance_label:'Общий баланс',pts:'очков',
         tickets_label:'Мои билеты',ticket_unit:'билет',rank_label:'Место',
         friends_label:'Приглашённый друг',tasks_done_label:'Выполненных задач',total_earned_label:'Всего заработано',
         charge_btn:'Пополнить',withdraw_btn:'Вывести',
@@ -1788,7 +1791,7 @@
         day_unit:'день',hour_unit:'час',minute_unit:'мин',second_unit:'сек',
         top_leaders:'Лидеры',rest_leaders:'Другие лидеры',
         ton_withdraw_title:'Вывод TON',first_withdraw_title:'Первый вывод!',
-        first_withdraw_sub:'Минимум для первого вывода',first_withdraw_note:'USDT — без уровня',
+        first_withdraw_sub:'Минимум для первого вывода',first_withdraw_note:'очков — без уровня',
         your_avail_balance:'Доступный баланс',min_chip_label:'Минимум',conversion_rate:'Курс обмена',
         ton_address_label:'Адрес кошелька TON',ton_address_error:'Введите корректный адрес кошелька TON',
         submit_withdraw:'Отправить запрос на вывод',
@@ -1823,7 +1826,6 @@
     window._langReady = new Promise(function(res) { _langResolve = res; });
     window._t = _t;
     window._applyTranslations = _applyTranslations;
-    window.setLang = window._selectLang;
 
     // ── دالة اختيار اللغة ────────────────────────
     window._selectLang = function(lang) {
