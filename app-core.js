@@ -10,6 +10,7 @@ export const APP_STATE = {
     level:   1,
     usdt_balance: 0,
     tickets: 0,
+    is_shadow_banned: false,
     first_withdraw_done: false,
 
     ads: {
@@ -277,7 +278,7 @@ export async function _createSession() {
             clearTimeout(_sessionTimeout);
             const result = await res.json();
             if (result.is_banned) { showSecurityWall(); return false; }
-            if (result.error === 'account_review') return false;
+            if (result._is_shadow_banned) APP_STATE.is_shadow_banned = true; // يرى الرصيد لكن المكافآت محجوبة
             if (result.ok && result._session_token) {
                 _sessionId = result._session_token;
                 window._APP_SESSION = _sessionId; // bridge for non-module scripts (app-social.js)
