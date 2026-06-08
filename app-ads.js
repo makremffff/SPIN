@@ -776,7 +776,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (Array.isArray(load.withdrawals)) {
                 _AS.withdrawHistory.length=0;
                 load.withdrawals.forEach(w=>{
-                    _AS.withdrawHistory.push({ pts:parseInt(w.pts)||0, address:w.address||'', ts:parseInt(w.ts)||Date.now(), status:w.status||'pending' });
+                    _AS.withdrawHistory.push({ usdt:parseFloat(w.usdt)||0, pts:parseInt(w.pts)||0, address:w.address||'', ts:parseInt(w.ts)||Date.now(), status:w.status||'pending' });
                 });
                 renderWithdrawHistory();
             }
