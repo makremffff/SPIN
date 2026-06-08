@@ -130,7 +130,7 @@ function _scStartBtn(taskId, reward) {
   }
   // idle / upload — عرض التذاكر بدل النقاط
   return `<div class="c-start">
-    <span class="start-pts">${Number(reward).toLocaleString()}<img class="coin-img" src="asesst/ticket.png" alt="" onerror="this.src='asesst/ticket.jpg'"></span>
+    <span class="start-pts">${Number(reward).toLocaleString()}<img class="coin-img" src="asesst/dollar.png" alt="" onerror="this.src='asesst/dollar.png'"></span>
     <span class="start-lbl">${_st('sc_start_lbl')}</span>
   </div>`;
 }
@@ -289,7 +289,7 @@ function _scOpenSheet(taskId) {
         <div class="sheet-plat">${_scPlatName(task.icon)}</div>
       </div>
       <div class="sheet-pts-badge">
-        <span class="sheet-pts-num">${Number(task.reward).toLocaleString()}<img src="asesst/ticket.png" onerror="this.src='asesst/ticket.jpg'" alt="" style="width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(99,220,130,.4))"></span>
+        <span class="sheet-pts-num">${Number(task.reward).toLocaleString()}<img src="asesst/dollar.png" onerror="this.src='asesst/dollar.png'" alt="" style="width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(99,220,130,.4))"></span>
         <span class="sheet-pts-lbl">${_st('ticket_unit')}</span>
       </div>
     </div>
