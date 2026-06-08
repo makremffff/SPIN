@@ -182,10 +182,6 @@ function _scOpenSheet(taskId) {
           </div>
         </div>
       </div>`;
-            <div class="review-banner-sub">سيتم مراجعة إثباتك وإضافة النقاط قريباً</div>
-          </div>
-        </div>
-      </div>`;
   } else if (state === 'approved') {
     actionHTML = `
       <div class="sheet-section">
