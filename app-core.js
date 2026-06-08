@@ -66,7 +66,7 @@ export function _applyConfigToUI() {
         el.href = APP_CONFIG.telegram.channel_url;
     });
     document.querySelectorAll('.referral-reward-badge').forEach(el => {
-        el.textContent = '+' + (APP_CONFIG.rewards.referral||100).toLocaleString('en-US');
+        el.textContent = '+$' + (APP_CONFIG.rewards.referral||0.01).toFixed(2);
     });
     document.querySelectorAll('.tg-task-reward-badge').forEach(el => {
         el.textContent = '+' + (APP_CONFIG.rewards.telegram_task||200).toLocaleString('en-US');
@@ -81,7 +81,7 @@ export function _applyConfigToUI() {
         el.textContent = '+' + (APP_CONFIG.rewards.daily_referrals_3||3000).toLocaleString('en-US');
     });
     document.querySelectorAll('.inv-referral-pts-badge').forEach(el => {
-        const pts = APP_CONFIG.rewards.referral || 100;
+        const pts = APP_CONFIG.rewards.referral || 0.01;
         // الـ chip في صفحة earn يبدأ بـ + ، الـ pill في invite يحتوي على "نقطة"
         if (el.textContent.startsWith('+')) {
             el.textContent = '+' + pts.toLocaleString('en-US');

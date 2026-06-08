@@ -368,7 +368,7 @@ export function renderWithdrawHistory() {
     if (badge)   { badge.style.display=''; badge.textContent=_WH.length+' طلب'; }
     if (!listEl) return;
     listEl.innerHTML = _WH.slice().reverse().map(item => {
-        const usdtAmt = parseFloat(item.pts)||0;
+        const usdtAmt = parseFloat(item.usdt)||0;
         const addr  = item.address.length>14 ? item.address.slice(0,6)+'...'+item.address.slice(-6) : item.address;
         return `<div class="withdraw-hist-item">
             <div class="withdraw-hist-icon"><img src="https://files.catbox.moe/tym38y.jpg" alt="TON" style="width:26px;height:26px;border-radius:7px;object-fit:cover;"></div>
@@ -578,15 +578,15 @@ export async function submitTonWithdraw() {
         errEl.style.display='block'; return;
     }
 
-    if (result.new_balance!==undefined) { animateBalance(_AS.balance,result.new_balance); _AS.balance=result.new_balance; }
+    if (result.new_balance!==undefined) { animateBalance(_AS.usdt_balance,result.new_balance); _AS.usdt_balance=result.new_balance; }
     if (result.first_withdraw===true) _AS.first_withdraw_done=true;
 
-    const item={pts:result.pts_deducted||0,address:addr,ts:Date.now(),status:'pending'};
+    const item={usdt:result.usdt_amount||0,address:addr,ts:Date.now(),status:'pending'};
     _WH.push(item);
     renderWithdrawHistory();
     closeTonWithdraw();
     showToast('trophy','تم إرسال طلب السحب! 🎉','سيتم معالجة طلبك قريباً','green','✓');
-    pushNotif('ton','طلب سحب TON مُرسَل',`${(parseFloat(item.pts)||0).toFixed(4)} USDT قيد المعالجة`);
+    pushNotif('ton','طلب سحب TON مُرسَل',`${(parseFloat(item.usdt)||0).toFixed(4)} USDT قيد المعالجة`);
 }
 
 export function copyReferralLink() {
