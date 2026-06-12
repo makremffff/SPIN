@@ -53,14 +53,14 @@ function renderYouCard() {
 /* ── Render: podium (top 3) ─────────────────────────────── */
 function renderPodium() {
   const slots = [
-    { rank: 1, sel: '.pod-slot.first'  },
-    { rank: 2, sel: '.pod-slot.second' },
-    { rank: 3, sel: '.pod-slot.third'  }
+    { idx: 0, sel: '.pod-slot.first'  },
+    { idx: 1, sel: '.pod-slot.second' },
+    { idx: 2, sel: '.pod-slot.third'  }
   ];
-  slots.forEach(({ rank, sel }) => {
+  slots.forEach(({ idx, sel }) => {
     const slot = document.querySelector(sel);
     if (!slot) return;
-    const entry    = appState.leaderboard.find(e => e.rank === rank);
+    const entry    = appState.leaderboard[idx];
     const avatar   = slot.querySelector('.pod-avatar');
     const ptsValue = slot.querySelector('.pod-pts-value');
     const ptsNum   = slot.querySelector('.pod-pts-num');
@@ -83,15 +83,19 @@ function renderPodium() {
 function renderLeaderboardRows() {
   const container = document.getElementById('lb-rows');
   if (!container) return;
-  const rows = appState.leaderboard.filter(e => e.rank > 3).slice(0, 5);
+
+  // Use positional slice (not rank filter) — avoids RANK() tie bug where
+  // users with equal pts all get rank=1, leaving rows 4-8 forever as skeleton.
+  const rows = appState.leaderboard.slice(3, 8);
   if (rows.length === 0) return; // keep skeleton until data arrives
 
   container.innerHTML = '';
-  rows.forEach(entry => {
+  rows.forEach((entry, i) => {
+    const displayRank = entry.rank ?? (i + 4);
     const row = document.createElement('div');
     row.className = 'lb-row';
     row.innerHTML = `
-      <span class="lb-rank">${entry.rank}</span>
+      <span class="lb-rank">${displayRank}</span>
       <div class="lb-avatar">
         <img alt="">
         <div class="lb-avatar-placeholder">${LB_AVATAR_SVG}</div>
