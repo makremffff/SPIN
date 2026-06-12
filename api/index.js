@@ -115,7 +115,7 @@ async function upsertUser(tgUser, startParam = null) {
     const joinerName = first_name || username || 'Someone';
     await sendTelegramMessage(
       referredBy,
-      `🎉 *${joinerName}* joined BigLeague using your referral link!\n\nYou earned *+5,000 competition points* 🏆\n\nKeep sharing to climb the leaderboard!`
+      `🎉 *${joinerName}*  joined BigLeague using your referral link!\n\nYou earned *+5,000 competition points* 🏆\n\nKeep sharing to climb the leaderboard!`
     );
   }
 
