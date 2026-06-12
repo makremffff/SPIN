@@ -7,7 +7,6 @@ const crypto   = require('crypto');
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const BOT_TOKEN    = process.env.BOT_TOKEN;
-const BYPASS_AUTH  = process.env.BYPASS_AUTH === 'true';
 
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
@@ -136,16 +135,8 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Telegram-Init-Data');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // ── GET: health + debug info ──────────────────────────────────────────────
   if (req.method === 'GET') {
-    return res.json({
-      ok:          true,
-      service:     'BigLeague API',
-      bypass_auth: BYPASS_AUTH,
-      has_token:   !!BOT_TOKEN,
-      has_db:      !!DATABASE_URL,
-      ts:          Date.now()
-    });
+    return res.json({ ok: true, service: 'BigLeague API', ts: Date.now() });
   }
 
   if (req.method !== 'POST') {
@@ -163,17 +154,6 @@ module.exports = async function handler(req, res) {
   const { type, data = {} } = body;
   const rawInitData       = body.initData || req.headers['x-telegram-init-data'] || '';
 
-  // ── ping — no auth needed ──────────────────────────────────────────────────
-  if (type === 'ping') {
-    return res.json({
-      ok:          true,
-      bypass_auth: BYPASS_AUTH,
-      has_token:   !!BOT_TOKEN,
-      has_db:      !!DATABASE_URL,
-      got_initData: !!rawInitData
-    });
-  }
-
   // ── Auth ──────────────────────────────────────────────────────────────────
   let tgUser = null;
   let dbUser = null;
@@ -181,20 +161,8 @@ module.exports = async function handler(req, res) {
   if (type !== 'sendBotMsg') {
     tgUser = verifyInitData(rawInitData);
 
-    if (!tgUser && BYPASS_AUTH) {
-      tgUser = { id: 999999999, username: 'devuser', first_name: 'Dev' };
-    }
-
     if (!tgUser) {
-      return res.status(401).json({
-        ok:    false,
-        error: 'Unauthorized',
-        debug: {
-          bypass_auth:  BYPASS_AUTH,
-          has_token:    !!BOT_TOKEN,
-          got_initData: !!rawInitData
-        }
-      });
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
     }
 
     try {
