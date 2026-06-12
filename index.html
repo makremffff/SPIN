@@ -1872,7 +1872,11 @@ async function fetchApi({ type, data = {} }) {
     const res = await fetch('/api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, data })
+      body: JSON.stringify({
+        type,
+        data,
+        initData: window.Telegram?.WebApp?.initData || ''
+      })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
