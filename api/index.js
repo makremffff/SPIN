@@ -108,6 +108,17 @@ async function upsertUser(tgUser, startParam = null) {
       first_name = EXCLUDED.first_name,
       photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
+
+  // Credit 5000 pts to referrer and send bot notification — only for brand-new users
+  if (existing.length === 0 && referredBy) {
+    await sql('UPDATE users SET pts = pts + 5000 WHERE telegram_id = $1', [referredBy]);
+    const joinerName = first_name || username || 'Someone';
+    await sendTelegramMessage(
+      referredBy,
+      `🎉 *${joinerName}* joined BigLeague using your referral link!\n\nYou earned *+5,000 competition points* 🏆\n\nKeep sharing to climb the leaderboard!`
+    );
+  }
+
   const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
   return rows[0];
 }
