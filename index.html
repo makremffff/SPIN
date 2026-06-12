@@ -204,6 +204,19 @@ body::before {
 .pod-pts-value {
   margin-top: 8px;
   display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pod-pts-value .coin-ic {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
+}
+
+.pod-pts-value span {
   font-family: 'DynaPuff', cursive;
   font-weight: 700;
   font-size: 11px;
@@ -1557,7 +1570,7 @@ nav {
             </div>
             <!-- hidden until real data -->
             <div class="pod-hidden-pts"></div>
-            <span class="pod-pts-value"></span>
+            <div class="pod-pts-value"><img class="coin-ic" src="asesst/coins.png" alt="coin"><span class="pod-pts-num"></span></div>
             <span class="pod-earn">$10</span>
           </div>
 
@@ -1574,7 +1587,7 @@ nav {
               </div>
             </div>
             <div class="pod-hidden-pts"></div>
-            <span class="pod-pts-value"></span>
+            <div class="pod-pts-value"><img class="coin-ic" src="asesst/coins.png" alt="coin"><span class="pod-pts-num"></span></div>
             <span class="pod-earn">$20</span>
           </div>
 
@@ -1591,7 +1604,7 @@ nav {
               </div>
             </div>
             <div class="pod-hidden-pts"></div>
-            <span class="pod-pts-value"></span>
+            <div class="pod-pts-value"><img class="coin-ic" src="asesst/coins.png" alt="coin"><span class="pod-pts-num"></span></div>
             <span class="pod-earn">$5</span>
           </div>
 
@@ -1714,7 +1727,6 @@ nav {
             </div>
             <span class="you-tag">Your position</span>
           </div>
-          <span class="lb-reward">—</span>
         </div>
       </div>
 
@@ -2015,15 +2027,14 @@ function renderPodium() {
     const entry    = appState.leaderboard.find(e => e.rank === rank);
     const avatar   = slot.querySelector('.pod-avatar');
     const ptsValue = slot.querySelector('.pod-pts-value');
+    const ptsNum   = slot.querySelector('.pod-pts-num');
     const shimmer  = slot.querySelector('.pod-hidden-pts');
 
     if (entry) {
       const photo = entry.telegram_id === appState.user.telegram_id ? getMyPhotoUrl() : entry.photo_url;
       setAvatar(avatar, photo);
-      if (ptsValue) {
-        ptsValue.textContent = (entry.pts || 0).toLocaleString();
-        ptsValue.style.display = 'block';
-      }
+      if (ptsNum) ptsNum.textContent = (entry.pts || 0).toLocaleString();
+      if (ptsValue) ptsValue.style.display = 'flex';
       if (shimmer) shimmer.style.display = 'none';
     } else {
       setAvatar(avatar, null);
