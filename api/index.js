@@ -22,12 +22,15 @@ async function ensureSchema() {
     telegram_id   BIGINT  UNIQUE NOT NULL,
     username      TEXT,
     first_name    TEXT,
+    photo_url     TEXT,
     pts           BIGINT  NOT NULL DEFAULT 0,
     balance_usd   NUMERIC(10,2) NOT NULL DEFAULT 0,
     referral_code TEXT    UNIQUE,
     referred_by   BIGINT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  // Backfill for tables created before photo_url existed
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`);
   await sql(`CREATE TABLE IF NOT EXISTS withdrawals (
     id         SERIAL PRIMARY KEY,
     user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -82,15 +85,16 @@ function verifyInitData(initData) {
 //  DB Helpers
 // ══════════════════════════════════════════════════════════════════════════════
 async function upsertUser(tgUser) {
-  const { id: telegram_id, username = null, first_name = null } = tgUser;
+  const { id: telegram_id, username = null, first_name = null, photo_url = null } = tgUser;
   const refCode = `REF${telegram_id}`;
   await sql(`
-    INSERT INTO users (telegram_id, username, first_name, referral_code)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code)
+    VALUES ($1, $2, $3, $4, $5)
     ON CONFLICT (telegram_id) DO UPDATE SET
       username   = EXCLUDED.username,
-      first_name = EXCLUDED.first_name
-  `, [telegram_id, username, first_name, refCode]);
+      first_name = EXCLUDED.first_name,
+      photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
+  `, [telegram_id, username, first_name, photo_url, refCode]);
   const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
   return rows[0];
 }
@@ -108,6 +112,7 @@ async function getLeaderboard(limit = 8) {
     SELECT telegram_id,
            COALESCE(first_name, username, 'Anonymous') AS name,
            pts,
+           photo_url,
            RANK() OVER (ORDER BY pts DESC)::INT AS rank
     FROM users ORDER BY pts DESC LIMIT $1
   `, [limit]);
@@ -190,6 +195,7 @@ module.exports = async function handler(req, res) {
             id:            dbUser.id,
             telegram_id:   Number(dbUser.telegram_id),
             name:          dbUser.first_name || dbUser.username || 'You',
+            photo_url:     dbUser.photo_url || null,
             pts:           Number(dbUser.pts),
             balance_usd:   parseFloat(dbUser.balance_usd),
             referral_code: dbUser.referral_code,
@@ -198,6 +204,7 @@ module.exports = async function handler(req, res) {
           leaderboard: leaderboard.map(r => ({
             telegram_id: Number(r.telegram_id),
             name: r.name,
+            photo_url: r.photo_url || null,
             pts:  Number(r.pts),
             rank: r.rank
           })),
