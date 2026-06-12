@@ -1,207 +1,404 @@
-'use strict';
+// ══════════════════════════════════════════════════════════════════════════════
+//  api/index.js  —  BigLeague · Vercel Serverless Function
+//  Routes: POST /api  →  { type, data }
+//          GET  /api  →  health check
+//
+//  ENV VARS required:
+//    DATABASE_URL   — Neon connection string
+//    BOT_TOKEN      — Telegram bot token (for sendMessage + initData verify)
+//
+//  Frontend must send initData in every POST body:
+//    body: JSON.stringify({ type, data, initData: window.Telegram.WebApp.initData })
+// ══════════════════════════════════════════════════════════════════════════════
 
-const {
-  handleSocialGetTasks,
-  handleSocialSubmitProof,
-  handleSocialAdminGetProofs,
-  handleSocialAdminReview,
-  handleSocialAdminTasks,
-} = require('../lib/services-social');
+const { neon } = require('@neondatabase/serverless');
+const crypto   = require('crypto');
 
-const { CFG, ADMIN_SECRET } = require('../lib/config');
-const { grantTickets: grantCompetitionTickets } = require('./competition');
-const { rateLimitMap, ensureBootstrap } = require('../lib/db');
-const { hashIp, hashFp, getIp, rateLimit } = require('../lib/utils');
-const { validateSession, issueNonce, writeAudit } = require('../lib/security');
-const {
-  handleGetConfig, handleCreateSession, handleLoad, handleGetState,
-  handleStartAd, handleRewardAd, handleMonetagReward, handleStartAdsgramTask, handleClaimAdsgramTask,
-  handleClaimDailyMission, handleClaimGift, handleGetChannels,
-  handleVerifyChannelTask, handleCheckChannelMembership, handleVerifyTgTask, handleSubmitWithdraw,
-  handleGetReferrals, handleTrackAdEvent, handleAdmin, handleAdsgramCallback,
-} = require('../lib/services');
+const DATABASE_URL = process.env.DATABASE_URL;
+const BOT_TOKEN    = process.env.BOT_TOKEN;
 
-module.exports = async function handler(req, res) {
-  // ── Bootstrap DB ──────────────────────────────────────────────
-  try { await ensureBootstrap(); } catch (_) {}
+// ── SQL executor — single connection reused across invocations (Neon best practice) ──
+const _db = neon(DATABASE_URL);
+async function sql(query, params = []) {
+  return await _db(query, params);
+}
 
-  // ── GET /config ───────────────────────────────────────────────
-  if (req.method === 'GET' && (req.url || '').includes('/config')) {
-    res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
-    res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).json(handleGetConfig());
-  }
+// ══════════════════════════════════════════════════════════════════════════════
+//  Schema — idempotent, runs on every cold start
+// ══════════════════════════════════════════════════════════════════════════════
+async function ensureSchema() {
+  await sql(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            SERIAL PRIMARY KEY,
+      telegram_id   BIGINT  UNIQUE NOT NULL,
+      username      TEXT,
+      first_name    TEXT,
+      pts           BIGINT  NOT NULL DEFAULT 0,         -- tickets / coins
+      balance_usd   NUMERIC(10,2) NOT NULL DEFAULT 0,  -- USDT balance
+      referral_code TEXT    UNIQUE,
+      referred_by   BIGINT  REFERENCES users(telegram_id),
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
-  // ── Adsgram Server Callback ───────────────────────────────────
-  if (req.method === 'GET' && (req.url || '').includes('adsgram-reward')) {
-    return handleAdsgramCallback(req, res);
-  }
+  await sql(`
+    CREATE TABLE IF NOT EXISTS withdrawals (
+      id         SERIAL PRIMARY KEY,
+      user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      address    TEXT NOT NULL,
+      memo       TEXT,
+      amount     NUMERIC(10,2) NOT NULL,
+      status     TEXT NOT NULL DEFAULT 'pending',     -- pending | approved | rejected
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
-  res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers',
-    'Content-Type, X-Init-Data, X-Fingerprint, X-Nonce, X-Admin-Secret, X-Session-Id, X-Session-ID'
-  );
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST')   return res.status(405).json({ error: 'method_not_allowed' });
+  await sql(`
+    CREATE TABLE IF NOT EXISTS ad_watches (
+      id         SERIAL PRIMARY KEY,
+      user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reward     INT NOT NULL DEFAULT 750,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
-  let body = req.body;
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (_) { return res.status(400).json({ error: 'invalid_json' }); }
-  }
-  if (!body || typeof body !== 'object') body = {};
+  await sql(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id         SERIAL PRIMARY KEY,
+      user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      action     TEXT NOT NULL,                       -- ref_copy | share | ...
+      meta       JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
-  const type = body?.type || '';
-  if (!type) return res.status(400).json({ error: 'missing_type' });
+  // Index to speed up leaderboard queries
+  await sql(`
+    CREATE INDEX IF NOT EXISTS idx_users_pts ON users (pts DESC)
+  `);
+}
 
-  const cookieHeader = req.headers['cookie'] || '';
-  const sidMatch     = cookieHeader.match(/(?:^|;)\s*sid=([^;]+)/);
-  const sessionFromCookie = sidMatch ? decodeURIComponent(sidMatch[1]) : '';
-  const sessionFromHeader = req.headers['x-session-id'] || req.headers['x-session-Id'] || '';
-  // إذا وُجد session من مصدرين مختلفين — سجّل للمراجعة (قد يكون replay attempt)
-  let sessionId = sessionFromCookie || sessionFromHeader;
-  if (sessionFromCookie && sessionFromHeader && sessionFromCookie !== sessionFromHeader) {
-    console.warn('[SESSION] Dual session sources detected — cookie vs header mismatch. Possible replay attempt.',
-      { type, ip: ipHash?.slice(0,8) });
-    // نستخدم الـ cookie كمصدر موثوق (HttpOnly) ونتجاهل الـ header
-    sessionId = sessionFromCookie;
-  }
-
-  const fpRaw    = req.headers['x-fingerprint']  || '{}';
-  const rawNonce = req.headers['x-nonce']        || '';
-  const adminKey = req.headers['x-admin-secret'] || '';
-
-  const ipHash = hashIp(getIp(req));
-  let fpData = {};
-  try { fpData = JSON.parse(fpRaw); } catch (_) {}
-  const fpHash = hashFp(fpData);
-
-  const isWrite = !['load', 'get_state', 'create_session', 'get_referrals', 'track_ad_event', 'start_ad', 'check_channel_membership'].includes(type);
-  if (!rateLimit(`ip_${ipHash}_${type}`, isWrite ? CFG.RATE_WRITE_MAX : CFG.RATE_MAX)) {
-    return res.status(429).json({ ok: false, error: 'rate_limited' });
-  }
-  // حماية إضافية لـ create_session — 5 محاولات فقط في الدقيقة لكل IP
-  if (type === 'create_session' && !rateLimit(`ip_${ipHash}_session_strict`, CFG.RATE_SESSION_MAX)) {
-    return res.status(429).json({ ok: false, error: 'rate_limited' });
-  }
+// ══════════════════════════════════════════════════════════════════════════════
+//  Telegram initData verification  (HMAC-SHA256)
+//  Returns parsed user object { id, username, first_name, … } or null
+// ══════════════════════════════════════════════════════════════════════════════
+function verifyInitData(initData) {
+  if (!initData || !BOT_TOKEN) return null;
 
   try {
-    if (type === 'admin') {
-      if (adminKey !== ADMIN_SECRET) return res.status(403).json({ ok: false, error: 'forbidden' });
-      // Social admin sub-routes
-      if (body?.action?.startsWith?.('social_')) {
-        const act = body.action;
-        if (act === 'social_proofs')       return res.status(200).json(await handleSocialAdminGetProofs(body));
-        if (act === 'social_review')       return res.status(200).json(await handleSocialAdminReview(body));
-        if (act === 'social_tasks')        return res.status(200).json(await handleSocialAdminTasks(body));
-      }
-      return res.status(200).json(await handleAdmin(body?.action, body));
+    const params = new URLSearchParams(initData);
+    const receivedHash = params.get('hash');
+    if (!receivedHash) return null;
+
+    params.delete('hash');
+
+    // Build data-check-string: sorted key=value pairs joined by \n
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+
+    // secret_key = HMAC-SHA256("WebAppData", BOT_TOKEN)
+    const secretKey = crypto
+      .createHmac('sha256', 'WebAppData')
+      .update(BOT_TOKEN)
+      .digest();
+
+    const expectedHash = crypto
+      .createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (!crypto.timingSafeEqual(
+      Buffer.from(expectedHash, 'hex'),
+      Buffer.from(receivedHash,  'hex')
+    )) return null;
+
+    // Reject stale tokens (> 1 hour)
+    const authDate = parseInt(params.get('auth_date') || '0', 10);
+    if (Date.now() / 1000 - authDate > 3600) return null;
+
+    return JSON.parse(params.get('user') || '{}');
+  } catch {
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  DB Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Upsert user from Telegram data, return full DB row
+async function upsertUser(tgUser) {
+  const { id: telegram_id, username = null, first_name = null } = tgUser;
+  const refCode = `REF${telegram_id}`;
+
+  await sql(`
+    INSERT INTO users (telegram_id, username, first_name, referral_code)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (telegram_id) DO UPDATE SET
+      username   = EXCLUDED.username,
+      first_name = EXCLUDED.first_name
+  `, [telegram_id, username, first_name, refCode]);
+
+  const rows = await sql(
+    'SELECT * FROM users WHERE telegram_id = $1',
+    [telegram_id]
+  );
+  return rows[0];
+}
+
+// Rank of a user among all users (1 = highest pts)
+async function getUserRank(userId) {
+  const rows = await sql(`
+    SELECT (COUNT(*) + 1)::INT AS rank
+    FROM users
+    WHERE pts > (SELECT pts FROM users WHERE id = $1)
+  `, [userId]);
+  return rows[0]?.rank ?? 1;
+}
+
+// Top N users for leaderboard
+async function getLeaderboard(limit = 8) {
+  return await sql(`
+    SELECT
+      telegram_id,
+      COALESCE(first_name, username, 'Anonymous') AS name,
+      pts,
+      RANK() OVER (ORDER BY pts DESC)::INT AS rank
+    FROM users
+    ORDER BY pts DESC
+    LIMIT $1
+  `, [limit]);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Telegram Bot API — sendMessage
+// ══════════════════════════════════════════════════════════════════════════════
+async function sendTelegramMessage(chatId, text) {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN not set' };
+
+  const res = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id:    String(chatId),
+        text,
+        parse_mode: 'Markdown'
+      })
+    }
+  );
+  return await res.json();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Route Handlers
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── GET /api ── health probe ─────────────────────────────────────────────────
+async function handleGet(_req, res) {
+  return res.status(200).json({ ok: true, service: 'BigLeague API', ts: Date.now() });
+}
+
+// ── POST /api ── main gateway ────────────────────────────────────────────────
+async function handlePost(req, res) {
+  const body               = req.body || {};
+  const { type, data = {} } = body;
+
+  // initData can arrive in body OR in the X-Telegram-Init-Data header
+  const rawInitData =
+    body.initData ||
+    req.headers['x-telegram-init-data'] ||
+    null;
+
+  // ── Auth gate (all actions except sendBotMsg require a valid Telegram user) ──
+  let tgUser = null;
+  let dbUser = null;
+
+  if (type !== 'sendBotMsg') {
+    tgUser = verifyInitData(rawInitData);
+
+    // ⚠️  DEV MODE — remove in production!
+    //  If BOT_TOKEN is missing or initData is absent, fall back to a test user.
+    if (!tgUser && process.env.NODE_ENV !== 'production') {
+      console.warn('[DEV] initData verification skipped — using mock user');
+      tgUser = { id: 999999999, username: 'devuser', first_name: 'Dev' };
     }
 
-    if (type === 'get_nonce') {
-      if (!sessionId) return res.status(401).json({ ok: false, error: 'session_required' });
-      const session = await validateSession(sessionId, ipHash, fpHash);
-      if (!session) return res.status(401).json({ ok: false, error: 'session_invalid_or_expired' });
-      const ALLOWED_NONCE_ACTIONS = new Set([
-        'claim_gift', 'claim_daily_mission', 'verify_tg_task',
-        'verify_channel_task', 'submit_withdraw', 'claim_adsgram_task',
+    if (!tgUser) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    dbUser = await upsertUser(tgUser);
+  }
+
+  // ── Action router ────────────────────────────────────────────────────────────
+  switch (type) {
+
+    // ── init — called on page load; returns user profile + leaderboard + referral stats
+    case 'init': {
+      const [userRank, leaderboard, refStats] = await Promise.all([
+        getUserRank(dbUser.id),
+        getLeaderboard(8),
+        sql(`
+          SELECT
+            COUNT(*)::INT           AS ref_count,
+            (COUNT(*) * 5000)::INT  AS ref_earned
+          FROM users
+          WHERE referred_by = $1
+        `, [dbUser.telegram_id])
       ]);
-      const action = body?.data?.action || '';
-      if (!action || !ALLOWED_NONCE_ACTIONS.has(action)) {
-        return res.status(400).json({ ok: false, error: 'invalid_nonce_action' });
-      }
-      // منع nonce farming — تحقق أنه ما في nonce غير مستخدم لنفس الـ action
-      const existingNonce = await (require('../lib/db').sql)(
-        `SELECT id FROM nonces WHERE session_id=$1 AND user_id=$2 AND action=$3
-         AND used=FALSE AND expires_at > NOW() LIMIT 1`,
-        [sessionId, session.user_id, action]
-      );
-      if (existingNonce.length) {
-        // أعد نفس الـ nonce بدل إنشاء واحد جديد
-        return res.status(429).json({ ok: false, error: 'nonce_already_pending' });
-      }
-      const nonce = await issueNonce(sessionId, session.user_id, ipHash, fpHash, action);
-      return res.status(200).json({ ok: true, nonce });
-    }
 
-    if (type === 'create_session') {
-      const result = await handleCreateSession(body, ipHash, fpHash);
-      if (result._sid) {
-        const maxAge  = Math.floor(CFG.SESSION_TTL_MS / 1000);
-        const isHttps = req.headers['x-forwarded-proto'] === 'https'
-          || req.connection?.encrypted
-          || process.env.NODE_ENV === 'production';
-        const sameSite = isHttps ? 'None' : 'Lax';
-        const secure   = isHttps ? '; Secure' : '';
-        res.setHeader('Set-Cookie',
-          `sid=${encodeURIComponent(result._sid)}; HttpOnly; SameSite=${sameSite}${secure}; Max-Age=${maxAge}; Path=/`
-        );
-        result._session_token = result._sid;
-        delete result._sid;
-      }
-      return res.status(result.status || 200).json(result);
-    }
-
-    if (!sessionId) return res.status(401).json({ ok: false, error: 'session_required' });
-    const session = await validateSession(sessionId, ipHash, fpHash);
-    if (!session)  return res.status(401).json({ ok: false, error: 'session_invalid_or_expired' });
-    if (session.is_banned || session.cluster_ban) {
-      return res.status(403).json({ ok: false, is_banned: true });
-    }
-
-    const userId = session.user_id;
-    if (!rateLimit(`u_${userId}_${type}`, isWrite ? 10 : 20)) {
-      return res.status(429).json({ ok: false, error: 'rate_limited' });
-    }
-
-    let result;
-    switch (type) {
-      case 'load':                result = await handleLoad(userId); break;
-      case 'get_state':           result = await handleGetState(userId); break;
-      case 'start_ad':            result = await handleStartAd(userId, sessionId, ipHash, fpHash); break;
-      case 'reward_ad':           result = await handleRewardAd(userId, sessionId, ipHash, fpHash, body, rawNonce); break;
-      case 'monetag_reward':       result = await handleMonetagReward(userId, sessionId, ipHash, fpHash, body); break;
-      case 'grant_competition_tickets': {
-        // [FIX-2] تحديد الـ count بحد أقصى ثابت من السيرفر (CFG)
-        // المستخدم لا يستطيع تحديد عدد تذاكر أكبر من المسموح به لكل عملية
-        const rawCount = parseInt(body?.data?.count) || 0;
-        if (rawCount <= 0 || rawCount > CFG.COMPETITION_MAX_GRANT_PER_CALL) {
-          result = { ok: false, error: 'invalid_count' };
-          break;
+      return res.json({
+        ok: true,
+        user: {
+          id:            dbUser.id,
+          telegram_id:   Number(dbUser.telegram_id),
+          name:          dbUser.first_name || dbUser.username || 'You',
+          pts:           Number(dbUser.pts),
+          balance_usd:   parseFloat(dbUser.balance_usd),
+          referral_code: dbUser.referral_code,
+          rank:          userRank
+        },
+        leaderboard: leaderboard.map(r => ({
+          telegram_id: Number(r.telegram_id),
+          name:        r.name,
+          pts:         Number(r.pts),
+          rank:        r.rank
+        })),
+        referral: {
+          count:  refStats[0]?.ref_count  ?? 0,
+          earned: refStats[0]?.ref_earned ?? 0
         }
-        result = await grantCompetitionTickets(userId, rawCount);
-        break;
-      }
-      case 'start_adsgram_task':  result = await handleStartAdsgramTask(userId, sessionId, ipHash, fpHash); break;
-      case 'claim_adsgram_task':  result = await handleClaimAdsgramTask(userId, sessionId, ipHash, fpHash, rawNonce); break;
-      case 'claim_daily_mission': result = await handleClaimDailyMission(userId, body, rawNonce, sessionId, fpHash, ipHash); break;
-      case 'claim_gift':          result = await handleClaimGift(userId, rawNonce, sessionId, fpHash, ipHash); break;
-      case 'verify_tg_task':      result = await handleVerifyTgTask(userId, rawNonce, sessionId, fpHash, ipHash); break;
-      case 'submit_withdraw':     result = await handleSubmitWithdraw(userId, body, rawNonce, sessionId, fpHash, ipHash); break;
-      case 'get_channels':        result = await handleGetChannels(userId); break;
-      case 'verify_channel_task': result = await handleVerifyChannelTask(userId, body, rawNonce, sessionId, fpHash, ipHash); break;
-      case 'check_channel_membership': result = await handleCheckChannelMembership(userId); break;
-      case 'get_referrals':       result = await handleGetReferrals(userId); break;
-      case 'track_ad_event':      result = await handleTrackAdEvent(userId, sessionId, body, ipHash, fpHash); break;
-      // ── Social Tasks ──
-      case 'social_get_tasks':    result = await handleSocialGetTasks(userId); break;
-      case 'social_submit_proof': result = await handleSocialSubmitProof(userId, body); break;
-      default:
-        await writeAudit(userId, sessionId, type, 'unknown_action', ipHash, fpHash, { type });
-        result = { ok: false, error: 'unknown_action' };
+      });
     }
 
-    return res.status(200).json(result);
+    // ── watchAd — reward user + detect rank change
+    case 'watchAd': {
+      const AD_REWARD = 750;
 
-  } catch (e) {
-    console.error(`[${type}] Error:`, e.message, e.stack?.split('\n')[1]);
-    // لا نكشف تفاصيل الخطأ الداخلية في الإنتاج
-    const IS_PROD = process.env.NODE_ENV === 'production';
-    return res.status(500).json({
-      ok: false,
-      error: 'internal_server_error',
-      ...(IS_PROD ? {} : { detail: e.message, type }),
-    });
+      const rankBefore = await getUserRank(dbUser.id);
+
+      await sql(
+        'UPDATE users SET pts = pts + $1 WHERE id = $2',
+        [AD_REWARD, dbUser.id]
+      );
+
+      await sql(
+        'INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)',
+        [dbUser.id, AD_REWARD]
+      );
+
+      const rankAfter = await getUserRank(dbUser.id);
+      const rankUp    = rankAfter < rankBefore;
+      const rankDelta = rankBefore - rankAfter;
+
+      return res.json({
+        ok:        true,
+        reward:    AD_REWARD,
+        rankUp,
+        newRank:   rankAfter,
+        rankDelta: rankUp ? rankDelta : 0,
+        chatId:    rankUp ? Number(dbUser.telegram_id) : null
+      });
+    }
+
+    // ── withdraw — validate + deduct balance + create pending record
+    case 'withdraw': {
+      const { address, memo, amount } = data;
+
+      // Validate inputs
+      if (!address || typeof address !== 'string' || !address.trim()) {
+        return res.status(400).json({ ok: false, error: 'Wallet address required' });
+      }
+
+      const amt = parseFloat(amount);
+      if (isNaN(amt) || amt < 1) {
+        return res.status(400).json({ ok: false, error: 'Minimum withdrawal is $1.00' });
+      }
+
+      const balance = parseFloat(dbUser.balance_usd);
+      if (balance < amt) {
+        return res.status(400).json({ ok: false, error: 'Insufficient balance' });
+      }
+
+      // Atomic: deduct first, then insert record
+      await sql(
+        'UPDATE users SET balance_usd = balance_usd - $1 WHERE id = $2',
+        [amt, dbUser.id]
+      );
+
+      await sql(
+        'INSERT INTO withdrawals (user_id, address, memo, amount) VALUES ($1, $2, $3, $4)',
+        [dbUser.id, address.trim(), memo?.trim() || null, amt]
+      );
+
+      return res.json({
+        ok:     true,
+        chatId: Number(dbUser.telegram_id)
+      });
+    }
+
+    // ── sendBotMsg — proxy to Telegram Bot API (BOT_TOKEN stays server-side)
+    case 'sendBotMsg': {
+      const { chatId, text } = data;
+
+      if (!chatId || !text) {
+        return res.status(400).json({ ok: false, error: 'chatId and text are required' });
+      }
+
+      const result = await sendTelegramMessage(chatId, text);
+      return res.json({ ok: !!result.ok });
+    }
+
+    // ── logRefCopy — user tapped "Copy Link"
+    case 'logRefCopy': {
+      await sql(
+        "INSERT INTO activity_logs (user_id, action) VALUES ($1, 'ref_copy')",
+        [dbUser.id]
+      );
+      return res.json({ ok: true });
+    }
+
+    // ── logShare — user shared via Facebook / WhatsApp
+    case 'logShare': {
+      const { platform = 'unknown' } = data;
+      await sql(
+        "INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'share', $2)",
+        [dbUser.id, JSON.stringify({ platform })]
+      );
+      return res.json({ ok: true });
+    }
+
+    default:
+      return res.status(400).json({ ok: false, error: `Unknown action type: "${type}"` });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Main export — Vercel serverless handler
+// ══════════════════════════════════════════════════════════════════════════════
+module.exports = async function handler(req, res) {
+  // ── CORS ──────────────────────────────────────────────────────────────────
+  res.setHeader('Access-Control-Allow-Origin',  '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Telegram-Init-Data');
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
+
+  try {
+    // Ensure tables exist (no-op if already created)
+    await ensureSchema();
+
+    if (req.method === 'GET')  return await handleGet(req, res);
+    if (req.method === 'POST') return await handlePost(req, res);
+
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
+
+  } catch (err) {
+    console.error('[API] Unhandled error:', err);
+    return res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 };
