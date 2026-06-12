@@ -84,17 +84,30 @@ function verifyInitData(initData) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  DB Helpers
 // ══════════════════════════════════════════════════════════════════════════════
-async function upsertUser(tgUser) {
+async function upsertUser(tgUser, startParam = null) {
   const { id: telegram_id, username = null, first_name = null, photo_url = null } = tgUser;
   const refCode = `REF${telegram_id}`;
+
+  // Only brand-new users can be attached to a referrer, and only once.
+  const existing = await sql('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
+
+  let referredBy = null;
+  if (existing.length === 0 && startParam) {
+    const m = /^ref_(\d+)$/.exec(String(startParam).trim());
+    if (m && m[1] !== String(telegram_id)) {
+      const refUser = await sql('SELECT telegram_id FROM users WHERE telegram_id = $1', [m[1]]);
+      if (refUser.length > 0) referredBy = m[1];
+    }
+  }
+
   await sql(`
-    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by)
+    VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (telegram_id) DO UPDATE SET
       username   = EXCLUDED.username,
       first_name = EXCLUDED.first_name,
       photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
-  `, [telegram_id, username, first_name, photo_url, refCode]);
+  `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
   const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
   return rows[0];
 }
@@ -171,7 +184,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      dbUser = await upsertUser(tgUser);
+      dbUser = await upsertUser(tgUser, data.startParam || null);
     } catch (err) {
       console.error('[upsertUser error]', err.message);
       return res.status(500).json({ ok: false, error: 'DB error: ' + err.message });
