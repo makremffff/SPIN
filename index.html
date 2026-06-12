@@ -1948,6 +1948,12 @@ async function fetchApi({ type, data = {} }) {
 }
 
 /* ══════════════════════════════════════════════════════
+   ⚙️ Bot / Referral config
+══════════════════════════════════════════════════════ */
+const BOT_USERNAME = 'EarnlixBot';
+let REF_LINK = 'https://t.me/EarnlixBot/play?startapp=ref_';
+
+/* ══════════════════════════════════════════════════════
    🧠 App State
    Holds the latest snapshot returned by the API ('init'
    response). Every page (contest/race, referral, withdraw)
@@ -2086,9 +2092,10 @@ function renderReferral() {
   if (countEl)  countEl.textContent  = (appState.referral.count  || 0).toLocaleString();
   if (earnedEl) earnedEl.textContent = (appState.referral.earned || 0).toLocaleString();
 
-  if (appState.user.referral_code) {
-    REF_LINK = `https://t.me/${BOT_USERNAME}?start=${appState.user.referral_code}`;
-    if (linkEl) linkEl.textContent = `t.me/${BOT_USERNAME}?start=${appState.user.referral_code}`;
+  if (appState.user.telegram_id) {
+    const param = `ref_${appState.user.telegram_id}`;
+    REF_LINK = `https://t.me/${BOT_USERNAME}/play?startapp=${param}`;
+    if (linkEl) linkEl.textContent = `t.me/${BOT_USERNAME}/play?startapp=${param}`;
   }
 }
 
@@ -2122,7 +2129,14 @@ async function initApp() {
     window.Telegram?.WebApp?.ready();
     window.Telegram?.WebApp?.expand();
   } catch {}
-  const res = await fetchApi({ type: 'init' });
+
+  // startapp=ref_<telegram_id> from the referral link, if present
+  const startParam =
+    window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
+    window.Telegram?.WebApp?.initDataUnsafe?.startapp ||
+    null;
+
+  const res = await fetchApi({ type: 'init', data: { startParam } });
   if (res && res.ok) {
     applyState(res);
   } else {
@@ -2283,9 +2297,6 @@ setInterval(tick, 60000);
 /* ══════════════════════════════════════════════════════
    Copy referral link
 ══════════════════════════════════════════════════════ */
-const BOT_USERNAME = 'YourBot'; // TODO: set this to your bot's @username
-let REF_LINK = 'https://t.me/YourBot?start=REF123456';
-
 async function handleCopyLink() {
   fetchApi({ type: 'logRefCopy', data: {} });
 
