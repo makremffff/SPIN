@@ -115,7 +115,7 @@ async function upsertUser(tgUser, startParam = null) {
     const joinerName = first_name || username || 'Someone';
     await sendTelegramMessage(
       referredBy,
-      `🎉 *${joinerName}*  joined BigLeague using your referral link!\n\nYou earned *+5,000 competition points* 🏆\n\nKeep sharing to climb the leaderboard!`
+      `🎉 *${joinerName}* joined BigLeague using your referral link!\n\nYou earned *+5,000 competition points* 🏆\n\nKeep sharing to climb the leaderboard!`
     );
   }
 
@@ -137,8 +137,8 @@ async function getLeaderboard(limit = 8) {
            COALESCE(first_name, username, 'Anonymous') AS name,
            pts,
            photo_url,
-           RANK() OVER (ORDER BY pts DESC)::INT AS rank
-    FROM users ORDER BY pts DESC LIMIT $1
+           ROW_NUMBER() OVER (ORDER BY pts DESC, telegram_id ASC)::INT AS rank
+    FROM users ORDER BY pts DESC, telegram_id ASC LIMIT $1
   `, [limit]);
 }
 
