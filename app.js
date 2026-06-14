@@ -104,6 +104,41 @@ function getAdsgramController() {
 }
 
 /* ══════════════════════════════════════════════════════
+   Friendly messages for ad-related backend errors
+   (يطابق نصوص الخطأ المُرجعة من api/index.js)
+══════════════════════════════════════════════════════ */
+function getAdErrorMessage(res) {
+  switch (res?.error) {
+    case 'Daily ad limit reached':
+      return { title: 'Daily Limit Reached', msg: 'Come back tomorrow for more ads' };
+
+    case 'Please wait':
+    case 'Please wait between ads':
+      return res?.waitSec
+        ? { title: 'Please Wait', msg: `Next ad available in ${res.waitSec}s` }
+        : { title: 'Please Wait', msg: 'Wait a bit before watching another ad' };
+
+    case 'Too many ads from this network':
+      return { title: 'Slow Down', msg: 'Too many requests — try again later' };
+
+    case 'Ad not fully watched':
+      return { title: 'Ad Not Counted', msg: 'Please watch the full ad to get your reward' };
+
+    case 'Session expired':
+    case 'Duplicate request':
+    case 'Invalid session':
+    case 'Session mismatch':
+      return { title: 'Something Went Wrong', msg: 'Please try watching the ad again' };
+
+    case 'Request expired':
+      return { title: 'Check Your Clock', msg: 'Your device time looks off — fix it and try again' };
+
+    default:
+      return { title: 'Ad Not Available', msg: 'Try again in a moment' };
+  }
+}
+
+/* ══════════════════════════════════════════════════════
    Watch Ad → two-step: startAd token → show ad → watchAd
 ══════════════════════════════════════════════════════ */
 async function handleWatchAd() {
@@ -117,11 +152,8 @@ async function handleWatchAd() {
 
   if (!startRes || !startRes.ok) {
     btn.disabled = false;
-    if (startRes?.waitSec) {
-      showToast({ type: 'error', title: 'Please Wait', msg: `Next ad available in ${startRes.waitSec}s`, duration: 3000 });
-    } else {
-      showToast({ type: 'error', title: 'Error', msg: startRes?.error || 'Cannot start ad', duration: 3000 });
-    }
+    const { title, msg } = getAdErrorMessage(startRes);
+    showToast({ type: 'error', title, msg, duration: 3500 });
     return;
   }
 
@@ -148,6 +180,13 @@ async function handleWatchAd() {
   let res = await fetchApi({ type: 'watchAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
 
   let retries = 0;
+
+  // 🛡️ السيرفر بيحتاج وقت لاستقبال تأكيد Adsgram — رجّعنا للمستخدم إشارة
+  // بدل ما يضل الزر مقفول 7.5 ثانية بدون أي تفسير
+  if (res && res.error === 'pending_confirmation') {
+    showToast({ type: 'ad', title: 'Confirming...', msg: 'Almost there, hold on', duration: 4000 });
+  }
+
   while (res && res.error === 'pending_confirmation' && retries < 5) {
     await new Promise(r => setTimeout(r, res.retryAfterMs || 1500));
     res = await fetchApi({ type: 'watchAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
@@ -184,12 +223,8 @@ async function handleWatchAd() {
 
     refreshState();
   } else {
-    showToast({
-      type:     'ad',
-      title:    'Ad Not Available',
-      msg:      'Try again in a moment',
-      duration: 3000
-    });
+    const { title, msg } = getAdErrorMessage(res);
+    showToast({ type: 'ad', title, msg, duration: 3500 });
   }
 
   setTimeout(() => { btn.disabled = false; }, 3000);
