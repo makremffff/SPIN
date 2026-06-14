@@ -107,7 +107,7 @@ function renderLeaderboardRows() {
           <span>${(entry.pts || 0).toLocaleString()}</span>
         </div>
       </div>
-      <span class="lb-reward">—</span>
+      <span class="lb-reward">$1</span>
     `;
     container.appendChild(row);
     const photo = entry.telegram_id === appState.user.telegram_id ? getMyPhotoUrl() : entry.photo_url;
