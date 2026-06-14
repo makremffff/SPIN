@@ -15,7 +15,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   font-family: 'Permanent Marker', cursive;
-  background: url(back.png);
+  background: #000;
   letter-spacing: 2px;
   overflow: hidden;
 }
