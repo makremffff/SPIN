@@ -4,13 +4,6 @@
                notifications.js, pages.js
 ══════════════════════════════════════════════════════ */
 
-/* ── Bot Notification via Telegram ─────────────────────
-   Fires fetchApi({ type: 'sendBotMsg', ... })
-   Backend uses BOT_TOKEN from env, never exposed here. */
-async function sendBotNotification({ chatId, text }) {
-  return fetchApi({ type: 'sendBotMsg', data: { chatId, text } });
-}
-
 /* ── Initial load ───────────────────────────────────── */
 async function initApp() {
   initTelegramApp();
@@ -213,12 +206,6 @@ async function handleWatchAd() {
         });
       }, 700);
 
-      if (res.chatId) {
-        sendBotNotification({
-          chatId: res.chatId,
-          text:   `🏆 *Rank Up!*\nYou reached *#${res.newRank}* on the leaderboard!\nKeep watching ads to stay on top 🔥`
-        });
-      }
     }
 
     refreshState();
@@ -234,20 +221,13 @@ async function handleWatchAd() {
    Referral join — called from backend webhook / bot
    Exposed on window so backend-injected scripts can call it
 ══════════════════════════════════════════════════════ */
-window.onReferralJoin = function({ friendName = 'A friend', reward = 5000, chatId } = {}) {
+window.onReferralJoin = function({ friendName = 'A friend', reward = 5000 } = {}) {
   showToast({
     type:     'referral',
     title:    `${friendName} Joined!`,
     msg:      `+${reward.toLocaleString()} Tickets added to your balance`,
     duration: 5500
   });
-
-  if (chatId) {
-    sendBotNotification({
-      chatId,
-      text: `🎉 *New Referral!*\n*${friendName}* just joined via your link!\nYou earned *+${reward.toLocaleString()} Tickets* 🚀`
-    });
-  }
 };
 
 /* ══════════════════════════════════════════════════════
@@ -283,13 +263,6 @@ async function handleWithdraw() {
       msg:      `$${amount.toFixed(2)} · Processing within 24 hours`,
       duration: 5000
     });
-
-    if (res.chatId) {
-      sendBotNotification({
-        chatId: res.chatId,
-        text:   `💸 *Withdrawal Request Received*\nAmount: *$${amount.toFixed(2)}*\nAddress: \`${address}\`\nStatus: *Under Review* ⏳`
-      });
-    }
 
     document.getElementById('wd-address').value = '';
     document.getElementById('wd-memo').value    = '';
