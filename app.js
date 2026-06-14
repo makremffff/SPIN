@@ -299,7 +299,7 @@ function showPartialRewardModal(reward) {
   modal.id = 'partial-reward-modal';
   modal.innerHTML = `
     <div id="partial-reward-card">
-      <img src="play.jpg" alt="" id="partial-reward-img">
+      <img src="asesst/play.jpg" alt="" id="partial-reward-img">
       <div id="partial-reward-body">
         <p id="partial-reward-pct">You got <strong>60%</strong> of the reward</p>
         <p id="partial-reward-amount">+${reward.toLocaleString()} Tickets</p>

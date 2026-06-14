@@ -1558,7 +1558,6 @@ nav {
 #partial-reward-card {
   width: min(88vw, 340px);
   background: #111218;
-  border: 1px solid rgba(245, 200, 64, 0.18);
   border-radius: 20px;
   overflow: hidden;
   display: flex;
@@ -1567,6 +1566,7 @@ nav {
   transform: scale(0.88) translateY(20px);
   opacity: 0;
   transition: transform .38s cubic-bezier(.34,1.5,.64,1), opacity .3s ease;
+ font-family: 'Permanent Marker', cursive;
 }
 
 #partial-reward-modal.visible #partial-reward-card {
