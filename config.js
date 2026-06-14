@@ -6,7 +6,35 @@ const BOT_USERNAME = 'EarnlixBot';
 let   REF_LINK     = 'https://t.me/EarnlixBot/play?startapp=ref_';
 
 // ⚠️ غيّره بالـ blockId الحقيقي من partner.adsgram.ai (Get blockId section)
-const ADSGRAM_BLOCK_ID = '35154';
+const ADSGRAM_BLOCK_ID = '35167';
+
+/* ══════════════════════════════════════════════════════
+   APP_CONFIG — Single source of truth for all values
+   Edit here and everything (frontend + backend) stays in sync.
+   Backend reads these via the init API response (appState.config).
+══════════════════════════════════════════════════════ */
+const APP_CONFIG = {
+  /* Referral rewards */
+  REF_TICKET_REWARD : 5000,   // competition tickets per referral
+  REF_USDT_REWARD   : 0.015,  // USDT added to balance per referral
+
+  /* Ad rewards */
+  AD_TICKET_REWARD  : 750,    // tickets per ad watch
+  AD_DAILY_MAX      : 30,     // max ads per day
+
+  /* Withdrawal */
+  WITHDRAW_MIN      : 1.00,   // minimum withdrawal in USD
+
+  /* Podium prizes (contest page) */
+  PODIUM_PRIZES: {
+    first  : 20,   // $
+    second : 10,   // $
+    third  :  5,   // $
+  },
+
+  /* Leaderboard badge label */
+  LB_PRIZE_LABEL : 'Each $1',
+};
 
 /* Single source of truth — all pages read from here */
 let appState = {
@@ -15,7 +43,8 @@ let appState = {
     pts: 0, balance_usd: 0, referral_code: '', rank: 0
   },
   leaderboard: [],
-  referral: { count: 0, earned: 0 }
+  referral: { count: 0, earned: 0 },
+  config: APP_CONFIG   // overwritten by server response on init
 };
 
 /* Page entrance animation delay between each .reveal element */

@@ -135,8 +135,44 @@ function renderWithdraw() {
   if (balEl) balEl.textContent = '$' + (Number(appState.user.balance_usd) || 0).toFixed(2);
 }
 
+/* ── Render: fill dynamic config values into the UI ────── */
+function renderConfig() {
+  const cfg = appState.config || APP_CONFIG;
+
+  // Podium prizes
+  const p1 = document.getElementById('pod-prize-first');
+  const p2 = document.getElementById('pod-prize-second');
+  const p3 = document.getElementById('pod-prize-third');
+  if (p1) p1.textContent = `$${cfg.PODIUM_PRIZES.first}`;
+  if (p2) p2.textContent = `$${cfg.PODIUM_PRIZES.second}`;
+  if (p3) p3.textContent = `$${cfg.PODIUM_PRIZES.third}`;
+
+  // Leaderboard prize badge
+  const lbLabel = document.getElementById('lb-prize-label');
+  if (lbLabel) lbLabel.textContent = cfg.LB_PRIZE_LABEL;
+
+  // Referral reward pill
+  const refTicket = document.getElementById('ref-ticket-reward');
+  const refUsdt   = document.getElementById('ref-usdt-reward');
+  if (refTicket) refTicket.textContent = cfg.REF_TICKET_REWARD.toLocaleString();
+  if (refUsdt)   refUsdt.textContent   = `+$${cfg.REF_USDT_REWARD.toFixed(3)}`;
+
+  // Ad reward card
+  const adReward = document.getElementById('ad-ticket-reward');
+  if (adReward) adReward.textContent = cfg.AD_TICKET_REWARD.toLocaleString();
+
+  // Withdraw minimum badge
+  const wdMin = document.getElementById('wd-min-label');
+  if (wdMin) wdMin.textContent = `Min $${cfg.WITHDRAW_MIN.toFixed(2)}`;
+
+  // Update withdraw input min attribute
+  const wdInput = document.getElementById('wd-amount');
+  if (wdInput) wdInput.min = cfg.WITHDRAW_MIN;
+}
+
 /* ── Master render: applies appState to every page ─────── */
 function renderAll() {
+  renderConfig();
   renderYouCard();
   renderPodium();
   renderLeaderboardRows();
@@ -150,6 +186,7 @@ function applyState(res) {
   appState.user        = { ...appState.user, ...res.user };
   appState.leaderboard = res.leaderboard || [];
   appState.referral    = res.referral || appState.referral;
+  if (res.config)      appState.config = res.config;  // server is source of truth
   renderAll();
 }
 

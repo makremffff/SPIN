@@ -242,8 +242,9 @@ async function handleWithdraw() {
     showToast({ type: 'withdraw', title: 'Wallet Address Required', msg: 'Please enter your wallet address', duration: 3500 });
     return;
   }
-  if (isNaN(amount) || amount < 1) {
-    showToast({ type: 'withdraw', title: 'Invalid Amount', msg: 'Minimum withdrawal is $1.00', duration: 3500 });
+  const withdrawMin = (appState.config || APP_CONFIG).WITHDRAW_MIN;
+  if (isNaN(amount) || amount < withdrawMin) {
+    showToast({ type: 'withdraw', title: 'Invalid Amount', msg: `Minimum withdrawal is $${withdrawMin.toFixed(2)}`, duration: 3500 });
     return;
   }
 
@@ -282,5 +283,6 @@ async function handleWithdraw() {
 /* ══════════════════════════════════════════════════════
    Startup
 ══════════════════════════════════════════════════════ */
+renderConfig();   // fill values from APP_CONFIG immediately (before server responds)
 animatePage('contest');
 initApp();

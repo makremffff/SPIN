@@ -44,7 +44,7 @@
             </div>
             <div class="pod-hidden-pts"></div>
             <div class="pod-pts-value"><img class="coin-ic" src="asesst/coins.png" alt="coin"><span class="pod-pts-num"></span></div>
-            <span class="pod-earn">$10</span>
+            <span class="pod-earn" id="pod-prize-second">$10</span>
           </div>
 
           <!-- 1st -->
@@ -61,7 +61,7 @@
             </div>
             <div class="pod-hidden-pts"></div>
             <div class="pod-pts-value"><img class="coin-ic" src="asesst/coins.png" alt="coin"><span class="pod-pts-num"></span></div>
-            <span class="pod-earn">$20</span>
+            <span class="pod-earn" id="pod-prize-first">$20</span>
           </div>
 
           <!-- 3rd -->
@@ -78,7 +78,7 @@
             </div>
             <div class="pod-hidden-pts"></div>
             <div class="pod-pts-value"><img class="coin-ic" src="asesst/coins.png" alt="coin"><span class="pod-pts-num"></span></div>
-            <span class="pod-earn">$5</span>
+            <span class="pod-earn" id="pod-prize-third">$5</span>
           </div>
 
         </div>
@@ -98,7 +98,7 @@
               <path d="M14 15.5V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.23 17 22"/>
               <line x1="4" y1="22" x2="20" y2="22"/>
             </svg>
-            <span>Each $1</span>
+            <span id="lb-prize-label">Each $1</span>
           </div>
         </div>
 
@@ -179,8 +179,8 @@
         <p class="ref-sub">Invite friends · Earn together</p>
         <div class="ref-reward-pill">
           <img src="asesst/coins.png" alt="coin">
-          <span>5,000</span>
-          <span>+0.015$</span>
+          <span id="ref-ticket-reward">5,000</span>
+          <span id="ref-usdt-reward">+$0.015</span>
           <span class="pill-label">per referral</span>
         </div>
       </div>
@@ -238,7 +238,7 @@
             <span class="earn-ad-label">Watch an Ad</span>
             <div class="earn-ad-reward">
               <img src="asesst/coins.png" alt="coin">
-              <span>750</span>
+              <span id="ad-ticket-reward">750</span>
               <span class="per-ad">per ad</span>
             </div>
           </div>
@@ -289,7 +289,7 @@
           <div class="wd-amount-label-row">
             <span class="wd-label">Amount</span>
             <div class="wd-min-badge">
-              <span>Min $1.00</span>
+              <span id="wd-min-label">Min $1.00</span>
             </div>
           </div>
           <div class="wd-amount-wrap">
