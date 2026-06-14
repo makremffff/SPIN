@@ -16,7 +16,13 @@ const CFG = {
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 60,   // أكثر طلب عام لكل IP بالدقيقة
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
-  TS_DRIFT_SEC:       90,   // أكثر فرق مقبول بالـ timestamp
+  // 🛡️ كان 90 ثانية — كثير أجهزة بساعة غير دقيقة بتفشل "Request expired" برغم
+  // إنها مش هجوم. الحماية الفعلية ضد replay هي صلاحية الـ token الضيقة
+  // (dur + AD_GRACE_SEC)، فرفع هذا الحد لا يُضعف الأمان بشكل ملموس.
+  TS_DRIFT_SEC:       300,  // أكثر فرق مقبول بالـ timestamp
+  // 🛡️ هامش صغير لفروقات الشبكة/الجهاز عند فحص "هل شاهد الإعلان كامل؟"
+  AD_TIMING_TOLERANCE_SEC: 2,
+  RISK_DECAY_PER_DAY: 10,   // 🛡️ نقاط risk تتلاشى يومياً — يمنع تراكم دائم بسبب false positives
 };
 
 // 🛡️ مدة المشاهدة المطلوبة — لكل شبكة إعلانات مدتها الحقيقية (عدّل القيم حسب شبكتك)
@@ -37,9 +43,15 @@ async function sql(query, params = []) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  Ad Token — موقّع (HMAC) وغير قابل للتزوير، يُنشأ على السيرفر فقط
 // ══════════════════════════════════════════════════════════════════════════════
+// 🛡️ بدون INTERNAL_SECRET، أي شخص يقدر يحسب AD_TOKEN_KEY ويولّد ad tokens مزوّرة
+// (كان فيه fallback ثابت ومكتوب بالكود — ثغرة). الآن: fail-closed بدل تشغيل غير آمن.
+if (!INTERNAL_SECRET) {
+  throw new Error('[FATAL] INTERNAL_SECRET env var is not set — refusing to run with an insecure fallback key');
+}
+
 const AD_TOKEN_KEY = crypto
   .createHmac('sha256', 'ad-token-v1')
-  .update(INTERNAL_SECRET || 'dev-only-fallback-secret')
+  .update(INTERNAL_SECRET)
   .digest();
 
 function signAdToken(payload) {
@@ -90,6 +102,7 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ad_date  DATE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_score    INT NOT NULL DEFAULT 0`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_banned BOOLEAN NOT NULL DEFAULT FALSE`);
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
@@ -205,7 +218,7 @@ async function checkIPLimit(ip, type) {
 async function addRisk(userId, points, reason) {
   console.warn(`[RISK] user=${userId} +${points} reason=${reason}`);
   const rows = await sql(
-    `UPDATE users SET risk_score = risk_score + $1 WHERE id = $2
+    `UPDATE users SET risk_score = risk_score + $1, risk_updated_at = NOW() WHERE id = $2
      RETURNING risk_score, shadow_banned`,
     [points, userId]
   );
@@ -215,8 +228,32 @@ async function addRisk(userId, points, reason) {
   }
 }
 
-async function checkAndMarkInitHash(initData) {
-  const hash = crypto.createHash('sha256').update(initData + ':watchAd').digest('hex');
+// 🛡️ يقلل risk_score تدريجياً مع الوقت (RISK_DECAY_PER_DAY نقطة/يوم) — يمنع
+// تراكم دائم من false positives، ويرفع shadow ban تلقائياً لو رجع الـ score صفر
+async function decayRisk(userId) {
+  const rows = await sql(`
+    WITH decayed AS (
+      SELECT id,
+             GREATEST(0, risk_score - FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(risk_updated_at, created_at))) / 86400) * $2)::INT AS new_score
+      FROM users WHERE id = $1
+    )
+    UPDATE users u SET
+      risk_score      = d.new_score,
+      risk_updated_at = NOW(),
+      shadow_banned   = CASE WHEN d.new_score = 0 THEN FALSE ELSE u.shadow_banned END
+    FROM decayed d
+    WHERE u.id = d.id
+    RETURNING u.risk_score, u.shadow_banned
+  `, [userId, CFG.RISK_DECAY_PER_DAY]);
+  return rows[0];
+}
+
+// 🛡️ هاش لكل (initData + token) لا لكل initData لحالها.
+// initData بتيليجرام ثابتة طوال الجلسة (~ساعة، نفس مدة TTL تحت)، فلو اعتمدنا
+// عليها فقط، أي إعلان ثاني بنفس الجلسة كان يُرفض كـ "مكرر". إضافة الـ token
+// (فريد ومُصدَر لكل إعلان) تحل التضارب وتحافظ على نفس مستوى الحماية ضد replay.
+async function checkAndMarkInitHash(initData, token) {
+  const hash = crypto.createHash('sha256').update(initData + ':watchAd:' + token).digest('hex');
   await sql(`DELETE FROM used_init_hashes WHERE used_at < NOW() - INTERVAL '1 hour'`);
   try {
     await sql(`INSERT INTO used_init_hashes (hash) VALUES ($1)`, [hash]);
@@ -378,10 +415,21 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ ok: false, error: 'DB error: ' + err.message });
     }
 
-    // 🛡️ Shadow ban — رد وهمي عشان المخترق ما يعرف
-    if (dbUser.shadow_banned) {
-      return res.json({ ok: true, reward: 750, shadowBanned: true });
+    // 🛡️ تلاشي تدريجي لـ risk_score مع الوقت + رفع شادو-بان تلقائي لو رجع الـ score صفر
+    if (dbUser.risk_score > 0 || dbUser.shadow_banned) {
+      try {
+        const decayed = await decayRisk(dbUser.id);
+        if (decayed) {
+          dbUser.risk_score    = decayed.risk_score;
+          dbUser.shadow_banned = decayed.shadow_banned;
+        }
+      } catch (err) {
+        console.error('[decayRisk error]', err.message);
+      }
     }
+    // ملاحظة: شيلنا الرد العام الموحّد لـ shadow ban (كان يكسر صفحات مثل init
+    // لكل المحظورين). صار التعامل معه داخل كل case على حدة (watchAd / withdraw)
+    // فقط — أي الأماكن اللي فيها مكسب فعلي (نقاط / فلوس).
   }
 
   // ── Router ─────────────────────────────────────────────────────────────────
@@ -473,8 +521,9 @@ module.exports = async function handler(req, res) {
         const ipAdOk = await checkIPLimit(clientIP, 'hr');
         if (!ipAdOk) return res.status(429).json({ ok: false, error: 'Too many ads from this network' });
 
-        // 🛡️ منع replay نفس الـ initData
-        const hashOk = await checkAndMarkInitHash(rawInitData);
+        // 🛡️ منع replay لنفس (initData + token) — استخدام الـ token هون يمنع
+        // تضارب كاذب بين إعلانات متعددة بنفس الجلسة (initData ثابتة ~ساعة)
+        const hashOk = await checkAndMarkInitHash(rawInitData, token);
         if (!hashOk) {
           await addRisk(dbUser.id, 50, 'replay_initData');
           return res.status(400).json({ ok: false, error: 'Duplicate request' });
@@ -503,7 +552,9 @@ module.exports = async function handler(req, res) {
         const sessionAge  = (Date.now() - payload.iat) / 1000;
 
         // 🛡️ لازم مضى وقت كافٍ — إثبات المشاهدة الفعلية
-        if (sessionAge < requiredDur) {
+        // (مع هامش صغير لفروقات الشبكة/الجهاز — تحميل SDK وعرض الإعلان
+        // عادة بياخذوا أطول من requiredDur أصلاً)
+        if (sessionAge < requiredDur - CFG.AD_TIMING_TOLERANCE_SEC) {
           await addRisk(dbUser.id, 70, `too_fast_${Math.round(sessionAge)}s`);
           return res.status(400).json({ ok: false, error: 'Ad not fully watched' });
         }
@@ -544,7 +595,24 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        const AD_REWARD  = 750;
+        const AD_REWARD = 750;
+
+        // 🛡️ Shadow ban — كل الفحوصات أعلاه نجحت بشكل طبيعي (نفس تجربة مستخدم حقيقي)،
+        // بس ما رايح نمنح نقاط فعلية. الرد يبدو ناجح عشان المخترق ما يلاحظ شي،
+        // وما عاد بيؤثر على باقي الصفحات (init وغيرها) كما كان سابقاً.
+        if (dbUser.shadow_banned) {
+          await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
+          const fakeRank = await getUserRank(dbUser.id);
+          return res.json({
+            ok:        true,
+            reward:    AD_REWARD,
+            rankUp:    false,
+            newRank:   fakeRank,
+            rankDelta: 0,
+            chatId:    null
+          });
+        }
+
         const rankBefore = await getUserRank(dbUser.id);
 
         // 🔒 Atomic update
@@ -579,6 +647,12 @@ module.exports = async function handler(req, res) {
         const amt = parseFloat(amount);
         if (isNaN(amt) || amt < 1) return res.status(400).json({ ok: false, error: 'Minimum withdrawal is $1.00' });
         if (parseFloat(dbUser.balance_usd) < amt) return res.status(400).json({ ok: false, error: 'Insufficient balance' });
+
+        // 🛡️ Shadow ban — رد ناجح وهمي بدون خصم رصيد فعلي أو تسجيل سحب حقيقي
+        if (dbUser.shadow_banned) {
+          return res.json({ ok: true, chatId: Number(dbUser.telegram_id) });
+        }
+
         await sql('UPDATE users SET balance_usd = balance_usd - $1 WHERE id = $2', [amt, dbUser.id]);
         await sql('INSERT INTO withdrawals (user_id, address, memo, amount) VALUES ($1,$2,$3,$4)',
           [dbUser.id, address.trim(), memo?.trim() || null, amt]);
