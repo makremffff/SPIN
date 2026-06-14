@@ -541,14 +541,6 @@ module.exports = async function handler(req, res) {
         const ipAdOk = await checkIPLimit(clientIP, 'hr');
         if (!ipAdOk) return res.status(429).json({ ok: false, error: 'Too many ads from this network' });
 
-        // 🛡️ منع replay لنفس (initData + token) — استخدام الـ token هون يمنع
-        // تضارب كاذب بين إعلانات متعددة بنفس الجلسة (initData ثابتة ~ساعة)
-        const hashOk = await checkAndMarkInitHash(rawInitData, token);
-        if (!hashOk) {
-          await addRisk(dbUser.id, 50, 'replay_initData');
-          return res.status(400).json({ ok: false, error: 'Duplicate request' });
-        }
-
         // جلب الجلسة (one-time use — حماية إضافية حتى لو التوقيع صحيح)
         const sessions = await sql(`SELECT * FROM ad_sessions WHERE token = $1`, [token]);
         if (sessions.length === 0) {
@@ -613,6 +605,13 @@ module.exports = async function handler(req, res) {
             // قد يكون تأكيد Adsgram لم يصل بعد (تأخير شبكة) — اطلب من العميل إعادة المحاولة بعد قليل
             return res.status(202).json({ ok: false, error: 'pending_confirmation', retryAfterMs: 1500 });
           }
+        }
+
+        // 🛡️ منع replay — يُسجَّل هنا فقط بعد تأكيد Adsgram حتى تنجح إعادة المحاولة عند pending_confirmation
+        const hashOk = await checkAndMarkInitHash(rawInitData, token);
+        if (!hashOk) {
+          await addRisk(dbUser.id, 50, 'replay_initData');
+          return res.status(400).json({ ok: false, error: 'Duplicate request' });
         }
 
         const AD_REWARD = APP_CFG.AD_TICKET_REWARD;
