@@ -6,7 +6,7 @@ const BOT_USERNAME = 'EarnlixBot';
 let   REF_LINK     = 'https://t.me/EarnlixBot/play?startapp=ref_';
 
 // ⚠️ غيّره بالـ blockId الحقيقي من partner.adsgram.ai (Get blockId section)
-const ADSGRAM_BLOCK_ID = 30161;
+const ADSGRAM_BLOCK_ID = '30161';
 
 /* Single source of truth — all pages read from here */
 let appState = {
