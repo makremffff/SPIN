@@ -1530,3 +1530,112 @@ nav {
   opacity: 1;
   transform: translate(0, 0);
 }
+
+/* ══════════════════════════════════════════════════════
+   § Partial Reward Modal
+══════════════════════════════════════════════════════ */
+#partial-reward-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: background .3s ease, backdrop-filter .3s ease;
+  pointer-events: none;
+}
+
+#partial-reward-modal.visible {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+#partial-reward-card {
+  width: min(88vw, 340px);
+  background: #111218;
+  border: 1px solid rgba(245, 200, 64, 0.18);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04);
+  transform: scale(0.88) translateY(20px);
+  opacity: 0;
+  transition: transform .38s cubic-bezier(.34,1.5,.64,1), opacity .3s ease;
+}
+
+#partial-reward-modal.visible #partial-reward-card {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+#partial-reward-img {
+  width: 100%;
+  height: 55%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: block;
+  min-height: 160px;
+}
+
+#partial-reward-body {
+  padding: 22px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+#partial-reward-pct {
+  font-size: 14px;
+  color: rgba(255,255,255,0.55);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+#partial-reward-pct strong {
+  color: var(--gold, #f5c840);
+  font-size: 15px;
+}
+
+#partial-reward-amount {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  letter-spacing: 0.04em;
+  color: var(--gold, #f5c840);
+  margin: 2px 0 4px;
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(245,200,64,0.35);
+}
+
+#partial-reward-hint {
+  font-size: 12.5px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+#partial-reward-hint strong {
+  color: rgba(255,255,255,0.7);
+}
+
+#partial-reward-close {
+  width: 100%;
+  padding: 13px 0;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5c840, #c8860a);
+  color: #000;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+#partial-reward-close:active { opacity: 0.8; }

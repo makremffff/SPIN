@@ -190,12 +190,17 @@ async function handleWatchAd() {
   if (res && res.ok) {
     const reward = res.reward ?? 750;
 
-    showToast({
-      type:     'ad',
-      title:    `+${reward.toLocaleString()} Tickets Earned!`,
-      msg:      'Ad watched successfully · Keep going',
-      duration: 4500
-    });
+    if (res.partial) {
+      // 60% reward — show center modal instead of normal toast
+      showPartialRewardModal(reward);
+    } else {
+      showToast({
+        type:     'ad',
+        title:    `+${reward.toLocaleString()} Tickets Earned!`,
+        msg:      'Ad watched successfully · Keep going',
+        duration: 4500
+      });
+    }
 
     if (res.rankUp) {
       setTimeout(() => {
@@ -279,6 +284,43 @@ async function handleWithdraw() {
       duration: 4000
     });
   }
+}
+
+/* ══════════════════════════════════════════════════════
+   Partial Reward Modal — shown when ad session < 33s
+   Displayed centered on screen with play.jpg image
+══════════════════════════════════════════════════════ */
+function showPartialRewardModal(reward) {
+  // Remove any existing modal
+  const old = document.getElementById('partial-reward-modal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'partial-reward-modal';
+  modal.innerHTML = `
+    <div id="partial-reward-card">
+      <img src="play.jpg" alt="" id="partial-reward-img">
+      <div id="partial-reward-body">
+        <p id="partial-reward-pct">You got <strong>60%</strong> of the reward</p>
+        <p id="partial-reward-amount">+${reward.toLocaleString()} Tickets</p>
+        <p id="partial-reward-hint">Engage with the ad fully to unlock<br>your <strong>100% reward</strong> next time</p>
+        <button id="partial-reward-close">Got it</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Animate in
+  requestAnimationFrame(() => modal.classList.add('visible'));
+
+  function close() {
+    modal.classList.remove('visible');
+    modal.addEventListener('transitionend', () => modal.remove(), { once: true });
+  }
+
+  document.getElementById('partial-reward-close').addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 }
 
 /* ══════════════════════════════════════════════════════
