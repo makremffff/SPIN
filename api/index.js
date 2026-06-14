@@ -175,6 +175,23 @@ async function ensureSchema() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_users_pts ON users (pts DESC)`);
+
+  // جدول المسابقات — يخزن توقيت كل موسم (start/end)
+  // السرفر يقرأ منه ويرسل COMPETITION_END_MS للفرونت عبر init response
+  await sql(`CREATE TABLE IF NOT EXISTS competition (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT        NOT NULL DEFAULT 'Season 1',
+    start_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    end_at     TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '20 days',
+    active     BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  // seed: لو ما في موسم نشط → أنشئ واحد تلقائي 20 يوم من الآن
+  await sql(`
+    INSERT INTO competition (name, start_at, end_at, active)
+    SELECT 'Season 1', NOW(), NOW() + INTERVAL '20 days', TRUE
+    WHERE NOT EXISTS (SELECT 1 FROM competition WHERE active = TRUE)
+  `);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -353,6 +370,17 @@ async function getUserRank(userId) {
   return rows[0]?.rank ?? 1;
 }
 
+async function getActiveCompetition() {
+  const rows = await sql(`
+    SELECT id, name, start_at, end_at
+    FROM competition
+    WHERE active = TRUE
+    ORDER BY created_at DESC
+    LIMIT 1
+  `);
+  return rows[0] || null;
+}
+
 async function getLeaderboard(limit = 8) {
   return await sql(`
     SELECT telegram_id,
@@ -462,12 +490,21 @@ module.exports = async function handler(req, res) {
     switch (type) {
 
       case 'init': {
-        const [userRank, leaderboard, refStats] = await Promise.all([
+        const [userRank, leaderboard, refStats, competition] = await Promise.all([
           getUserRank(dbUser.id),
           getLeaderboard(11),
           sql(`SELECT COUNT(*)::INT AS ref_count, (COUNT(*)*5000)::INT AS ref_earned
-               FROM users WHERE referred_by = $1`, [dbUser.telegram_id])
+               FROM users WHERE referred_by = $1`, [dbUser.telegram_id]),
+          getActiveCompetition()
         ]);
+
+        // دمج توقيت المسابقة من DB في الـ config
+        const configWithCompetition = {
+          ...APP_CFG,
+          COMPETITION_END_MS:   competition ? new Date(competition.end_at).getTime()   : APP_CFG.COMPETITION_END_MS,
+          COMPETITION_START_MS: competition ? new Date(competition.start_at).getTime() : Date.now(),
+          COMPETITION_NAME:     competition?.name ?? 'Season 1',
+        };
         return res.json({
           ok: true,
           user: {
@@ -491,7 +528,7 @@ module.exports = async function handler(req, res) {
             count:  refStats[0]?.ref_count  ?? 0,
             earned: refStats[0]?.ref_earned ?? 0
           },
-          config: APP_CFG
+          config: configWithCompetition
         });
       }
 
