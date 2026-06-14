@@ -93,13 +93,34 @@ function handleShareWhatsApp(e) {
 }
 
 /* ══════════════════════════════════════════════════════
-   Watch Ad → toast + bot notify if rank changes
+   Watch Ad → two-step: startAd token → show ad → watchAd
 ══════════════════════════════════════════════════════ */
 async function handleWatchAd() {
   const btn = document.getElementById('watch-btn');
   btn.disabled = true;
 
-  const res = await fetchApi({ type: 'watchAd', data: {} });
+  // الخطوة 1: احجز token من السيرفر قبل ما تشغّل الإعلان
+  const startRes = await fetchApi({ type: 'startAd', data: { ts: Math.floor(Date.now() / 1000) } });
+
+  if (!startRes || !startRes.ok) {
+    btn.disabled = false;
+    if (startRes?.waitSec) {
+      showToast({ type: 'error', title: 'Please Wait', msg: `Next ad available in ${startRes.waitSec}s`, duration: 3000 });
+    } else {
+      showToast({ type: 'error', title: 'Error', msg: startRes?.error || 'Cannot start ad', duration: 3000 });
+    }
+    return;
+  }
+
+  const adToken = startRes.token;
+
+  // الخطوة 2: شغّل الإعلان الحقيقي
+  // (استبدل هاد القسم بكود Adsgram الخاص فيك)
+  // مثال:
+  // try { await AdController.show(); } catch { btn.disabled = false; return; }
+
+  // الخطوة 3: طالب المكافأة مع الـ token
+  const res = await fetchApi({ type: 'watchAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
 
   if (res && res.ok) {
     const reward = res.reward ?? 750;
