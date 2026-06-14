@@ -48,6 +48,9 @@ const AD_DURATIONS = {
 // نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
 const AD_GRACE_SEC = 20;
 
+// 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 60% فقط من المكافأة
+const AD_FULL_REWARD_MIN_SEC = 33;
+
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
   return await _db(query, params);
@@ -659,6 +662,10 @@ module.exports = async function handler(req, res) {
 
         const AD_REWARD = APP_CFG.AD_TICKET_REWARD;
 
+        // 🎯 تحديد المكافأة: أقل من AD_FULL_REWARD_MIN_SEC → 60% فقط
+        const isPartialWatch = sessionAge < AD_FULL_REWARD_MIN_SEC;
+        const actualReward   = isPartialWatch ? Math.round(AD_REWARD * 0.6) : AD_REWARD;
+
         // 🛡️ Shadow ban — كل الفحوصات أعلاه نجحت بشكل طبيعي (نفس تجربة مستخدم حقيقي)،
         // بس ما رايح نمنح نقاط فعلية. الرد يبدو ناجح عشان المخترق ما يلاحظ شي،
         // وما عاد بيؤثر على باقي الصفحات (init وغيرها) كما كان سابقاً.
@@ -667,7 +674,8 @@ module.exports = async function handler(req, res) {
           const fakeRank = await getUserRank(dbUser.id);
           return res.json({
             ok:        true,
-            reward:    AD_REWARD,
+            reward:    actualReward,
+            partial:   isPartialWatch,
             rankUp:    false,
             newRank:   fakeRank,
             rankDelta: 0,
@@ -685,11 +693,11 @@ module.exports = async function handler(req, res) {
             daily_ads     = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
             last_ad_date  = CURRENT_DATE
           WHERE id = $2
-        `, [AD_REWARD, dbUser.id]);
+        `, [actualReward, dbUser.id]);
 
         // وسّم الـ token كمستخدم
         await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
-        await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, AD_REWARD]);
+        await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, actualReward]);
 
         const rankAfter  = await getUserRank(dbUser.id);
         const rankUp     = rankAfter < rankBefore;
@@ -704,7 +712,8 @@ module.exports = async function handler(req, res) {
 
         return res.json({
           ok:        true,
-          reward:    AD_REWARD,
+          reward:    actualReward,
+          partial:   isPartialWatch,
           rankUp,
           newRank:   rankAfter,
           rankDelta: rankUp ? rankBefore - rankAfter : 0
