@@ -16,13 +16,20 @@ const CFG = {
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 60,   // أكثر طلب عام لكل IP بالدقيقة
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
-  // 🛡️ كان 90 ثانية — كثير أجهزة بساعة غير دقيقة بتفشل "Request expired" برغم
-  // إنها مش هجوم. الحماية الفعلية ضد replay هي صلاحية الـ token الضيقة
-  // (dur + AD_GRACE_SEC)، فرفع هذا الحد لا يُضعف الأمان بشكل ملموس.
   TS_DRIFT_SEC:       300,  // أكثر فرق مقبول بالـ timestamp
-  // 🛡️ هامش صغير لفروقات الشبكة/الجهاز عند فحص "هل شاهد الإعلان كامل؟"
   AD_TIMING_TOLERANCE_SEC: 2,
-  RISK_DECAY_PER_DAY: 10,   // 🛡️ نقاط risk تتلاشى يومياً — يمنع تراكم دائم بسبب false positives
+  RISK_DECAY_PER_DAY: 10,
+};
+
+// ── App business-logic config (synced to frontend via init response) ──────────
+const APP_CFG = {
+  REF_TICKET_REWARD : 5000,   // competition tickets per referral
+  REF_USDT_REWARD   : 0.015,  // USDT added to referrer balance per referral
+  AD_TICKET_REWARD  : 750,    // tickets per ad
+  AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
+  WITHDRAW_MIN      : 1.00,
+  PODIUM_PRIZES     : { first: 20, second: 10, third: 5 },
+  LB_PRIZE_LABEL    : 'Each $1',
 };
 
 // 🛡️ مدة المشاهدة المطلوبة — لكل شبكة إعلانات مدتها الحقيقية (عدّل القيم حسب شبكتك)
@@ -306,14 +313,26 @@ async function upsertUser(tgUser, startParam = null) {
       photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
 
-  // Credit 5000 pts to referrer and send bot notification — only for brand-new users
+  // Credit tickets + USDT to referrer — only for brand-new users
   if (existing.length === 0 && referredBy) {
-    await sql('UPDATE users SET pts = pts + 5000 WHERE telegram_id = $1', [referredBy]);
+    try {
+      await sql(`
+        UPDATE users
+        SET pts         = pts + $1,
+            balance_usd = balance_usd + $2
+        WHERE telegram_id = $3
+      `, [APP_CFG.REF_TICKET_REWARD, APP_CFG.REF_USDT_REWARD, referredBy]);
+      console.log('[referral] credited to referrer ' + referredBy);
+    } catch (creditErr) {
+      console.error('[referral] credit SQL failed:', creditErr.message);
+    }
+
+    // Bot notification is best-effort — never blocks the init response
     const joinerName = first_name || username || 'Someone';
-    await sendTelegramMessage(
+    sendTelegramMessage(
       referredBy,
-      `🎉 *${joinerName}* joined BigLeague using your referral link!\n\nYou earned *+5,000 competition points* 🏆\n\nKeep sharing to climb the leaderboard!`
-    );
+      `🎉 *${joinerName}* joined BigLeague using your referral link!\n\nYou earned *+${APP_CFG.REF_TICKET_REWARD.toLocaleString()} competition points* 🏆 and *+$${APP_CFG.REF_USDT_REWARD} USDT* 💵\n\nKeep sharing to climb the leaderboard!`
+    ).catch(e => console.error('[referral] bot notify failed:', e.message));
   }
 
   const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
@@ -465,7 +484,8 @@ module.exports = async function handler(req, res) {
           referral: {
             count:  refStats[0]?.ref_count  ?? 0,
             earned: refStats[0]?.ref_earned ?? 0
-          }
+          },
+          config: APP_CFG
         });
       }
 
@@ -595,7 +615,7 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        const AD_REWARD = 750;
+        const AD_REWARD = APP_CFG.AD_TICKET_REWARD;
 
         // 🛡️ Shadow ban — كل الفحوصات أعلاه نجحت بشكل طبيعي (نفس تجربة مستخدم حقيقي)،
         // بس ما رايح نمنح نقاط فعلية. الرد يبدو ناجح عشان المخترق ما يلاحظ شي،
@@ -653,7 +673,7 @@ module.exports = async function handler(req, res) {
         const { address, memo, amount } = data;
         if (!address?.trim()) return res.status(400).json({ ok: false, error: 'Wallet address required' });
         const amt = parseFloat(amount);
-        if (isNaN(amt) || amt < 1) return res.status(400).json({ ok: false, error: 'Minimum withdrawal is $1.00' });
+        if (isNaN(amt) || amt < APP_CFG.WITHDRAW_MIN) return res.status(400).json({ ok: false, error: `Minimum withdrawal is $${APP_CFG.WITHDRAW_MIN.toFixed(2)}` });
         if (parseFloat(dbUser.balance_usd) < amt) return res.status(400).json({ ok: false, error: 'Insufficient balance' });
 
         // 🛡️ Shadow ban — رد ناجح وهمي بدون خصم رصيد فعلي أو تسجيل سحب حقيقي
