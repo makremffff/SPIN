@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>App</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.setHeaderColor('#000000');
+            Telegram.WebApp.setBackgroundColor('file4.png');
+        }
+    </script>
 <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,100..900;1,100..900&family=Permanent+Marker&family=DynaPuff:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
