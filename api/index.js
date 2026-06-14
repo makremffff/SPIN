@@ -28,8 +28,14 @@ const APP_CFG = {
   AD_TICKET_REWARD  : 750,    // tickets per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
   WITHDRAW_MIN      : 1.00,
-  PODIUM_PRIZES     : { first: 20, second: 10, third: 5 },
+  PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
+  // توقيت المسابقة — اضبط COMPETITION_END_MS في Vercel env (Unix ms timestamp)
+  // مثال: Date.now() + 20 * 24 * 60 * 60 * 1000 ← 20 يوم من الآن
+  // للتعيين: node -e "console.log(Date.now() + 20*24*60*60*1000)"
+  COMPETITION_END_MS: process.env.COMPETITION_END_MS
+    ? parseInt(process.env.COMPETITION_END_MS, 10)
+    : Date.now() + 20 * 24 * 60 * 60 * 1000,
 };
 
 // 🛡️ مدة المشاهدة المطلوبة — لكل شبكة إعلانات مدتها الحقيقية (عدّل القيم حسب شبكتك)
@@ -458,7 +464,7 @@ module.exports = async function handler(req, res) {
       case 'init': {
         const [userRank, leaderboard, refStats] = await Promise.all([
           getUserRank(dbUser.id),
-          getLeaderboard(8),
+          getLeaderboard(11),
           sql(`SELECT COUNT(*)::INT AS ref_count, (COUNT(*)*5000)::INT AS ref_earned
                FROM users WHERE referred_by = $1`, [dbUser.telegram_id])
         ]);
