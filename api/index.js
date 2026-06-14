@@ -131,6 +131,16 @@ async function ensureSchema() {
     reward     INT NOT NULL DEFAULT 750,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+
+  // 🛡️ تأكيدات Adsgram Reward URL — server-to-server، لا تمر من متصفح المستخدم أبداً
+  // كل صف يعني "Adsgram أكّد أن هذا المستخدم شاهد إعلاناً فعلياً الآن"
+  await sql(`CREATE TABLE IF NOT EXISTS ad_reward_confirmations (
+    id          SERIAL PRIMARY KEY,
+    telegram_id BIGINT NOT NULL,
+    consumed    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_arc_lookup ON ad_reward_confirmations (telegram_id, consumed, created_at)`);
   await sql(`CREATE TABLE IF NOT EXISTS activity_logs (
     id         SERIAL PRIMARY KEY,
     user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -215,6 +225,25 @@ async function checkAndMarkInitHash(initData) {
     return false; // مكرر ✗
   }
 }
+
+// 🛡️ يستهلك تأكيد Adsgram (إن وُجد) لهذا المستخدم — يُستدعى من watchAd
+// يعيد true فقط لو وصل تأكيد server-to-server حقيقي من Adsgram لم يُستهلك بعد
+async function consumeAdsgramConfirmation(telegramId) {
+  await sql(`DELETE FROM ad_reward_confirmations WHERE created_at < NOW() - INTERVAL '10 minutes'`);
+  const rows = await sql(`
+    UPDATE ad_reward_confirmations
+    SET consumed = TRUE
+    WHERE id = (
+      SELECT id FROM ad_reward_confirmations
+      WHERE telegram_id = $1 AND consumed = FALSE
+      ORDER BY created_at ASC
+      LIMIT 1
+    )
+    RETURNING id
+  `, [telegramId]);
+  return rows.length > 0;
+}
+
 async function upsertUser(tgUser, startParam = null) {
   const { id: telegram_id, username = null, first_name = null, photo_url = null } = tgUser;
   const refCode = `REF${telegram_id}`;
@@ -501,6 +530,17 @@ module.exports = async function handler(req, res) {
           if (secSince < CFG.AD_COOLDOWN_SEC) {
             await addRisk(dbUser.id, 40, `cooldown_bypass_${Math.round(secSince)}s`);
             return res.status(429).json({ ok: false, error: 'Please wait between ads' });
+          }
+        }
+
+        // 🛡️ بوابة Adsgram Reward URL — تمنع السكربتات من تزوير "المشاهدة" بمجرد الانتظار
+        // مفعّلة فقط لـ adType === 'adsgram' وفقط بعد ضبط ADSGRAM_REWARD_SECRET في env
+        // لازم وصل تأكيد server-to-server حقيقي من Adsgram لهذا المستخدم قبل منح النقاط
+        if (payload.adType === 'adsgram' && process.env.ADSGRAM_REWARD_SECRET) {
+          const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id);
+          if (!confirmed) {
+            // قد يكون تأكيد Adsgram لم يصل بعد (تأخير شبكة) — اطلب من العميل إعادة المحاولة بعد قليل
+            return res.status(202).json({ ok: false, error: 'pending_confirmation', retryAfterMs: 1500 });
           }
         }
 
