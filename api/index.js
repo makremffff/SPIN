@@ -11,8 +11,6 @@ const INTERNAL_SECRET = process.env.INTERNAL_SECRET; // ← أضفه في Vercel
 
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
-  AD_MIN_WATCH_SEC:   28,   // ثواني لازم تمر بين startAd و watchAd
-  AD_SESSION_TTL_SEC: 300,  // صلاحية الـ token (5 دقائق)
   AD_COOLDOWN_SEC:    60,   // cooldown بين إعلانين
   AD_DAILY_MAX:       30,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
@@ -21,9 +19,52 @@ const CFG = {
   TS_DRIFT_SEC:       90,   // أكثر فرق مقبول بالـ timestamp
 };
 
+// 🛡️ مدة المشاهدة المطلوبة — لكل شبكة إعلانات مدتها الحقيقية (عدّل القيم حسب شبكتك)
+const AD_DURATIONS = {
+  adsgram: 16,
+  monetag: 16,
+  telega:  16,
+  default: 16,
+};
+// نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
+const AD_GRACE_SEC = 20;
+
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
   return await _db(query, params);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Ad Token — موقّع (HMAC) وغير قابل للتزوير، يُنشأ على السيرفر فقط
+// ══════════════════════════════════════════════════════════════════════════════
+const AD_TOKEN_KEY = crypto
+  .createHmac('sha256', 'ad-token-v1')
+  .update(INTERNAL_SECRET || 'dev-only-fallback-secret')
+  .digest();
+
+function signAdToken(payload) {
+  const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', AD_TOKEN_KEY).update(b64).digest('base64url');
+  return `${b64}.${sig}`;
+}
+
+function verifyAdToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const dot = token.indexOf('.');
+  if (dot < 1) return null;
+  const b64 = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = crypto.createHmac('sha256', AD_TOKEN_KEY).update(b64).digest('base64url');
+
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  try {
+    return JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -50,13 +91,15 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_score    INT NOT NULL DEFAULT 0`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_banned BOOLEAN NOT NULL DEFAULT FALSE`);
 
-  // جلسات الإعلانات — كل إعلان له token مؤقت
+  // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
     token      TEXT PRIMARY KEY,
     user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ad_type    TEXT NOT NULL DEFAULT 'default',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     used       BOOLEAN NOT NULL DEFAULT FALSE
   )`);
+  await sql(`ALTER TABLE ad_sessions ADD COLUMN IF NOT EXISTS ad_type TEXT NOT NULL DEFAULT 'default'`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_ad_sessions_user ON ad_sessions(user_id)`);
 
   // Rate limiting بالـ IP
@@ -349,7 +392,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 🛡️ startAd — الخطوة الأولى: احجز token قبل تشغيل الإعلان
+      // 🛡️ startAd — الخطوة الأولى: احجز token موقّع قبل تشغيل الإعلان
       case 'startAd': {
         const today = new Date().toISOString().slice(0, 10);
         const uRows = await sql(`SELECT last_ad_watch, daily_ads, last_ad_date FROM users WHERE id = $1`, [dbUser.id]);
@@ -370,18 +413,31 @@ module.exports = async function handler(req, res) {
         // 🛡️ احذف أي token قديم غير مستخدم — يمنع تجميع tokens
         await sql(`DELETE FROM ad_sessions WHERE user_id = $1 AND used = FALSE`, [dbUser.id]);
 
-        const token = crypto.randomBytes(32).toString('hex');
-        await sql(`INSERT INTO ad_sessions (token, user_id) VALUES ($1, $2)`, [token, dbUser.id]);
+        // 🛡️ مدة المشاهدة تُحدَّد من السيرفر حسب نوع الإعلان — لا توجد قيمة ثابتة 30s
+        const adType = (typeof data.adType === 'string' ? data.adType.toLowerCase() : 'default');
+        const dur    = AD_DURATIONS[adType] || AD_DURATIONS.default;
+
+        // 🔒 Payload موقّع HMAC — لا يمكن للعميل تعديل uid/adType/iat/dur ولا إنشاء token بدون السر
+        const token = signAdToken({ uid: dbUser.id, adType, dur, iat: Date.now() });
+
+        await sql(`INSERT INTO ad_sessions (token, user_id, ad_type) VALUES ($1, $2, $3)`, [token, dbUser.id, adType]);
         return res.json({ ok: true, token });
       }
 
       case 'watchAd': {
         const { token } = data;
 
-        // 🛡️ لازم يكون فيه token صحيح
-        if (!token || typeof token !== 'string' || token.length !== 64) {
+        // 🛡️ تحقق التوقيع أولاً — أي تلاعب أو تزوير يُرفض فوراً قبل أي وصول لقاعدة البيانات
+        const payload = verifyAdToken(token);
+        if (!payload || typeof payload.uid !== 'number' || typeof payload.iat !== 'number') {
           await addRisk(dbUser.id, 30, 'no_token');
           return res.status(400).json({ ok: false, error: 'Invalid session' });
+        }
+
+        // 🛡️ التحقق إن الـ token صادر لهذا المستخدم بالضبط
+        if (payload.uid !== dbUser.id) {
+          await addRisk(dbUser.id, 80, 'token_stolen');
+          return res.status(403).json({ ok: false, error: 'Session mismatch' });
         }
 
         // 🛡️ IP limit للإعلانات
@@ -395,7 +451,7 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Duplicate request' });
         }
 
-        // جلب الجلسة
+        // جلب الجلسة (one-time use — حماية إضافية حتى لو التوقيع صحيح)
         const sessions = await sql(`SELECT * FROM ad_sessions WHERE token = $1`, [token]);
         if (sessions.length === 0) {
           await addRisk(dbUser.id, 40, 'fake_token');
@@ -403,7 +459,6 @@ module.exports = async function handler(req, res) {
         }
         const session = sessions[0];
 
-        // 🛡️ التحقق إن الـ token يخص هاد المستخدم
         if (session.user_id !== dbUser.id) {
           await addRisk(dbUser.id, 80, 'token_stolen');
           return res.status(403).json({ ok: false, error: 'Session mismatch' });
@@ -414,17 +469,20 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Session already used' });
         }
 
-        const sessionAge = (Date.now() - new Date(session.created_at).getTime()) / 1000;
+        // 🛡️ مدة المشاهدة المطلوبة محسوبة من التوكن نفسه (موقّعة من السيرفر، لا يتحكم بها العميل)
+        const requiredDur = AD_DURATIONS[payload.adType] || AD_DURATIONS.default;
+        const sessionAge  = (Date.now() - payload.iat) / 1000;
 
-        // 🛡️ لازم مضى وقت كافي — إثبات المشاهدة
-        if (sessionAge < CFG.AD_MIN_WATCH_SEC) {
+        // 🛡️ لازم مضى وقت كافٍ — إثبات المشاهدة الفعلية
+        if (sessionAge < requiredDur) {
           await addRisk(dbUser.id, 70, `too_fast_${Math.round(sessionAge)}s`);
           return res.status(400).json({ ok: false, error: 'Ad not fully watched' });
         }
 
-        // 🛡️ الـ token انتهت صلاحيته
-        if (sessionAge > CFG.AD_SESSION_TTL_SEC) {
+        // 🛡️ نافذة صلاحية ضيقة (مدة الإعلان + هامش صغير) بدل صلاحية ثابتة 5 دقائق
+        if (sessionAge > requiredDur + AD_GRACE_SEC) {
           await sql(`DELETE FROM ad_sessions WHERE token = $1`, [token]);
+          await addRisk(dbUser.id, 20, `token_expired_${Math.round(sessionAge)}s`);
           return res.status(400).json({ ok: false, error: 'Session expired' });
         }
 
