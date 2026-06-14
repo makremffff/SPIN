@@ -86,7 +86,7 @@ function renderLeaderboardRows() {
 
   // Use positional slice (not rank filter) — avoids RANK() tie bug where
   // users with equal pts all get rank=1, leaving rows 4-8 forever as skeleton.
-  const rows = appState.leaderboard.slice(3, 8);
+  const rows = appState.leaderboard.slice(3, 11);
   if (rows.length === 0) return; // keep skeleton until data arrives
 
   container.innerHTML = '';
@@ -186,7 +186,14 @@ function applyState(res) {
   appState.user        = { ...appState.user, ...res.user };
   appState.leaderboard = res.leaderboard || [];
   appState.referral    = res.referral || appState.referral;
-  if (res.config)      appState.config = res.config;  // server is source of truth
+  if (res.config) {
+    appState.config = res.config;  // server is source of truth
+    // مزامنة توقيت المسابقة من السرفر
+    if (res.config.COMPETITION_END_MS) {
+      competitionEnd = res.config.COMPETITION_END_MS;
+      tick();
+    }
+  }
   renderAll();
 }
 

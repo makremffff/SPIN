@@ -27,13 +27,16 @@ const APP_CONFIG = {
 
   /* Podium prizes (contest page) */
   PODIUM_PRIZES: {
-    first  : 20,   // $
+    first  : 25,   // $
     second : 10,   // $
-    third  :  5,   // $
+    third  :  7,   // $
   },
 
   /* Leaderboard badge label */
   LB_PRIZE_LABEL : 'Each $1',
+
+  /* توقيت المسابقة — يُستبدل بقيمة السرفر فور وصول init response */
+  COMPETITION_END_MS: Date.now() + 20 * 24 * 60 * 60 * 1000,
 };
 
 /* Single source of truth — all pages read from here */

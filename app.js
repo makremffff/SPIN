@@ -24,14 +24,15 @@ async function refreshState() {
 }
 
 /* ══════════════════════════════════════════════════════
-   Countdown
+   Countdown — target يأتي من السرفر (COMPETITION_END_MS)
+   قبل وصول init response نستخدم القيمة من APP_CONFIG
 ══════════════════════════════════════════════════════ */
-const target = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+let competitionEnd = APP_CONFIG.COMPETITION_END_MS || (Date.now() + 20 * 24 * 60 * 60 * 1000);
 const el     = document.getElementById('cd-days');
 const word   = document.querySelector('.cd-word');
 
 function tick() {
-  const diff = target - Date.now();
+  const diff = competitionEnd - Date.now();
   const days = Math.max(0, Math.ceil(diff / 86400000));
   el.textContent   = String(days).padStart(2, '0');
   word.textContent = days === 1 ? 'day left' : 'days left';
