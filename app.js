@@ -100,7 +100,9 @@ async function handleWatchAd() {
   btn.disabled = true;
 
   // الخطوة 1: احجز token من السيرفر قبل ما تشغّل الإعلان
-  const startRes = await fetchApi({ type: 'startAd', data: { ts: Math.floor(Date.now() / 1000) } });
+  // ✅ adType: السيرفر يحدد المدة المطلوبة فعلياً حسب الشبكة (adsgram/monetag/telega)
+  const AD_PROVIDER = 'adsgram'; // ← غيّرها حسب الشبكة المستخدمة فعلاً هنا
+  const startRes = await fetchApi({ type: 'startAd', data: { ts: Math.floor(Date.now() / 1000), adType: AD_PROVIDER } });
 
   if (!startRes || !startRes.ok) {
     btn.disabled = false;
