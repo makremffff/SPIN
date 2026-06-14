@@ -631,13 +631,21 @@ module.exports = async function handler(req, res) {
 
         const rankAfter  = await getUserRank(dbUser.id);
         const rankUp     = rankAfter < rankBefore;
+
+        // ✅ إشعار rank-up مباشر من الباكند
+        if (rankUp) {
+          sendTelegramMessage(
+            Number(dbUser.telegram_id),
+            `🏆 *Rank Up!*\nYou reached *#${rankAfter}* on the leaderboard!\nKeep watching ads to stay on top 🔥`
+          ).catch(e => console.error('[rankup bot notify]', e.message));
+        }
+
         return res.json({
           ok:        true,
           reward:    AD_REWARD,
           rankUp,
           newRank:   rankAfter,
-          rankDelta: rankUp ? rankBefore - rankAfter : 0,
-          chatId:    rankUp ? Number(dbUser.telegram_id) : null
+          rankDelta: rankUp ? rankBefore - rankAfter : 0
         });
       }
 
@@ -650,13 +658,20 @@ module.exports = async function handler(req, res) {
 
         // 🛡️ Shadow ban — رد ناجح وهمي بدون خصم رصيد فعلي أو تسجيل سحب حقيقي
         if (dbUser.shadow_banned) {
-          return res.json({ ok: true, chatId: Number(dbUser.telegram_id) });
+          return res.json({ ok: true });
         }
 
         await sql('UPDATE users SET balance_usd = balance_usd - $1 WHERE id = $2', [amt, dbUser.id]);
         await sql('INSERT INTO withdrawals (user_id, address, memo, amount) VALUES ($1,$2,$3,$4)',
           [dbUser.id, address.trim(), memo?.trim() || null, amt]);
-        return res.json({ ok: true, chatId: Number(dbUser.telegram_id) });
+
+        // ✅ إشعار بوت مباشر من الباكند
+        sendTelegramMessage(
+          Number(dbUser.telegram_id),
+          `💸 *Withdrawal Request Received*\nAmount: *$${amt.toFixed(2)}*\nAddress: \`${address.trim()}\`\nStatus: *Under Review* ⏳`
+        ).catch(e => console.error('[withdraw bot notify]', e.message));
+
+        return res.json({ ok: true });
       }
 
       case 'sendBotMsg': {
