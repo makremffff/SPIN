@@ -93,6 +93,17 @@ function handleShareWhatsApp(e) {
 }
 
 /* ══════════════════════════════════════════════════════
+   Adsgram SDK — تهيئة مرة واحدة فقط
+══════════════════════════════════════════════════════ */
+let _adsgramController = null;
+function getAdsgramController() {
+  if (!_adsgramController && window.Adsgram) {
+    _adsgramController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+  }
+  return _adsgramController;
+}
+
+/* ══════════════════════════════════════════════════════
    Watch Ad → two-step: startAd token → show ad → watchAd
 ══════════════════════════════════════════════════════ */
 async function handleWatchAd() {
@@ -116,13 +127,32 @@ async function handleWatchAd() {
 
   const adToken = startRes.token;
 
-  // الخطوة 2: شغّل الإعلان الحقيقي
-  // (استبدل هاد القسم بكود Adsgram الخاص فيك)
-  // مثال:
-  // try { await AdController.show(); } catch { btn.disabled = false; return; }
+  // الخطوة 2: شغّل الإعلان الحقيقي عبر Adsgram SDK
+  const adController = getAdsgramController();
+  if (!adController) {
+    btn.disabled = false;
+    showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
+    return;
+  }
+
+  try {
+    await adController.show(); // يُرفض إذا تخطى المستخدم الإعلان أو لم يكتمل
+  } catch (err) {
+    btn.disabled = false;
+    showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
+    return;
+  }
 
   // الخطوة 3: طالب المكافأة مع الـ token
-  const res = await fetchApi({ type: 'watchAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
+  // 🛡️ قد يحتاج السيرفر بضع ثوان لاستقبال تأكيد Adsgram (server-to-server) — أعد المحاولة بهدوء
+  let res = await fetchApi({ type: 'watchAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
+
+  let retries = 0;
+  while (res && res.error === 'pending_confirmation' && retries < 5) {
+    await new Promise(r => setTimeout(r, res.retryAfterMs || 1500));
+    res = await fetchApi({ type: 'watchAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
+    retries++;
+  }
 
   if (res && res.ok) {
     const reward = res.reward ?? 750;

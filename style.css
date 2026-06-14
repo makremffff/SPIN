@@ -926,14 +926,15 @@ nav {
   box-shadow: 0 0 16px rgba(245,200,64,0.12);
 }
 
-.earn-ad-icon svg {
-  width: 24px; height: 24px;
+.earn-ad-icon img {
+  width: 44px; height: 44px;
   stroke: var(--gold);
   fill: none;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter: drop-shadow(0 0 5px rgba(245,200,64,0.4));
+  border-radius: 40%;
 }
 
 .earn-ad-info {
@@ -991,14 +992,19 @@ nav {
   padding: 11px 18px;
   border-radius: 14px;
   border: none;
-  background: linear-gradient(135deg, #f5c840 0%, #c8860a 100%);
+  background: rgba(0,0,0,0.4);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  
   transition: transform .15s, filter .15s, box-shadow .15s;
   box-shadow: 0 4px 18px rgba(245,200,64,0.3);
 }
-.earn-watch-btn:active { transform: scale(0.94); filter: brightness(0.88); }
-.earn-watch-btn:disabled { opacity: 0.5; transform: none; }
+.earn-watch-btn:active { transform: scale(0.94); filter: brightness(0.88); 
+ 
+}
+.earn-watch-btn:disabled { opacity: 0.6; transform: none; 
+  
+}
 
 .earn-watch-btn svg {
   width: 16px; height: 16px;
@@ -1010,7 +1016,7 @@ nav {
   font-family: 'Permanent Marker', cursive;
   font-size: 11px;
   letter-spacing: 1.5px;
-  color: #07090f;
+  color: white;
 }
 
 /* ══════════════════════════════════════
