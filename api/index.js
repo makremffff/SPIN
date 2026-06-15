@@ -119,6 +119,7 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_score    INT NOT NULL DEFAULT 0`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ`);
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
@@ -610,7 +611,8 @@ module.exports = async function handler(req, res) {
             pts:           Number(dbUser.pts),
             balance_usd:   parseFloat(dbUser.balance_usd),
             referral_code: dbUser.referral_code,
-            rank:          userRank
+            rank:          userRank,
+            banned:        dbUser.banned || false
           },
           leaderboard: leaderboard.map(r => ({
             telegram_id: Number(r.telegram_id),
@@ -835,6 +837,24 @@ module.exports = async function handler(req, res) {
         ).catch(e => console.error('[withdraw bot notify]', e.message));
 
         return res.json({ ok: true });
+      }
+
+      case 'banUser': {
+        // 🛡️ أدمن فقط — محمي بـ INTERNAL_SECRET
+        const providedSecret = req.headers['x-internal-secret'] || data.secret || '';
+        if (!INTERNAL_SECRET || providedSecret !== INTERNAL_SECRET) {
+          return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+        const targetId = data.telegram_id;
+        const unban    = data.unban === true;
+        if (!targetId) return res.status(400).json({ ok: false, error: 'telegram_id required' });
+        const rows = await sql(
+          `UPDATE users SET banned = $1 WHERE telegram_id = $2 RETURNING id, telegram_id`,
+          [!unban, targetId]
+        );
+        if (rows.length === 0) return res.status(404).json({ ok: false, error: 'User not found' });
+        console.log(`[ban] telegram_id=${targetId} banned=${!unban}`);
+        return res.json({ ok: true, banned: !unban });
       }
 
       case 'sendBotMsg': {
