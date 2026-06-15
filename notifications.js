@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════
    notifications.js — Toast Notification System
    showToast({ type, title, msg, duration })
-   type: 'ad' | 'rank' | 'referral' | 'withdraw'
+   type: 'ad' | 'rank' | 'referral' | 'withdraw' | 'error'
 ══════════════════════════════════════════════════════ */
 
 const BELL_SVG = `

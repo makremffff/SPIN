@@ -1385,6 +1385,7 @@ nav {
   font-size: 13px;
   letter-spacing: 1px;
   line-height: 1.2;
+  color: #fff; /* fallback — type classes override with a gradient */
 }
 
 .toast-msg {
@@ -1393,6 +1394,7 @@ nav {
   letter-spacing: 1.5px;
   line-height: 1.4;
   opacity: 0.72;
+  color: #fff; /* fallback — type classes override with a tinted color */
 }
 
 /* ── close x ── */
@@ -1402,13 +1404,14 @@ nav {
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
   background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.6);
   font-size: 12px;
   opacity: 0.5;
-  transition: opacity .2s, background .2s;
+  transition: opacity .2s, background .2s, color .2s;
   align-self: flex-start;
   margin-top: 1px;
 }
-.toast-close:hover { opacity: 1; background: rgba(255,255,255,0.14); }
+.toast-close:hover { opacity: 1; background: rgba(255,255,255,0.14); color: #fff; }
 
 /* ══ TYPE: ad reward (gold) ══ */
 .toast-ad {
@@ -1505,6 +1508,30 @@ nav {
 .toast-withdraw .toast-msg  { color: rgba(160,220,240,0.72); }
 .toast-withdraw .toast-icon svg { stroke: #40c8f0; filter: drop-shadow(0 0 5px rgba(40,180,220,0.5)); }
 .toast-withdraw .toast-progress { background: linear-gradient(90deg, #40c8f0, #1090c0); box-shadow: 0 0 6px rgba(40,180,210,0.5); }
+
+/* ══ TYPE: error (red) ══ */
+.toast-error {
+  background: linear-gradient(
+    135deg,
+    rgba(46,12,14,1) 0%,
+    rgba(62,14,18,1) 100%
+  );
+  border: 1px solid rgba(255,90,90,0.50);
+  box-shadow:
+    0 0 0 1px rgba(255,90,90,0.12) inset,
+    0 16px 48px rgba(0,0,0,0.8),
+    0 0 40px rgba(255,60,60,0.20);
+}
+.toast-error .toast-title {
+  background: linear-gradient(135deg, #ffd6d6, #ff7878, #d83030);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 6px rgba(255,90,90,0.45));
+}
+.toast-error .toast-msg  { color: rgba(255,205,205,0.78); }
+.toast-error .toast-icon svg { stroke: #ff7878; filter: drop-shadow(0 0 5px rgba(255,90,90,0.5)); }
+.toast-error .toast-progress { background: linear-gradient(90deg, #ff7878, #c82828); box-shadow: 0 0 6px rgba(255,90,90,0.5); }
 
 /* ══════════════════════════════════════
    ── Page Entrance Animations ──
