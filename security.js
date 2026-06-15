@@ -63,41 +63,53 @@ function getStartParam() {
 /* ── 2. DevTools Detection ──────────────────────────── */
 (function devToolsGuard() {
   let devOpen = false;
+  let freezeInterval = null;
 
   const screen$ = document.getElementById('devtools-screen');
 
-  // Method A فقط — آمنة على الموبايل، بدون debugger statement
+  // Method A: فرق حجم النافذة (desktop)
   function checkSize() {
     return (window.outerWidth  - window.innerWidth)  > 160
         || (window.outerHeight - window.innerHeight) > 160;
+  }
+
+  // Method B: debugger timing (mobile + desktop)
+  function checkDebugger() {
+    const t = performance.now();
+    // eslint-disable-next-line no-debugger
+    debugger;
+    return performance.now() - t > 100;
+  }
+
+  function freeze() {
+    // يجمّد الصفحة باستمرار طالما DevTools مفتوحة
+    // eslint-disable-next-line no-debugger
+    debugger;
   }
 
   function onOpen() {
     if (devOpen) return;
     devOpen = true;
 
-    // أظهر شاشة التحذير
     if (screen$) screen$.style.display = 'flex';
-
-    // سجّل في جدول Danger
     _reportDanger('devtools', { ua: navigator.userAgent.slice(0, 80) });
-    _reportSecEvent('devtools_open', { ua: navigator.userAgent.slice(0, 80) });
 
-    console.warn('[security] DevTools detected');
+    // ابدأ التجميد المستمر
+    freezeInterval = setInterval(freeze, 100);
   }
 
   function onClose() {
     if (!devOpen) return;
     devOpen = false;
 
-    // أخفي شاشة التحذير
     if (screen$) screen$.style.display = 'none';
 
-    console.warn('[security] DevTools closed');
+    // وقف التجميد
+    if (freezeInterval) { clearInterval(freezeInterval); freezeInterval = null; }
   }
 
   setInterval(() => {
-    const open = checkSize();
+    const open = checkSize() || checkDebugger();
     if (open  && !devOpen) onOpen();
     if (!open &&  devOpen) onClose();
   }, 1000);
