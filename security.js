@@ -91,11 +91,19 @@ function getStartParam() {
     if (devOpen) return;
     devOpen = true;
 
-    if (screen$) screen$.style.display = 'flex';
+    // أظهر الشاشة أولاً — قبل أي تجميد
+    if (screen$) {
+      screen$.style.display = 'flex';
+    }
+
     _reportDanger('devtools', { ua: navigator.userAgent.slice(0, 80) });
 
-    // ابدأ التجميد المستمر
-    freezeInterval = setInterval(freeze, 100);
+    // انتظر frame كامل حتى يرسم الـ DOM الشاشة، ثم ابدأ التجميد
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        freezeInterval = setInterval(freeze, 100);
+      });
+    });
   }
 
   function onClose() {
