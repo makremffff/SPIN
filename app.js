@@ -15,6 +15,11 @@ async function initApp() {
       banScreen.style.display = 'flex';
       return;
     }
+    // 🛡️ تحقق من سلامة الـ response قبل التطبيق
+    if (!secValidate('init', res)) {
+      console.error('[initApp] invalid response structure');
+      return;
+    }
     applyState(res);
   } else {
     console.error('[initApp] failed:', res?.error);
@@ -142,6 +147,13 @@ function getAdErrorMessage(res) {
 ══════════════════════════════════════════════════════ */
 async function handleWatchAd() {
   const btn = document.getElementById('watch-btn');
+
+  // 🛡️ فحص rate limit على الفرونت قبل أي طلب للسيرفر
+  if (!secAllow('watchAd')) {
+    showToast({ type: 'error', title: 'Slow Down', msg: 'Please wait before watching another ad', duration: 3000 });
+    return;
+  }
+
   btn.disabled = true;
 
   // الخطوة 1: احجز token من السيرفر قبل ما تشغّل الإعلان
@@ -245,6 +257,12 @@ window.onReferralJoin = function({ friendName = 'A friend', reward = 5000 } = {}
    Withdraw → toast on success
 ══════════════════════════════════════════════════════ */
 async function handleWithdraw() {
+  // 🛡️ فحص rate limit على الفرونت
+  if (!secAllow('withdraw')) {
+    showToast({ type: 'withdraw', title: 'Too Many Attempts', msg: 'Please wait before trying again', duration: 3000 });
+    return;
+  }
+
   const address = document.getElementById('wd-address').value.trim();
   const memo    = document.getElementById('wd-memo').value.trim();
   const amount  = parseFloat(document.getElementById('wd-amount').value);

@@ -194,6 +194,8 @@ function applyState(res) {
       tick();
     }
   }
+  // 🛡️ سجّل القيم الحقيقية لحماية DOM من التلاعب
+  secRegisterState(res.user);
   renderAll();
 }
 

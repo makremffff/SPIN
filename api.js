@@ -11,7 +11,8 @@ async function fetchApi({ type, data = {} }) {
       body: JSON.stringify({
         type,
         data,
-        initData: window.Telegram?.WebApp?.initData || ''
+        initData: window.Telegram?.WebApp?.initData || '',
+        fp: typeof secFingerprint === 'function' ? secFingerprint() : null
       })
     });
 
