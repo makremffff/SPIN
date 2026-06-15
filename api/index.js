@@ -195,6 +195,9 @@ async function ensureSchema() {
     SELECT 'Season 1', NOW(), NOW() + INTERVAL '20 days', TRUE
     WHERE NOT EXISTS (SELECT 1 FROM competition WHERE active = TRUE)
   `);
+
+  // 🏆 يتتبّع أي موسم تم توزيع جوائزه فعلاً — يمنع التوزيع المكرر
+  await sql(`ALTER TABLE competition ADD COLUMN IF NOT EXISTS prize_distributed BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -396,6 +399,87 @@ async function getLeaderboard(limit = 8) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  🏆 توزيع جوائز المسابقة — تُستدعى مع كل طلب
+//
+//  لو انتهى وقت الموسم النشط (end_at <= NOW) ولم تُوزَّع جوائزه بعد:
+//   1. كل مستخدم يأخذ حصته من الجوائز في balance_usd حسب ترتيبه النهائي
+//      (المركز 1/2/3 → PODIUM_PRIZES، المراكز 4-11 → $1 لكل واحد، نفس
+//      الترتيب المعروض في الـ leaderboard/podium).
+//   2. تصفير نقاط الجميع (pts = 0) وبدء موسم جديد تلقائياً لمدة 20 يوم.
+//
+//  🛡️ آمنة عند التشغيل المتزامن (Vercel serverless = عدة invocations بنفس
+//  اللحظة): الـ UPDATE الأول بالأسفل يعمل "claim" ذرّي — فقط الـ invocation
+//  اللي يرجّع صف هو المسؤول عن التوزيع، والباقي يرجعوا فوراً بدون أي تأثير.
+// ══════════════════════════════════════════════════════════════════════════════
+async function distributeSeasonPrizes() {
+  const claimed = await sql(`
+    UPDATE competition
+    SET active = FALSE, prize_distributed = TRUE
+    WHERE active = TRUE AND prize_distributed = FALSE AND end_at <= NOW()
+    RETURNING id, name
+  `);
+  if (claimed.length === 0) return; // لا يوجد موسم منتهٍ بانتظار التوزيع
+
+  const endedComp = claimed[0];
+  const { first, second, third } = APP_CFG.PODIUM_PRIZES;
+  const OTHERS_PRIZE = 1; // "Each $1" — المراكز 4 إلى 11 (نفس LB_PRIZE_LABEL)
+
+  // 🏆 منح الجوائز دفعة واحدة على balance_usd حسب نفس ترتيب getLeaderboard
+  // (pts DESC, telegram_id ASC) — pts > 0 فقط، لمنع منح جوائز لحسابات لم تشارك
+  const winners = await sql(`
+    WITH ranked AS (
+      SELECT id, telegram_id,
+             ROW_NUMBER() OVER (ORDER BY pts DESC, telegram_id ASC) AS rnk
+      FROM users
+      WHERE pts > 0
+    ),
+    prized AS (
+      SELECT id, telegram_id, rnk,
+        CASE
+          WHEN rnk = 1 THEN $1::NUMERIC
+          WHEN rnk = 2 THEN $2::NUMERIC
+          WHEN rnk = 3 THEN $3::NUMERIC
+          WHEN rnk BETWEEN 4 AND 11 THEN $4::NUMERIC
+          ELSE 0
+        END AS prize
+      FROM ranked
+      WHERE rnk <= 11
+    )
+    UPDATE users u
+    SET balance_usd = balance_usd + p.prize
+    FROM prized p
+    WHERE u.id = p.id AND p.prize > 0
+    RETURNING u.telegram_id, p.rnk, p.prize
+  `, [first, second, third, OTHERS_PRIZE]);
+
+  // 🔄 تصفير نقاط الجميع — موسم جديد يبدأ بترتيب نظيف للكل
+  await sql(`UPDATE users SET pts = 0`);
+
+  // ▶️ إنشاء الموسم التالي (الاسم: "Season N" → "Season N+1")
+  const m       = /(\d+)\s*$/.exec(endedComp.name || '');
+  const nextNum = m ? (parseInt(m[1], 10) + 1) : 2;
+  const nextName = m
+    ? endedComp.name.replace(/\d+\s*$/, String(nextNum))
+    : `${endedComp.name || 'Season'} ${nextNum}`;
+
+  await sql(`
+    INSERT INTO competition (name, start_at, end_at, active, prize_distributed)
+    VALUES ($1, NOW(), NOW() + INTERVAL '20 days', TRUE, FALSE)
+  `, [nextName]);
+
+  console.log(`[competition] "${endedComp.name}" ended — ${winners.length} prizes paid, started "${nextName}"`);
+
+  // ✅ إشعار بوت للفائزين (best-effort — لا يوقف التنفيذ)
+  for (const w of winners) {
+    const prizeAmount = parseFloat(w.prize);
+    sendTelegramMessage(
+      Number(w.telegram_id),
+      `🏆 *${endedComp.name} Has Ended!*\n\nYou finished *#${w.rnk}* on the leaderboard and won *+$${prizeAmount.toFixed(2)}* 🎉\n\nIt's already credited to your balance — withdraw anytime!\n\nA new season just started. Good luck! 🚀`
+    ).catch(e => console.error('[prize bot notify]', e.message));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  Telegram Bot API
 // ══════════════════════════════════════════════════════════════════════════════
 async function sendTelegramMessage(chatId, text) {
@@ -430,6 +514,14 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error('[Schema error]', err.message);
     return res.status(500).json({ ok: false, error: 'DB schema error: ' + err.message });
+  }
+
+  // 🏆 توزيع جوائز المسابقة فور انتهائها وبدء موسم جديد — best-effort،
+  // لا يوقف الطلب الحالي حتى لو فشل (سيُعاد المحاولة في الطلب التالي)
+  try {
+    await distributeSeasonPrizes();
+  } catch (err) {
+    console.error('[Prize distribution error]', err.message);
   }
 
   // 🛡️ IP rate limit عام
