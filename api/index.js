@@ -880,6 +880,17 @@ module.exports = async function handler(req, res) {
         return res.json({ ok: true });
       }
 
+      case 'logSecEvent': {
+        const event  = String(data.event  || 'unknown').slice(0, 64);
+        const detail = data.detail ? JSON.stringify(data.detail).slice(0, 256) : null;
+        await sql(
+          `INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'sec_event', $2)`,
+          [dbUser.id, JSON.stringify({ event, detail })]
+        );
+        console.warn(`[sec_event] user=${dbUser.id} event=${event}`);
+        return res.json({ ok: true });
+      }
+
       default:
         return res.status(400).json({ ok: false, error: `Unknown type: "${type}"` });
     }
