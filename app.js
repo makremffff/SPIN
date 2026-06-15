@@ -10,6 +10,11 @@ async function initApp() {
   const startParam = getStartParam();
   const res = await fetchApi({ type: 'init', data: { startParam } });
   if (res && res.ok) {
+    if (res.user?.banned) {
+      const banScreen = document.getElementById('ban-screen');
+      banScreen.style.display = 'flex';
+      return;
+    }
     applyState(res);
   } else {
     console.error('[initApp] failed:', res?.error);

@@ -17,6 +17,26 @@
 </head>
 <body>
 
+<!-- ══ Ban Screen ══ -->
+<div id="ban-screen" style="display:none; position:fixed; inset:0; z-index:9999; background:#0d0d0f; display:none; align-items:center; justify-content:center; flex-direction:column; gap:24px; text-align:center;">
+  <svg xmlns="http://www.w3.org/2000/svg" width="148" height="148" viewBox="0 0 128 128" fill="none">
+    <style>
+      .ban-lock { transform-origin:center; animation:softPulse 2.5s ease-in-out infinite; }
+      .ban-body { fill:#e84040; }
+      .ban-line { stroke:#e84040; stroke-width:8; stroke-linecap:round; stroke-linejoin:round; }
+      .ban-key  { fill:#0d0d0f; }
+      @keyframes softPulse { 0%,100%{transform:scale(1);opacity:.92;} 50%{transform:scale(1.04);opacity:1;} }
+    </style>
+    <g class="ban-lock">
+      <path class="ban-line" d="M40 54 V38 C40 24 50 14 64 14 C78 14 88 24 88 38 V54"/>
+      <rect class="ban-body" x="28" y="50" width="72" height="58" rx="16"/>
+      <circle class="ban-key" cx="64" cy="74" r="6"/>
+      <rect   class="ban-key" x="61" y="78" width="6" height="14" rx="3"/>
+    </g>
+  </svg>
+  <p style="font-family:'Permanent Marker',cursive; font-size:22px; color:#f0f0f0; margin:0;">Your account has been locked</p>
+</div>
+
 <!-- ══ Toast Container ══ -->
 <div id="toast-container"></div>
 
