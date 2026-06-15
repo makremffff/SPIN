@@ -91,10 +91,8 @@ function getStartParam() {
     if (devOpen) return;
     devOpen = true;
 
-    // أظهر الشاشة أولاً — قبل أي تجميد
-    if (screen$) {
-      screen$.style.display = 'flex';
-    }
+    // أظهر الشاشة أولاً عبر visibility (أسرع من display)
+    if (screen$) screen$.style.visibility = 'visible';
 
     _reportDanger('devtools', { ua: navigator.userAgent.slice(0, 80) });
 
@@ -110,7 +108,7 @@ function getStartParam() {
     if (!devOpen) return;
     devOpen = false;
 
-    if (screen$) screen$.style.display = 'none';
+    if (screen$) screen$.style.visibility = 'hidden';
 
     // وقف التجميد
     if (freezeInterval) { clearInterval(freezeInterval); freezeInterval = null; }
