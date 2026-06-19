@@ -20,9 +20,10 @@ const CFG = {
   AD_TIMING_TOLERANCE_SEC: 2,
   RISK_DECAY_PER_DAY: 10,
 
-  // 🎮 Coin Rain mini-game — لا يوجد API لكل تذكرة، فقط نتيجة نهائية واحدة لكل جولة (gameRoundEnd)
-  GAME_ROUND_MIN_INTERVAL_SEC: 35,   // ≈ مدة الجولة الفعلية (40 ثانية لعب + عد تنازلي)، يمنع إرسال جولات أسرع من الممكن فعلياً
-  GAME_ROUND_MAX_SCORE:        2500, // سقف دفاعي للقيمة المرسلة من العميل (يشمل احتمال مضاعفة زر Double Tickets)
+  // 🎮 Coin Rain mini-game — جلسة سيرفر لكل جولة، لا تُرسَل نقاط من العميل أبداً
+  GAME_ROUND_TICKETS:         300,   // تذاكر ثابتة لكل جولة مكتملة (السيرفر يقرر، لا العميل)
+  GAME_ROUND_DURATION_SEC:     40,   // مدة الجولة الفعلية — لا تقبل إرسال أسرع من هذا
+  GAME_ROUND_SESSION_TTL_SEC: 300,   // أقصى وقت لإرسال الجولة بعد بدئها (5 دقائق)
 };
 
 // ── App business-logic config (synced to frontend via init response) ──────────
@@ -126,6 +127,16 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
+
+  // 🎮 جلسات اللعبة — تُنشأ من السيرفر حصراً، لا تُرسَل نقاط من العميل أبداً
+  await sql(`CREATE TABLE IF NOT EXISTS game_sessions (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    used            BOOLEAN     NOT NULL DEFAULT FALSE,
+    double_approved BOOLEAN     NOT NULL DEFAULT FALSE
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON game_sessions(user_id, used, created_at)`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
@@ -827,37 +838,118 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 🎮 gameRoundEnd — نتيجة نهائية واحدة فقط لكل جولة Coin Rain (لا يوجد API لكل تذكرة تُصاد أثناء اللعب)
-      case 'gameRoundEnd': {
-        const rawScore = Number(data.score);
-        if (!Number.isInteger(rawScore) || rawScore < 0) {
-          return res.status(400).json({ ok: false, error: 'Invalid score' });
-        }
-
-        // 🛡️ كولداون بسيط — يمنع إرسال جولات أسرع من المدة الفعلية للعبة (بدل أي تحقق لكل صيد)
+      // ══════════════════════════════════════════════════════════════════
+      // 🎮 gameRoundStart — ينشئ جلسة جولة على السيرفر ويعيد UUID معتم
+      //    العميل لا يرسل أي نقاط — السيرفر يحدد المكافأة داخلياً
+      // ══════════════════════════════════════════════════════════════════
+      case 'gameRoundStart': {
+        // كولداون: يمنع إنشاء جلسات أسرع من مدة الجولة الفعلية
         const gRows = await sql(`SELECT last_game_round FROM users WHERE id = $1`, [dbUser.id]);
         const lastRound = gRows[0]?.last_game_round;
         if (lastRound) {
           const secSince = (Date.now() - new Date(lastRound).getTime()) / 1000;
-          if (secSince < CFG.GAME_ROUND_MIN_INTERVAL_SEC) {
-            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CFG.GAME_ROUND_MIN_INTERVAL_SEC - secSince) });
+          if (secSince < CFG.GAME_ROUND_DURATION_SEC - 5) {
+            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CFG.GAME_ROUND_DURATION_SEC - 5 - secSince) });
+          }
+        }
+        // تنظيف جلسات قديمة غير مُستخدَمة لهذا المستخدم
+        await sql(`DELETE FROM game_sessions WHERE user_id = $1 AND used = FALSE AND created_at < NOW() - INTERVAL '6 minutes'`, [dbUser.id]);
+        // إنشاء جلسة جديدة (UUID تولّده قاعدة البيانات، لا العميل)
+        const sRows = await sql(`INSERT INTO game_sessions (user_id) VALUES ($1) RETURNING id`, [dbUser.id]);
+        return res.json({ ok: true, sessionId: sRows[0].id });
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // 🎮 gameAdVerify — يتحقق من تأكيد Adsgram S2S ويُفعّل المضاعفة
+      //    على الجلسة داخلياً بدون إرسال أي قيمة من العميل
+      // ══════════════════════════════════════════════════════════════════
+      case 'gameAdVerify': {
+        const { sessionId: gAvSid } = data;
+        if (!gAvSid) return res.status(400).json({ ok: false, error: 'Missing session' });
+
+        const gAvRows = await sql(
+          `SELECT id, user_id, used, double_approved FROM game_sessions WHERE id = $1`,
+          [gAvSid]
+        );
+        if (!gAvRows.length || gAvRows[0].user_id !== dbUser.id)
+          return res.status(403).json({ ok: false, error: 'Invalid session' });
+        if (gAvRows[0].used)
+          return res.status(400).json({ ok: false, error: 'Session already used' });
+        if (gAvRows[0].double_approved)
+          return res.status(400).json({ ok: false, error: 'Double already applied' });
+
+        // 🛡️ تأكيد Adsgram S2S — نفس آلية الإعلانات الرئيسية
+        if (process.env.ADSGRAM_REWARD_SECRET) {
+          const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id);
+          if (!confirmed) {
+            return res.status(202).json({ ok: false, error: 'pending_confirmation', retryAfterMs: 1500 });
           }
         }
 
-        // 🛡️ سقف دفاعي على القيمة المرسلة من العميل (يشمل احتمال المضاعفة من زر Double Tickets)
-        const awarded = Math.min(rawScore, CFG.GAME_ROUND_MAX_SCORE);
+        await sql(`UPDATE game_sessions SET double_approved = TRUE WHERE id = $1`, [gAvSid]);
+        return res.json({ ok: true });
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // 🎮 gameRoundEnd — يستهلك الجلسة ويمنح مكافأة ثابتة من السيرفر
+      //    لا يقبل أي نقاط أو score من العميل
+      // ══════════════════════════════════════════════════════════════════
+      case 'gameRoundEnd': {
+        const { sessionId: gReSid } = data;
+        if (!gReSid) return res.status(400).json({ ok: false, error: 'Missing session' });
+
+        const gReRows = await sql(
+          `SELECT id, user_id, used, double_approved, created_at FROM game_sessions WHERE id = $1`,
+          [gReSid]
+        );
+        if (!gReRows.length || gReRows[0].user_id !== dbUser.id) {
+          await addRisk(dbUser.id, 40, 'game_invalid_session');
+          return res.status(403).json({ ok: false, error: 'Invalid session' });
+        }
+        const gs = gReRows[0];
+        if (gs.used) {
+          await addRisk(dbUser.id, 30, 'game_replay');
+          return res.status(400).json({ ok: false, error: 'Session already used' });
+        }
+
+        // 🛡️ تحقق من التوقيت — لازم مضت مدة الجولة فعلاً (السيرفر يحسب، لا العميل)
+        const elapsed = (Date.now() - new Date(gs.created_at).getTime()) / 1000;
+        if (elapsed < CFG.GAME_ROUND_DURATION_SEC - 5) {
+          await addRisk(dbUser.id, 60, `game_too_fast_${Math.round(elapsed)}s`);
+          return res.status(400).json({ ok: false, error: 'Round not complete' });
+        }
+        if (elapsed > CFG.GAME_ROUND_SESSION_TTL_SEC) {
+          await sql(`UPDATE game_sessions SET used = TRUE WHERE id = $1`, [gReSid]);
+          return res.status(400).json({ ok: false, error: 'Session expired' });
+        }
+
+        // استهلاك الجلسة بشكل atomic (يمنع race condition)
+        const consumed = await sql(
+          `UPDATE game_sessions SET used = TRUE WHERE id = $1 AND used = FALSE RETURNING id`,
+          [gReSid]
+        );
+        if (!consumed.length) {
+          return res.status(400).json({ ok: false, error: 'Session already used' });
+        }
+
+        // مكافأة ثابتة من السيرفر — مع مضاعفة داخلية إذا كان double_approved
+        const baseReward = CFG.GAME_ROUND_TICKETS;
+        const awarded    = gs.double_approved ? baseReward * 2 : baseReward;
+        const doubled    = gs.double_approved;
+
+        // تحديث last_game_round للـ cooldown حتى مع shadow ban
+        await sql(`UPDATE users SET last_game_round = NOW() WHERE id = $1`, [dbUser.id]);
 
         // 🛡️ Shadow ban — رد ناجح وهمي بدون منح نقاط فعلية
         if (dbUser.shadow_banned) {
-          await sql(`UPDATE users SET last_game_round = NOW() WHERE id = $1`, [dbUser.id]);
-          return res.json({ ok: true, awarded });
+          return res.json({ ok: true, awarded, doubled });
         }
 
-        await sql(`UPDATE users SET pts = pts + $1, last_game_round = NOW() WHERE id = $2`, [awarded, dbUser.id]);
+        await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [awarded, dbUser.id]);
         await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
-          [dbUser.id, JSON.stringify({ score: rawScore, awarded })]);
+          [dbUser.id, JSON.stringify({ awarded, doubled })]);
 
-        return res.json({ ok: true, awarded });
+        return res.json({ ok: true, awarded, doubled });
       }
 
       case 'withdraw': {
