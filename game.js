@@ -72,9 +72,9 @@
       if (typeof showToast === 'function') {
         const tickets = (res.awarded || 0).toLocaleString();
         const msg = res.doubled
-          ? `🎉 ضوعفت! حصلت على ${tickets} 🎟`
-          : `✅ حصلت على ${tickets} 🎟`;
-        showToast({ type: 'success', title: 'انتهت الجولة!', msg, duration: 4000 });
+          ? `🎉 Doubled! You earned ${tickets} 🎟`
+          : `You earned ${tickets} 🎟`;
+        showToast({ type: 'success', title: 'Round Over!', msg, duration: 4000 });
       }
     }).catch(() => {});
   }
@@ -102,9 +102,9 @@
       wrap.classList.remove('active');
       if (typeof showToast === 'function') {
         const msg = startRes?.waitSec
-          ? `انتظر ${startRes.waitSec} ثانية قبل جولة جديدة`
-          : 'تعذّر بدء الجولة، حاول مجدداً';
-        showToast({ type: 'error', title: 'خطأ', msg, duration: 3500 });
+          ? `Please wait ${startRes.waitSec}s before a new round`
+          : 'Could not start round, try again';
+        showToast({ type: 'error', title: 'Error', msg, duration: 3500 });
       }
       return;
     }
@@ -371,38 +371,37 @@
 
     const adController = getGameAdsController();
     if (!adController) {
-      if (typeof showToast === 'function') showToast({ type: 'error', title: 'خطأ', msg: 'Ad SDK not loaded', duration: 3000 });
+      if (typeof showToast === 'function') showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
       return;
     }
 
     btn.disabled = true;
     btn.style.opacity = '.6';
-    btn.textContent = '⏳ جارٍ التحقق...';
+    btn.textContent = '⏳ Verifying...';
 
-    // 1. إكمال الإعلان (SDK)
+    // 1. Complete the ad (SDK)
     try {
       await adController.show();
     } catch {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.textContent = ' Double Tickets';
-      if (typeof showToast === 'function') showToast({ type: 'error', title: 'تم التخطي', msg: 'شاهد الإعلان كاملاً لمضاعفة تذاكرك', duration: 3000 });
+      if (typeof showToast === 'function') showToast({ type: 'error', title: 'Ad Skipped', msg: 'Watch the full ad to double your tickets', duration: 3000 });
       return;
     }
 
-    // 2. التحقق من تأكيد Adsgram S2S على السيرفر (مع retry)
-    btn.textContent = '⏳ تأكيد السيرفر...';
+    // 2. Verify Adsgram S2S confirmation on server (with retry)
+    btn.textContent = '⏳ Confirming...';
     const verified = await _verifyGameAdWithRetry(_sessionId);
 
     if (verified) {
-      // السيرفر سجّل double_approved على الجلسة داخلياً — لا نرسل أي قيمة
-      btn.textContent = '✅ مُفعَّل!';
-      if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 جاهز!', msg: 'ستُضاعف تذاكرك تلقائياً عند انتهاء الجولة', duration: 3500 });
+      btn.textContent = '✅ Activated!';
+      if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 Double Ready!', msg: 'Your tickets will be doubled automatically', duration: 3500 });
     } else {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.textContent = ' Double Tickets';
-      if (typeof showToast === 'function') showToast({ type: 'error', title: 'فشل التأكيد', msg: 'لم يصل تأكيد الإعلان، حاول مجدداً', duration: 3500 });
+      if (typeof showToast === 'function') showToast({ type: 'error', title: 'Confirmation Failed', msg: 'Ad not confirmed by server, try again', duration: 3500 });
     }
   }
 
