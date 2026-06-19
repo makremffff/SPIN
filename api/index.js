@@ -19,6 +19,10 @@ const CFG = {
   TS_DRIFT_SEC:       300,  // أكثر فرق مقبول بالـ timestamp
   AD_TIMING_TOLERANCE_SEC: 2,
   RISK_DECAY_PER_DAY: 10,
+
+  // 🎮 Coin Rain mini-game — لا يوجد API لكل تذكرة، فقط نتيجة نهائية واحدة لكل جولة (gameRoundEnd)
+  GAME_ROUND_MIN_INTERVAL_SEC: 35,   // ≈ مدة الجولة الفعلية (40 ثانية لعب + عد تنازلي)، يمنع إرسال جولات أسرع من الممكن فعلياً
+  GAME_ROUND_MAX_SCORE:        2500, // سقف دفاعي للقيمة المرسلة من العميل (يشمل احتمال مضاعفة زر Double Tickets)
 };
 
 // ── App business-logic config (synced to frontend via init response) ──────────
@@ -121,6 +125,7 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
@@ -820,6 +825,39 @@ module.exports = async function handler(req, res) {
           newRank:   rankAfter,
           rankDelta: rankUp ? rankBefore - rankAfter : 0
         });
+      }
+
+      // 🎮 gameRoundEnd — نتيجة نهائية واحدة فقط لكل جولة Coin Rain (لا يوجد API لكل تذكرة تُصاد أثناء اللعب)
+      case 'gameRoundEnd': {
+        const rawScore = Number(data.score);
+        if (!Number.isInteger(rawScore) || rawScore < 0) {
+          return res.status(400).json({ ok: false, error: 'Invalid score' });
+        }
+
+        // 🛡️ كولداون بسيط — يمنع إرسال جولات أسرع من المدة الفعلية للعبة (بدل أي تحقق لكل صيد)
+        const gRows = await sql(`SELECT last_game_round FROM users WHERE id = $1`, [dbUser.id]);
+        const lastRound = gRows[0]?.last_game_round;
+        if (lastRound) {
+          const secSince = (Date.now() - new Date(lastRound).getTime()) / 1000;
+          if (secSince < CFG.GAME_ROUND_MIN_INTERVAL_SEC) {
+            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CFG.GAME_ROUND_MIN_INTERVAL_SEC - secSince) });
+          }
+        }
+
+        // 🛡️ سقف دفاعي على القيمة المرسلة من العميل (يشمل احتمال المضاعفة من زر Double Tickets)
+        const awarded = Math.min(rawScore, CFG.GAME_ROUND_MAX_SCORE);
+
+        // 🛡️ Shadow ban — رد ناجح وهمي بدون منح نقاط فعلية
+        if (dbUser.shadow_banned) {
+          await sql(`UPDATE users SET last_game_round = NOW() WHERE id = $1`, [dbUser.id]);
+          return res.json({ ok: true, awarded });
+        }
+
+        await sql(`UPDATE users SET pts = pts + $1, last_game_round = NOW() WHERE id = $2`, [awarded, dbUser.id]);
+        await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
+          [dbUser.id, JSON.stringify({ score: rawScore, awarded })]);
+
+        return res.json({ ok: true, awarded });
       }
 
       case 'withdraw': {
