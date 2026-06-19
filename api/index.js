@@ -120,18 +120,7 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
-
-  // جدول المستخدمين المشبوهين (خيارات مطور / تلاعب)
-  await sql(`CREATE TABLE IF NOT EXISTS danger (
-    id           SERIAL PRIMARY KEY,
-    user_id      INT NOT NULL REFERENCES users(id),
-    telegram_id  BIGINT NOT NULL,
-    reason       TEXT NOT NULL DEFAULT 'devtools',
-    detected_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    meta         JSONB
-  )`);
-  await sql(`CREATE INDEX IF NOT EXISTS danger_user_idx ON danger(user_id)`);
-  await sql(`CREATE INDEX IF NOT EXISTS danger_tg_idx  ON danger(telegram_id)`);
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
@@ -624,7 +613,8 @@ module.exports = async function handler(req, res) {
             balance_usd:   parseFloat(dbUser.balance_usd),
             referral_code: dbUser.referral_code,
             rank:          userRank,
-            banned:        dbUser.banned || false
+            banned:        dbUser.banned || false,
+            onboarding_seen: dbUser.onboarding_seen || false
           },
           leaderboard: leaderboard.map(r => ({
             telegram_id: Number(r.telegram_id),
@@ -639,6 +629,12 @@ module.exports = async function handler(req, res) {
           },
           config: configWithCompetition
         });
+      }
+
+      // ✅ markOnboardingSeen — يُسجَّل في DB بدل localStorage (يضمن مشاهدة واحدة فقط حتى بعد مسح الكاش)
+      case 'markOnboardingSeen': {
+        await sql(`UPDATE users SET onboarding_seen = TRUE WHERE id = $1`, [dbUser.id]);
+        return res.json({ ok: true });
       }
 
       // 🛡️ startAd — الخطوة الأولى: احجز token موقّع قبل تشغيل الإعلان
@@ -889,24 +885,6 @@ module.exports = async function handler(req, res) {
       case 'logShare': {
         await sql("INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'share', $2)",
           [dbUser.id, JSON.stringify({ platform: data.platform || 'unknown' })]);
-        return res.json({ ok: true });
-      }
-
-      case 'logDanger': {
-        const reason = String(data.reason || 'devtools').slice(0, 64);
-        const meta   = data.meta ? JSON.stringify(data.meta).slice(0, 512) : null;
-        // تجنب تكرار نفس السبب خلال 10 دقائق
-        const recent = await sql(
-          `SELECT id FROM danger WHERE user_id=$1 AND reason=$2 AND detected_at > NOW() - INTERVAL '10 minutes'`,
-          [dbUser.id, reason]
-        );
-        if (recent.length === 0) {
-          await sql(
-            `INSERT INTO danger (user_id, telegram_id, reason, meta) VALUES ($1,$2,$3,$4)`,
-            [dbUser.id, dbUser.telegram_id, reason, meta]
-          );
-          console.warn(`[danger] user=${dbUser.id} tg=${dbUser.telegram_id} reason=${reason}`);
-        }
         return res.json({ ok: true });
       }
 
