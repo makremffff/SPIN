@@ -41,8 +41,10 @@
   let basketX;
   const BW = 92, BH = 26, BY_OFF = 80;
   let cdToken = 0;             // يُلغي أي countdown قديم عند مغادرة/إعادة دخول صفحة اللعبة
-  let roundEnded     = false;  // تصبح true فقط عند وصول العداد لصفر
-  let roundSubmitted = true;   // true = لا توجد نتيجة جولة معلّقة بانتظار الإرسال
+
+  // 🛡️ جلسة الجولة — تُنشأ من السيرفر حصراً، مخفية عن المستخدم
+  let _sessionId  = null;  // UUID معتم من السيرفر — null بعد الإرسال أو قبل البدء
+  let _roundEnded = false; // true فقط عند انتهاء العداد فعلاً (ليس مغادرة في المنتصف)
 
   const TYPES = [
     { type: 'ticket', w: 58, val: 2,  r: 20, rare: false },
@@ -55,24 +57,30 @@
     return { ...TYPES[0] };
   }
 
-  /* ── 🛡️ نداء API نهائي واحد فقط لكل جولة ──────────────
-     يُستدعى فقط بعد انتهاء الجولة فعلياً، وليس أثناء اللعب. */
-  function submitRoundScore() {
-    if (!roundEnded || roundSubmitted) return;
-    roundSubmitted = true;
-    const finalTickets = roundScore;
-    if (finalTickets <= 0) return;
-    fetchApi({ type: 'gameRoundEnd', data: { score: finalTickets } }).then(res => {
-      if (res && res.ok) {
-        if (typeof refreshState === 'function') refreshState(); // يحدّث رصيد التذاكر بباقي الصفحات
-      } else {
-        console.error('[game] round submit failed:', res?.error);
+  /* ── 🛡️ إرسال نتيجة الجولة — فقط sessionId، بدون نقاط من العميل ──────
+     السيرفر يحسب المكافأة داخلياً ويتحقق من التوقيت.
+     يُستدعى فقط إذا انتهت الجولة فعلاً (_roundEnded) ولم تُرسَل بعد. */
+  function submitRound() {
+    if (!_sessionId || !_roundEnded) return;
+    const sid   = _sessionId;
+    _sessionId  = null;   // يمنع الإرسال المزدوج
+    _roundEnded = false;
+
+    fetchApi({ type: 'gameRoundEnd', data: { sessionId: sid } }).then(res => {
+      if (!res?.ok) return;
+      if (typeof refreshState === 'function') refreshState();
+      if (typeof showToast === 'function') {
+        const tickets = (res.awarded || 0).toLocaleString();
+        const msg = res.doubled
+          ? `🎉 ضوعفت! حصلت على ${tickets} 🎟`
+          : `✅ حصلت على ${tickets} 🎟`;
+        showToast({ type: 'success', title: 'انتهت الجولة!', msg, duration: 4000 });
       }
-    });
+    }).catch(() => {});
   }
 
   /* ── Countdown → Start ──────────────────────────── */
-  function startCountdown() {
+  async function startCountdown() {
     const wrap = document.getElementById('game-canvas-wrap');
     wrap.classList.add('active');
     document.getElementById('end-overlay').classList.remove('active');
@@ -85,6 +93,22 @@
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#07090f';
     ctx.fillRect(0, 0, W, H);
+
+    // 🛡️ طلب جلسة من السيرفر — UUID لا يعرفه العميل ولا يقدر ينشئه
+    _sessionId  = null;
+    _roundEnded = false;
+    const startRes = await fetchApi({ type: 'gameRoundStart' });
+    if (!startRes?.ok) {
+      wrap.classList.remove('active');
+      if (typeof showToast === 'function') {
+        const msg = startRes?.waitSec
+          ? `انتظر ${startRes.waitSec} ثانية قبل جولة جديدة`
+          : 'تعذّر بدء الجولة، حاول مجدداً';
+        showToast({ type: 'error', title: 'خطأ', msg, duration: 3500 });
+      }
+      return;
+    }
+    _sessionId = startRes.sessionId; // مخفي في closure — لا يظهر في UI
 
     cdToken++;
     const myToken = cdToken;
@@ -112,7 +136,7 @@
 
   function startGame() {
     roundScore = 0; timeLeft = DURATION; items = []; popups = []; spawnCd = 0; lastTs = null; running = true;
-    roundEnded = false; roundSubmitted = true; // لا توجد نتيجة بعد لهذه الجولة
+    _roundEnded = false; // الجلسة موجودة بالفعل (_sessionId) — نبدأ اللعب فقط
     basketX = W / 2;
     updateHUD();
     animId = requestAnimationFrame(loop);
@@ -306,8 +330,7 @@
   function endGame() {
     running = false;
     cancelAnimationFrame(animId);
-    roundEnded     = true;
-    roundSubmitted = false; // بانتظار الإرسال (عند Play Again أو مغادرة الصفحة)
+    _roundEnded = true; // ← الجولة اكتملت، جاهز للإرسال عند الضغط أو مغادرة الصفحة
 
     document.getElementById('finalScore').textContent = roundScore.toLocaleString();
     const btn = document.getElementById('adBtn');
@@ -318,9 +341,8 @@
   }
 
   /* ── Double via ad ─────────────────────────────────────
-     🛡️ بدون أي شروط أو نداء سيرفر — مجرد إكمال الإعلان
-     فعلياً (adController.show() ينجح فقط لو لم يُتخطَّ
-     الإعلان) يضاعف التذاكر محلياً قبل الإرسال النهائي. ── */
+     بعد إكمال الإعلان → يتحقق من تأكيد Adsgram S2S على السيرفر
+     ويُفعّل المضاعفة داخلياً على الجلسة (بدون إرسال أي قيمة). ── */
   let _gameAdsController = null;
   function getGameAdsController() {
     if (!_gameAdsController && window.Adsgram) {
@@ -329,35 +351,63 @@
     return _gameAdsController;
   }
 
+  async function _verifyGameAdWithRetry(sid, maxRetries = 8) {
+    for (let i = 0; i < maxRetries; i++) {
+      const res = await fetchApi({ type: 'gameAdVerify', data: { sessionId: sid } });
+      if (res?.ok) return true;
+      if (res?.error === 'pending_confirmation') {
+        await new Promise(r => setTimeout(r, res.retryAfterMs || 1500));
+        continue;
+      }
+      return false;
+    }
+    return false;
+  }
+
   async function onWatchAd() {
     const btn = document.getElementById('adBtn');
     if (btn.disabled) return;
+    if (!_sessionId || !_roundEnded) return; // لا توجد جولة منتهية
 
     const adController = getGameAdsController();
     if (!adController) {
-      if (typeof showToast === 'function') showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
+      if (typeof showToast === 'function') showToast({ type: 'error', title: 'خطأ', msg: 'Ad SDK not loaded', duration: 3000 });
       return;
     }
 
     btn.disabled = true;
     btn.style.opacity = '.6';
+    btn.textContent = '⏳ جارٍ التحقق...';
 
+    // 1. إكمال الإعلان (SDK)
     try {
-      await adController.show(); // يُرفض تلقائياً إذا تم تخطي الإعلان أو لم يكتمل
-    } catch (err) {
+      await adController.show();
+    } catch {
       btn.disabled = false;
       btn.style.opacity = '1';
-      if (typeof showToast === 'function') showToast({ type: 'error', title: 'Ad Skipped', msg: 'Watch the full ad to double your tickets', duration: 3000 });
+      btn.textContent = ' Double Tickets';
+      if (typeof showToast === 'function') showToast({ type: 'error', title: 'تم التخطي', msg: 'شاهد الإعلان كاملاً لمضاعفة تذاكرك', duration: 3000 });
       return;
     }
 
-    roundScore *= 2;
-    document.getElementById('finalScore').textContent = roundScore.toLocaleString();
-    btn.textContent = `🎉 ${roundScore.toLocaleString()} Tickets!`;
+    // 2. التحقق من تأكيد Adsgram S2S على السيرفر (مع retry)
+    btn.textContent = '⏳ تأكيد السيرفر...';
+    const verified = await _verifyGameAdWithRetry(_sessionId);
+
+    if (verified) {
+      // السيرفر سجّل double_approved على الجلسة داخلياً — لا نرسل أي قيمة
+      btn.textContent = '✅ مُفعَّل!';
+      if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 جاهز!', msg: 'ستُضاعف تذاكرك تلقائياً عند انتهاء الجولة', duration: 3500 });
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = ' Double Tickets';
+      if (typeof showToast === 'function') showToast({ type: 'error', title: 'فشل التأكيد', msg: 'لم يصل تأكيد الإعلان، حاول مجدداً', duration: 3500 });
+    }
   }
 
   function playAgain() {
-    submitRoundScore(); // 🛡️ نداء API نهائي واحد لهذه الجولة (يشمل المضاعفة إن حصلت)
+    submitRound(); // 🛡️ يرسل الجلسة الحالية إلى السيرفر قبل إنشاء جلسة جديدة
     document.getElementById('end-overlay').classList.remove('active');
     startCountdown();
   }
@@ -368,7 +418,7 @@
     if (animId) cancelAnimationFrame(animId);
     cdToken++;
     document.getElementById('cd-overlay').style.display = 'none';
-    submitRoundScore(); // يرسل نتيجة الجولة المنتهية لو غادر المستخدم قبل الضغط على Play Again
+    submitRound(); // يرسل الجلسة لو كانت الجولة انتهت قبل أن يغادر المستخدم
     document.getElementById('end-overlay').classList.remove('active');
   }
 
