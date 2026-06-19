@@ -12,11 +12,6 @@
    network call). function declarations are hoisted, so
    initOnboarding is already defined here even though its
    body is written further down in this file. */
-try {
-  initOnboarding();
-} catch (err) {
-  console.error('[initOnboarding] failed to initialize', err);
-}
 
 /* ── Initial load ───────────────────────────────────── */
 async function initApp() {
@@ -35,6 +30,12 @@ async function initApp() {
       return;
     }
     applyState(res);
+    // ✅ شاشة التعليمات — تُعرض مرة وحدة فقط (الـ flag محفوظ في DB)
+    try {
+      initOnboarding(res.user?.onboarding_seen === true);
+    } catch (err) {
+      console.error('[initOnboarding] failed to initialize', err);
+    }
   } else {
     console.error('[initApp] failed:', res?.error);
   }
@@ -362,26 +363,16 @@ function showPartialRewardModal(reward) {
 }
 
 /* ══════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    Onboarding — first-launch swipeable intro (5 slides)
-   Shown once; suppressed afterwards via localStorage flag.
-   Runs independently of initApp() so it doesn't wait on
-   the network — it's pure static content.
+   Shown once; suppressed afterwards via DB flag (onboarding_seen).
+   Called from initApp() after the init response arrives.
 ══════════════════════════════════════════════════════ */
-const ONBOARDING_KEY = 'bl_onboarding_seen_v1';
 
-function initOnboarding() {
+function initOnboarding(alreadySeen = false) {
   const ob = document.getElementById('ob');
   if (!ob) return;
 
-  let alreadySeen = false;
-  try {
-    alreadySeen = !!localStorage.getItem(ONBOARDING_KEY);
-  } catch (err) {
-    // 🛡️ بعض الـ WebViews (خصوصية/كوكيز محظورة) ترمي خطأ عند لمس localStorage
-    // لو ما حطينا try/catch هنا، كل initOnboarding() توقف هنا ولا يتم تسجيل
-    // أي click listener على زر Next → الزر يبدو معطل تماماً
-    console.warn('[onboarding] localStorage not accessible, continuing without it', err);
-  }
   if (alreadySeen) {
     // ob already hidden via CSS default (display:none)
     return;
@@ -427,11 +418,10 @@ function initOnboarding() {
   }
 
   function finishOnboarding() {
-    try {
-      localStorage.setItem(ONBOARDING_KEY, '1');
-    } catch (err) {
-      console.warn('[onboarding] could not persist seen-state', err);
-    }
+    // ✅ سجّل في DB — يضمن ما تظهر مرة ثانية حتى لو تمسح الكاش أو غيّر جهاز
+    fetchApi({ type: 'markOnboardingSeen' }).catch(err =>
+      console.warn('[onboarding] could not persist seen-state to server', err)
+    );
     ob.style.transition = 'opacity 0.4s ease';
     ob.style.opacity = '0';
     setTimeout(() => { ob.style.display = 'none'; }, 400);
