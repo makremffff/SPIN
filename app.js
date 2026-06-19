@@ -383,9 +383,12 @@ function initOnboarding() {
     console.warn('[onboarding] localStorage not accessible, continuing without it', err);
   }
   if (alreadySeen) {
-    ob.style.display = 'none';
+    // ob already hidden via CSS default (display:none)
     return;
   }
+
+  // First visit — reveal the overlay
+  ob.style.display = 'flex';
 
   const slides = ob.querySelectorAll('.slide');
   const track  = document.getElementById('track');

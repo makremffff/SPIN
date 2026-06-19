@@ -1675,11 +1675,11 @@ nav {
 #ob {
   --ob-gold2:  #ffe87c;
   --ob-gold3:  #c8860a;
-  --ob-muted:  rgba(200,195,175,0.60);
-  --ob-dim:    rgba(200,195,175,0.38);
+  --ob-muted:  rgba(220,215,190,0.82);
+  --ob-dim:    rgba(210,205,180,0.68);
   position: fixed; inset: 0;
   z-index: 9500;
-  display: flex; flex-direction: column;
+  display: none; flex-direction: column;
   background: var(--bg);
   overflow: hidden;
 }
@@ -1732,8 +1732,8 @@ nav {
   font-size: 11px;
   letter-spacing: 4px;
   text-transform: uppercase;
-  color: var(--gold);
-  opacity: 0.65;
+  color: var(--ob-gold2);
+  opacity: 0.90;
   margin-bottom: 8px;
 }
 #ob .heading {
@@ -1768,9 +1768,14 @@ nav {
   font-size: 11px;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: var(--ob-dim);
+  color: var(--ob-gold2);
+  opacity: 0.75;
   align-self: flex-start;
   margin-bottom: 10px;
+  padding: 4px 10px 4px 8px;
+  border-left: 2px solid rgba(245,200,64,0.60);
+  background: rgba(245,200,64,0.06);
+  border-radius: 0 6px 6px 0;
 }
 #ob .steps { width: 100%; display: flex; flex-direction: column; gap: 0; }
 #ob .step {
@@ -1783,17 +1788,18 @@ nav {
 #ob .step-n {
   font-family: 'Permanent Marker', cursive;
   font-size: 20px;
-  color: var(--gold);
+  color: var(--ob-gold2);
   line-height: 1;
   min-width: 26px;
   margin-top: 2px;
   flex-shrink: 0;
+  text-shadow: 0 0 12px rgba(245,200,64,0.45);
 }
 #ob .step-body { flex: 1; }
 #ob .step-title {
   font-family: 'Permanent Marker', cursive;
   font-size: 14.5px;
-  color: rgba(240,235,210,0.92);
+  color: rgba(255,248,225,0.96);
   margin-bottom: 3px;
   line-height: 1.2;
 }
