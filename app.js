@@ -4,6 +4,20 @@
                notifications.js, pages.js
 ══════════════════════════════════════════════════════ */
 
+/* 🛡️ Wire up onboarding FIRST, before anything else runs.
+   initOnboarding() is pure static UI logic with no dependency
+   on config.js/api.js/etc. Running it first guarantees the
+   Next button always works even if something later in this
+   file throws (e.g. a missing/broken APP_CONFIG, a failed
+   network call). function declarations are hoisted, so
+   initOnboarding is already defined here even though its
+   body is written further down in this file. */
+try {
+  initOnboarding();
+} catch (err) {
+  console.error('[initOnboarding] failed to initialize', err);
+}
+
 /* ── Initial load ───────────────────────────────────── */
 async function initApp() {
   initTelegramApp();
@@ -37,18 +51,19 @@ async function refreshState() {
    Countdown — target يأتي من السرفر (COMPETITION_END_MS)
    قبل وصول init response نستخدم القيمة من APP_CONFIG
 ══════════════════════════════════════════════════════ */
-let competitionEnd = APP_CONFIG.COMPETITION_END_MS || (Date.now() + 20 * 24 * 60 * 60 * 1000);
+let competitionEnd = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.COMPETITION_END_MS) || (Date.now() + 20 * 24 * 60 * 60 * 1000);
 const el     = document.getElementById('cd-days');
 const word   = document.querySelector('.cd-word');
 
 function tick() {
+  if (!el || !word) return;
   const diff = competitionEnd - Date.now();
   const days = Math.max(0, Math.ceil(diff / 86400000));
   el.textContent   = String(days).padStart(2, '0');
   word.textContent = days === 1 ? 'day left' : 'days left';
 }
-tick();
-setInterval(tick, 60000);
+try { tick(); } catch (err) { console.warn('[countdown] tick failed', err); }
+setInterval(() => { try { tick(); } catch (err) {} }, 60000);
 
 /* ══════════════════════════════════════════════════════
    Copy referral link
@@ -271,7 +286,7 @@ async function handleWithdraw() {
     showToast({ type: 'withdraw', title: 'Wallet Address Required', msg: 'Please enter your wallet address', duration: 3500 });
     return;
   }
-  const withdrawMin = (appState.config || APP_CONFIG).WITHDRAW_MIN;
+  const withdrawMin = (appState.config || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {})).WITHDRAW_MIN;
   if (isNaN(amount) || amount < withdrawMin) {
     showToast({ type: 'withdraw', title: 'Invalid Amount', msg: `Minimum withdrawal is $${withdrawMin.toFixed(2)}`, duration: 3500 });
     return;
@@ -347,8 +362,100 @@ function showPartialRewardModal(reward) {
 }
 
 /* ══════════════════════════════════════════════════════
+   Onboarding — first-launch swipeable intro (5 slides)
+   Shown once; suppressed afterwards via localStorage flag.
+   Runs independently of initApp() so it doesn't wait on
+   the network — it's pure static content.
+══════════════════════════════════════════════════════ */
+const ONBOARDING_KEY = 'bl_onboarding_seen_v1';
+
+function initOnboarding() {
+  const ob = document.getElementById('ob');
+  if (!ob) return;
+
+  let alreadySeen = false;
+  try {
+    alreadySeen = !!localStorage.getItem(ONBOARDING_KEY);
+  } catch (err) {
+    // 🛡️ بعض الـ WebViews (خصوصية/كوكيز محظورة) ترمي خطأ عند لمس localStorage
+    // لو ما حطينا try/catch هنا، كل initOnboarding() توقف هنا ولا يتم تسجيل
+    // أي click listener على زر Next → الزر يبدو معطل تماماً
+    console.warn('[onboarding] localStorage not accessible, continuing without it', err);
+  }
+  if (alreadySeen) {
+    ob.style.display = 'none';
+    return;
+  }
+
+  const slides = ob.querySelectorAll('.slide');
+  const track  = document.getElementById('track');
+  const dots   = ob.querySelectorAll('.dot');
+  const btn    = document.getElementById('btn');
+  const flash  = document.getElementById('flash');
+  const hint   = document.getElementById('scroll-hint');
+  const labels = ['Next', 'Next', 'Next', 'Next', 'Start Playing'];
+  let cur = 0, busy = false;
+
+  function checkScroll() {
+    const sl = slides[cur];
+    const overflows = sl.scrollHeight - sl.scrollTop > sl.clientHeight + 10;
+    hint.classList.toggle('show', overflows);
+  }
+  slides.forEach(s => s.addEventListener('scroll', checkScroll, { passive: true }));
+
+  function goTo(n) {
+    if (busy || n === cur) return;
+    busy = true;
+    flash.classList.remove('pop');
+    void flash.offsetWidth;
+    flash.classList.add('pop');
+    slides[cur].classList.remove('visible');
+    cur = n;
+    track.style.transform = `translateX(-${cur * 100}%)`;
+    dots.forEach((d, i) => d.classList.toggle('on', i === cur));
+    btn.textContent = labels[cur];
+    btn.classList.toggle('go', cur === slides.length - 1);
+    setTimeout(() => {
+      slides[cur].classList.add('visible');
+      slides[cur].scrollTop = 0;
+      setTimeout(checkScroll, 300);
+      busy = false;
+    }, 120);
+  }
+
+  function finishOnboarding() {
+    try {
+      localStorage.setItem(ONBOARDING_KEY, '1');
+    } catch (err) {
+      console.warn('[onboarding] could not persist seen-state', err);
+    }
+    ob.style.transition = 'opacity 0.4s ease';
+    ob.style.opacity = '0';
+    setTimeout(() => { ob.style.display = 'none'; }, 400);
+  }
+
+  btn.addEventListener('click', () => {
+    if (cur < slides.length - 1) goTo(cur + 1);
+    else finishOnboarding();
+  });
+
+  // swipe between slides
+  let sx = 0;
+  track.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+  track.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 48) {
+      if (dx < 0 && cur < slides.length - 1) goTo(cur + 1);
+      if (dx > 0 && cur > 0)                 goTo(cur - 1);
+    }
+  });
+
+  setTimeout(checkScroll, 600);
+}
+
+/* ══════════════════════════════════════════════════════
    Startup
 ══════════════════════════════════════════════════════ */
-renderConfig();   // fill values from APP_CONFIG immediately (before server responds)
-animatePage('contest');
+try { renderConfig(); } catch (err) { console.error('[renderConfig] failed', err); }   // fill values from APP_CONFIG immediately (before server responds)
+try { animatePage('contest'); } catch (err) { console.error('[animatePage] failed', err); }
 initApp();
