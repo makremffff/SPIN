@@ -582,6 +582,39 @@
     </div>
   </div>
 
+  <!-- ══ Game Page ══ -->
+  <div class="page" id="page-game">
+    <div id="game-canvas-wrap">
+      <div id="timer-top">
+        <div class="timer-num" id="timerNum">40</div>
+        <div class="timer-label">seconds</div>
+      </div>
+      <div id="score-top">
+        <img src="https://meme.crypto-apps.center/images/5247ad..png" alt="ticket">
+        <span id="scoreVal">0</span>
+      </div>
+
+      <canvas id="canvas"></canvas>
+
+      <div id="cd-overlay"><div id="cd-num"></div></div>
+
+      <div id="end-overlay">
+        <div class="end-backdrop"></div>
+        <div class="end-card">
+          <div class="end-card-title">Game Over</div>
+          <div class="end-divider"></div>
+          <div class="end-score-wrap">
+            <img src="https://meme.crypto-apps.center/images/5247ad..png" alt="ticket" id="endTicketImg">
+            <div class="end-score-num" id="finalScore">0</div>
+          </div>
+          <div class="end-unit">Tickets Collected</div>
+          <button class="btn-ad" id="adBtn" onclick="onWatchAd()"> Double Tickets</button>
+          <button class="btn-again" onclick="playAgain()">↩ Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ Withdraw Page ══ -->
   <div class="page" id="page-withdraw">
     <div class="wd-wrap">
@@ -670,6 +703,19 @@
     <span class="lbl">Referral</span>
   </button>
 
+  <button class="nb" data-page="game">
+    <div class="ic">
+      <svg viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="12" rx="4"/>
+        <line x1="8"  y1="10" x2="8"  y2="16"/>
+        <line x1="5"  y1="13" x2="11" y2="13"/>
+        <circle cx="16" cy="11" r="1" fill="currentColor" style="fill:var(--muted)"/>
+        <circle cx="19" cy="14" r="1" fill="currentColor" style="fill:var(--muted)"/>
+      </svg>
+    </div>
+    <span class="lbl">Game</span>
+  </button>
+
   <button class="nb" data-page="withdraw">
     <div class="ic">
       <svg viewBox="0 0 24 24">
@@ -687,6 +733,7 @@
 <script src="api.js"></script>
 <script src="security.js"></script>
 <script src="notifications.js"></script>
+<script src="game.js"></script>
 <script src="pages.js"></script>
 <script src="app.js"></script>
 

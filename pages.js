@@ -233,10 +233,16 @@ function animatePage(pageId) {
 /* ── Navigation ─────────────────────────────────────────── */
 document.querySelectorAll('.nb').forEach(btn => {
   btn.addEventListener('click', function () {
+    const target  = this.dataset.page;
+    const wasGame = document.getElementById('page-game')?.classList.contains('active');
+    if (wasGame && target !== 'game' && typeof gameStop === 'function') gameStop();
+
     document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     this.classList.add('active');
-    document.getElementById('page-' + this.dataset.page).classList.add('active');
-    animatePage(this.dataset.page);
+    document.getElementById('page-' + target).classList.add('active');
+    animatePage(target);
+
+    if (target === 'game' && typeof gameStart === 'function') gameStart();
   });
 });

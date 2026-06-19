@@ -1923,3 +1923,176 @@ nav {
 }
 #ob #flash.pop { animation: obFlashPop 0.5s ease forwards; }
 @keyframes obFlashPop { 0%{opacity:0} 30%{opacity:1} 100%{opacity:0} }
+
+/* ══════════════════════════════════════════════════════
+   Game Page — Coin Rain mini-game
+   (Same --gold/--bg/--nav-bg/--border/--muted tokens as
+   the rest of the app — scoped under #page-game)
+══════════════════════════════════════════════════════ */
+#page-game { padding: 0; align-items: stretch; justify-content: stretch; }
+
+#game-canvas-wrap { display: none; position: absolute; inset: 0; }
+#game-canvas-wrap.active { display: block; }
+
+#page-game canvas { display: block; touch-action: none; }
+
+/* top timer */
+#timer-top {
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+#timer-top .timer-num {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 2.8rem;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(245,200,64,0.7);
+  line-height: 1;
+  letter-spacing: 2px;
+}
+#timer-top .timer-num.urgent { color: #ff5555; text-shadow: 0 0 20px rgba(255,85,85,0.7); }
+#timer-top .timer-label {
+  font-family: 'Aleo', serif;
+  font-size: .6rem;
+  color: rgba(245,200,64,.4);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+/* score top-right */
+#score-top {
+  position: absolute;
+  top: 14px; right: 16px;
+  display: flex; align-items: center; gap: 5px;
+  pointer-events: none; z-index: 10;
+}
+#score-top img { width: 22px; height: 22px; object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(245,200,64,0.55)); }
+#score-top span {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 1.25rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+/* countdown overlay */
+#cd-overlay {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center;
+  pointer-events: none; z-index: 20;
+}
+#cd-num {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 7rem;
+  color: var(--gold);
+  text-shadow: 0 0 50px rgba(245,200,64,0.85);
+  opacity: 0;
+  letter-spacing: 4px;
+}
+@keyframes cdpop {
+  0%  { opacity:1; transform:scale(1.55); }
+  70% { opacity:1; transform:scale(.95);  }
+  100%{ opacity:0; transform:scale(.8);   }
+}
+#cd-num.cdpop { animation: cdpop .75s ease forwards; }
+
+/* end card */
+#end-overlay { display: none; position: fixed; inset: 0; z-index: 30; }
+#end-overlay.active { display: block; }
+
+#end-overlay .end-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(5,6,10,.55);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+
+#end-overlay .end-card {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; flex-direction: column;
+  align-items: center;
+  width: min(86%, 300px);
+  padding: 20px 20px 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  animation: endCardIn .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes endCardIn {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(.9); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.end-card-title {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 1.3rem;
+  color: var(--gold);
+  letter-spacing: 4px;
+  text-shadow: 0 0 20px rgba(245,200,64,0.55);
+  margin-bottom: 14px;
+}
+.end-divider {
+  width: 54px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  box-shadow: 0 0 10px rgba(245,200,64,.6);
+  margin-bottom: 22px;
+}
+
+.end-score-wrap { display: flex; align-items: center; gap: 7px; }
+.end-score-wrap img {
+  width: 26px; height: 26px; object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(245,200,64,0.7));
+}
+.end-score-num {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 2.4rem;
+  color: var(--gold);
+  text-shadow: 0 0 24px rgba(245,200,64,0.6);
+  line-height: 1;
+}
+.end-unit {
+  font-family: 'Permanent Marker', cursive;
+  font-size: .6rem;
+  color: rgba(245,200,64,.45);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.btn-ad {
+  width: 60%;
+  margin-top: 26px;
+  padding: 14px 0;
+  background: rgba(245,200,200,.4);
+  color: gold;
+  font-family: 'Permanent Marker', cursive;
+  font-size: .85rem;
+  letter-spacing: 2px;
+  border: none; border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(245,200,64,0.38);
+}
+.btn-ad:active { transform: scale(.97); }
+.btn-ad:disabled { cursor: default; }
+
+.btn-again {
+  width: 60%;
+  margin: 10px 0 20px;
+  padding: 12px 0;
+  background: rgba(180,190,210,0.38);
+  color: white;
+  font-family: 'Permanent Marker', cursive;
+  font-size: .72rem;
+  letter-spacing: 2px;
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  cursor: pointer;
+}
+.btn-again:active { opacity: .7; }
