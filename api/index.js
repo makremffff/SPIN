@@ -134,8 +134,12 @@ async function ensureSchema() {
     user_id         INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     used            BOOLEAN     NOT NULL DEFAULT FALSE,
-    double_approved BOOLEAN     NOT NULL DEFAULT FALSE
+    double_approved BOOLEAN     NOT NULL DEFAULT FALSE,
+    seed            INT,
+    sequence_json   TEXT
   )`);
+  await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS seed INT`);
+  await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS sequence_json TEXT`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON game_sessions(user_id, used, created_at)`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
@@ -267,6 +271,38 @@ async function checkIPLimit(ip, type) {
     [ip, type]
   );
   return rows[0].count <= max; // true = مسموح
+}
+
+// ══════════════════════════════════════════════════════
+// 🎮 Seed-based sequence generator — mirrors client PRNG
+//    نفس Mulberry32 المستخدم في game.js (يجب أن يبقيا متطابقين)
+// ══════════════════════════════════════════════════════
+function _makePrng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const _GAME_TYPES   = [{ w: 58, val: 2 }, { w: 20, val: 8 }, { w: 22, val: -3 }];
+const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
+const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
+
+function generateGameSequence(seed) {
+  const rng = _makePrng(seed);
+  const seq = [];
+  for (let i = 0; i < _GAME_SEQ_LEN; i++) {
+    const typeRoll = rng(); // استهلاك 1: نوع العنصر (mirrors pickType في game.js)
+    rng();                  // استهلاك 2: spawnCd random (mirrors spawnItem في game.js)
+    let r = typeRoll * _GAME_TOTAL_W;
+    let pushed = false;
+    for (const t of _GAME_TYPES) { r -= t.w; if (r <= 0) { seq.push(t.val); pushed = true; break; } }
+    if (!pushed) seq.push(_GAME_TYPES[0].val);
+  }
+  return seq; // مثال: [2, -3, 8, 2, 2, -3, ...]
 }
 
 async function addRisk(userId, points, reason) {
@@ -854,9 +890,15 @@ module.exports = async function handler(req, res) {
         }
         // تنظيف جلسات قديمة غير مُستخدَمة لهذا المستخدم
         await sql(`DELETE FROM game_sessions WHERE user_id = $1 AND used = FALSE AND created_at < NOW() - INTERVAL '6 minutes'`, [dbUser.id]);
-        // إنشاء جلسة جديدة (UUID تولّده قاعدة البيانات، لا العميل)
-        const sRows = await sql(`INSERT INTO game_sessions (user_id) VALUES ($1) RETURNING id`, [dbUser.id]);
-        return res.json({ ok: true, sessionId: sRows[0].id });
+        // إنشاء seed + تسلسل عناصر محدد مسبقاً (السيرفر يعرف كل عنصر سيظهر)
+        const seed     = (Math.random() * 2 ** 31) >>> 0;
+        const sequence = generateGameSequence(seed);
+        const sRows    = await sql(
+          `INSERT INTO game_sessions (user_id, seed, sequence_json) VALUES ($1, $2, $3) RETURNING id`,
+          [dbUser.id, seed, JSON.stringify(sequence)]
+        );
+        // _t = token معتم، seed للـ PRNG على العميل — لا يوجد "sessionId" في الـ JSON
+        return res.json({ ok: true, _t: sRows[0].id, seed });
       }
 
       // ══════════════════════════════════════════════════════════════════
@@ -864,15 +906,15 @@ module.exports = async function handler(req, res) {
       //    على الجلسة داخلياً بدون إرسال أي قيمة من العميل
       // ══════════════════════════════════════════════════════════════════
       case 'gameAdVerify': {
-        const { sessionId: gAvSid } = data;
-        if (!gAvSid) return res.status(400).json({ ok: false, error: 'Missing session' });
+        const { _t: gAvSid } = data;
+        if (!gAvSid) return res.status(400).json({ ok: false, error: 'Missing token' });
 
         const gAvRows = await sql(
           `SELECT id, user_id, used, double_approved FROM game_sessions WHERE id = $1`,
           [gAvSid]
         );
         if (!gAvRows.length || gAvRows[0].user_id !== dbUser.id)
-          return res.status(403).json({ ok: false, error: 'Invalid session' });
+          return res.status(403).json({ ok: false, error: 'Invalid token' });
         if (gAvRows[0].used)
           return res.status(400).json({ ok: false, error: 'Session already used' });
         if (gAvRows[0].double_approved)
@@ -895,16 +937,19 @@ module.exports = async function handler(req, res) {
       //    لا يقبل أي نقاط أو score من العميل
       // ══════════════════════════════════════════════════════════════════
       case 'gameRoundEnd': {
-        const { sessionId: gReSid } = data;
-        if (!gReSid) return res.status(400).json({ ok: false, error: 'Missing session' });
+        // c = caught indices (مؤشرات العناصر التي صادها اللاعب)
+        // n = totalSpawned  (كم عنصر ظهر فعلاً في هذه الجولة)
+        // _t = token معتم (يُستخدم داخلياً فقط — لا يُعرض في UI)
+        const { _t: gReSid, c: rawCaught, n: totalSpawned } = data;
+        if (!gReSid) return res.status(400).json({ ok: false, error: 'Missing token' });
 
         const gReRows = await sql(
-          `SELECT id, user_id, used, double_approved, created_at FROM game_sessions WHERE id = $1`,
+          `SELECT id, user_id, used, double_approved, created_at, sequence_json FROM game_sessions WHERE id = $1`,
           [gReSid]
         );
         if (!gReRows.length || gReRows[0].user_id !== dbUser.id) {
-          await addRisk(dbUser.id, 40, 'game_invalid_session');
-          return res.status(403).json({ ok: false, error: 'Invalid session' });
+          await addRisk(dbUser.id, 40, 'game_invalid_token');
+          return res.status(403).json({ ok: false, error: 'Invalid token' });
         }
         const gs = gReRows[0];
         if (gs.used) {
@@ -912,7 +957,7 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Session already used' });
         }
 
-        // 🛡️ تحقق من التوقيت — لازم مضت مدة الجولة فعلاً (السيرفر يحسب، لا العميل)
+        // 🛡️ تحقق من التوقيت
         const elapsed = (Date.now() - new Date(gs.created_at).getTime()) / 1000;
         if (elapsed < CFG.GAME_ROUND_DURATION_SEC - 5) {
           await addRisk(dbUser.id, 60, `game_too_fast_${Math.round(elapsed)}s`);
@@ -923,31 +968,51 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Session expired' });
         }
 
-        // استهلاك الجلسة بشكل atomic (يمنع race condition)
+        // 🛡️ تحقق من بيانات الصيد
+        const sequence    = gs.sequence_json ? JSON.parse(gs.sequence_json) : null;
+        const spawnedCount = Math.min(Math.max(0, parseInt(totalSpawned) || 0), _GAME_SEQ_LEN);
+        const caughtIds   = Array.isArray(rawCaught) ? rawCaught : [];
+
+        let score = 0;
+        if (sequence) {
+          const seen = new Set();
+          for (const idx of caughtIds) {
+            const i = parseInt(idx);
+            if (!Number.isInteger(i) || i < 0 || i >= spawnedCount || seen.has(i)) {
+              // مؤشر خارج النطاق أو مكرر — رفض هادئ للعنصر فقط
+              continue;
+            }
+            seen.add(i);
+            score += sequence[i] ?? 0;
+          }
+          score = Math.max(0, score);
+          // 🛡️ رفع risk إذا كانت نسبة الصيد مشبوهة (أكثر من 95% من العناصر)
+          if (spawnedCount > 10 && seen.size / spawnedCount > 0.95) {
+            await addRisk(dbUser.id, 25, `game_suspicious_catch_rate_${Math.round(seen.size / spawnedCount * 100)}pct`);
+          }
+        } else {
+          // جلسة قديمة بدون sequence — مكافأة ثابتة fallback
+          score = CFG.GAME_ROUND_TICKETS;
+        }
+
+        // استهلاك الجلسة atomic
         const consumed = await sql(
           `UPDATE game_sessions SET used = TRUE WHERE id = $1 AND used = FALSE RETURNING id`,
           [gReSid]
         );
-        if (!consumed.length) {
-          return res.status(400).json({ ok: false, error: 'Session already used' });
-        }
+        if (!consumed.length) return res.status(400).json({ ok: false, error: 'Session already used' });
 
-        // مكافأة ثابتة من السيرفر — مع مضاعفة داخلية إذا كان double_approved
-        const baseReward = CFG.GAME_ROUND_TICKETS;
-        const awarded    = gs.double_approved ? baseReward * 2 : baseReward;
-        const doubled    = gs.double_approved;
+        const doubled = gs.double_approved;
+        const awarded = doubled ? score * 2 : score;
 
-        // تحديث last_game_round للـ cooldown حتى مع shadow ban
         await sql(`UPDATE users SET last_game_round = NOW() WHERE id = $1`, [dbUser.id]);
 
-        // 🛡️ Shadow ban — رد ناجح وهمي بدون منح نقاط فعلية
-        if (dbUser.shadow_banned) {
-          return res.json({ ok: true, awarded, doubled });
-        }
+        // 🛡️ Shadow ban
+        if (dbUser.shadow_banned) return res.json({ ok: true, awarded, doubled });
 
         await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [awarded, dbUser.id]);
         await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
-          [dbUser.id, JSON.stringify({ awarded, doubled })]);
+          [dbUser.id, JSON.stringify({ score, awarded, doubled, spawned: spawnedCount, caught: caughtIds.length })]);
 
         return res.json({ ok: true, awarded, doubled });
       }
