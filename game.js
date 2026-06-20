@@ -54,8 +54,8 @@
   let _burstFired   = false;  // تم إطلاق انفجار آخر 5 ثواني؟
 
   const TYPES = [
-    { type: 'ticket', w: 58, val: 2,  r: 20, rare: false },
-    { type: 'ticket', w: 20, val: 8,  r: 20, rare: true  },
+    { type: 'ticket', w: 58, val: 4,  r: 20, rare: false },
+    { type: 'ticket', w: 20, val: 16, r: 20, rare: true  },
     { type: 'bomb',   w: 22, val: -3, r: 18              },
   ];
   const GAME_TOTAL_W = TYPES.reduce((a, t) => a + t.w, 0); // 100
@@ -521,9 +521,10 @@
   }
 
   /* ── Expose entry points ─────────────────────────────── */
-  window.gameStart = startCountdown; // يُستدعى من pages.js عند دخول تبويب اللعبة
-  window.gameStop  = stopGame;       // يُستدعى من pages.js عند مغادرة تبويب اللعبة
-  window.onWatchAd = onWatchAd;      // onclick في index.html
-  window.playAgain = playAgain;      // onclick في index.html
+  window.gameStart  = startCountdown; // يُستدعى من pages.js عند دخول تبويب اللعبة
+  window.gameStop   = stopGame;       // يُستدعى من pages.js عند مغادرة تبويب اللعبة
+  window.onWatchAd  = onWatchAd;      // onclick في index.html
+  window.playAgain  = playAgain;      // onclick في index.html
+  window.claimRound = claimRound;     // onclick في index.html — كانت مفقودة
 
 })();
