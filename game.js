@@ -43,30 +43,51 @@
   let cdToken = 0;             // يُلغي أي countdown قديم عند مغادرة/إعادة دخول صفحة اللعبة
 
   // 🛡️ جلسة الجولة — تُنشأ من السيرفر حصراً، مخفية عن المستخدم
-  let _sessionId  = null;  // UUID معتم من السيرفر — null بعد الإرسال أو قبل البدء
-  let _roundEnded = false; // true فقط عند انتهاء العداد فعلاً (ليس مغادرة في المنتصف)
+  let _sessionToken = null;   // token معتم من السيرفر (لا يظهر في UI أو console)
+  let _roundEnded   = false;  // true فقط عند انتهاء العداد فعلاً
+  let _seqRng       = null;   // PRNG محدد بـ seed من السيرفر
+  let _seqIndex     = 0;      // مؤشر التسلسل — يتزامن مع السيرفر
+  let _caughtIds    = [];     // مؤشرات العناصر المصيدة — تُرسَل في gameRoundEnd
 
   const TYPES = [
     { type: 'ticket', w: 58, val: 2,  r: 20, rare: false },
     { type: 'ticket', w: 20, val: 8,  r: 20, rare: true  },
     { type: 'bomb',   w: 22, val: -3, r: 18              },
   ];
-  function pickType() {
-    let r = Math.random() * TYPES.reduce((a, t) => a + t.w, 0);
-    for (const t of TYPES) { r -= t.w; if (r <= 0) return { ...t }; }
-    return { ...TYPES[0] };
+  const GAME_TOTAL_W = TYPES.reduce((a, t) => a + t.w, 0); // 100
+
+  // Mulberry32 — نفس PRNG المستخدم في السيرفر (يجب أن يبقيا متطابقين)
+  function _makePrng(seed) {
+    let s = seed >>> 0;
+    return () => {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
-  /* ── 🛡️ إرسال نتيجة الجولة — فقط sessionId، بدون نقاط من العميل ──────
-     السيرفر يحسب المكافأة داخلياً ويتحقق من التوقيت.
-     يُستدعى فقط إذا انتهت الجولة فعلاً (_roundEnded) ولم تُرسَل بعد. */
-  function submitRound() {
-    if (!_sessionId || !_roundEnded) return;
-    const sid   = _sessionId;
-    _sessionId  = null;   // يمنع الإرسال المزدوج
-    _roundEnded = false;
+  function pickType() {
+    // استهلاك 1: نوع العنصر (seeded — يتطابق مع السيرفر)
+    let r = _seqRng() * GAME_TOTAL_W;
+    const idx = _seqIndex++;
+    for (const t of TYPES) { r -= t.w; if (r <= 0) return { ...t, _idx: idx }; }
+    return { ...TYPES[0], _idx: idx };
+  }
 
-    fetchApi({ type: 'gameRoundEnd', data: { sessionId: sid } }).then(res => {
+  /* ── 🛡️ إرسال نتيجة الجولة ───────────────────────────────────────────
+     يُرسَل: token معتم + مؤشرات الصيد + عدد العناصر التي ظهرت.
+     السيرفر يعيد حساب النتيجة من التسلسل المخزّن لديه. */
+  function submitRound() {
+    if (!_sessionToken || !_roundEnded) return;
+    const tok  = _sessionToken;
+    const ids  = _caughtIds.slice();
+    const n    = _seqIndex;
+    _sessionToken = null;   // يمنع الإرسال المزدوج
+    _roundEnded   = false;
+    _caughtIds    = [];
+
+    fetchApi({ type: 'gameRoundEnd', data: { _t: tok, c: ids, n } }).then(res => {
       if (!res?.ok) return;
       if (typeof refreshState === 'function') refreshState();
       if (typeof showToast === 'function') {
@@ -94,9 +115,12 @@
     ctx.fillStyle = '#07090f';
     ctx.fillRect(0, 0, W, H);
 
-    // 🛡️ طلب جلسة من السيرفر — UUID لا يعرفه العميل ولا يقدر ينشئه
-    _sessionId  = null;
-    _roundEnded = false;
+    // 🛡️ طلب جلسة + seed من السيرفر
+    _sessionToken = null;
+    _roundEnded   = false;
+    _seqRng       = null;
+    _seqIndex     = 0;
+    _caughtIds    = [];
     const startRes = await fetchApi({ type: 'gameRoundStart' });
     if (!startRes?.ok) {
       wrap.classList.remove('active');
@@ -108,7 +132,8 @@
       }
       return;
     }
-    _sessionId = startRes.sessionId; // مخفي في closure — لا يظهر في UI
+    _sessionToken = startRes._t;              // token معتم — لا يُعرض في أي مكان
+    _seqRng       = _makePrng(startRes.seed); // PRNG محدد بـ seed من السيرفر
 
     cdToken++;
     const myToken = cdToken;
@@ -136,7 +161,8 @@
 
   function startGame() {
     roundScore = 0; timeLeft = DURATION; items = []; popups = []; spawnCd = 0; lastTs = null; running = true;
-    _roundEnded = false; // الجلسة موجودة بالفعل (_sessionId) — نبدأ اللعب فقط
+    _roundEnded = false;
+    _caughtIds  = [];     // reset حتى لو بدأنا جولة جديدة بدون إرسال القديمة
     basketX = W / 2;
     updateHUD();
     animId = requestAnimationFrame(loop);
@@ -153,9 +179,7 @@
 
     spawnCd -= dt;
     if (spawnCd <= 0) {
-      spawnItem();
-      const prog = 1 - timeLeft / DURATION;
-      spawnCd = Math.max(.3, .85 - prog * .5) + Math.random() * .2;
+      spawnItem(); // spawnCd يُحدَّث داخل spawnItem بـ seeded roll
     }
 
     items = items.filter(it => {
@@ -165,7 +189,7 @@
       if (it.x < it.r)     { it.x = it.r;     it.wobble = Math.abs(it.wobble); }
       if (it.x > W - it.r) { it.x = W - it.r; it.wobble = -Math.abs(it.wobble); }
       if (caught(it)) {
-        // 🛡️ يُجمع محلياً فقط — بدون أي نداء API هنا
+        _caughtIds.push(it._idx);  // 🛡️ مؤشر فقط — السيرفر يحسب القيمة
         roundScore = Math.max(0, roundScore + it.val);
         const col = it.val > 0 ? (it.val >= 3 ? '#a78bfa' : '#f5c840') : '#ff5555';
         popups.push({ x: it.x, y: H - BY_OFF - 30, txt: (it.val > 0 ? '+' : '') + it.val + ' 🎟', col, alpha: 1, vy: -2 });
@@ -183,17 +207,19 @@
   }
 
   function spawnItem() {
-    const t = pickType();
+    const t      = pickType();       // استهلاك seeded call #1 — نوع العنصر
+    const cdRnd  = _seqRng();        // استهلاك seeded call #2 — spawnCd (mirrors السيرفر)
     const m = t.r + 14;
     const prog = 1 - timeLeft / DURATION;
     Object.assign(t, {
-      x: m + Math.random() * (W - m * 2),
-      y: -t.r,
-      speed: 120 + prog * 200 + Math.random() * 70,
+      x:      m + Math.random() * (W - m * 2),
+      y:      -t.r,
+      speed:  120 + prog * 200 + Math.random() * 70,
       wobble: (Math.random() - .5) * 1.4,
-      ang: 0,
+      ang:    0,
     });
     items.push(t);
+    spawnCd = Math.max(.3, .85 - prog * .5) + cdRnd * .2; // seeded — متطابق مع السيرفر
   }
 
   function caught(it) {
@@ -351,9 +377,9 @@
     return _gameAdsController;
   }
 
-  async function _verifyGameAdWithRetry(sid, maxRetries = 8) {
+  async function _verifyGameAdWithRetry(tok, maxRetries = 8) {
     for (let i = 0; i < maxRetries; i++) {
-      const res = await fetchApi({ type: 'gameAdVerify', data: { sessionId: sid } });
+      const res = await fetchApi({ type: 'gameAdVerify', data: { _t: tok } });
       if (res?.ok) return true;
       if (res?.error === 'pending_confirmation') {
         await new Promise(r => setTimeout(r, res.retryAfterMs || 1500));
@@ -367,7 +393,7 @@
   async function onWatchAd() {
     const btn = document.getElementById('adBtn');
     if (btn.disabled) return;
-    if (!_sessionId || !_roundEnded) return; // لا توجد جولة منتهية
+    if (!_sessionToken || !_roundEnded) return; // لا توجد جولة منتهية
 
     const adController = getGameAdsController();
     if (!adController) {
@@ -392,7 +418,7 @@
 
     // 2. Verify Adsgram S2S confirmation on server (with retry)
     btn.textContent = '⏳ Confirming...';
-    const verified = await _verifyGameAdWithRetry(_sessionId);
+    const verified = await _verifyGameAdWithRetry(_sessionToken);
 
     if (verified) {
       btn.textContent = '✅ Activated!';
