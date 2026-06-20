@@ -140,6 +140,7 @@ async function ensureSchema() {
   )`);
   await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS seed INT`);
   await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS sequence_json TEXT`);
+  await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS spawn_count INT`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON game_sessions(user_id, used, created_at)`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
@@ -289,20 +290,39 @@ function _makePrng(seed) {
 
 const _GAME_TYPES   = [{ w: 58, val: 2 }, { w: 20, val: 8 }, { w: 22, val: -3 }];
 const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
-const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
+const _GAME_DURATION = 40; // ثانية — يجب أن يطابق DURATION في game.js
+
+// يحاكي حلقة اللعبة بالضبط ويعيد عدد العناصر التي ستظهر فعلاً
+// يجب أن تطابق منطق spawnItem في game.js حرفياً
+function computeSpawnCount(seed) {
+  const rng = _makePrng(seed);
+  const DT  = 1 / 60; // نفس requestAnimationFrame ~60fps
+  let t = 0, cd = 0, count = 0;
+  while (t < _GAME_DURATION) {
+    cd -= DT;
+    t  += DT;
+    if (cd <= 0) {
+      rng();                   // استهلاك 1: type roll
+      const cdRnd = rng();     // استهلاك 2: spawnCd roll
+      const prog = t / _GAME_DURATION;
+      cd = Math.max(.3, .85 - prog * .5) + cdRnd * .2;
+      count++;
+    }
+  }
+  return count; // العدد الحقيقي للعناصر — السيرفر يقرر، لا العميل
+}
 
 function generateGameSequence(seed) {
-  const rng = _makePrng(seed);
+  const spawnCount = computeSpawnCount(seed); // عدد دقيق من المحاكاة
+  const rng = _makePrng(seed);               // إعادة تشغيل من نفس الـ seed
   const seq = [];
-  for (let i = 0; i < _GAME_SEQ_LEN; i++) {
-    const typeRoll = rng(); // استهلاك 1: نوع العنصر (mirrors pickType في game.js)
-    rng();                  // استهلاك 2: spawnCd random (mirrors spawnItem في game.js)
-    let r = typeRoll * _GAME_TOTAL_W;
-    let pushed = false;
+  for (let i = 0; i < spawnCount; i++) {
+    const typeRoll = rng(); rng();            // نفس 2 calls كـ computeSpawnCount
+    let r = typeRoll * _GAME_TOTAL_W, pushed = false;
     for (const t of _GAME_TYPES) { r -= t.w; if (r <= 0) { seq.push(t.val); pushed = true; break; } }
     if (!pushed) seq.push(_GAME_TYPES[0].val);
   }
-  return seq; // مثال: [2, -3, 8, 2, 2, -3, ...]
+  return { seq, spawnCount };
 }
 
 async function addRisk(userId, points, reason) {
@@ -891,13 +911,12 @@ module.exports = async function handler(req, res) {
         // تنظيف جلسات قديمة غير مُستخدَمة لهذا المستخدم
         await sql(`DELETE FROM game_sessions WHERE user_id = $1 AND used = FALSE AND created_at < NOW() - INTERVAL '6 minutes'`, [dbUser.id]);
         // إنشاء seed + تسلسل عناصر محدد مسبقاً (السيرفر يعرف كل عنصر سيظهر)
-        const seed     = (Math.random() * 2 ** 31) >>> 0;
-        const sequence = generateGameSequence(seed);
-        const sRows    = await sql(
-          `INSERT INTO game_sessions (user_id, seed, sequence_json) VALUES ($1, $2, $3) RETURNING id`,
-          [dbUser.id, seed, JSON.stringify(sequence)]
+        const seed              = (Math.random() * 2 ** 31) >>> 0;
+        const { seq, spawnCount } = generateGameSequence(seed);
+        const sRows = await sql(
+          `INSERT INTO game_sessions (user_id, seed, sequence_json, spawn_count) VALUES ($1, $2, $3, $4) RETURNING id`,
+          [dbUser.id, seed, JSON.stringify(seq), spawnCount]
         );
-        // _t = token معتم، seed للـ PRNG على العميل — لا يوجد "sessionId" في الـ JSON
         return res.json({ ok: true, _t: sRows[0].id, seed });
       }
 
@@ -937,14 +956,12 @@ module.exports = async function handler(req, res) {
       //    لا يقبل أي نقاط أو score من العميل
       // ══════════════════════════════════════════════════════════════════
       case 'gameRoundEnd': {
-        // c = caught indices (مؤشرات العناصر التي صادها اللاعب)
-        // n = totalSpawned  (كم عنصر ظهر فعلاً في هذه الجولة)
-        // _t = token معتم (يُستخدم داخلياً فقط — لا يُعرض في UI)
-        const { _t: gReSid, c: rawCaught, n: totalSpawned } = data;
+        const { _t: gReSid, c: rawCaught } = data;
+        // ⛔ n (totalSpawned) لا يُقبَل من العميل — السيرفر يحسبه من الـ seed
         if (!gReSid) return res.status(400).json({ ok: false, error: 'Missing token' });
 
         const gReRows = await sql(
-          `SELECT id, user_id, used, double_approved, created_at, sequence_json FROM game_sessions WHERE id = $1`,
+          `SELECT id, user_id, used, double_approved, created_at, sequence_json, spawn_count FROM game_sessions WHERE id = $1`,
           [gReSid]
         );
         if (!gReRows.length || gReRows[0].user_id !== dbUser.id) {
@@ -968,30 +985,26 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Session expired' });
         }
 
-        // 🛡️ تحقق من بيانات الصيد
+        // 🛡️ السيرفر يحدد spawn_count — العميل لا يتحكم فيه
         const sequence    = gs.sequence_json ? JSON.parse(gs.sequence_json) : null;
-        const spawnedCount = Math.min(Math.max(0, parseInt(totalSpawned) || 0), _GAME_SEQ_LEN);
+        const spawnedCount = gs.spawn_count ?? (sequence?.length ?? 0); // من DB فقط
         const caughtIds   = Array.isArray(rawCaught) ? rawCaught : [];
 
         let score = 0;
-        if (sequence) {
+        if (sequence && spawnedCount > 0) {
           const seen = new Set();
           for (const idx of caughtIds) {
             const i = parseInt(idx);
-            if (!Number.isInteger(i) || i < 0 || i >= spawnedCount || seen.has(i)) {
-              // مؤشر خارج النطاق أو مكرر — رفض هادئ للعنصر فقط
-              continue;
-            }
+            // 🛡️ يرفض أي index خارج النطاق الذي حسبه السيرفر
+            if (!Number.isInteger(i) || i < 0 || i >= spawnedCount || seen.has(i)) continue;
             seen.add(i);
             score += sequence[i] ?? 0;
           }
           score = Math.max(0, score);
-          // 🛡️ رفع risk إذا كانت نسبة الصيد مشبوهة (أكثر من 95% من العناصر)
           if (spawnedCount > 10 && seen.size / spawnedCount > 0.95) {
             await addRisk(dbUser.id, 25, `game_suspicious_catch_rate_${Math.round(seen.size / spawnedCount * 100)}pct`);
           }
         } else {
-          // جلسة قديمة بدون sequence — مكافأة ثابتة fallback
           score = CFG.GAME_ROUND_TICKETS;
         }
 
