@@ -48,6 +48,10 @@
   let _seqRng       = null;   // PRNG محدد بـ seed من السيرفر
   let _seqIndex     = 0;      // مؤشر التسلسل — يتزامن مع السيرفر
   let _caughtIds    = [];     // مؤشرات العناصر المصيدة — تُرسَل في gameRoundEnd
+  // 🛡️ anti-bot: سجل موقع السلة كل 500ms — تحقق مكاني على السيرفر
+  let _basketLog    = [];     // [x/W normalized 0-1, ...]
+  let _basketLogTimer = null;
+  let _burstFired   = false;  // تم إطلاق انفجار آخر 5 ثواني؟
 
   const TYPES = [
     { type: 'ticket', w: 58, val: 2,  r: 20, rare: false },
@@ -82,11 +86,14 @@
     if (!_sessionToken || !_roundEnded) return;
     const tok  = _sessionToken;
     const ids  = _caughtIds.slice();
-    _sessionToken = null;
+    const n    = _seqIndex;
+    const bLog = _basketLog.slice(); // 🛡️ سجل موقع السلة للتحقق المكاني
+    _sessionToken = null;   // يمنع الإرسال المزدوج
     _roundEnded   = false;
     _caughtIds    = [];
+    _basketLog    = [];
 
-    fetchApi({ type: 'gameRoundEnd', data: { _t: tok, c: ids } }).then(res => {
+    fetchApi({ type: 'gameRoundEnd', data: { _t: tok, c: ids, n, bLog } }).then(res => {
       if (!res?.ok) return;
       if (typeof refreshState === 'function') refreshState();
       if (typeof showToast === 'function') {
@@ -161,8 +168,15 @@
   function startGame() {
     roundScore = 0; timeLeft = DURATION; items = []; popups = []; spawnCd = 0; lastTs = null; running = true;
     _roundEnded = false;
-    _caughtIds  = [];     // reset حتى لو بدأنا جولة جديدة بدون إرسال القديمة
+    _caughtIds  = [];
+    _basketLog  = [];
+    _burstFired = false;
     basketX = W / 2;
+    // 🛡️ سجّل موقع السلة كل 500ms — يُرسَل للسيرفر للتحقق المكاني
+    if (_basketLogTimer) clearInterval(_basketLogTimer);
+    _basketLogTimer = setInterval(() => {
+      if (running) _basketLog.push(+(basketX / W).toFixed(3));
+    }, 500);
     updateHUD();
     animId = requestAnimationFrame(loop);
   }
@@ -181,6 +195,12 @@
       spawnItem(); // spawnCd يُحدَّث داخل spawnItem بـ seeded roll
     }
 
+    // 🛡️ انفجار قنابل في آخر 5 ثواني — يهلك السلة الثابتة في المنتصف
+    if (timeLeft <= 5 && !_burstFired) {
+      _burstFired = true;
+      _spawnBombBurst();
+    }
+
     items = items.filter(it => {
       it.y   += it.speed * dt;
       it.x   += it.wobble;
@@ -188,7 +208,7 @@
       if (it.x < it.r)     { it.x = it.r;     it.wobble = Math.abs(it.wobble); }
       if (it.x > W - it.r) { it.x = W - it.r; it.wobble = -Math.abs(it.wobble); }
       if (caught(it)) {
-        _caughtIds.push(it._idx);  // 🛡️ مؤشر فقط — السيرفر يحسب القيمة
+        if (!it._burst) _caughtIds.push(it._idx);  // 🛡️ قنابل الانفجار غير مُتتبَّعة
         roundScore = Math.max(0, roundScore + it.val);
         const col = it.val > 0 ? (it.val >= 3 ? '#a78bfa' : '#f5c840') : '#ff5555';
         popups.push({ x: it.x, y: H - BY_OFF - 30, txt: (it.val > 0 ? '+' : '') + it.val + ' 🎟', col, alpha: 1, vy: -2 });
@@ -206,19 +226,52 @@
   }
 
   function spawnItem() {
-    const t      = pickType();       // استهلاك seeded call #1 — نوع العنصر
-    const cdRnd  = _seqRng();        // استهلاك seeded call #2 — spawnCd (mirrors السيرفر)
-    const m = t.r + 14;
+    const t       = pickType();   // استهلاك seeded call #1 — نوع العنصر
+    const cdRnd   = _seqRng();   // استهلاك seeded call #2 — spawnCd
+    const xRnd    = _seqRng();   // استهلاك seeded call #3 — موقع X (seeded — يتطابق مع السيرفر)
+    const biasRnd = _seqRng();   // استهلاك seeded call #4 — center bias (مُستهلَك دائماً)
+
+    const m    = t.r + 14;
     const prog = 1 - timeLeft / DURATION;
+
+    // 🛡️ قنابل: 80% تنزل في المنتصف (30%–70% عرض الشاشة)
+    let spawnX;
+    if (t.type === 'bomb') {
+      spawnX = biasRnd < 0.80
+        ? W * 0.30 + xRnd * (W * 0.40)  // zone مركزية
+        : m + xRnd * (W - m * 2);         // عشوائي كامل
+    } else {
+      spawnX = m + xRnd * (W - m * 2);   // تذاكر: عشوائي كامل
+    }
+
     Object.assign(t, {
-      x:      m + Math.random() * (W - m * 2),
+      x:      spawnX,
       y:      -t.r,
       speed:  120 + prog * 200 + Math.random() * 70,
       wobble: (Math.random() - .5) * 1.4,
       ang:    0,
     });
     items.push(t);
-    spawnCd = Math.max(.3, .85 - prog * .5) + cdRnd * .2; // seeded — متطابق مع السيرفر
+    spawnCd = Math.max(.3, .85 - prog * .5) + cdRnd * .2;
+  }
+
+  // 🛡️ انفجار 10 قنابل سريعة في المنتصف — مخصص لآخر 5 ثواني
+  // غير مُتتبَّعة في _caughtIds (تأثير بصري + عقوبة محلية فقط)
+  function _spawnBombBurst() {
+    for (let i = 0; i < 10; i++) {
+      setTimeout(() => {
+        if (!running) return;
+        const bomb = { ...TYPES[2], _idx: -1, _burst: true };
+        Object.assign(bomb, {
+          x:      W * 0.22 + Math.random() * (W * 0.56), // مركز 22%–78%
+          y:      -bomb.r,
+          speed:  360 + Math.random() * 80,
+          wobble: (Math.random() - .5) * 0.5,
+          ang:    0,
+        });
+        items.push(bomb);
+      }, i * 160); // قنبلة كل 160ms
+    }
   }
 
   function caught(it) {
@@ -355,6 +408,7 @@
   function endGame() {
     running = false;
     cancelAnimationFrame(animId);
+    if (_basketLogTimer) { clearInterval(_basketLogTimer); _basketLogTimer = null; }
     _roundEnded = true; // ← الجولة اكتملت، جاهز للإرسال عند الضغط أو مغادرة الصفحة
 
     document.getElementById('finalScore').textContent = roundScore.toLocaleString();
@@ -459,6 +513,7 @@
   function stopGame() {
     running = false;
     if (animId) cancelAnimationFrame(animId);
+    if (_basketLogTimer) { clearInterval(_basketLogTimer); _basketLogTimer = null; }
     cdToken++;
     document.getElementById('cd-overlay').style.display = 'none';
     submitRound(); // يرسل الجلسة لو كانت الجولة انتهت قبل أن يغادر المستخدم
