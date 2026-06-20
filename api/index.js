@@ -21,7 +21,7 @@ const CFG = {
   RISK_DECAY_PER_DAY: 10,
 
   // 🎮 Coin Rain mini-game — جلسة سيرفر لكل جولة، لا تُرسَل نقاط من العميل أبداً
-  GAME_ROUND_TICKETS:         300,   // تذاكر ثابتة لكل جولة مكتملة (السيرفر يقرر، لا العميل)
+  GAME_ROUND_TICKETS:         600,   // تذاكر ثابتة لكل جولة مكتملة (السيرفر يقرر، لا العميل)
   GAME_ROUND_DURATION_SEC:     40,   // مدة الجولة الفعلية — لا تقبل إرسال أسرع من هذا
   GAME_ROUND_SESSION_TTL_SEC: 300,   // أقصى وقت لإرسال الجولة بعد بدئها (5 دقائق)
 };
@@ -287,7 +287,7 @@ function _makePrng(seed) {
   };
 }
 
-const _GAME_TYPES   = [{ w: 58, val: 2 }, { w: 20, val: 8 }, { w: 22, val: -3 }];
+const _GAME_TYPES   = [{ w: 58, val: 4 }, { w: 20, val: 16 }, { w: 22, val: -3 }];
 const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
 const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
 
