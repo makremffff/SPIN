@@ -363,7 +363,22 @@
     btn.textContent   = ' Double Tickets';
     btn.disabled      = false;
     btn.style.opacity = '1';
+    const cb = document.getElementById('claimBtn');
+    cb.textContent = '✓ Claim Tickets';
+    cb.disabled    = false;
     setTimeout(() => document.getElementById('end-overlay').classList.add('active'), 200);
+  }
+
+  /* ── Claim directly (no ad) ────────────────────────── */
+  function claimRound() {
+    if (!_sessionToken || !_roundEnded) return;
+    const cb = document.getElementById('claimBtn');
+    const ab = document.getElementById('adBtn');
+    cb.disabled    = true;
+    ab.disabled    = true;
+    ab.style.opacity = '.4';
+    cb.textContent = '⏳ Claiming...';
+    submitRound();
   }
 
   /* ── Double via ad ─────────────────────────────────────
@@ -404,6 +419,7 @@
     btn.disabled = true;
     btn.style.opacity = '.6';
     btn.textContent = '⏳ Verifying...';
+    document.getElementById('claimBtn').disabled = true; // يمنع claim أثناء الإعلان
 
     // 1. Complete the ad (SDK)
     try {
@@ -412,6 +428,7 @@
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.textContent = ' Double Tickets';
+      document.getElementById('claimBtn').disabled = false;
       if (typeof showToast === 'function') showToast({ type: 'error', title: 'Ad Skipped', msg: 'Watch the full ad to double your tickets', duration: 3000 });
       return;
     }
@@ -422,11 +439,13 @@
 
     if (verified) {
       btn.textContent = '✅ Activated!';
-      if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 Double Ready!', msg: 'Your tickets will be doubled automatically', duration: 3500 });
+      if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 Double Ready!', msg: 'Your tickets will be doubled automatically', duration: 2000 });
+      setTimeout(() => claimRound(), 900); // auto-claim بعد لحظة
     } else {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.textContent = ' Double Tickets';
+      document.getElementById('claimBtn').disabled = false;
       if (typeof showToast === 'function') showToast({ type: 'error', title: 'Confirmation Failed', msg: 'Ad not confirmed by server, try again', duration: 3500 });
     }
   }
