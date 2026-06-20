@@ -140,7 +140,6 @@ async function ensureSchema() {
   )`);
   await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS seed INT`);
   await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS sequence_json TEXT`);
-  await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS spawn_count INT`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON game_sessions(user_id, used, created_at)`);
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
@@ -290,39 +289,35 @@ function _makePrng(seed) {
 
 const _GAME_TYPES   = [{ w: 58, val: 2 }, { w: 20, val: 8 }, { w: 22, val: -3 }];
 const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
-const _GAME_DURATION = 40; // ثانية — يجب أن يطابق DURATION في game.js
-
-// يحاكي حلقة اللعبة بالضبط ويعيد عدد العناصر التي ستظهر فعلاً
-// يجب أن تطابق منطق spawnItem في game.js حرفياً
-function computeSpawnCount(seed) {
-  const rng = _makePrng(seed);
-  const DT  = 1 / 60; // نفس requestAnimationFrame ~60fps
-  let t = 0, cd = 0, count = 0;
-  while (t < _GAME_DURATION) {
-    cd -= DT;
-    t  += DT;
-    if (cd <= 0) {
-      rng();                   // استهلاك 1: type roll
-      const cdRnd = rng();     // استهلاك 2: spawnCd roll
-      const prog = t / _GAME_DURATION;
-      cd = Math.max(.3, .85 - prog * .5) + cdRnd * .2;
-      count++;
-    }
-  }
-  return count; // العدد الحقيقي للعناصر — السيرفر يقرر، لا العميل
-}
+const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
 
 function generateGameSequence(seed) {
-  const spawnCount = computeSpawnCount(seed); // عدد دقيق من المحاكاة
-  const rng = _makePrng(seed);               // إعادة تشغيل من نفس الـ seed
+  const rng = _makePrng(seed);
   const seq = [];
-  for (let i = 0; i < spawnCount; i++) {
-    const typeRoll = rng(); rng();            // نفس 2 calls كـ computeSpawnCount
+  for (let i = 0; i < _GAME_SEQ_LEN; i++) {
+    const typeRoll = rng(); // استهلاك 1: نوع العنصر  (mirrors pickType)
+    rng();                  // استهلاك 2: spawnCd      (mirrors spawnItem)
+    const xRnd    = rng(); // استهلاك 3: موقع X        (mirrors spawnItem)
+    const biasRnd = rng(); // استهلاك 4: center-bias   (mirrors spawnItem — مُستهلَك دائماً)
+
+    let val = _GAME_TYPES[0].val, isBomb = false;
     let r = typeRoll * _GAME_TOTAL_W, pushed = false;
-    for (const t of _GAME_TYPES) { r -= t.w; if (r <= 0) { seq.push(t.val); pushed = true; break; } }
-    if (!pushed) seq.push(_GAME_TYPES[0].val);
+    for (const t of _GAME_TYPES) {
+      r -= t.w;
+      if (r <= 0) { val = t.val; isBomb = t.val < 0; pushed = true; break; }
+    }
+    if (!pushed) isBomb = false;
+
+    // 🛡️ x مُعيَّن بـ seed — قنابل: 80% في المنتصف (30%–70%) ، 20% عشوائي
+    const xNorm = isBomb
+      ? (biasRnd < 0.80
+          ? 0.30 + xRnd * 0.40   // zone مركزية
+          : 0.05 + xRnd * 0.90)  // كامل العرض
+      : 0.05 + xRnd * 0.90;      // تذاكر: عشوائي كامل
+
+    seq.push({ val, x: xNorm }); // { val: -3|2|8, x: 0.00–1.00 }
   }
-  return { seq, spawnCount };
+  return seq;
 }
 
 async function addRisk(userId, points, reason) {
@@ -911,12 +906,13 @@ module.exports = async function handler(req, res) {
         // تنظيف جلسات قديمة غير مُستخدَمة لهذا المستخدم
         await sql(`DELETE FROM game_sessions WHERE user_id = $1 AND used = FALSE AND created_at < NOW() - INTERVAL '6 minutes'`, [dbUser.id]);
         // إنشاء seed + تسلسل عناصر محدد مسبقاً (السيرفر يعرف كل عنصر سيظهر)
-        const seed              = (Math.random() * 2 ** 31) >>> 0;
-        const { seq, spawnCount } = generateGameSequence(seed);
-        const sRows = await sql(
-          `INSERT INTO game_sessions (user_id, seed, sequence_json, spawn_count) VALUES ($1, $2, $3, $4) RETURNING id`,
-          [dbUser.id, seed, JSON.stringify(seq), spawnCount]
+        const seed     = (Math.random() * 2 ** 31) >>> 0;
+        const sequence = generateGameSequence(seed);
+        const sRows    = await sql(
+          `INSERT INTO game_sessions (user_id, seed, sequence_json) VALUES ($1, $2, $3) RETURNING id`,
+          [dbUser.id, seed, JSON.stringify(sequence)]
         );
+        // _t = token معتم، seed للـ PRNG على العميل — لا يوجد "sessionId" في الـ JSON
         return res.json({ ok: true, _t: sRows[0].id, seed });
       }
 
@@ -956,12 +952,14 @@ module.exports = async function handler(req, res) {
       //    لا يقبل أي نقاط أو score من العميل
       // ══════════════════════════════════════════════════════════════════
       case 'gameRoundEnd': {
-        const { _t: gReSid, c: rawCaught } = data;
-        // ⛔ n (totalSpawned) لا يُقبَل من العميل — السيرفر يحسبه من الـ seed
+        // c = caught indices (مؤشرات العناصر التي صادها اللاعب)
+        // n = totalSpawned  (كم عنصر ظهر فعلاً في هذه الجولة)
+        // _t = token معتم (يُستخدم داخلياً فقط — لا يُعرض في UI)
+        const { _t: gReSid, c: rawCaught, n: totalSpawned } = data;
         if (!gReSid) return res.status(400).json({ ok: false, error: 'Missing token' });
 
         const gReRows = await sql(
-          `SELECT id, user_id, used, double_approved, created_at, sequence_json, spawn_count FROM game_sessions WHERE id = $1`,
+          `SELECT id, user_id, used, double_approved, created_at, sequence_json FROM game_sessions WHERE id = $1`,
           [gReSid]
         );
         if (!gReRows.length || gReRows[0].user_id !== dbUser.id) {
@@ -985,26 +983,66 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Session expired' });
         }
 
-        // 🛡️ السيرفر يحدد spawn_count — العميل لا يتحكم فيه
+        // 🛡️ تحقق من بيانات الصيد
         const sequence    = gs.sequence_json ? JSON.parse(gs.sequence_json) : null;
-        const spawnedCount = gs.spawn_count ?? (sequence?.length ?? 0); // من DB فقط
+        const spawnedCount = Math.min(Math.max(0, parseInt(totalSpawned) || 0), _GAME_SEQ_LEN);
         const caughtIds   = Array.isArray(rawCaught) ? rawCaught : [];
 
+        // 🛡️ التحقق من سجل موقع السلة (bLog)
+        // العميل يرسل مصفوفة x مُعيَّر (0-1) كل 500ms طوال الجولة
+        const rawBLog = data.bLog;
+        const bLog = Array.isArray(rawBLog)
+          ? rawBLog.filter(v => typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1).slice(0, 200)
+          : [];
+
+        if (bLog.length < 8) {
+          // سجل مفقود أو شحيح جداً — شك في التلاعب عبر API مباشرة
+          await addRisk(dbUser.id, 30, `game_missing_basket_log_n${bLog.length}`);
+        } else {
+          // تحقق من حركة السلة: سلة ثابتة = بوت
+          const mean   = bLog.reduce((a, b) => a + b, 0) / bLog.length;
+          const stdDev = Math.sqrt(bLog.reduce((a, x) => a + (x - mean) ** 2, 0) / bLog.length);
+          if (stdDev < 0.02) {
+            await addRisk(dbUser.id, 55, `game_static_basket_std${stdDev.toFixed(4)}`);
+          }
+        }
+
         let score = 0;
-        if (sequence && spawnedCount > 0) {
+        if (sequence) {
           const seen = new Set();
           for (const idx of caughtIds) {
             const i = parseInt(idx);
-            // 🛡️ يرفض أي index خارج النطاق الذي حسبه السيرفر
             if (!Number.isInteger(i) || i < 0 || i >= spawnedCount || seen.has(i)) continue;
             seen.add(i);
-            score += sequence[i] ?? 0;
+            // تنسيق جديد {val, x} أو قديم (رقم مباشر) — backward compat
+            const entry = sequence[i];
+            score += (typeof entry === 'object' ? entry?.val : entry) ?? 0;
           }
           score = Math.max(0, score);
+
+          // 🛡️ نسبة صيد مشبوهة (> 95% من كل العناصر)
           if (spawnedCount > 10 && seen.size / spawnedCount > 0.95) {
-            await addRisk(dbUser.id, 25, `game_suspicious_catch_rate_${Math.round(seen.size / spawnedCount * 100)}pct`);
+            await addRisk(dbUser.id, 25, `game_catch_rate_${Math.round(seen.size / spawnedCount * 100)}pct`);
+          }
+
+          // 🛡️ تحقق مكاني: تذكرة في منطقة بعيدة يجب أن يكون السلة قريبة منها
+          if (bLog.length >= 8) {
+            for (const idx of seen) {
+              const entry = sequence[idx];
+              if (!entry || typeof entry !== 'object' || entry.val <= 0) continue;
+              const itemX = entry.x; // 0-1 normalized
+              // منطقة حافة (< 18% أو > 82% من عرض الشاشة)
+              if (itemX < 0.18 || itemX > 0.82) {
+                const basketReached = bLog.some(bx => Math.abs(bx - itemX) < 0.20);
+                if (!basketReached) {
+                  await addRisk(dbUser.id, 50, `game_impossible_catch_x${itemX.toFixed(2)}_idx${idx}`);
+                  break; // نقطة واحدة تكفي للتنبيه
+                }
+              }
+            }
           }
         } else {
+          // جلسة قديمة بدون sequence — مكافأة ثابتة fallback
           score = CFG.GAME_ROUND_TICKETS;
         }
 
