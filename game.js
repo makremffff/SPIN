@@ -82,12 +82,11 @@
     if (!_sessionToken || !_roundEnded) return;
     const tok  = _sessionToken;
     const ids  = _caughtIds.slice();
-    const n    = _seqIndex;
-    _sessionToken = null;   // يمنع الإرسال المزدوج
+    _sessionToken = null;
     _roundEnded   = false;
     _caughtIds    = [];
 
-    fetchApi({ type: 'gameRoundEnd', data: { _t: tok, c: ids, n } }).then(res => {
+    fetchApi({ type: 'gameRoundEnd', data: { _t: tok, c: ids } }).then(res => {
       if (!res?.ok) return;
       if (typeof refreshState === 'function') refreshState();
       if (typeof showToast === 'function') {
