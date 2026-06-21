@@ -344,6 +344,25 @@
 <!-- ══ Toast Container ══ -->
 <div id="toast-container"></div>
 
+<!-- ══ DevTools Warning Overlay ══ -->
+<div id="devtools-screen" style="display:none; position:fixed; inset:0; z-index:10000; background:#0d0d0f; align-items:center; justify-content:center; flex-direction:column; gap:24px; text-align:center; padding:32px;">
+  <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 128 128" fill="none">
+    <style>
+      .dt-pulse { transform-origin:center; animation:dtPulse 2s ease-in-out infinite; }
+      @keyframes dtPulse { 0%,100%{transform:scale(1);opacity:.9;} 50%{transform:scale(1.06);opacity:1;} }
+    </style>
+    <g class="dt-pulse">
+      <!-- Shield -->
+      <path d="M64 10 L108 30 L108 68 C108 92 88 112 64 118 C40 112 20 92 20 68 L20 30 Z" fill="#1a1a1f" stroke="#f5c840" stroke-width="4"/>
+      <!-- Warning ! -->
+      <rect x="60" y="44" width="8" height="36" rx="4" fill="#f5c840"/>
+      <circle cx="64" cy="92" r="5" fill="#f5c840"/>
+    </g>
+  </svg>
+  <p style="font-family:'Permanent Marker',cursive; font-size:20px; color:#f5c840; margin:0; line-height:1.4;">أغلق خيارات المطوّر</p>
+  <p style="font-family:'Tajawal',sans-serif; font-size:15px; color:#aaa; margin:0; max-width:280px; line-height:1.6;">استخدام أدوات المطوّر مخالف لشروط المنصة.<br>أغلقها الآن أو سيتم حظر حسابك.</p>
+</div>
+
 <div class="pages">
   <div class="page active" id="page-contest">
     <div class="contest-header">

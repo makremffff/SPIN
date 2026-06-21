@@ -447,6 +447,71 @@ function initOnboarding(alreadySeen = false) {
 }
 
 /* ══════════════════════════════════════════════════════
+   DevTools Detection
+══════════════════════════════════════════════════════ */
+(function initDevToolsGuard() {
+  const overlay = document.getElementById('devtools-screen');
+  if (!overlay) return;
+
+  let _dtOpen      = false;
+  let _loggedThisSession = false;
+
+  function showOverlay() {
+    overlay.style.display = 'flex';
+  }
+  function hideOverlay() {
+    overlay.style.display = 'none';
+  }
+
+  function onDevToolsOpen() {
+    if (_dtOpen) return;
+    _dtOpen = true;
+    showOverlay();
+    // log once per session to avoid spamming DB
+    if (!_loggedThisSession) {
+      _loggedThisSession = true;
+      fetchApi({ type: 'logSecEvent', data: { event: 'devtools_open', detail: { ua: navigator.userAgent.slice(0, 120) } } })
+        .catch(() => {});
+    }
+  }
+
+  function onDevToolsClose() {
+    if (!_dtOpen) return;
+    _dtOpen = false;
+    hideOverlay();
+  }
+
+  // ── Method 1: console.log trick (most reliable cross-browser) ──
+  // A custom object whose .toString() is called only when DevTools is open
+  const _probe = { toString() { onDevToolsOpen(); return ''; } };
+
+  // ── Method 2: window size diff (fallback for undocked devtools) ──
+  function checkSize() {
+    const widthDiff  = window.outerWidth  - window.innerWidth;
+    const heightDiff = window.outerHeight - window.innerHeight;
+    // threshold: > 160px diff usually means devtools panel is open
+    if (widthDiff > 160 || heightDiff > 160) {
+      onDevToolsOpen();
+    } else {
+      onDevToolsClose();
+    }
+  }
+
+  // Poll via size check every 1.5s
+  setInterval(() => {
+    // Primary: console trick
+    console.log('%c', _probe);
+    // Fallback: size diff
+    checkSize();
+  }, 1500);
+
+  // Also reset logged flag on visibilitychange so re-open after hide logs again
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) _loggedThisSession = false;
+  });
+})();
+
+/* ══════════════════════════════════════════════════════
    Startup
 ══════════════════════════════════════════════════════ */
 try { renderConfig(); } catch (err) { console.error('[renderConfig] failed', err); }   // fill values from APP_CONFIG immediately (before server responds)
