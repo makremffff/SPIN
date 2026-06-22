@@ -13,9 +13,8 @@
 
 html, body {
   height: 100%;
-  background: var(--bg);
   font-family: 'Permanent Marker', cursive;
-  background: #000;
+  background: url(file.jpg);
   letter-spacing: 2px;
   overflow: hidden;
 }
