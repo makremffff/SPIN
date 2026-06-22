@@ -430,7 +430,7 @@
     cb.disabled    = true;
     ab.disabled    = true;
     ab.style.opacity = '.4';
-    cb.textContent = '⏳ Claiming...';
+    cb.textContent = ' Claiming...';
     submitRound();
   }
 
@@ -471,7 +471,7 @@
 
     btn.disabled = true;
     btn.style.opacity = '.6';
-    btn.textContent = '⏳ Verifying...';
+    btn.textContent = ' Verifying...';
     document.getElementById('claimBtn').disabled = true; // يمنع claim أثناء الإعلان
 
     // 1. Complete the ad (SDK)
@@ -487,11 +487,11 @@
     }
 
     // 2. Verify Adsgram S2S confirmation on server (with retry)
-    btn.textContent = '⏳ Confirming...';
+    btn.textContent = ' Confirming...';
     const verified = await _verifyGameAdWithRetry(_sessionToken);
 
     if (verified) {
-      btn.textContent = '✅ Activated!';
+      btn.textContent = ' Activated!';
       if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 Double Ready!', msg: 'Your tickets will be doubled automatically', duration: 2000 });
       setTimeout(() => claimRound(), 900); // auto-claim بعد لحظة
     } else {
