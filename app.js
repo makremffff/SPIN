@@ -164,17 +164,12 @@ function getAdErrorMessage(res) {
 async function handleWatchAd() {
   const btn = document.getElementById('watch-btn');
 
-  // 🛡️ فحص rate limit على الفرونت قبل أي طلب للسيرفر
-  if (!secAllow('watchAd')) {
-    showToast({ type: 'error', title: 'Slow Down', msg: 'Please wait before watching another ad', duration: 3000 });
-    return;
-  }
-
   btn.disabled = true;
 
   // الخطوة 1: احجز token من السيرفر قبل ما تشغّل الإعلان
-  // ✅ adType: السيرفر يحدد المدة المطلوبة فعلياً حسب الشبكة (adsgram/monetag/telega)
-  const AD_PROVIDER = 'adsgram'; // ← غيّرها حسب الشبكة المستخدمة فعلاً هنا
+  // الـ cooldown الحقيقي محمي server-side — لا نستهلك secAllow هنا حتى لا نعاقب المستخدم
+  // لو الإعلان فشل لأسباب خارجة عن إرادته (no fill, SDK error…)
+  const AD_PROVIDER = 'adsgram';
   const startRes = await fetchApi({ type: 'startAd', data: { ts: Math.floor(Date.now() / 1000), adType: AD_PROVIDER } });
 
   if (!startRes || !startRes.ok) {
@@ -195,10 +190,39 @@ async function handleWatchAd() {
   }
 
   try {
-    await adController.show(); // يُرفض إذا تخطى المستخدم الإعلان أو لم يكتمل
+    await adController.show();
   } catch (err) {
     btn.disabled = false;
-    showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
+
+    // 🛡️ كشف "no fill" (مافي إعلانات متاحة الآن) بناءً على شكل الـ error من Adsgram SDK
+    // Adsgram يرجع: { error: true, done: false } أو description تحتوي NO_FILL / no_fill / no fill
+    const desc = (err?.description || err?.message || err?.code || '').toString().toLowerCase();
+    const isNoFill = (
+      (err?.error === true && err?.done === false) ||
+      desc.includes('no_fill') ||
+      desc.includes('no fill') ||
+      desc.includes('nofill') ||
+      desc.includes('no ad') ||
+      desc.includes('noads')
+    );
+
+    if (isNoFill) {
+      // لا يوجد inventory — مش ذنب المستخدم، ما نعاقبه بـ cooldown
+      showToast({ type: 'error', title: 'No Ads Available', msg: 'No ads right now — try again in a moment', duration: 3000 });
+    } else {
+      // المستخدم أغلق الإعلان قبل ما يكتمل — هنا نستهلك الـ rate limit كعقوبة خفيفة
+      secAllow('watchAd');
+      showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
+    }
+    return;
+  }
+
+  // ✅ الإعلان اكتمل — الآن نستهلك الـ frontend rate limit slot
+  // (السيرفر هو الحكم الحقيقي، هذا فقط حماية إضافية طبيعية المسار)
+  if (!secAllow('watchAd')) {
+    // نادر جداً — يعني المستخدم ضغط مرتين في نفس اللحظة
+    showToast({ type: 'error', title: 'Slow Down', msg: 'Please wait before watching another ad', duration: 3000 });
+    setTimeout(() => { btn.disabled = false; }, 3000);
     return;
   }
 
@@ -445,71 +469,6 @@ function initOnboarding(alreadySeen = false) {
 
   setTimeout(checkScroll, 600);
 }
-
-/* ══════════════════════════════════════════════════════
-   DevTools Detection
-══════════════════════════════════════════════════════ */
-(function initDevToolsGuard() {
-  const overlay = document.getElementById('devtools-screen');
-  if (!overlay) return;
-
-  let _dtOpen      = false;
-  let _loggedThisSession = false;
-
-  function showOverlay() {
-    overlay.style.display = 'flex';
-  }
-  function hideOverlay() {
-    overlay.style.display = 'none';
-  }
-
-  function onDevToolsOpen() {
-    if (_dtOpen) return;
-    _dtOpen = true;
-    showOverlay();
-    // log once per session to avoid spamming DB
-    if (!_loggedThisSession) {
-      _loggedThisSession = true;
-      fetchApi({ type: 'logSecEvent', data: { event: 'devtools_open', detail: { ua: navigator.userAgent.slice(0, 120) } } })
-        .catch(() => {});
-    }
-  }
-
-  function onDevToolsClose() {
-    if (!_dtOpen) return;
-    _dtOpen = false;
-    hideOverlay();
-  }
-
-  // ── Method 1: console.log trick (most reliable cross-browser) ──
-  // A custom object whose .toString() is called only when DevTools is open
-  const _probe = { toString() { onDevToolsOpen(); return ''; } };
-
-  // ── Method 2: window size diff (fallback for undocked devtools) ──
-  function checkSize() {
-    const widthDiff  = window.outerWidth  - window.innerWidth;
-    const heightDiff = window.outerHeight - window.innerHeight;
-    // threshold: > 160px diff usually means devtools panel is open
-    if (widthDiff > 160 || heightDiff > 160) {
-      onDevToolsOpen();
-    } else {
-      onDevToolsClose();
-    }
-  }
-
-  // Poll via size check every 1.5s
-  setInterval(() => {
-    // Primary: console trick
-    console.log('%c', _probe);
-    // Fallback: size diff
-    checkSize();
-  }, 1500);
-
-  // Also reset logged flag on visibilitychange so re-open after hide logs again
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) _loggedThisSession = false;
-  });
-})();
 
 /* ══════════════════════════════════════════════════════
    Startup
