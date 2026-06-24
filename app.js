@@ -476,3 +476,6 @@ function initOnboarding(alreadySeen = false) {
 try { renderConfig(); } catch (err) { console.error('[renderConfig] failed', err); }   // fill values from APP_CONFIG immediately (before server responds)
 try { animatePage('contest'); } catch (err) { console.error('[animatePage] failed', err); }
 initApp();
+    } catch (_) {}
+  }, 8000);                                        // كل 8 ثواني
+}
