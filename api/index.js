@@ -11,8 +11,8 @@ const INTERNAL_SECRET = process.env.INTERNAL_SECRET; // ← أضفه في Vercel
 
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
-  AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
-  AD_DAILY_MAX:       1,   // أكثر إعلان يومي
+  AD_COOLDOWN_SEC:    60,   // cooldown بين إعلانين
+  AD_DAILY_MAX:       30,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 60,   // أكثر طلب عام لكل IP بالدقيقة
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
@@ -127,6 +127,8 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS device_fp        TEXT`);                                         // بصمة الجهاز — لمنع إحالات من نفس الجهاز
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_reward_given  BOOLEAN NOT NULL DEFAULT FALSE`);  // مكافأة الإحالة بعد 3000 نقطة
 
   // 🎮 جلسات اللعبة — تُنشأ من السيرفر حصراً، لا تُرسَل نقاط من العميل أبداً
   await sql(`CREATE TABLE IF NOT EXISTS game_sessions (
@@ -386,68 +388,49 @@ async function consumeAdsgramConfirmation(telegramId) {
   return rows.length > 0;
 }
 
-async function upsertUser(tgUser, startParam = null) {
+async function upsertUser(tgUser, startParam = null, deviceFp = null) {
   const { id: telegram_id, username = null, first_name = null, photo_url = null } = tgUser;
   const refCode = `REF${telegram_id}`;
 
   // Only brand-new users can be attached to a referrer, and only once.
   const existing = await sql('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
+  const isNewUser = existing.length === 0;
 
   let referredBy = null;
-  if (existing.length === 0 && startParam) {
+  if (isNewUser && startParam) {
     const m = /^ref_(\d+)$/.exec(String(startParam).trim());
     if (m && m[1] !== String(telegram_id)) {
       const refUser = await sql('SELECT telegram_id FROM users WHERE telegram_id = $1', [m[1]]);
-      if (refUser.length > 0) referredBy = m[1];
+      if (refUser.length > 0) {
+        // 🛡️ فحص بصمة الجهاز — لو نفس الجهاز مسجّل مسبقاً نتجاهل الإحالة بصمت (بدون risk score)
+        if (deviceFp) {
+          const fpExists = await sql(
+            'SELECT id FROM users WHERE device_fp = $1 AND telegram_id != $2 LIMIT 1',
+            [deviceFp, telegram_id]
+          );
+          if (fpExists.length > 0) {
+            console.log('[referral] duplicate device_fp — referral silently skipped for', telegram_id);
+          } else {
+            referredBy = m[1];
+          }
+        } else {
+          referredBy = m[1];
+        }
+      }
     }
   }
 
   await sql(`
-    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by, device_fp)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (telegram_id) DO UPDATE SET
       username   = EXCLUDED.username,
       first_name = EXCLUDED.first_name,
-      photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
-  `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
+      photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url),
+      device_fp  = COALESCE(users.device_fp, EXCLUDED.device_fp)
+  `, [telegram_id, username, first_name, photo_url, refCode, referredBy, deviceFp]);
 
-  // Credit tickets + USDT to referrer — only for brand-new users
-  if (existing.length === 0 && referredBy) {
-    try {
-      await sql(`
-        UPDATE users
-        SET pts         = pts + $1,
-            balance_usd = balance_usd + $2
-        WHERE telegram_id = $3
-      `, [APP_CFG.REF_TICKET_REWARD, APP_CFG.REF_USDT_REWARD, referredBy]);
-      console.log('[referral] credited to referrer ' + referredBy);
-    } catch (creditErr) {
-      console.error('[referral] credit SQL failed:', creditErr.message);
-    }
-
-    // Bot notification is best-effort — never blocks the init response
-    const joinerName = first_name || username || 'Someone';
-
-    // Get updated total referral count for the referrer (best-effort)
-    let totalReferrals = 1;
-    try {
-      const refCountRows = await sql(
-        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1',
-        [referredBy]
-      );
-      totalReferrals = refCountRows[0]?.cnt ?? 1;
-    } catch (_) {}
-
-    sendTelegramMessage(
-      referredBy,
-      `✨ *Referral Success!*\n\n` +
-      `Great news! *${joinerName}* just signed up using your referral link.\n\n` +
-      `👤 *New Referral:* +1\n` +
-      `📊 *Total Referrals:* ${totalReferrals}\n` +
-      `🎁 *Reward:* +${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts · +$${APP_CFG.REF_USDT_REWARD} USDT\n\n` +
-      `Invite more friends and unlock even more rewards! 🚀`
-    ).catch(e => console.error('[referral] bot notify failed:', e.message));
-  }
+  // ℹ️  مكافأة المُحيل لا تُعطى هنا — تُعطى عندما يصل المُحال إلى 3000 نقطة (في watchAd)
 
   const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
   return rows[0];
@@ -642,7 +625,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      dbUser = await upsertUser(tgUser, data.startParam || null);
+      dbUser = await upsertUser(tgUser, data.startParam || null, data.fp || null);
     } catch (err) {
       console.error('[upsertUser error]', err.message);
       return res.status(500).json({ ok: false, error: 'DB error: ' + err.message });
@@ -886,6 +869,52 @@ module.exports = async function handler(req, res) {
 
         const rankAfter  = await getUserRank(dbUser.id);
         const rankUp     = rankAfter < rankBefore;
+
+        // ✅ مكافأة الإحالة — تُمنح عند وصول المُحال لـ 3000 نقطة (مرة واحدة فقط)
+        if (dbUser.referred_by && !dbUser.ref_reward_given) {
+          const ptsRows = await sql(`SELECT pts FROM users WHERE id = $1`, [dbUser.id]);
+          const newPts  = Number(ptsRows[0]?.pts ?? 0);
+          if (newPts >= 3000) {
+            try {
+              // atomic: نمنع race condition بـ WHERE ref_reward_given = FALSE
+              const marked = await sql(`
+                UPDATE users SET ref_reward_given = TRUE
+                WHERE id = $1 AND ref_reward_given = FALSE
+                RETURNING id
+              `, [dbUser.id]);
+
+              if (marked.length > 0) {
+                await sql(`
+                  UPDATE users
+                  SET pts         = pts + $1,
+                      balance_usd = balance_usd + $2
+                  WHERE telegram_id = $3
+                `, [APP_CFG.REF_TICKET_REWARD, APP_CFG.REF_USDT_REWARD, dbUser.referred_by]);
+
+                const refCountRows = await sql(
+                  'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1',
+                  [dbUser.referred_by]
+                ).catch(() => [{ cnt: 1 }]);
+                const totalReferrals = refCountRows[0]?.cnt ?? 1;
+                const joinerName = dbUser.first_name || dbUser.username || 'Someone';
+
+                sendTelegramMessage(
+                  Number(dbUser.referred_by),
+                  `✨ *Referral Success!*\n\n` +
+                  `Great news! *${joinerName}* just reached 3,000 points — your referral is now confirmed!\n\n` +
+                  `👤 *New Referral:* +1\n` +
+                  `📊 *Total Referrals:* ${totalReferrals}\n` +
+                  `🎁 *Reward:* +${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts · +$${APP_CFG.REF_USDT_REWARD} USDT\n\n` +
+                  `Invite more friends and unlock even more rewards! 🚀`
+                ).catch(e => console.error('[referral reward bot notify]', e.message));
+
+                console.log('[referral] reward granted to', dbUser.referred_by, 'for user', dbUser.id);
+              }
+            } catch (refErr) {
+              console.error('[referral reward error]', refErr.message);
+            }
+          }
+        }
 
         // ✅ إشعار rank-up مباشر من الباكند
         if (rankUp) {
