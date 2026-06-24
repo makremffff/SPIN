@@ -20,7 +20,7 @@ const APP_CONFIG = {
 
   /* Ad rewards */
   AD_TICKET_REWARD  : 750,    // tickets per ad watch
-  AD_DAILY_MAX      : 30,     // max ads per day
+  AD_DAILY_MAX      : 2,     // max ads per day
 
   /* Withdrawal */
   WITHDRAW_MIN      : 1.00,   // minimum withdrawal in USD
