@@ -402,14 +402,27 @@ async function upsertUser(tgUser, startParam = null, deviceFp = null) {
     if (m && m[1] !== String(telegram_id)) {
       const refUser = await sql('SELECT telegram_id FROM users WHERE telegram_id = $1', [m[1]]);
       if (refUser.length > 0) {
-        // 🛡️ فحص بصمة الجهاز — لو نفس الجهاز مسجّل مسبقاً نتجاهل الإحالة بصمت (بدون risk score)
+        // 🛡️ فحص بصمة الجهاز — نفس الجهاز = حظر فوري بدون risk score
         if (deviceFp) {
           const fpExists = await sql(
             'SELECT id FROM users WHERE device_fp = $1 AND telegram_id != $2 LIMIT 1',
             [deviceFp, telegram_id]
           );
           if (fpExists.length > 0) {
-            console.log('[referral] duplicate device_fp — referral silently skipped for', telegram_id);
+            console.log('[referral] duplicate device_fp — banning new account', telegram_id);
+            // نسجّل المستخدم محظوراً مباشرةً (بدون risk score)
+            await sql(`
+              INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, device_fp, banned)
+              VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+              ON CONFLICT (telegram_id) DO UPDATE SET
+                username  = EXCLUDED.username,
+                first_name = EXCLUDED.first_name,
+                photo_url = COALESCE(EXCLUDED.photo_url, users.photo_url),
+                device_fp = COALESCE(users.device_fp, EXCLUDED.device_fp),
+                banned    = TRUE
+            `, [telegram_id, username, first_name, photo_url, refCode, deviceFp]);
+            const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+            return rows[0];
           } else {
             referredBy = m[1];
           }
