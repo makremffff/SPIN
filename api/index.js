@@ -45,7 +45,7 @@ const APP_CFG = {
 
 // 🛡️ مدة المشاهدة المطلوبة — لكل شبكة إعلانات مدتها الحقيقية (عدّل القيم حسب شبكتك)
 const AD_DURATIONS = {
-  adsgram: 16,
+  adsgram: 15,
   monetag: 16,
   telega:  16,
   default: 16,
@@ -54,7 +54,7 @@ const AD_DURATIONS = {
 const AD_GRACE_SEC = 20;
 
 // 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 60% فقط من المكافأة
-const AD_FULL_REWARD_MIN_SEC = 33;
+const AD_FULL_REWARD_MIN_SEC = 35;
 
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
@@ -427,9 +427,25 @@ async function upsertUser(tgUser, startParam = null) {
 
     // Bot notification is best-effort — never blocks the init response
     const joinerName = first_name || username || 'Someone';
+
+    // Get updated total referral count for the referrer (best-effort)
+    let totalReferrals = 1;
+    try {
+      const refCountRows = await sql(
+        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1',
+        [referredBy]
+      );
+      totalReferrals = refCountRows[0]?.cnt ?? 1;
+    } catch (_) {}
+
     sendTelegramMessage(
       referredBy,
-      `🎉 *${joinerName}* joined BigLeague using your referral link!\n\nYou earned *+${APP_CFG.REF_TICKET_REWARD.toLocaleString()} competition points* 🏆 and *+$${APP_CFG.REF_USDT_REWARD} USDT* 💵\n\nKeep sharing to climb the leaderboard!`
+      `✨ *Referral Success!*\n\n` +
+      `Great news! *${joinerName}* just signed up using your referral link.\n\n` +
+      `👤 *New Referral:* +1\n` +
+      `📊 *Total Referrals:* ${totalReferrals}\n` +
+      `🎁 *Reward:* +${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts · +$${APP_CFG.REF_USDT_REWARD} USDT\n\n` +
+      `Invite more friends and unlock even more rewards! 🚀`
     ).catch(e => console.error('[referral] bot notify failed:', e.message));
   }
 
@@ -875,7 +891,11 @@ module.exports = async function handler(req, res) {
         if (rankUp) {
           sendTelegramMessage(
             Number(dbUser.telegram_id),
-            `🏆 *Rank Up!*\nYou reached *#${rankAfter}* on the leaderboard!\nKeep watching ads to stay on top 🔥`
+            `🏆 *Rank Up!*\n\n` +
+            `You just climbed to *#${rankAfter}* on the leaderboard!\n\n` +
+            `📈 *Current Rank:* #${rankAfter}\n` +
+            `🎯 Keep watching ads to hold your spot!\n\n` +
+            `Stay on top and secure your prize! 🔥`
           ).catch(e => console.error('[rankup bot notify]', e.message));
         }
 
@@ -1087,7 +1107,11 @@ module.exports = async function handler(req, res) {
         // ✅ إشعار بوت مباشر من الباكند
         sendTelegramMessage(
           Number(dbUser.telegram_id),
-          `💸 *Withdrawal Request Received*\nAmount: *$${amt.toFixed(2)}*\nAddress: \`${address.trim()}\`\nStatus: *Under Review* ⏳`
+          `✅ *Withdrawal Request Submitted*\n\n` +
+          `Your request has been received and is being processed.\n\n` +
+          `💎 *Amount:* $${amt.toFixed(2)} USDT\n` +
+          `👛 *Wallet:* \`${address.trim()}\`\n\n` +
+          `🕒 *Processing...* We'll notify you once it's confirmed.`
         ).catch(e => console.error('[withdraw bot notify]', e.message));
 
         return res.json({ ok: true });
