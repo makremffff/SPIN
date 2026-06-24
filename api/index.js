@@ -201,6 +201,18 @@ async function ensureSchema() {
   )`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_users_pts ON users (pts DESC)`);
 
+  // 🛡️ Device fingerprints — يمنع تسجيل أكثر من حساب واحد من نفس الجهاز
+  await sql(`CREATE TABLE IF NOT EXISTS device_fingerprints (
+    fingerprint  TEXT    NOT NULL,
+    telegram_id  BIGINT  NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (fingerprint, telegram_id)
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_device_fp ON device_fingerprints(fingerprint)`);
+
+  // 🎁 تتبع حالة الإحالة — referral_activated يصير TRUE بعد الوصول لـ 3000 نقطة
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_activated BOOLEAN NOT NULL DEFAULT FALSE`);
+
   // جدول المسابقات — يخزن توقيت كل موسم (start/end)
   // السرفر يقرأ منه ويرسل COMPETITION_END_MS للفرونت عبر init response
   await sql(`CREATE TABLE IF NOT EXISTS competition (
@@ -386,15 +398,16 @@ async function consumeAdsgramConfirmation(telegramId) {
   return rows.length > 0;
 }
 
-async function upsertUser(tgUser, startParam = null) {
+async function upsertUser(tgUser, startParam = null, fp = null) {
   const { id: telegram_id, username = null, first_name = null, photo_url = null } = tgUser;
   const refCode = `REF${telegram_id}`;
 
   // Only brand-new users can be attached to a referrer, and only once.
   const existing = await sql('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
+  const isNewUser = existing.length === 0;
 
   let referredBy = null;
-  if (existing.length === 0 && startParam) {
+  if (isNewUser && startParam) {
     const m = /^ref_(\d+)$/.exec(String(startParam).trim());
     if (m && m[1] !== String(telegram_id)) {
       const refUser = await sql('SELECT telegram_id FROM users WHERE telegram_id = $1', [m[1]]);
@@ -411,46 +424,103 @@ async function upsertUser(tgUser, startParam = null) {
       photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
 
-  // Credit tickets + USDT to referrer — only for brand-new users
-  if (existing.length === 0 && referredBy) {
+  // 🛡️ Device fingerprint check — يمنع تسجيل حسابين من نفس الجهاز
+  if (fp) {
+    const existingFp = await sql(
+      'SELECT telegram_id FROM device_fingerprints WHERE fingerprint = $1 LIMIT 1',
+      [fp]
+    );
+
+    if (existingFp.length > 0 && String(existingFp[0].telegram_id) !== String(telegram_id)) {
+      // نفس الجهاز، حساب مختلف → حظر فوري
+      await sql('UPDATE users SET banned = TRUE WHERE telegram_id = $1', [telegram_id]);
+      console.warn(`[DEVICE-BAN] telegram_id=${telegram_id} banned — same device as ${existingFp[0].telegram_id}`);
+    } else {
+      // سجّل الـ fingerprint لهذا المستخدم (أول مرة فقط)
+      await sql(
+        'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [fp, telegram_id]
+      );
+    }
+  }
+
+  // 🕐 إشعار "إحالة معلّقة" عند التسجيل — المكافأة الفعلية تُعطى فقط عند الوصول لـ 3000 نقطة
+  if (isNewUser && referredBy) {
+    const joinerName = first_name || username || 'Someone';
+
+    let pendingReferrals = 1;
+    try {
+      const cntRows = await sql(
+        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = FALSE',
+        [referredBy]
+      );
+      pendingReferrals = cntRows[0]?.cnt ?? 1;
+    } catch (_) {}
+
+    sendTelegramMessage(
+      referredBy,
+      `🔔 *New Pending Referral!*\n\n` +
+      `*${joinerName}* just joined using your referral link.\n\n` +
+      `⏳ *Status:* Waiting for activation\n` +
+      `📋 *Condition:* They need to reach *3,000 pts* to activate\n` +
+      `👥 *Pending Referrals:* ${pendingReferrals}\n\n` +
+      `Once they hit 3,000 pts, you'll get your reward automatically! 💪`
+    ).catch(e => console.error('[referral-pending bot notify]', e.message));
+  }
+
+  const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+  return rows[0];
+}
+
+// 🎁 فحص وتفعيل الإحالة — يُستدعى بعد كل مكافأة نقاط
+// يعطي المُحيل مكافأته فوراً عند وصول المُحال لـ 3000 نقطة
+async function checkReferralActivation(userId) {
+  try {
+    const rows = await sql(
+      'SELECT referred_by, referral_activated, pts, first_name, username FROM users WHERE id = $1',
+      [userId]
+    );
+    if (!rows[0] || !rows[0].referred_by || rows[0].referral_activated) return;
+    if (Number(rows[0].pts) < 3000) return;
+
+    // ✅ وصل للـ 3000 — فعّل الإحالة وامنح المُحيل مكافأته
+    await sql('UPDATE users SET referral_activated = TRUE WHERE id = $1', [userId]);
+
     try {
       await sql(`
         UPDATE users
         SET pts         = pts + $1,
             balance_usd = balance_usd + $2
         WHERE telegram_id = $3
-      `, [APP_CFG.REF_TICKET_REWARD, APP_CFG.REF_USDT_REWARD, referredBy]);
-      console.log('[referral] credited to referrer ' + referredBy);
+      `, [APP_CFG.REF_TICKET_REWARD, APP_CFG.REF_USDT_REWARD, rows[0].referred_by]);
+      console.log(`[referral] activated & credited — user=${userId} referrer=${rows[0].referred_by}`);
     } catch (creditErr) {
-      console.error('[referral] credit SQL failed:', creditErr.message);
+      console.error('[referral-activate] credit SQL failed:', creditErr.message);
     }
 
-    // Bot notification is best-effort — never blocks the init response
-    const joinerName = first_name || username || 'Someone';
-
-    // Get updated total referral count for the referrer (best-effort)
-    let totalReferrals = 1;
+    // إحصاء الإحالات المفعّلة للمُحيل
+    let activeReferrals = 1;
     try {
-      const refCountRows = await sql(
-        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1',
-        [referredBy]
+      const cntRows = await sql(
+        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = TRUE',
+        [rows[0].referred_by]
       );
-      totalReferrals = refCountRows[0]?.cnt ?? 1;
+      activeReferrals = cntRows[0]?.cnt ?? 1;
     } catch (_) {}
 
-    sendTelegramMessage(
-      referredBy,
-      `✨ *Referral Success!*\n\n` +
-      `Great news! *${joinerName}* just signed up using your referral link.\n\n` +
-      `👤 *New Referral:* +1\n` +
-      `📊 *Total Referrals:* ${totalReferrals}\n` +
-      `🎁 *Reward:* +${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts · +$${APP_CFG.REF_USDT_REWARD} USDT\n\n` +
-      `Invite more friends and unlock even more rewards! 🚀`
-    ).catch(e => console.error('[referral] bot notify failed:', e.message));
-  }
+    const joinerName = rows[0].first_name || rows[0].username || 'Someone';
 
-  const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
-  return rows[0];
+    sendTelegramMessage(
+      rows[0].referred_by,
+      `🎉 *Referral Activated!*\n\n` +
+      `*${joinerName}* just reached 3,000 pts — your referral is now active!\n\n` +
+      `✅ *Active Referrals:* ${activeReferrals}\n` +
+      `🎁 *Reward:* +${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts · +$${APP_CFG.REF_USDT_REWARD} USDT\n\n` +
+      `Keep inviting friends to earn more! 🚀`
+    ).catch(e => console.error('[referral-activate bot notify]', e.message));
+  } catch (err) {
+    console.error('[checkReferralActivation] error:', err.message);
+  }
 }
 
 async function getUserRank(userId) {
@@ -642,7 +712,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      dbUser = await upsertUser(tgUser, data.startParam || null);
+      dbUser = await upsertUser(tgUser, data.startParam || null, body.fp || null);
     } catch (err) {
       console.error('[upsertUser error]', err.message);
       return res.status(500).json({ ok: false, error: 'DB error: ' + err.message });
@@ -673,8 +743,12 @@ module.exports = async function handler(req, res) {
         const [userRank, leaderboard, refStats, competition] = await Promise.all([
           getUserRank(dbUser.id),
           getLeaderboard(11),
-          sql(`SELECT COUNT(*)::INT AS ref_count, (COUNT(*)*5000)::INT AS ref_earned
-               FROM users WHERE referred_by = $1`, [dbUser.telegram_id]),
+          sql(`SELECT
+                COUNT(*)::INT                                        AS ref_count,
+                COUNT(*) FILTER (WHERE referral_activated = TRUE)::INT  AS active_count,
+                COUNT(*) FILTER (WHERE referral_activated = FALSE)::INT AS pending_count,
+                (COUNT(*) FILTER (WHERE referral_activated = TRUE) * $2)::INT AS ref_earned
+               FROM users WHERE referred_by = $1`, [dbUser.telegram_id, APP_CFG.REF_TICKET_REWARD]),
           getActiveCompetition()
         ]);
 
@@ -707,8 +781,10 @@ module.exports = async function handler(req, res) {
             rank: r.rank
           })),
           referral: {
-            count:  refStats[0]?.ref_count  ?? 0,
-            earned: refStats[0]?.ref_earned ?? 0
+            count:   refStats[0]?.ref_count    ?? 0,
+            active:  refStats[0]?.active_count  ?? 0,
+            pending: refStats[0]?.pending_count ?? 0,
+            earned:  refStats[0]?.ref_earned    ?? 0
           },
           config: configWithCompetition
         });
@@ -883,6 +959,9 @@ module.exports = async function handler(req, res) {
         // وسّم الـ token كمستخدم
         await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
         await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, actualReward]);
+
+        // 🎁 فحص تفعيل الإحالة — best-effort، لا يوقف الرد لو فشل
+        checkReferralActivation(dbUser.id).catch(e => console.error('[checkReferralActivation]', e.message));
 
         const rankAfter  = await getUserRank(dbUser.id);
         const rankUp     = rankAfter < rankBefore;
@@ -1084,6 +1163,9 @@ module.exports = async function handler(req, res) {
         await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [awarded, dbUser.id]);
         await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
           [dbUser.id, JSON.stringify({ score, awarded, doubled, spawned: spawnedCount, caught: caughtIds.length })]);
+
+        // 🎁 فحص تفعيل الإحالة بعد مكافأة الجولة
+        checkReferralActivation(dbUser.id).catch(e => console.error('[checkReferralActivation/game]', e.message));
 
         return res.json({ ok: true, awarded, doubled });
       }
