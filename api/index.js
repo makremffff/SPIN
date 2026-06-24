@@ -11,8 +11,8 @@ const INTERNAL_SECRET = process.env.INTERNAL_SECRET; // ← أضفه في Vercel
 
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
-  AD_COOLDOWN_SEC:    60,   // cooldown بين إعلانين
-  AD_DAILY_MAX:       30,   // أكثر إعلان يومي
+  AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
+  AD_DAILY_MAX:       1,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 60,   // أكثر طلب عام لكل IP بالدقيقة
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
