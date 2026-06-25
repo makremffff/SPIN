@@ -158,8 +158,9 @@
     document.getElementById('scoreVal').textContent = '0';
     document.getElementById('timerNum').textContent = DURATION;
     document.getElementById('timerNum').classList.remove('urgent');
-    document.getElementById('combo-badge').classList.remove('show', 'pop');
-    document.getElementById('bestVal').textContent = bestScore.toLocaleString();
+    document.getElementById('combo-badge')?.classList.remove('show', 'pop');
+    const bestEl0 = document.getElementById('bestVal');
+    if (bestEl0) bestEl0.textContent = bestScore.toLocaleString();
     // 🎨 الكانفاس شفاف عمداً — خلفية صفحة اللعبة هي نفس خلفية body (الصورة + الطبقة الغامقة)
     ctx.clearRect(0, 0, W, H);
 
@@ -510,8 +511,9 @@
       bestScore = roundScore;
       localStorage.setItem('bl_game_best', String(bestScore));
     }
-    document.getElementById('bestVal').textContent = bestScore.toLocaleString();
-    document.getElementById('newBestTag').classList.toggle('show', isNewBest);
+    const bestEl = document.getElementById('bestVal');
+    if (bestEl) bestEl.textContent = bestScore.toLocaleString();
+    document.getElementById('newBestTag')?.classList.toggle('show', isNewBest);
 
     const btn = document.getElementById('adBtn');
     btn.textContent   = ' Double Tickets';

@@ -1978,6 +1978,46 @@ nav {
   letter-spacing: 1px;
 }
 
+/* personal best — under the live score */
+#best-top {
+  position: absolute;
+  top: 42px; right: 16px;
+  font-family: 'Aleo', serif;
+  font-size: .56rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(245,200,64,.4);
+  pointer-events: none; z-index: 10;
+}
+#best-top span {
+  font-family: 'DynaPuff', cursive;
+  font-weight: 700;
+  color: rgba(245,200,64,.75);
+  margin-left: 3px;
+}
+
+/* combo streak badge */
+#combo-badge {
+  position: absolute;
+  top: 88px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Permanent Marker', cursive;
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+  color: #a78bfa;
+  text-shadow: 0 0 18px rgba(167,139,250,.75);
+  opacity: 0;
+  pointer-events: none; z-index: 10;
+  transition: opacity .15s;
+}
+#combo-badge.show { opacity: 1; }
+#combo-badge.pop { animation: comboPop .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes comboPop {
+  0%   { transform: translateX(-50%) scale(1.55); }
+  60%  { transform: translateX(-50%) scale(.9); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
 /* countdown overlay */
 #cd-overlay {
   position: fixed; inset: 0;
@@ -2063,6 +2103,31 @@ nav {
   letter-spacing: 3px;
   text-transform: uppercase;
   margin-top: 8px;
+}
+
+/* "new best" celebration tag */
+.new-best-tag {
+  margin-top: 10px;
+  font-family: 'Permanent Marker', cursive;
+  font-size: .65rem;
+  letter-spacing: 3px;
+  color: #4ade80;
+  text-shadow: 0 0 14px rgba(74,222,128,.6);
+  opacity: 0;
+  transform: scale(.6);
+  height: 0;
+  transition: opacity .3s, transform .3s;
+}
+.new-best-tag.show {
+  opacity: 1;
+  transform: scale(1);
+  height: auto;
+  animation: newBestPop .6s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes newBestPop {
+  0%   { transform: scale(.4); }
+  60%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
 }
 
 .btn-ad {
