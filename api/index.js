@@ -472,14 +472,12 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
 
     sendTelegramMessage(
       referredBy,
-      `🔔 *New Pending Referral*\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `👤 *Name:* *${joinerName}*\n` +
-      `📊 *Status:* *⏳ Pending*\n` +
-      `🎯 *Condition:* *Reach 3,000 pts to activate*\n` +
-      `👥 *Total Pending:* *${pendingReferrals}*\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 *Once they hit 3,000 pts you'll get your reward automatically*`
+      `🔔 *New Pending Referral!*\n\n` +
+      `👤 *${joinerName}* just joined using your link.\n\n` +
+      `📊 Status: *⏳ Pending*\n` +
+      `🎯 Condition: *Reach 3,000 pts to activate*\n` +
+      `👥 *Total Pending: ${pendingReferrals}*\n\n` +
+      `💡 Once they hit 3,000 pts you'll get your reward automatically!`
     ).catch(e => console.error('[referral-pending bot notify]', e.message));
   }
 
@@ -527,17 +525,15 @@ async function checkReferralActivation(userId) {
 
     sendTelegramMessage(
       rows[0].referred_by,
-      `🎉 *Referral Activated!*\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `👤 *Name:* *${joinerName}*\n` +
-      `📊 *Status:* *✅ Active*\n` +
-      `✅ *Active Referrals:* *${activeReferrals}*\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🎁 *Your Reward:*\n` +
-      `   🪙 *+${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts*\n` +
-      `   💵 *+$${APP_CFG.REF_USDT_REWARD} USDT*\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🚀 *Keep inviting friends to earn more!*`
+      `🎉 *New Referral Activated!*\n\n` +
+      `Welcome, your referral is now active.\n\n` +
+      `👤 *${joinerName}*\n` +
+      `✅ Active\n\n` +
+      `🎁 *You Earned*\n` +
+      `🪙 *${APP_CFG.REF_TICKET_REWARD.toLocaleString()} Points*\n` +
+      `💵 *${APP_CFG.REF_USDT_REWARD} USDT*\n\n` +
+      `👥 *Total Active Referrals: ${activeReferrals}*\n\n` +
+      `🚀 Keep inviting friends to maximize your earnings!`
     ).catch(e => console.error('[referral-activate bot notify]', e.message));
   } catch (err) {
     console.error('[checkReferralActivation] error:', err.message);
