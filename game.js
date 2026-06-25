@@ -42,6 +42,13 @@
   const BW = 92, BH = 26, BY_OFF = 80;
   let cdToken = 0;             // يُلغي أي countdown قديم عند مغادرة/إعادة دخول صفحة اللعبة
 
+  // 🎮 طبقة "ممتعة" بصرية بحتة — لا تُرسَل للسيرفر ولا تؤثر على roundScore/التحقق
+  let combo       = 0;   // صيدات متتالية بدون قنبلة (للعرض فقط)
+  let particles   = [];  // شظايا الانفجار البصرية عند الصيد
+  let basketSquashT = 0; // عداد انكماش/تمدد السلة عند الصيد
+  let shakeT      = 0;   // عداد ارتجاج الشاشة عند ضرب قنبلة
+  let bestScore   = parseInt(localStorage.getItem('bl_game_best') || '0', 10);
+
   // 🛡️ جلسة الجولة — تُنشأ من السيرفر حصراً، مخفية عن المستخدم
   let _sessionToken = null;   // token معتم من السيرفر (لا يظهر في UI أو console)
   let _roundEnded   = false;  // true فقط عند انتهاء العداد فعلاً
@@ -79,6 +86,39 @@
     return { ...TYPES[0], _idx: idx };
   }
 
+  // 🎮 ردود فعل لمسية عبر Telegram WebApp — طبقة عرض فقط، لا تلمس أي منطق/تحقق
+  function _haptic(kind) {
+    const h = window.Telegram?.WebApp?.HapticFeedback;
+    if (!h) return;
+    if (kind === 'bomb') h.notificationOccurred?.('error');
+    else if (kind === 'rare') h.notificationOccurred?.('success');
+    else h.impactOccurred?.('light');
+  }
+
+  // 🎮 شظايا بصرية عند الصيد/الضرب
+  function _spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 60 + Math.random() * 150;
+      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 50, life: 1, color, r: 2 + Math.random() * 2.5 });
+    }
+  }
+
+  // 🎮 شارة الكومبو — تظهر بعد 3 صيدات متتالية بدون قنبلة
+  function updateComboBadge() {
+    const el = document.getElementById('combo-badge');
+    if (!el) return;
+    if (combo >= 3) {
+      el.textContent = 'x' + combo + ' COMBO';
+      el.classList.add('show');
+      el.classList.remove('pop');
+      void el.offsetWidth;
+      el.classList.add('pop');
+    } else {
+      el.classList.remove('show', 'pop');
+    }
+  }
+
   /* ── 🛡️ إرسال نتيجة الجولة ───────────────────────────────────────────
      يُرسَل: token معتم + مؤشرات الصيد + عدد العناصر التي ظهرت.
      السيرفر يعيد حساب النتيجة من التسلسل المخزّن لديه. */
@@ -113,13 +153,15 @@
     document.getElementById('end-overlay').classList.remove('active');
     setupCanvas();
 
-    roundScore = 0; items = []; popups = [];
+    roundScore = 0; items = []; popups = []; particles = [];
+    combo = 0; basketSquashT = 0; shakeT = 0;
     document.getElementById('scoreVal').textContent = '0';
     document.getElementById('timerNum').textContent = DURATION;
     document.getElementById('timerNum').classList.remove('urgent');
+    document.getElementById('combo-badge').classList.remove('show', 'pop');
+    document.getElementById('bestVal').textContent = bestScore.toLocaleString();
+    // 🎨 الكانفاس شفاف عمداً — خلفية صفحة اللعبة هي نفس خلفية body (الصورة + الطبقة الغامقة)
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#07090f';
-    ctx.fillRect(0, 0, W, H);
 
     // 🛡️ طلب جلسة + seed من السيرفر
     _sessionToken = null;
@@ -171,6 +213,7 @@
     _caughtIds  = [];
     _basketLog  = [];
     _burstFired = false;
+    particles = []; combo = 0; basketSquashT = 0; shakeT = 0;
     basketX = W / 2;
     // 🛡️ سجّل موقع السلة كل 500ms — يُرسَل للسيرفر للتحقق المكاني
     if (_basketLogTimer) clearInterval(_basketLogTimer);
@@ -189,6 +232,14 @@
 
     timeLeft -= dt;
     if (timeLeft <= 0) { timeLeft = 0; endGame(); return; }
+
+    // 🎮 تبريد طبقات الفيدباك البصري (كومبو/ارتجاج/انكماش السلة)
+    basketSquashT = Math.max(0, basketSquashT - dt * 5);
+    shakeT        = Math.max(0, shakeT - dt * 4);
+    particles = particles.filter(p => {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 280 * dt; p.life -= dt * 1.6;
+      return p.life > 0;
+    });
 
     spawnCd -= dt;
     if (spawnCd <= 0) {
@@ -212,6 +263,19 @@
         roundScore = Math.max(0, roundScore + it.val);
         const col = it.val > 0 ? (it.val >= 3 ? '#a78bfa' : '#f5c840') : '#ff5555';
         popups.push({ x: it.x, y: H - BY_OFF - 30, txt: (it.val > 0 ? '+' : '') + it.val + ' 🎟', col, alpha: 1, vy: -2 });
+
+        // 🎮 طبقة "ممتعة" بصرية بحتة — لا تلمس roundScore أو بيانات السيرفر
+        basketSquashT = 1;
+        _spawnParticles(it.x, H - BY_OFF, col, it.type === 'bomb' ? 16 : 10);
+        if (it.type === 'bomb') {
+          combo = 0;
+          shakeT = 1;
+          _haptic('bomb');
+        } else {
+          combo++;
+          _haptic(it.rare ? 'rare' : 'catch');
+        }
+        updateComboBadge();
         updateHUD();
         return false;
       }
@@ -285,8 +349,13 @@
   /* ── Draw ──────────────────────────────────────────── */
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#07090f';
-    ctx.fillRect(0, 0, W, H);
+
+    // 🎨 لا يوجد ملء غامق هنا عمداً — خلفية body (الصورة) تظهر عبر الكانفاس الشفاف
+    ctx.save();
+    if (shakeT > 0) {
+      const m = shakeT * 8;
+      ctx.translate((Math.random() - .5) * m, (Math.random() - .5) * m);
+    }
 
     ctx.strokeStyle = 'rgba(245,200,64,.025)';
     ctx.lineWidth = 1;
@@ -294,6 +363,14 @@
 
     items.forEach(drawItem);
     drawBasket();
+    particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
     popups.forEach(p => {
       ctx.save();
       ctx.globalAlpha = p.alpha;
@@ -304,10 +381,22 @@
       ctx.fillText(p.txt, p.x, p.y);
       ctx.restore();
     });
+
+    ctx.restore(); // shake transform
   }
 
   function drawBasket() {
     const y = H - BY_OFF;
+    // 🎮 انكماش/تمدد لحظي عند الصيد (juiciness) — تحويل بصري بحت حول قاعدة السلة
+    const sq = basketSquashT;
+    const sx = 1 + sq * 0.16;
+    const sy = 1 - sq * 0.20;
+    const pivotY = y + BH;
+    ctx.save();
+    ctx.translate(basketX, pivotY);
+    ctx.scale(sx, sy);
+    ctx.translate(-basketX, -pivotY);
+
     if (BASKET_IMG.complete && BASKET_IMG.naturalWidth) {
       const w = BW + 24;
       const h = w * (BASKET_IMG.naturalHeight / BASKET_IMG.naturalWidth);
@@ -316,6 +405,7 @@
       ctx.shadowBlur = 18;
       ctx.drawImage(BASKET_IMG, basketX - w / 2, y - h * 0.3, w, h);
       ctx.restore();
+      ctx.restore(); // squash transform
       return;
     }
     // fallback vector basket while asesst/basket.png يتم تحميله أو إن لم يكن موجوداً
@@ -339,6 +429,7 @@
     ctx.lineTo(basketX + hw + gap / 2 - 5, y + 3);
     ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
+    ctx.restore(); // squash transform
   }
 
   function drawItem(it) {
@@ -412,6 +503,16 @@
     _roundEnded = true; // ← الجولة اكتملت، جاهز للإرسال عند الضغط أو مغادرة الصفحة
 
     document.getElementById('finalScore').textContent = roundScore.toLocaleString();
+
+    // 🎮 أفضل نتيجة شخصية — محفوظة محلياً فقط، لا تؤثر على المكافأة الفعلية من السيرفر
+    const isNewBest = roundScore > 0 && roundScore > bestScore;
+    if (isNewBest) {
+      bestScore = roundScore;
+      localStorage.setItem('bl_game_best', String(bestScore));
+    }
+    document.getElementById('bestVal').textContent = bestScore.toLocaleString();
+    document.getElementById('newBestTag').classList.toggle('show', isNewBest);
+
     const btn = document.getElementById('adBtn');
     btn.textContent   = ' Double Tickets';
     btn.disabled      = false;
