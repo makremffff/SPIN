@@ -977,8 +977,8 @@ module.exports = async function handler(req, res) {
         await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
         await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, actualReward]);
 
-        // 🎁 فحص تفعيل الإحالة — best-effort، لا يوقف الرد لو فشل
-        checkReferralActivation(dbUser.id).catch(e => console.error('[checkReferralActivation]', e.message));
+        // 🎁 فحص تفعيل الإحالة — await لضمان إرسال الإشعار قبل انتهاء الدالة
+        await checkReferralActivation(dbUser.id);
 
         const rankAfter  = await getUserRank(dbUser.id);
         const rankUp     = rankAfter < rankBefore;
@@ -1181,8 +1181,8 @@ module.exports = async function handler(req, res) {
         await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
           [dbUser.id, JSON.stringify({ score, awarded, doubled, spawned: spawnedCount, caught: caughtIds.length })]);
 
-        // 🎁 فحص تفعيل الإحالة بعد مكافأة الجولة
-        checkReferralActivation(dbUser.id).catch(e => console.error('[checkReferralActivation/game]', e.message));
+        // 🎁 فحص تفعيل الإحالة — await لضمان إرسال الإشعار قبل انتهاء الدالة
+        await checkReferralActivation(dbUser.id);
 
         return res.json({ ok: true, awarded, doubled });
       }
