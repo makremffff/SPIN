@@ -51,7 +51,7 @@ const AD_DURATIONS = {
   default: 16,
 };
 // نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
-const AD_GRACE_SEC = 20;
+const AD_GRACE_SEC = 90;
 
 // 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 60% فقط من المكافأة
 const AD_FULL_REWARD_MIN_SEC = 35;
