@@ -16,14 +16,14 @@ const ADSGRAM_BLOCK_ID = '35167';
 const APP_CONFIG = {
   /* Referral rewards */
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.015,  // USDT added to balance per referral
+  REF_USDT_REWARD   : 0.01,  // USDT added to balance per referral
 
   /* Ad rewards */
   AD_TICKET_REWARD  : 750,    // tickets per ad watch
-  AD_DAILY_MAX      : 2,     // max ads per day
+  AD_DAILY_MAX      : 3000,     // max ads per day
 
   /* Withdrawal */
-  WITHDRAW_MIN      : 1.00,   // minimum withdrawal in USD
+  WITHDRAW_MIN      : 0.2,   // minimum withdrawal in USD
 
   /* Podium prizes (contest page) */
   PODIUM_PRIZES: {
