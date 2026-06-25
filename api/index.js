@@ -424,23 +424,36 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
       photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
 
-  // 🛡️ Device fingerprint check — يمنع تسجيل حسابين من نفس الجهاز
+  // 🛡️ Device fingerprint — يحظر فقط الحسابات الجديدة من نفس الجهاز
   if (fp) {
-    const existingFp = await sql(
-      'SELECT telegram_id FROM device_fingerprints WHERE fingerprint = $1 LIMIT 1',
-      [fp]
-    );
-
-    if (existingFp.length > 0 && String(existingFp[0].telegram_id) !== String(telegram_id)) {
-      // نفس الجهاز، حساب مختلف → حظر فوري
-      await sql('UPDATE users SET banned = TRUE WHERE telegram_id = $1', [telegram_id]);
-      console.warn(`[DEVICE-BAN] telegram_id=${telegram_id} banned — same device as ${existingFp[0].telegram_id}`);
-    } else {
-      // سجّل الـ fingerprint لهذا المستخدم (أول مرة فقط)
-      await sql(
-        'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [fp, telegram_id]
-      );
+    try {
+      if (isNewUser) {
+        // حساب جديد: تحقق هل الجهاز مسجّل مسبقاً
+        const existingFp = await sql(
+          'SELECT telegram_id FROM device_fingerprints WHERE fingerprint = $1 ORDER BY created_at ASC LIMIT 1',
+          [fp]
+        );
+        if (existingFp.length > 0) {
+          // الجهاز عنده حساب قديم → احظر الحساب الجديد فوراً
+          await sql('UPDATE users SET banned = TRUE WHERE telegram_id = $1', [telegram_id]);
+          console.warn(`[DEVICE-BAN] banned NEW account ${telegram_id} — device already has ${existingFp[0].telegram_id}`);
+        } else {
+          // أول حساب على هذا الجهاز → سجّل الـ fingerprint
+          await sql(
+            'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [fp, telegram_id]
+          );
+          console.log(`[DEVICE-FP] registered for ${telegram_id}`);
+        }
+      } else {
+        // حساب قديم: فقط احفظ الـ fingerprint لو ما كان محفوظ (مثلاً قبل الـ deployment)
+        await sql(
+          'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [fp, telegram_id]
+        );
+      }
+    } catch (fpErr) {
+      console.error('[DEVICE-FP] error:', fpErr.message);
     }
   }
 
