@@ -1,13 +1,12 @@
 /* ══════════════════════════════════════════════════════
    security.js — Frontend Security Layer
    1. Telegram bootstrap helpers
-   2. DevTools detection
-   3. Screenshot prevention
-   4. API response integrity check
-   5. Anti-DOM tampering
-   6. Environment validation
-   7. Frontend rate limiter
-   8. Session fingerprint
+   2. Screenshot prevention
+   3. API response integrity check
+   4. Anti-DOM tampering
+   5. Environment validation
+   6. Frontend rate limiter
+   7. Session fingerprint
 ══════════════════════════════════════════════════════ */
 
 /* ── Shared: إرسال حدث أمني للسيرفر ────────────────── */
@@ -33,14 +32,8 @@ function initTelegramApp() {
     if (!tg) return;
     tg.ready();
     tg.expand();
-
-    // 🛡️ منع لقطات الشاشة عبر Telegram WebApp API
     if (typeof tg.disableVerticalSwipes === 'function') {
       tg.disableVerticalSwipes();
-    }
-    // API الرسمي لمنع Screenshot (متاح في بعض إصدارات Telegram)
-    if (typeof tg.requestWriteAccess === 'function') {
-      // نستخدم isVersionAtLeast للتحقق من دعم lockOrientation
     }
   } catch {}
 }
@@ -51,57 +44,18 @@ function getStartParam() {
     || null;
 }
 
-/* ── 2. DevTools Detection ──────────────────────────── */
-(function devToolsGuard() {
-  let devOpen = false;
-
-  // Method A: فرق حجم النافذة (DevTools مفتوح على الجانب)
-  function checkSize() {
-    return (window.outerWidth - window.innerWidth) > 160
-        || (window.outerHeight - window.innerHeight) > 160;
-  }
-
-  // Method B: توقيت debugger statement
-  function checkDebugger() {
-    const t = performance.now();
-    // eslint-disable-next-line no-debugger
-    debugger;
-    return performance.now() - t > 100;
-  }
-
-  function onOpen() {
-    if (devOpen) return;
-    devOpen = true;
-    console.warn('[security] DevTools detected');
-    _reportSecEvent('devtools_open', { ua: navigator.userAgent.slice(0, 80) });
-  }
-
-  function onClose() {
-    devOpen = false;
-  }
-
-  setInterval(() => {
-    const open = checkSize() || checkDebugger();
-    if (open && !devOpen) onOpen();
-    if (!open && devOpen) onClose();
-  }, 1500);
-})();
-
-/* ── 3. Screenshot Prevention ───────────────────────── */
+/* ── 2. Screenshot Prevention ───────────────────────── */
 (function screenshotGuard() {
   try {
-    // منع طباعة الصفحة (Ctrl+P)
     window.addEventListener('beforeprint', e => {
       e.preventDefault();
       _reportSecEvent('print_attempt', {});
     });
 
-    // CSS: إخفاء المحتوى عند الطباعة
     const style = document.createElement('style');
     style.textContent = `@media print { body { display:none !important; } }`;
     document.head.appendChild(style);
 
-    // كشف محاولة PrtScr عبر كليد الكيبورد (Windows)
     window.addEventListener('keyup', e => {
       if (e.key === 'PrintScreen') {
         _reportSecEvent('printscreen_key', {});
@@ -110,7 +64,7 @@ function getStartParam() {
   } catch {}
 })();
 
-/* ── 4. API Response Integrity ──────────────────────── */
+/* ── 3. API Response Integrity ──────────────────────── */
 const RESPONSE_SCHEMA = {
   init: {
     required: ['ok', 'user', 'leaderboard', 'referral', 'config'],
@@ -127,7 +81,6 @@ function secValidate(type, body) {
 
   for (const field of schema.required) {
     if (!(field in body)) {
-      console.warn(`[security] missing "${field}" in ${type} response`);
       _reportSecEvent('invalid_response', { type, missing: field });
       return false;
     }
@@ -135,7 +88,6 @@ function secValidate(type, body) {
   if (schema.user && body.user) {
     for (const field of schema.user) {
       if (!(field in body.user)) {
-        console.warn(`[security] missing user.${field} in ${type} response`);
         _reportSecEvent('invalid_response', { type, missing: `user.${field}` });
         return false;
       }
@@ -144,7 +96,7 @@ function secValidate(type, body) {
   return true;
 }
 
-/* ── 5. Anti-DOM Tampering ──────────────────────────── */
+/* ── 4. Anti-DOM Tampering ──────────────────────────── */
 const _domGuard = {
   _values: {},
 
@@ -156,16 +108,13 @@ const _domGuard = {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    const text     = el.textContent.replace(/[^0-9.]/g, '');
+    const text      = el.textContent.replace(/[^0-9.]/g, '');
     const displayed = parseAs === 'int' ? parseInt(text, 10) : parseFloat(text);
     const expected  = this._values[key];
     if (expected === undefined || isNaN(displayed)) return;
 
     if (Math.abs(displayed - expected) > 0.01) {
-      console.warn(`[security] DOM tamper: #${elementId} displayed=${displayed} expected=${expected}`);
       _reportSecEvent('dom_tamper', { element: elementId, displayed, expected });
-
-      // استعادة القيمة الحقيقية فوراً
       if (parseAs === 'int') {
         el.textContent = Math.floor(expected).toLocaleString();
       } else {
@@ -176,7 +125,6 @@ const _domGuard = {
 
   startPolling() {
     setInterval(() => {
-      // IDs مطابقة لما هو في index.html
       this.check('pts',         'you-pts',    'int');
       this.check('balance_usd', 'wd-balance', 'float');
       this.check('rank',        'you-rank',   'int');
@@ -191,35 +139,26 @@ function secRegisterState(user) {
   _domGuard.register('rank',        user.rank);
 }
 
-/* ── 6. Environment Validation ──────────────────────── */
+/* ── 5. Environment Validation ──────────────────────── */
 (function envGuard() {
-  // كشف Headless / Automation
   const isHeadless = navigator.webdriver === true
     || /HeadlessChrome|PhantomJS|Puppeteer/i.test(navigator.userAgent);
 
   if (isHeadless) {
-    console.warn('[security] headless browser detected');
     _reportSecEvent('headless_detected', { ua: navigator.userAgent.slice(0, 80) });
-    // إيقاف التطبيق نظيف — إخفاء كامل المحتوى
     document.addEventListener('DOMContentLoaded', () => {
       document.body.style.display = 'none';
     });
     return;
   }
 
-  // التحقق من بيئة Telegram
-  const isTelegram = !!(
-    window.Telegram?.WebApp?.initData?.length > 0
-  );
-
+  const isTelegram = !!(window.Telegram?.WebApp?.initData?.length > 0);
   if (!isTelegram) {
-    console.warn('[security] running outside Telegram');
     window.__outsideTelegram = true;
-    // لا نوقف — dev mode يحتاج هذا
   }
 })();
 
-/* ── 7. Frontend Rate Limiter ───────────────────────── */
+/* ── 6. Frontend Rate Limiter ───────────────────────── */
 const _rateLimiter = (function () {
   const _limits = {
     watchAd:  { max: 1,  windowMs: 70000 },
@@ -234,16 +173,11 @@ const _rateLimiter = (function () {
       const now = Date.now();
       const cfg = _limits[action] || _limits.default;
       if (!_history[action]) _history[action] = [];
-
-      // ازل الطلبات القديمة
       _history[action] = _history[action].filter(t => now - t < cfg.windowMs);
-
       if (_history[action].length >= cfg.max) {
-        console.warn(`[security] rate limit: ${action}`);
         _reportSecEvent('rate_limit_hit', { action });
         return false;
       }
-
       _history[action].push(now);
       return true;
     }
@@ -254,7 +188,7 @@ function secAllow(action) {
   return _rateLimiter.allow(action);
 }
 
-/* ── 8. Session Fingerprint ─────────────────────────── */
+/* ── 7. Session Fingerprint ─────────────────────────── */
 const _fingerprint = (function () {
   function build() {
     const raw = [
@@ -268,7 +202,6 @@ const _fingerprint = (function () {
       new Date().getTimezoneOffset()
     ].join('|');
 
-    // djb2 hash
     let h = 5381;
     for (let i = 0; i < raw.length; i++) {
       h = ((h << 5) + h) ^ raw.charCodeAt(i);
