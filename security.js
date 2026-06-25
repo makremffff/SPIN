@@ -1,14 +1,15 @@
-/* security.js — minimal stub, no active checks */
+/* ══════════════════════════════════════════════════════
+   security.js — TEST MODE (no protection)
+   كل الحمايات معطلة — للاختبار فقط، لا ترفعه على production
+══════════════════════════════════════════════════════ */
 
-function _reportSecEvent() {}
-
+/* ── 1. Telegram Bootstrap ──────────────────────────── */
 function initTelegramApp() {
   try {
     const tg = window.Telegram?.WebApp;
     if (!tg) return;
     tg.ready();
     tg.expand();
-    if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
   } catch {}
 }
 
@@ -18,37 +19,26 @@ function getStartParam() {
     || null;
 }
 
-function secValidate() { return true; }
+/* ── 2. DevTools Detection — DISABLED ──────────────── */
 
-const _domGuard = {
-  register() {},
-  startPolling() {}
-};
+/* ── 3. Screenshot Prevention — DISABLED ───────────── */
 
-function secRegisterState() {}
+/* ── 4. API Response Integrity — DISABLED ──────────── */
+function secValidate(type, body) {
+  return true;
+}
 
-function secAllow() { return true; }
+/* ── 5. Anti-DOM Tampering — DISABLED ──────────────── */
+function secRegisterState(user) {}
 
-const _fingerprint = (function () {
-  function build() {
-    const raw = [
-      navigator.language    || '',
-      navigator.languages?.join(',') || '',
-      navigator.platform    || '',
-      navigator.hardwareConcurrency || 0,
-      screen.width + 'x' + screen.height,
-      screen.colorDepth     || 0,
-      Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-      new Date().getTimezoneOffset()
-    ].join('|');
-    let h = 5381;
-    for (let i = 0; i < raw.length; i++) h = ((h << 5) + h) ^ raw.charCodeAt(i);
-    return (h >>> 0).toString(16);
-  }
-  const fp = build();
-  return { get: () => fp };
-})();
+/* ── 6. Environment Validation — DISABLED ──────────── */
 
+/* ── 7. Frontend Rate Limiter — DISABLED (always allow) */
+function secAllow(action) {
+  return true;
+}
+
+/* ── 8. Session Fingerprint — stub ─────────────────── */
 function secFingerprint() {
-  return _fingerprint.get();
+  return 'test';
 }
