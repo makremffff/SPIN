@@ -29,10 +29,10 @@ const CFG = {
 // ── App business-logic config (synced to frontend via init response) ──────────
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.015,  // USDT added to referrer balance per referral
+  REF_USDT_REWARD   : 0.01,  // USDT added to referrer balance per referral
   AD_TICKET_REWARD  : 750,    // tickets per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
-  WITHDRAW_MIN      : 1.00,
+  WITHDRAW_MIN      : 0.2,
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
   // توقيت المسابقة — اضبط COMPETITION_END_MS في Vercel env (Unix ms timestamp)
