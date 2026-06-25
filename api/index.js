@@ -127,6 +127,7 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`); // 🟢 Presence heartbeat — لمعرفة المستخدمين المتصلين الآن
 
   // 🎮 جلسات اللعبة — تُنشأ من السيرفر حصراً، لا تُرسَل نقاط من العميل أبداً
   await sql(`CREATE TABLE IF NOT EXISTS game_sessions (
@@ -416,12 +417,13 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
   }
 
   await sql(`
-    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by, last_seen_at)
+    VALUES ($1, $2, $3, $4, $5, $6, NOW())
     ON CONFLICT (telegram_id) DO UPDATE SET
-      username   = EXCLUDED.username,
-      first_name = EXCLUDED.first_name,
-      photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
+      username     = EXCLUDED.username,
+      first_name   = EXCLUDED.first_name,
+      photo_url    = COALESCE(EXCLUDED.photo_url, users.photo_url),
+      last_seen_at = NOW()
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
 
   // 🛡️ Device fingerprint — يحظر فقط الحسابات الجديدة من نفس الجهاز
