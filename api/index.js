@@ -472,12 +472,14 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
 
     sendTelegramMessage(
       referredBy,
-      `🔔 *New Pending Referral!*\n\n` +
-      `*${joinerName}* just joined using your referral link.\n\n` +
-      `⏳ *Status:* Waiting for activation\n` +
-      `📋 *Condition:* They need to reach *3,000 pts* to activate\n` +
-      `👥 *Pending Referrals:* ${pendingReferrals}\n\n` +
-      `Once they hit 3,000 pts, you'll get your reward automatically! 💪`
+      `🔔 *New Pending Referral*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `👤 *Name:* *${joinerName}*\n` +
+      `📊 *Status:* *⏳ Pending*\n` +
+      `🎯 *Condition:* *Reach 3,000 pts to activate*\n` +
+      `👥 *Total Pending:* *${pendingReferrals}*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💡 *Once they hit 3,000 pts you'll get your reward automatically*`
     ).catch(e => console.error('[referral-pending bot notify]', e.message));
   }
 
@@ -525,11 +527,17 @@ async function checkReferralActivation(userId) {
 
     sendTelegramMessage(
       rows[0].referred_by,
-      `🎉 *Referral Activated!*\n\n` +
-      `*${joinerName}* just reached 3,000 pts — your referral is now active!\n\n` +
-      `✅ *Active Referrals:* ${activeReferrals}\n` +
-      `🎁 *Reward:* +${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts · +$${APP_CFG.REF_USDT_REWARD} USDT\n\n` +
-      `Keep inviting friends to earn more! 🚀`
+      `🎉 *Referral Activated!*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `👤 *Name:* *${joinerName}*\n` +
+      `📊 *Status:* *✅ Active*\n` +
+      `✅ *Active Referrals:* *${activeReferrals}*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🎁 *Your Reward:*\n` +
+      `   🪙 *+${APP_CFG.REF_TICKET_REWARD.toLocaleString()} pts*\n` +
+      `   💵 *+$${APP_CFG.REF_USDT_REWARD} USDT*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🚀 *Keep inviting friends to earn more!*`
     ).catch(e => console.error('[referral-activate bot notify]', e.message));
   } catch (err) {
     console.error('[checkReferralActivation] error:', err.message);
