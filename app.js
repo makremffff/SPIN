@@ -303,14 +303,13 @@ async function handleWithdraw() {
     return;
   }
 
-  const address = document.getElementById('wd-address').value.trim();
-  const memo    = document.getElementById('wd-memo').value.trim();
-  const amount  = parseFloat(document.getElementById('wd-amount').value);
-
-  if (!address) {
-    showToast({ type: 'withdraw', title: 'Wallet Address Required', msg: 'Please enter your wallet address', duration: 3500 });
+  if (!connectedWalletAddress) {
+    showToast({ type: 'withdraw', title: 'Connect Your Wallet', msg: 'Tap "Connect Wallet" to set your withdrawal address', duration: 3500 });
     return;
   }
+
+  const amount = parseFloat(document.getElementById('wd-amount').value);
+
   const withdrawMin = (appState.config || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {})).WITHDRAW_MIN;
   if (isNaN(amount) || amount < withdrawMin) {
     showToast({ type: 'withdraw', title: 'Invalid Amount', msg: `Minimum withdrawal is $${withdrawMin.toFixed(2)}`, duration: 3500 });
@@ -321,7 +320,7 @@ async function handleWithdraw() {
   btn.disabled = true;
   btn.style.opacity = '0.7';
 
-  const res = await fetchApi({ type: 'withdraw', data: { address, memo, amount } });
+  const res = await fetchApi({ type: 'withdraw', data: { address: connectedWalletAddress, amount } });
 
   btn.disabled = false;
   btn.style.opacity = '1';
@@ -334,8 +333,6 @@ async function handleWithdraw() {
       duration: 5000
     });
 
-    document.getElementById('wd-address').value = '';
-    document.getElementById('wd-memo').value    = '';
     document.getElementById('wd-amount').value  = '';
 
     refreshState();
@@ -347,6 +344,67 @@ async function handleWithdraw() {
       duration: 4000
     });
   }
+}
+
+/* ══════════════════════════════════════════════════════
+   TonConnect — Wallet Connection (Withdraw Page)
+   #conect button opens the TonConnect modal (Telegram Wallet,
+   Tonkeeper, MyTonWallet...). Connected address is masked and
+   shown under the button, and used as the withdraw destination.
+══════════════════════════════════════════════════════ */
+let tonConnectUI          = null;
+let connectedWalletAddress = '';
+
+function maskWalletAddress(addr) {
+  if (!addr || addr.length < 10) return addr || '';
+  return addr.slice(0, 5) + '****' + addr.slice(-4);
+}
+
+function initWalletConnect() {
+  if (typeof TON_CONNECT_UI === 'undefined') {
+    console.error('[wallet] TonConnect SDK failed to load');
+    return;
+  }
+
+  tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: TONCONNECT_MANIFEST_URL
+  });
+
+  const btn    = document.getElementById('conect');
+  const label  = document.getElementById('conect-label');
+  const addrEl = document.getElementById('ad-wallet');
+  if (!btn || !label || !addrEl) return;
+
+  function renderWalletState(wallet) {
+    if (wallet) {
+      connectedWalletAddress = TON_CONNECT_UI.toUserFriendlyAddress(wallet.account.address);
+      label.textContent = 'Wallet Connected';
+      btn.classList.add('connected');
+      addrEl.textContent = maskWalletAddress(connectedWalletAddress);
+    } else {
+      connectedWalletAddress = '';
+      label.textContent = 'Connect Wallet';
+      btn.classList.remove('connected');
+      addrEl.textContent = '';
+    }
+  }
+
+  tonConnectUI.onStatusChange(renderWalletState);
+  renderWalletState(tonConnectUI.wallet); // يرجّع الحالة لو كانت محفوظة من جلسة سابقة
+
+  btn.addEventListener('click', async () => {
+    try {
+      if (tonConnectUI.connected) {
+        await tonConnectUI.disconnect();
+        showToast({ type: 'withdraw', title: 'Wallet Disconnected', msg: '', duration: 2500 });
+      } else {
+        await tonConnectUI.openModal();
+      }
+    } catch (err) {
+      console.error('[wallet] connect error', err);
+      showToast({ type: 'withdraw', title: 'Connection Failed', msg: 'Please try again', duration: 3000 });
+    }
+  });
 }
 
 /* ══════════════════════════════════════════════════════
@@ -388,7 +446,7 @@ function showPartialRewardModal(reward) {
 
 /* ══════════════════════════════════════════════════════
 /* ══════════════════════════════════════════════════════
-   Onboarding — first-launch swipeable intro (5 slides)
+   Onboarding — first-launch swipeable intro (6 slides)
    Shown once; suppressed afterwards via DB flag (onboarding_seen).
    Called from initApp() after the init response arrives.
 ══════════════════════════════════════════════════════ */
@@ -411,8 +469,20 @@ function initOnboarding(alreadySeen = false) {
   const btn    = document.getElementById('btn');
   const flash  = document.getElementById('flash');
   const hint   = document.getElementById('scroll-hint');
-  const labels = ['Next', 'Next', 'Next', 'Next', 'Start Playing'];
+  const labels = ['Next', 'Next', 'Next', 'Next', 'Next', 'Start Playing'];
   let cur = 0, busy = false;
+
+  // زر "Join Channel" داخل سلايد التعليمات
+  const joinBtn = document.getElementById('ob-join-btn');
+  if (joinBtn) {
+    joinBtn.addEventListener('click', () => {
+      if (window.Telegram?.WebApp?.openTelegramLink) {
+        Telegram.WebApp.openTelegramLink(CHANNEL_LINK);
+      } else {
+        window.open(CHANNEL_LINK, '_blank');
+      }
+    });
+  }
 
   function checkScroll() {
     const sl = slides[cur];
@@ -475,4 +545,5 @@ function initOnboarding(alreadySeen = false) {
 ══════════════════════════════════════════════════════ */
 try { renderConfig(); } catch (err) { console.error('[renderConfig] failed', err); }   // fill values from APP_CONFIG immediately (before server responds)
 try { animatePage('contest'); } catch (err) { console.error('[animatePage] failed', err); }
+try { initWalletConnect(); } catch (err) { console.error('[initWalletConnect] failed', err); }
 initApp();

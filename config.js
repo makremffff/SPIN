@@ -8,6 +8,13 @@ let   REF_LINK     = 'https://t.me/EarnlixBot/play?startapp=ref_';
 // ⚠️ غيّره بالـ blockId الحقيقي من partner.adsgram.ai (Get blockId section)
 const ADSGRAM_BLOCK_ID = '35167';
 
+// ⚠️ غيّر يوزرنيم قناتك هنا — يُستخدم في زر "Join Channel" بالأونبوردنغ
+const CHANNEL_LINK = 'https://t.me/YourChannelUsername';
+
+// ⚠️ غيّره بدومينك الحقيقي بعد رفع المشروع — لازم ترفع ملف tonconnect-manifest.json
+// (مرفق في التسليم) في جذر نفس الدومين بحيث يكون متاح على /tonconnect-manifest.json
+const TONCONNECT_MANIFEST_URL = 'https://your-domain.vercel.app/tonconnect-manifest.json';
+
 /* ══════════════════════════════════════════════════════
    APP_CONFIG — Single source of truth for all values
    Edit here and everything (frontend + backend) stays in sync.
