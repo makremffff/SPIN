@@ -13,7 +13,7 @@ const CHANNEL_LINK = 'https://t.me/YourChannelUsername';
 
 // ⚠️ غيّره بدومينك الحقيقي بعد رفع المشروع — لازم ترفع ملف tonconnect-manifest.json
 // (مرفق في التسليم) في جذر نفس الدومين بحيث يكون متاح على /tonconnect-manifest.json
-const TONCONNECT_MANIFEST_URL = 'https://your-domain.vercel.app/tonconnect-manifest.json';
+const TONCONNECT_MANIFEST_URL = 'https://spin-snowy.vercel.app/tonconnect-manifest.json';
 
 /* ══════════════════════════════════════════════════════
    APP_CONFIG — Single source of truth for all values
