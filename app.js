@@ -366,45 +366,26 @@ function initWalletConnect() {
     return;
   }
 
+  // SDK يرسم زراره الرسمي داخل #ton-connect-button تلقائياً
   tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-    manifestUrl: TONCONNECT_MANIFEST_URL
+    manifestUrl:  TONCONNECT_MANIFEST_URL,
+    buttonRootId: 'ton-connect-button'
   });
 
-  const btn    = document.getElementById('conect');
-  const label  = document.getElementById('conect-label');
   const addrEl = document.getElementById('ad-wallet');
-  if (!btn || !label || !addrEl) return;
 
   function renderWalletState(wallet) {
-    if (wallet) {
+    if (wallet && addrEl) {
       connectedWalletAddress = TON_CONNECT_UI.toUserFriendlyAddress(wallet.account.address);
-      label.textContent = 'Wallet Connected';
-      btn.classList.add('connected');
       addrEl.textContent = maskWalletAddress(connectedWalletAddress);
-    } else {
+    } else if (addrEl) {
       connectedWalletAddress = '';
-      label.textContent = 'Connect Wallet';
-      btn.classList.remove('connected');
       addrEl.textContent = '';
     }
   }
 
   tonConnectUI.onStatusChange(renderWalletState);
-  renderWalletState(tonConnectUI.wallet); // يرجّع الحالة لو كانت محفوظة من جلسة سابقة
-
-  btn.addEventListener('click', async () => {
-    try {
-      if (tonConnectUI.connected) {
-        await tonConnectUI.disconnect();
-        showToast({ type: 'withdraw', title: 'Wallet Disconnected', msg: '', duration: 2500 });
-      } else {
-        await tonConnectUI.openModal();
-      }
-    } catch (err) {
-      console.error('[wallet] connect error', err);
-      showToast({ type: 'withdraw', title: 'Connection Failed', msg: 'Please try again', duration: 3000 });
-    }
-  });
+  renderWalletState(tonConnectUI.wallet); // يرجع الحالة المحفوظة من جلسة سابقة
 }
 
 /* ══════════════════════════════════════════════════════
