@@ -299,21 +299,25 @@ body::before {
   width: 95%;
   margin-top: 22px;
   height: 290px;
-  background: linear-gradient(
-    145deg,
-    rgba(20, 22, 35, 0.92) 0%,
-    rgba(12, 14, 22, 0.96) 100%
-  );
-  border: 1px solid rgba(245, 200, 64, 0.12);
+  background: transparent;
+  border: none;
   border-radius: 22px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   scroll-behavior: smooth;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.03) inset,
-    0 20px 60px rgba(0,0,0,0.5),
-    0 0 30px rgba(245,200,64,0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  -webkit-overflow-scrolling: touch; /* سكرول ناعم بزخم على iOS */
+  overscroll-behavior: contain;
+  box-shadow: none;
+}
+/* إخفاء شريط التمرير الافتراضي — سكرول خفيف بدون عناصر مرئية زايدة */
+.leaderboard-card { scrollbar-width: none; }
+.leaderboard-card::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+#lb-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 6px 6px;
 }
 
 /* ── You Card ── */
@@ -430,6 +434,27 @@ body::before {
 }
 
 .lb-row:active { background: rgba(255,255,255,0.02); }
+
+/* كل مستخدم في كارد منفصل داخل قائمة الترتيب — بدل الصف المتصل */
+.leaderboard-card .lb-row {
+  background: linear-gradient(
+    145deg,
+    rgba(20, 22, 35, 0.88) 0%,
+    rgba(12, 14, 22, 0.92) 100%
+  );
+  border: 1px solid rgba(245, 200, 64, 0.10);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.02) inset,
+    0 6px 18px rgba(0,0,0,0.35);
+  transition: background .2s, transform .15s, border-color .2s;
+}
+.leaderboard-card .lb-row::after { content: none; } /* لا حاجة للخط الفاصل — كل صف كارد قائم بذاته */
+.leaderboard-card .lb-row:active {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(245,200,64,0.18);
+  transform: scale(.98);
+}
 
 /* rank number */
 .lb-rank {
