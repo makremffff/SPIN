@@ -504,10 +504,6 @@
           </div>
         </div>
 
-        <div class="lb-scroll-hint" id="lb-scroll-hint">
-          <div class="chev"></div><div class="chev"></div><div class="chev"></div>
-        </div>
-
       </div>
 
       <!-- ══ You Card ══ -->
@@ -646,59 +642,23 @@
       <div id="end-overlay">
         <div class="end-backdrop"></div>
         <div class="end-card">
-
-          <div class="seal" id="newBestTag">NEW BEST</div>
-
-          <div class="eyebrow-row">
-            <div class="tick"></div>
-            <div class="eyebrow">Round Complete</div>
-            <div class="tick r"></div>
+          <div class="end-card-title">Game Over</div>
+          <div class="end-divider"></div>
+          <div class="end-score-wrap">
+            <img src="https://meme.crypto-apps.center/images/5247ad..png" alt="ticket" id="endTicketImg">
+            <div class="end-score-num" id="finalScore">0</div>
           </div>
+          <div class="end-unit">Tickets Collected</div>
 
-          <div class="medallion-wrap">
-            <div class="medallion-ring">
-              <svg width="78" height="78" viewBox="0 0 78 78" fill="none" style="position:absolute;inset:0;">
-                <defs>
-                  <linearGradient id="mg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#ffe87c"/>
-                    <stop offset="50%" stop-color="#f5c840"/>
-                    <stop offset="100%" stop-color="#c8860a"/>
-                  </linearGradient>
-                </defs>
-                <circle cx="39" cy="39" r="30" fill="none" stroke="url(#mg)" stroke-width="2.4"/>
-                <circle cx="39" cy="39" r="23" fill="rgba(245,200,64,0.06)" stroke="url(#mg)" stroke-width="1.2" stroke-dasharray="2 3"/>
-              </svg>
-              <img src="https://meme.crypto-apps.center/images/5247ad..png" alt="ticket" id="endTicketImg">
-            </div>
-          </div>
-
-          <div class="score-num" id="finalScore">0</div>
-          <div class="score-label">Tickets Collected</div>
-
-          <div class="usd-chip" id="endUsdWrap">
+          <div class="end-usd-wrap" id="endUsdWrap">
             <img src="asesst/dollar.png" alt="usdt" id="endDollarImg">
-            <span id="finalUsd">$0.0000</span>
+            <div class="end-usd-num" id="finalUsd">$0.0000</div>
           </div>
 
-          <div class="divider"></div>
-
-          <div class="btns">
-            <button class="btn btn-primary" id="adBtn" onclick="onWatchAd()">
-              <span class="ic-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#1a1200" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
-              <span class="btn-label">Double Tickets</span>
-            </button>
-            <button class="btn btn-secondary" id="claimBtn" onclick="claimRound()">
-              <span class="ic-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
-              <span class="btn-label">Claim Tickets</span>
-            </button>
-            <button class="btn btn-ghost" onclick="playAgain()">
-              <span class="ic-badge"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(245,200,64,.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></span>
-              <span class="btn-label">Play Again</span>
-            </button>
-          </div>
-
-          <div class="footnote">Rewards are added to your balance instantly</div>
-
+          <div class="new-best-tag" id="newBestTag">NEW BEST!</div>
+          <button class="btn-ad"    id="adBtn"    onclick="onWatchAd()"> Double Tickets</button>
+          <button class="btn-claim" id="claimBtn" onclick="claimRound()">✓ Claim Tickets</button>
+          <button class="btn-again" onclick="playAgain()">↩ Play Again</button>
         </div>
       </div>
     </div>

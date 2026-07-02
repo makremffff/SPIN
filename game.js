@@ -606,11 +606,11 @@
     document.getElementById('newBestTag')?.classList.toggle('show', isNewBest);
 
     const btn = document.getElementById('adBtn');
-    btn.querySelector('.btn-label').textContent = finalDollars > 0 ? 'Double Rewards' : 'Double Tickets';
+    btn.textContent   = finalDollars > 0 ? ' Double Rewards' : ' Double Tickets';
     btn.disabled      = false;
     btn.style.opacity = '1';
     const cb = document.getElementById('claimBtn');
-    cb.querySelector('.btn-label').textContent = finalDollars > 0 ? 'Claim Rewards' : 'Claim Tickets';
+    cb.textContent = finalDollars > 0 ? '✓ Claim Rewards' : '✓ Claim Tickets';
     cb.disabled    = false;
     setTimeout(() => document.getElementById('end-overlay').classList.add('active'), 200);
   }
@@ -623,7 +623,7 @@
     cb.disabled    = true;
     ab.disabled    = true;
     ab.style.opacity = '.4';
-    cb.querySelector('.btn-label').textContent = 'Claiming...';
+    cb.textContent = ' Claiming...';
     submitRound();
   }
 
@@ -653,7 +653,6 @@
 
   async function onWatchAd() {
     const btn = document.getElementById('adBtn');
-    const btnLabel = btn.querySelector('.btn-label');
     if (btn.disabled) return;
     if (!_sessionToken || !_roundEnded) return; // لا توجد جولة منتهية
 
@@ -665,7 +664,7 @@
 
     btn.disabled = true;
     btn.style.opacity = '.6';
-    btnLabel.textContent = 'Verifying...';
+    btn.textContent = ' Verifying...';
     document.getElementById('claimBtn').disabled = true; // يمنع claim أثناء الإعلان
 
     // 1. Complete the ad (SDK)
@@ -674,24 +673,24 @@
     } catch {
       btn.disabled = false;
       btn.style.opacity = '1';
-      btnLabel.textContent = 'Double Tickets';
+      btn.textContent = ' Double Tickets';
       document.getElementById('claimBtn').disabled = false;
       if (typeof showToast === 'function') showToast({ type: 'error', title: 'Ad Skipped', msg: 'Watch the full ad to double your tickets', duration: 3000 });
       return;
     }
 
     // 2. Verify Adsgram S2S confirmation on server (with retry)
-    btnLabel.textContent = 'Confirming...';
+    btn.textContent = ' Confirming...';
     const verified = await _verifyGameAdWithRetry(_sessionToken);
 
     if (verified) {
-      btnLabel.textContent = 'Activated!';
+      btn.textContent = ' Activated!';
       if (typeof showToast === 'function') showToast({ type: 'success', title: '🎉 Double Ready!', msg: 'Your tickets will be doubled automatically', duration: 2000 });
       setTimeout(() => claimRound(), 900); // auto-claim بعد لحظة
     } else {
       btn.disabled = false;
       btn.style.opacity = '1';
-      btnLabel.textContent = 'Double Tickets';
+      btn.textContent = ' Double Tickets';
       document.getElementById('claimBtn').disabled = false;
       if (typeof showToast === 'function') showToast({ type: 'error', title: 'Confirmation Failed', msg: 'Ad not confirmed by server, try again', duration: 3500 });
     }
