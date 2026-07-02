@@ -1151,26 +1151,31 @@ background-size: blur(3px);
   gap: 10px;
 }
 
-/* ── TonConnect SDK official button wrapper ── */
+/* ── TonConnect SDK official button wrapper ──
+   الزر يأخذ حجمه الطبيعي من الـ SDK (يتغير تلقائياً بين حالة
+   "ربط المحفظة" وحالة "محفظة مربوطة") — نُبقيه في المنتصف تماماً
+   دائماً بغض النظر عن حجمه عبر flex + justify-content: center،
+   بدل فرض width: 100% الذي كان يمدد الزر لعرض ثابت دائماً. */
 #ton-connect-button {
-  width: 53%;
+  width: 100%;
   display: flex;
   justify-content: center;
+  align-items: center;
   margin: 0 auto;
 
-  --tc-button-width: 100%;
   --tc-button-border-radius: 14px;
   --tc-button-height: 46px;
 }
 
 #ton-connect-button tc-root,
 #ton-connect-button > div {
-  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  width: auto !important;
 }
 
 #ton-connect-button tc-root button,
 #ton-connect-button > div > button {
-  width: 100% !important;
   border-radius: 14px !important;
 }
 
@@ -2071,6 +2076,24 @@ background-size: blur(3px);
   margin-left: 3px;
 }
 
+/* live USDT collected — under personal best */
+#usd-top {
+  position: absolute;
+  top: 66px; right: 16px;
+  display: flex; align-items: center; gap: 4px;
+  pointer-events: none; z-index: 10;
+}
+#usd-top img { width: 13px; height: 13px; object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(74,222,128,.55)); }
+#usd-top span {
+  font-family: 'DynaPuff', cursive;
+  font-weight: 700;
+  font-size: .62rem;
+  letter-spacing: .5px;
+  color: #4ade80;
+  text-shadow: 0 0 8px rgba(74,222,128,.4);
+}
+
 /* combo streak badge */
 #combo-badge {
   position: absolute;
@@ -2178,6 +2201,25 @@ background-size: blur(3px);
   letter-spacing: 3px;
   text-transform: uppercase;
   margin-top: 8px;
+}
+
+/* USDT collected — shown under ticket count when dollar coins were caught */
+.end-usd-wrap {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.end-usd-wrap.show { display: flex; animation: newBestPop .5s cubic-bezier(.34,1.56,.64,1); }
+.end-usd-wrap img {
+  width: 17px; height: 17px; object-fit: contain;
+  filter: drop-shadow(0 0 7px rgba(74,222,128,.6));
+}
+.end-usd-num {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 1rem;
+  color: #4ade80;
+  text-shadow: 0 0 14px rgba(74,222,128,.55);
 }
 
 /* "new best" celebration tag */

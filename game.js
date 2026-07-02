@@ -24,6 +24,9 @@
   const BASKET_IMG = new Image();
   BASKET_IMG.src = 'asesst/basket.png'; // اختياري — عند عدم توفره تُرسم سلة بديلة تلقائياً (fallback أدناه)
 
+  const DOLLAR_IMG = new Image();
+  DOLLAR_IMG.src = 'asesst/dollar.png'; // عملة USDT — اختياري، عند عدم توفره يُرسم بديل $ تلقائياً
+
   /* ── Canvas ──────────────────────────────────────── */
   const canvas = document.getElementById('canvas');
   const ctx    = canvas.getContext('2d');
@@ -37,8 +40,11 @@
 
   /* ── State ───────────────────────────────────────── */
   const DURATION = 40;
-  let roundScore, timeLeft, items, popups, spawnCd, lastTs, animId, running;
+  let roundScore, roundDollars, timeLeft, items, popups, spawnCd, lastTs, animId, running;
   let basketX;
+  // 🎮 عملة USDT داخل اللعبة — للعرض الفوري فقط، القيمة الفعلية المضمونة تأتي من السيرفر
+  const DOLLAR_COIN_VALUE = 0.0001;
+  const DOLLAR_COIN_MAX   = 2; // = 0.0002 USDT كحد أقصى للجولة الواحدة
   const BW = 92, BH = 26, BY_OFF = 80;
   let cdToken = 0;             // يُلغي أي countdown قديم عند مغادرة/إعادة دخول صفحة اللعبة
 
@@ -64,8 +70,9 @@
     { type: 'ticket', w: 58, val: 4,  r: 20, rare: false },
     { type: 'ticket', w: 20, val: 16, r: 20, rare: true  },
     { type: 'bomb',   w: 22, val: -3, r: 18              },
+    { type: 'dollar', w: 6,  val: 0,  r: 19              }, // 🎮 عملة USDT — نفس ترتيب/وزن TYPES على السيرفر (يجب أن يبقيا متطابقين)
   ];
-  const GAME_TOTAL_W = TYPES.reduce((a, t) => a + t.w, 0); // 100
+  const GAME_TOTAL_W = TYPES.reduce((a, t) => a + t.w, 0); // 106
 
   // Mulberry32 — نفس PRNG المستخدم في السيرفر (يجب أن يبقيا متطابقين)
   function _makePrng(seed) {
@@ -93,6 +100,33 @@
     if (kind === 'bomb') h.notificationOccurred?.('error');
     else if (kind === 'rare') h.notificationOccurred?.('success');
     else h.impactOccurred?.('light');
+  }
+
+  // 🎮 صوت خفيف عند تجميع النقاط/العملات — Web Audio مُصنَّع (بدون ملف خارجي)
+  let _audioCtx = null;
+  function _getAudioCtx() {
+    if (_audioCtx) return _audioCtx;
+    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch { _audioCtx = null; }
+    return _audioCtx;
+  }
+  function _playCatchSound(kind) {
+    const ac = _getAudioCtx();
+    if (!ac) return;
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+    const now  = ac.currentTime;
+    const osc  = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.type = 'sine';
+    const freq = kind === 'dollar' ? 1046 : 880; // نغمة أعلى قليلاً لعملة الدولار
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.35, now + 0.08);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.05, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+    osc.start(now);
+    osc.stop(now + 0.16);
   }
 
   // 🎮 شظايا بصرية عند الصيد/الضرب
@@ -137,10 +171,11 @@
       if (!res?.ok) return;
       if (typeof refreshState === 'function') refreshState();
       if (typeof showToast === 'function') {
-        const tickets = (res.awarded || 0).toLocaleString();
+        const tickets  = (res.awarded || 0).toLocaleString();
+        const usdPart  = res.usdAwarded > 0 ? ` + $${res.usdAwarded.toFixed(4)}` : '';
         const msg = res.doubled
-          ? `🎉 Doubled! You earned ${tickets} 🎟`
-          : `You earned ${tickets} 🎟`;
+          ? `🎉 Doubled! You earned ${tickets} 🎟${usdPart}`
+          : `You earned ${tickets} 🎟${usdPart}`;
         showToast({ type: 'success', title: 'Round Over!', msg, duration: 4000 });
       }
     }).catch(() => {});
@@ -153,9 +188,11 @@
     document.getElementById('end-overlay').classList.remove('active');
     setupCanvas();
 
-    roundScore = 0; items = []; popups = []; particles = [];
+    roundScore = 0; roundDollars = 0; items = []; popups = []; particles = [];
     combo = 0; basketSquashT = 0; shakeT = 0;
     document.getElementById('scoreVal').textContent = '0';
+    const usdEl0 = document.getElementById('usdVal');
+    if (usdEl0) usdEl0.textContent = '$0.0000';
     document.getElementById('timerNum').textContent = DURATION;
     document.getElementById('timerNum').classList.remove('urgent');
     document.getElementById('combo-badge')?.classList.remove('show', 'pop');
@@ -209,7 +246,7 @@
   }
 
   function startGame() {
-    roundScore = 0; timeLeft = DURATION; items = []; popups = []; spawnCd = 0; lastTs = null; running = true;
+    roundScore = 0; roundDollars = 0; timeLeft = DURATION; items = []; popups = []; spawnCd = 0; lastTs = null; running = true;
     _roundEnded = false;
     _caughtIds  = [];
     _basketLog  = [];
@@ -261,20 +298,36 @@
       if (it.x > W - it.r) { it.x = W - it.r; it.wobble = -Math.abs(it.wobble); }
       if (caught(it)) {
         if (!it._burst) _caughtIds.push(it._idx);  // 🛡️ قنابل الانفجار غير مُتتبَّعة
-        roundScore = Math.max(0, roundScore + it.val);
-        const col = it.val > 0 ? (it.val >= 3 ? '#a78bfa' : '#f5c840') : '#ff5555';
-        popups.push({ x: it.x, y: H - BY_OFF - 30, txt: (it.val > 0 ? '+' : '') + it.val + ' 🎟', col, alpha: 1, vy: -2 });
 
-        // 🎮 طبقة "ممتعة" بصرية بحتة — لا تلمس roundScore أو بيانات السيرفر
-        basketSquashT = 1;
-        _spawnParticles(it.x, H - BY_OFF, col, it.type === 'bomb' ? 16 : 10);
-        if (it.type === 'bomb') {
-          combo = 0;
-          shakeT = 1;
-          _haptic('bomb');
-        } else {
+        if (it.type === 'dollar') {
+          // 🎮 عملة USDT — لا تؤثر على roundScore (التذاكر)، تُعرض وتُحسب منفصلة (السقف الفعلي من السيرفر)
+          roundDollars++;
+          const shown = Math.min(roundDollars, DOLLAR_COIN_MAX);
+          popups.push({ x: it.x, y: H - BY_OFF - 30, txt: '+$' + DOLLAR_COIN_VALUE.toFixed(4), col: '#4ade80', alpha: 1, vy: -2 });
+          basketSquashT = 1;
+          _spawnParticles(it.x, H - BY_OFF, '#4ade80', 12);
           combo++;
-          _haptic(it.rare ? 'rare' : 'catch');
+          _haptic('rare');
+          _playCatchSound('dollar');
+          const usdEl = document.getElementById('usdVal');
+          if (usdEl) usdEl.textContent = '$' + (shown * DOLLAR_COIN_VALUE).toFixed(4);
+        } else {
+          roundScore = Math.max(0, roundScore + it.val);
+          const col = it.val > 0 ? (it.val >= 3 ? '#a78bfa' : '#f5c840') : '#ff5555';
+          popups.push({ x: it.x, y: H - BY_OFF - 30, txt: (it.val > 0 ? '+' : '') + it.val + ' 🎟', col, alpha: 1, vy: -2 });
+
+          // 🎮 طبقة "ممتعة" بصرية بحتة — لا تلمس roundScore أو بيانات السيرفر
+          basketSquashT = 1;
+          _spawnParticles(it.x, H - BY_OFF, col, it.type === 'bomb' ? 16 : 10);
+          if (it.type === 'bomb') {
+            combo = 0;
+            shakeT = 1;
+            _haptic('bomb');
+          } else {
+            combo++;
+            _haptic(it.rare ? 'rare' : 'catch');
+            _playCatchSound('ticket');
+          }
         }
         updateComboBadge();
         updateHUD();
@@ -454,6 +507,21 @@
       ctx.font = it.r + 'px serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('💀', 0, 3);
+    } else if (it.type === 'dollar') {
+      const img = DOLLAR_IMG;
+      const s = it.r * 2;
+      ctx.shadowColor = 'rgba(74,222,128,.65)'; ctx.shadowBlur = 16;
+      if (img.complete && img.naturalWidth) {
+        ctx.drawImage(img, -s / 2, -s / 2, s, s);
+      } else {
+        ctx.beginPath(); ctx.arc(0, 0, it.r, 0, Math.PI * 2);
+        ctx.fillStyle = '#22c55e'; ctx.fill();
+        ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.stroke();
+        ctx.font = `bold ${it.r * .95}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('$', 0, 1);
+      }
     } else {
       const img = TICKET_IMG;
       const s = it.r * 2;
@@ -505,6 +573,13 @@
 
     document.getElementById('finalScore').textContent = roundScore.toLocaleString();
 
+    // 🎮 عرض إجمالي USDT المُجمَّع (مُقيَّد بالحد الأقصى) — القيمة الفعلية المضمونة تأتي من رد السيرفر
+    const finalDollars = Math.min(roundDollars, DOLLAR_COIN_MAX);
+    const usdWrap = document.getElementById('endUsdWrap');
+    const usdFinalEl = document.getElementById('finalUsd');
+    if (usdFinalEl) usdFinalEl.textContent = '$' + (finalDollars * DOLLAR_COIN_VALUE).toFixed(4);
+    if (usdWrap) usdWrap.classList.toggle('show', finalDollars > 0);
+
     // 🎮 أفضل نتيجة شخصية — محفوظة محلياً فقط، لا تؤثر على المكافأة الفعلية من السيرفر
     const isNewBest = roundScore > 0 && roundScore > bestScore;
     if (isNewBest) {
@@ -516,11 +591,11 @@
     document.getElementById('newBestTag')?.classList.toggle('show', isNewBest);
 
     const btn = document.getElementById('adBtn');
-    btn.textContent   = ' Double Tickets';
+    btn.textContent   = finalDollars > 0 ? ' Double Rewards' : ' Double Tickets';
     btn.disabled      = false;
     btn.style.opacity = '1';
     const cb = document.getElementById('claimBtn');
-    cb.textContent = '✓ Claim Tickets';
+    cb.textContent = finalDollars > 0 ? '✓ Claim Rewards' : '✓ Claim Tickets';
     cb.disabled    = false;
     setTimeout(() => document.getElementById('end-overlay').classList.add('active'), 200);
   }
