@@ -2076,24 +2076,6 @@ background-size: blur(3px);
   margin-left: 3px;
 }
 
-/* live USDT collected — under personal best */
-#usd-top {
-  position: absolute;
-  top: 66px; right: 16px;
-  display: flex; align-items: center; gap: 4px;
-  pointer-events: none; z-index: 10;
-}
-#usd-top img { width: 13px; height: 13px; object-fit: contain;
-  filter: drop-shadow(0 0 5px rgba(74,222,128,.55)); }
-#usd-top span {
-  font-family: 'DynaPuff', cursive;
-  font-weight: 700;
-  font-size: .62rem;
-  letter-spacing: .5px;
-  color: #4ade80;
-  text-shadow: 0 0 8px rgba(74,222,128,.4);
-}
-
 /* combo streak badge */
 #combo-badge {
   position: absolute;

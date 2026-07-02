@@ -42,9 +42,9 @@
   const DURATION = 40;
   let roundScore, roundDollars, timeLeft, items, popups, spawnCd, lastTs, animId, running;
   let basketX;
-  // 🎮 عملة USDT داخل اللعبة — للعرض الفوري فقط، القيمة الفعلية المضمونة تأتي من السيرفر
-  const DOLLAR_COIN_VALUE = 0.0001;
-  const DOLLAR_COIN_MAX   = 2; // = 0.0002 USDT كحد أقصى للجولة الواحدة
+  // 🎮 عملة USDT داخل اللعبة — عدد ثابت لكل جولة، يمكن تعديله من هنا فقط
+  const GAME_USDT         = 2;      // عدد عملات الدولار الثابت لكل جولة
+  const DOLLAR_COIN_VALUE = 0.0001; // قيمة العملة الواحدة (للعرض فقط — القيمة الفعلية المضمونة تأتي من السيرفر)
   const BW = 92, BH = 26, BY_OFF = 80;
   let cdToken = 0;             // يُلغي أي countdown قديم عند مغادرة/إعادة دخول صفحة اللعبة
 
@@ -61,18 +61,20 @@
   let _seqRng       = null;   // PRNG محدد بـ seed من السيرفر
   let _seqIndex     = 0;      // مؤشر التسلسل — يتزامن مع السيرفر
   let _caughtIds    = [];     // مؤشرات العناصر المصيدة — تُرسَل في gameRoundEnd
+  let _dollarSlots  = null;   // 🎮 Set بمؤشرات فتحات عملة الدولار الثابتة لهذه الجولة (يطابق السيرفر)
   // 🛡️ anti-bot: سجل موقع السلة كل 500ms — تحقق مكاني على السيرفر
   let _basketLog    = [];     // [x/W normalized 0-1, ...]
   let _basketLogTimer = null;
   let _burstFired   = false;  // تم إطلاق انفجار آخر 5 ثواني؟
 
+  // ticket/bomb فقط — بدون دولار (الدولار يُفرض في فتحات ثابتة عبر _pickDollarSlots)
   const TYPES = [
     { type: 'ticket', w: 58, val: 4,  r: 20, rare: false },
     { type: 'ticket', w: 20, val: 16, r: 20, rare: true  },
     { type: 'bomb',   w: 22, val: -3, r: 18              },
-    { type: 'dollar', w: 6,  val: 0,  r: 19              }, // 🎮 عملة USDT — نفس ترتيب/وزن TYPES على السيرفر (يجب أن يبقيا متطابقين)
   ];
-  const GAME_TOTAL_W = TYPES.reduce((a, t) => a + t.w, 0); // 106
+  const GAME_TOTAL_W  = TYPES.reduce((a, t) => a + t.w, 0); // 100
+  const GAME_SEQ_LEN  = 90; // يطابق _GAME_SEQ_LEN على السيرفر — يُستخدم فقط لحساب فتحات الدولار
 
   // Mulberry32 — نفس PRNG المستخدم في السيرفر (يجب أن يبقيا متطابقين)
   function _makePrng(seed) {
@@ -85,10 +87,26 @@
     };
   }
 
+  // 🎮 يختار GAME_USDT فتحة ثابتة من التسلسل ستكون عملات دولار — عبر PRNG منفصل تماماً
+  // عن تسلسل الأنواع الأساسي، فلا يؤثر على عدد الاستهلاكات (يجب أن يطابق السيرفر تماماً)
+  function _pickDollarSlots(seed) {
+    const rng2 = _makePrng((seed + 0x9E3779B9) >>> 0);
+    const slots = new Set();
+    let guard = 0;
+    while (slots.size < GAME_USDT && guard < 500) {
+      guard++;
+      slots.add(Math.floor(rng2() * GAME_SEQ_LEN));
+    }
+    return slots;
+  }
+
   function pickType() {
     // استهلاك 1: نوع العنصر (seeded — يتطابق مع السيرفر)
     let r = _seqRng() * GAME_TOTAL_W;
     const idx = _seqIndex++;
+    if (_dollarSlots && _dollarSlots.has(idx)) {
+      return { type: 'dollar', w: 0, val: 0, r: 19, _idx: idx };
+    }
     for (const t of TYPES) { r -= t.w; if (r <= 0) return { ...t, _idx: idx }; }
     return { ...TYPES[0], _idx: idx };
   }
@@ -191,8 +209,6 @@
     roundScore = 0; roundDollars = 0; items = []; popups = []; particles = [];
     combo = 0; basketSquashT = 0; shakeT = 0;
     document.getElementById('scoreVal').textContent = '0';
-    const usdEl0 = document.getElementById('usdVal');
-    if (usdEl0) usdEl0.textContent = '$0.0000';
     document.getElementById('timerNum').textContent = DURATION;
     document.getElementById('timerNum').classList.remove('urgent');
     document.getElementById('combo-badge')?.classList.remove('show', 'pop');
@@ -207,6 +223,7 @@
     _seqRng       = null;
     _seqIndex     = 0;
     _caughtIds    = [];
+    _dollarSlots  = null;
     const startRes = await fetchApi({ type: 'gameRoundStart' });
     if (!startRes?.ok) {
       wrap.classList.remove('active');
@@ -220,6 +237,7 @@
     }
     _sessionToken = startRes._t;              // token معتم — لا يُعرض في أي مكان
     _seqRng       = _makePrng(startRes.seed); // PRNG محدد بـ seed من السيرفر
+    _dollarSlots  = _pickDollarSlots(startRes.seed); // 🎮 فتحات عملة الدولار الثابتة لهذه الجولة
 
     cdToken++;
     const myToken = cdToken;
@@ -300,17 +318,14 @@
         if (!it._burst) _caughtIds.push(it._idx);  // 🛡️ قنابل الانفجار غير مُتتبَّعة
 
         if (it.type === 'dollar') {
-          // 🎮 عملة USDT — لا تؤثر على roundScore (التذاكر)، تُعرض وتُحسب منفصلة (السقف الفعلي من السيرفر)
+          // 🎮 عملة USDT — لا تؤثر على roundScore (التذاكر)، القيمة الفعلية المضمونة تأتي من السيرفر
           roundDollars++;
-          const shown = Math.min(roundDollars, DOLLAR_COIN_MAX);
           popups.push({ x: it.x, y: H - BY_OFF - 30, txt: '+$' + DOLLAR_COIN_VALUE.toFixed(4), col: '#4ade80', alpha: 1, vy: -2 });
           basketSquashT = 1;
           _spawnParticles(it.x, H - BY_OFF, '#4ade80', 12);
           combo++;
           _haptic('rare');
           _playCatchSound('dollar');
-          const usdEl = document.getElementById('usdVal');
-          if (usdEl) usdEl.textContent = '$' + (shown * DOLLAR_COIN_VALUE).toFixed(4);
         } else {
           roundScore = Math.max(0, roundScore + it.val);
           const col = it.val > 0 ? (it.val >= 3 ? '#a78bfa' : '#f5c840') : '#ff5555';
@@ -574,7 +589,7 @@
     document.getElementById('finalScore').textContent = roundScore.toLocaleString();
 
     // 🎮 عرض إجمالي USDT المُجمَّع (مُقيَّد بالحد الأقصى) — القيمة الفعلية المضمونة تأتي من رد السيرفر
-    const finalDollars = Math.min(roundDollars, DOLLAR_COIN_MAX);
+    const finalDollars = Math.min(roundDollars, GAME_USDT);
     const usdWrap = document.getElementById('endUsdWrap');
     const usdFinalEl = document.getElementById('finalUsd');
     if (usdFinalEl) usdFinalEl.textContent = '$' + (finalDollars * DOLLAR_COIN_VALUE).toFixed(4);

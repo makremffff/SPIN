@@ -132,7 +132,8 @@ function renderReferral() {
 /* ── Render: withdraw page ──────────────────────────────── */
 function renderWithdraw() {
   const balEl = document.getElementById('wd-balance');
-  if (balEl) balEl.textContent = '$' + (Number(appState.user.balance_usd) || 0).toFixed(2);
+  // 🎮 4 خانات عشرية — يعرض رصيد USDT كاملاً بدون تقريب (يشمل مبالغ اللعبة 0.0001)
+  if (balEl) balEl.textContent = '$' + (Number(appState.user.balance_usd) || 0).toFixed(4);
 }
 
 /* ── Render: fill dynamic config values into the UI ────── */
