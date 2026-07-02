@@ -301,17 +301,32 @@ function _makePrng(seed) {
   };
 }
 
-// 🎮 dollar: عملة USDT — لا تؤثر على نقاط/تذاكر الجولة (val: 0)، تُحسب بشكل منفصل
-const _GAME_TYPES   = [{ w: 58, val: 4 }, { w: 20, val: 16 }, { w: 22, val: -3 }, { w: 6, val: 0, dollar: true }];
-const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 106
+// 🎮 عدد عملات USDT الثابت لكل جولة — عدّل هذا الرقم فقط للتحكم بالعدد
+const GAME_USDT = 2;
+// 🎮 قيمة عملة الدولار الواحدة (0.0001 × GAME_USDT = الحد الأقصى لكل جولة)
+const GAME_DOLLAR_VALUE = 0.0001;
+
+// ticket/bomb فقط — بدون دولار (الدولار يُفرض في فتحات ثابتة عبر _pickDollarSlots أدناه)
+const _GAME_TYPES   = [{ w: 58, val: 4 }, { w: 20, val: 16 }, { w: 22, val: -3 }];
+const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
 const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
 
-// 🎮 قيمة عملة الدولار الواحدة + الحد الأقصى المسموح به لكل جولة (0.0001 × 2 = 0.0002 USDT)
-const GAME_DOLLAR_VALUE     = 0.0001;
-const GAME_DOLLAR_MAX_COUNT = 2;
+// 🎮 يختار GAME_USDT فتحة ثابتة (indices) من التسلسل ستكون عملات دولار — عبر PRNG منفصل
+// تماماً عن تسلسل الأنواع الأساسي (type/spawnCd/x/bias) حتى لا يؤثر على عددها المُستهلَك
+function _pickDollarSlots(seed) {
+  const rng2 = _makePrng((seed + 0x9E3779B9) >>> 0);
+  const slots = new Set();
+  let guard = 0;
+  while (slots.size < GAME_USDT && guard < 500) {
+    guard++;
+    slots.add(Math.floor(rng2() * _GAME_SEQ_LEN));
+  }
+  return slots;
+}
 
 function generateGameSequence(seed) {
   const rng = _makePrng(seed);
+  const dollarSlots = _pickDollarSlots(seed);
   const seq = [];
   for (let i = 0; i < _GAME_SEQ_LEN; i++) {
     const typeRoll = rng(); // استهلاك 1: نوع العنصر  (mirrors pickType)
@@ -319,13 +334,16 @@ function generateGameSequence(seed) {
     const xRnd    = rng(); // استهلاك 3: موقع X        (mirrors spawnItem)
     const biasRnd = rng(); // استهلاك 4: center-bias   (mirrors spawnItem — مُستهلَك دائماً)
 
-    let val = _GAME_TYPES[0].val, isBomb = false, isDollar = false;
+    let val = _GAME_TYPES[0].val, isBomb = false;
     let r = typeRoll * _GAME_TOTAL_W, pushed = false;
     for (const t of _GAME_TYPES) {
       r -= t.w;
-      if (r <= 0) { val = t.val; isBomb = t.val < 0; isDollar = !!t.dollar; pushed = true; break; }
+      if (r <= 0) { val = t.val; isBomb = t.val < 0; pushed = true; break; }
     }
-    if (!pushed) { isBomb = false; isDollar = false; }
+    if (!pushed) isBomb = false;
+
+    const isDollar = dollarSlots.has(i);
+    if (isDollar) { val = 0; isBomb = false; } // فتحة مفروضة كعملة دولار — تتجاوز النوع العشوائي
 
     // 🛡️ x مُعيَّن بـ seed — قنابل: 80% في المنتصف (30%–70%) ، 20% عشوائي
     const xNorm = isBomb
@@ -1143,7 +1161,7 @@ module.exports = async function handler(req, res) {
             if (entry && typeof entry === 'object' && entry.d) dollarCount++;
           }
           score = Math.max(0, score);
-          dollarCount = Math.min(dollarCount, GAME_DOLLAR_MAX_COUNT);
+          dollarCount = Math.min(dollarCount, GAME_USDT);
 
           // 🛡️ نسبة صيد مشبوهة (> 95% من كل العناصر)
           if (spawnedCount > 10 && seen.size / spawnedCount > 0.95) {
