@@ -127,7 +127,8 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`); // 🟢 Presence heartbeat — لمعرفة المستخدمين المتصلين الآن
+  // 🎮 عملات الدولار داخل اللعبة (0.0001 USDT للعملة) — توسيع الدقة العشرية لدعم مبالغ صغيرة جداً
+  await sql(`ALTER TABLE users ALTER COLUMN balance_usd TYPE NUMERIC(14,6)`);
 
   // 🎮 جلسات اللعبة — تُنشأ من السيرفر حصراً، لا تُرسَل نقاط من العميل أبداً
   await sql(`CREATE TABLE IF NOT EXISTS game_sessions (
@@ -300,9 +301,14 @@ function _makePrng(seed) {
   };
 }
 
-const _GAME_TYPES   = [{ w: 58, val: 4 }, { w: 20, val: 16 }, { w: 22, val: -3 }];
-const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
+// 🎮 dollar: عملة USDT — لا تؤثر على نقاط/تذاكر الجولة (val: 0)، تُحسب بشكل منفصل
+const _GAME_TYPES   = [{ w: 58, val: 4 }, { w: 20, val: 16 }, { w: 22, val: -3 }, { w: 6, val: 0, dollar: true }];
+const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 106
 const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
+
+// 🎮 قيمة عملة الدولار الواحدة + الحد الأقصى المسموح به لكل جولة (0.0001 × 2 = 0.0002 USDT)
+const GAME_DOLLAR_VALUE     = 0.0001;
+const GAME_DOLLAR_MAX_COUNT = 2;
 
 function generateGameSequence(seed) {
   const rng = _makePrng(seed);
@@ -313,22 +319,22 @@ function generateGameSequence(seed) {
     const xRnd    = rng(); // استهلاك 3: موقع X        (mirrors spawnItem)
     const biasRnd = rng(); // استهلاك 4: center-bias   (mirrors spawnItem — مُستهلَك دائماً)
 
-    let val = _GAME_TYPES[0].val, isBomb = false;
+    let val = _GAME_TYPES[0].val, isBomb = false, isDollar = false;
     let r = typeRoll * _GAME_TOTAL_W, pushed = false;
     for (const t of _GAME_TYPES) {
       r -= t.w;
-      if (r <= 0) { val = t.val; isBomb = t.val < 0; pushed = true; break; }
+      if (r <= 0) { val = t.val; isBomb = t.val < 0; isDollar = !!t.dollar; pushed = true; break; }
     }
-    if (!pushed) isBomb = false;
+    if (!pushed) { isBomb = false; isDollar = false; }
 
     // 🛡️ x مُعيَّن بـ seed — قنابل: 80% في المنتصف (30%–70%) ، 20% عشوائي
     const xNorm = isBomb
       ? (biasRnd < 0.80
           ? 0.30 + xRnd * 0.40   // zone مركزية
           : 0.05 + xRnd * 0.90)  // كامل العرض
-      : 0.05 + xRnd * 0.90;      // تذاكر: عشوائي كامل
+      : 0.05 + xRnd * 0.90;      // تذاكر/دولار: عشوائي كامل
 
-    seq.push({ val, x: xNorm }); // { val: -3|2|8, x: 0.00–1.00 }
+    seq.push({ val, x: xNorm, d: isDollar ? 1 : 0 }); // { val: -3|0|4|16, x: 0.00–1.00, d: عملة دولار؟ }
   }
   return seq;
 }
@@ -417,13 +423,12 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
   }
 
   await sql(`
-    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by, last_seen_at)
-    VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by)
+    VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (telegram_id) DO UPDATE SET
-      username     = EXCLUDED.username,
-      first_name   = EXCLUDED.first_name,
-      photo_url    = COALESCE(EXCLUDED.photo_url, users.photo_url),
-      last_seen_at = NOW()
+      username   = EXCLUDED.username,
+      first_name = EXCLUDED.first_name,
+      photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
 
   // 🛡️ Device fingerprint — يحظر فقط الحسابات الجديدة من نفس الجهاز
@@ -1126,17 +1131,19 @@ module.exports = async function handler(req, res) {
         }
 
         let score = 0;
+        let dollarCount = 0;
         if (sequence) {
           const seen = new Set();
           for (const idx of caughtIds) {
             const i = parseInt(idx);
             if (!Number.isInteger(i) || i < 0 || i >= spawnedCount || seen.has(i)) continue;
             seen.add(i);
-            // تنسيق جديد {val, x} أو قديم (رقم مباشر) — backward compat
             const entry = sequence[i];
             score += (typeof entry === 'object' ? entry?.val : entry) ?? 0;
+            if (entry && typeof entry === 'object' && entry.d) dollarCount++;
           }
           score = Math.max(0, score);
+          dollarCount = Math.min(dollarCount, GAME_DOLLAR_MAX_COUNT);
 
           // 🛡️ نسبة صيد مشبوهة (> 95% من كل العناصر)
           if (spawnedCount > 10 && seen.size / spawnedCount > 0.95) {
@@ -1171,22 +1178,23 @@ module.exports = async function handler(req, res) {
         );
         if (!consumed.length) return res.status(400).json({ ok: false, error: 'Session already used' });
 
-        const doubled = gs.double_approved;
-        const awarded = doubled ? score * 2 : score;
+        const doubled     = gs.double_approved;
+        const awarded     = doubled ? score * 2 : score;
+        const usdAwarded  = +((doubled ? dollarCount * 2 : dollarCount) * GAME_DOLLAR_VALUE).toFixed(6); // 🎮 USDT من عملات الدولار (تُضاعَف كالتذاكر)
 
         await sql(`UPDATE users SET last_game_round = NOW() WHERE id = $1`, [dbUser.id]);
 
         // 🛡️ Shadow ban
-        if (dbUser.shadow_banned) return res.json({ ok: true, awarded, doubled });
+        if (dbUser.shadow_banned) return res.json({ ok: true, awarded, doubled, usdAwarded });
 
-        await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [awarded, dbUser.id]);
+        await sql(`UPDATE users SET pts = pts + $1, balance_usd = balance_usd + $2 WHERE id = $3`, [awarded, usdAwarded, dbUser.id]);
         await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
-          [dbUser.id, JSON.stringify({ score, awarded, doubled, spawned: spawnedCount, caught: caughtIds.length })]);
+          [dbUser.id, JSON.stringify({ score, awarded, doubled, usdAwarded, dollarCount, spawned: spawnedCount, caught: caughtIds.length })]);
 
         // 🎁 فحص تفعيل الإحالة — await لضمان إرسال الإشعار قبل انتهاء الدالة
         await checkReferralActivation(dbUser.id);
 
-        return res.json({ ok: true, awarded, doubled });
+        return res.json({ ok: true, awarded, doubled, usdAwarded });
       }
 
       case 'withdraw': {
