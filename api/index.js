@@ -9,6 +9,11 @@ const DATABASE_URL    = process.env.DATABASE_URL;
 const BOT_TOKEN       = process.env.BOT_TOKEN;
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET; // ← أضفه في Vercel env vars
 
+// 💎 TON Deposits — عنوان الخزينة اللي المستخدمين يرسلون له TON، ومفتاح TonCenter الاختياري
+const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-T';
+const TONCENTER_API_KEY       = process.env.TONCENTER_API_KEY || ''; // اختياري، يرفع الـ rate limit
+const TONCENTER_BASE          = process.env.TONCENTER_BASE || 'https://toncenter.com/api/v2';
+
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
   AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
@@ -35,6 +40,12 @@ const APP_CFG = {
   WITHDRAW_MIN      : 0.2,
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
+  // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
+  TICKET_PACKAGES: [
+    { id: 'pkg_5k',  tickets: 5000,  ton: 0.05 },
+    { id: 'pkg_12k', tickets: 12000, ton: 0.09 },
+    { id: 'pkg_30k', tickets: 30000, ton: 0.2  },
+  ],
   // توقيت المسابقة — اضبط COMPETITION_END_MS في Vercel env (Unix ms timestamp)
   // مثال: Date.now() + 20 * 24 * 60 * 60 * 1000 ← 20 يوم من الآن
   // للتعيين: node -e "console.log(Date.now() + 20*24*60*60*1000)"
@@ -59,6 +70,49 @@ const AD_FULL_REWARD_MIN_SEC = 35;
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
   return await _db(query, params);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TonCenter — التحقق الفعلي من وصول معاملة TON للخزينة قبل تسليم أي تذاكر
+//  نقارن: العنوان المرسل (raw "workchain:hex") + المبلغ بالنانوتون + التوقيت
+//  بعد إنشاء صف الايداع. لا نثق أبداً بمجرد رد "نجاح" من TonConnect بالفرونت.
+// ══════════════════════════════════════════════════════════════════════════════
+function normalizeTonAddr(addr) {
+  if (!addr) return '';
+  // "0:abcd..." → "0:abcd..." lowercase وبدون أصفار زائدة بالبداية داخل الجزء الست عشري
+  const parts = String(addr).trim().toLowerCase().split(':');
+  if (parts.length !== 2) return String(addr).trim().toLowerCase();
+  return `${parts[0]}:${parts[1].replace(/^0+/, '') || '0'}`;
+}
+
+async function findConfirmingTonTransaction({ treasury, senderRaw, nanotons, sinceMs }) {
+  if (!treasury) throw new Error('TREASURY_WALLET_ADDRESS not configured');
+
+  const url = new URL(`${TONCENTER_BASE}/getTransactions`);
+  url.searchParams.set('address', treasury);
+  url.searchParams.set('limit', '40');
+  url.searchParams.set('to_lt', '0');
+  url.searchParams.set('archival', 'true');
+  if (TONCENTER_API_KEY) url.searchParams.set('api_key', TONCENTER_API_KEY);
+
+  const resp = await fetch(url.toString());
+  if (!resp.ok) throw new Error(`TonCenter HTTP ${resp.status}`);
+  const body = await resp.json();
+  if (!body?.ok || !Array.isArray(body.result)) return null;
+
+  const wantSender = normalizeTonAddr(senderRaw);
+  const wantValue  = String(nanotons);
+  const sinceSec   = Math.floor(sinceMs / 1000) - 60; // هامش 60 ثانية لفروق الساعة
+
+  for (const tx of body.result) {
+    const inMsg = tx.in_msg;
+    if (!inMsg || !inMsg.source) continue;
+    if (Number(tx.utime) < sinceSec) continue;
+    if (normalizeTonAddr(inMsg.source) !== wantSender) continue;
+    if (String(inMsg.value) !== wantValue) continue;
+    return { hash: tx.transaction_id?.hash || null, utime: tx.utime };
+  }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -178,6 +232,21 @@ async function ensureSchema() {
     status     TEXT NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  // 💎 ايداعات TON — شراء تذاكر المسابقة عبر TonConnect
+  // status: pending → confirmed (بعد التحقق من TonCenter) أو failed (انتهت المهلة بدون إيجاد المعاملة)
+  await sql(`CREATE TABLE IF NOT EXISTS deposits (
+    id              SERIAL PRIMARY KEY,
+    user_id         INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    package_id      TEXT NOT NULL,
+    tickets         INT  NOT NULL,
+    ton_amount      NUMERIC(18,9) NOT NULL,
+    wallet_address  TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending',
+    tx_hash         TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    confirmed_at    TIMESTAMPTZ
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, status)`);
   await sql(`CREATE TABLE IF NOT EXISTS ad_watches (
     id         SERIAL PRIMARY KEY,
     user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1242,6 +1311,84 @@ module.exports = async function handler(req, res) {
         ).catch(e => console.error('[withdraw bot notify]', e.message));
 
         return res.json({ ok: true });
+      }
+
+      // 💎 depositInit — يحجز صف "pending" قبل ما نرسل المستخدم يوقّع بمحفظته
+      case 'depositInit': {
+        const { packageId, walletAddress } = data;
+        const pkg = APP_CFG.TICKET_PACKAGES.find(p => p.id === packageId);
+        if (!pkg) return res.status(400).json({ ok: false, error: 'Invalid package' });
+        if (!walletAddress?.trim()) return res.status(400).json({ ok: false, error: 'Wallet not connected' });
+        if (!TREASURY_WALLET_ADDRESS) return res.status(500).json({ ok: false, error: 'Deposits are temporarily unavailable' });
+
+        if (dbUser.shadow_banned) {
+          // 🛡️ نفس منطق الـ shadow ban بالسحب — نرجّع depositId وهمي بدون تسجيل حقيقي
+          return res.json({ ok: true, depositId: 0 });
+        }
+
+        const rows = await sql(
+          `INSERT INTO deposits (user_id, package_id, tickets, ton_amount, wallet_address, status)
+           VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id`,
+          [dbUser.id, pkg.id, pkg.tickets, pkg.ton, walletAddress.trim()]
+        );
+
+        return res.json({ ok: true, depositId: rows[0].id, treasury: TREASURY_WALLET_ADDRESS });
+      }
+
+      // 💎 depositStatus — يتحقق فعلياً من TonCenter قبل ما يسلّم أي تذكرة
+      case 'depositStatus': {
+        const depositId = parseInt(data.depositId, 10);
+        if (!depositId) return res.json({ ok: true, status: 'pending' });
+
+        const rows = await sql(
+          `SELECT * FROM deposits WHERE id = $1 AND user_id = $2`,
+          [depositId, dbUser.id]
+        );
+        const dep = rows[0];
+        if (!dep) return res.status(404).json({ ok: false, error: 'Deposit not found' });
+
+        if (dep.status !== 'pending') {
+          return res.json({ ok: true, status: dep.status });
+        }
+
+        // ⏱️ بعد 15 دقيقة بدون العثور على المعاملة → فشل نهائي
+        const ageMs = Date.now() - new Date(dep.created_at).getTime();
+        if (ageMs > 15 * 60 * 1000) {
+          await sql(`UPDATE deposits SET status = 'failed' WHERE id = $1`, [dep.id]);
+          return res.json({ ok: true, status: 'failed' });
+        }
+
+        try {
+          const nanotons = Math.round(parseFloat(dep.ton_amount) * 1e9);
+          const found = await findConfirmingTonTransaction({
+            treasury:  TREASURY_WALLET_ADDRESS,
+            senderRaw: dep.wallet_address,
+            nanotons,
+            sinceMs:   new Date(dep.created_at).getTime()
+          });
+
+          if (!found) return res.json({ ok: true, status: 'pending' });
+
+          // ✅ المعاملة موجودة فعلياً على السلسلة — نسلّم التذاكر الآن فقط
+          await sql(
+            `UPDATE deposits SET status = 'confirmed', tx_hash = $1, confirmed_at = NOW() WHERE id = $2 AND status = 'pending'`,
+            [found.hash, dep.id]
+          );
+          await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [dep.tickets, dbUser.id]);
+
+          sendTelegramMessage(
+            Number(dbUser.telegram_id),
+            `💎 *Deposit Confirmed!*\n\n` +
+            `✅ *${dep.tickets.toLocaleString()} Tickets* added to your balance\n` +
+            `💰 *Amount:* ${parseFloat(dep.ton_amount)} TON\n\n` +
+            `Good luck in the competition! 🏆`
+          ).catch(e => console.error('[deposit bot notify]', e.message));
+
+          return res.json({ ok: true, status: 'confirmed' });
+        } catch (e) {
+          console.error('[depositStatus] TonCenter check failed:', e.message);
+          return res.json({ ok: true, status: 'pending' }); // نحاول تاني بالبوّلينغ الجاي
+        }
       }
 
       case 'banUser': {
