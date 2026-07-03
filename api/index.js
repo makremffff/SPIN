@@ -42,9 +42,10 @@ const APP_CFG = {
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
   TICKET_PACKAGES: [
-    { id: 'pkg_5k',  tickets: 5000,  ton: 0.001 },
-    { id: 'pkg_12k', tickets: 12000, ton: 0.09 },
-    { id: 'pkg_30k', tickets: 30000, ton: 0.2  },
+    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
+    { id: 'pkg_2',  tickets: 35000,  ton: 0.25 },
+    { id: 'pkg_3',  tickets: 90000,  ton: 0.5  },
+    { id: 'pkg_4',  tickets: 200000, ton: 1    },
   ],
   // توقيت المسابقة — اضبط COMPETITION_END_MS في Vercel env (Unix ms timestamp)
   // مثال: Date.now() + 20 * 24 * 60 * 60 * 1000 ← 20 يوم من الآن
