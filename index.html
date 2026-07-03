@@ -467,7 +467,8 @@
         </div>
 
       <!-- ══ Leaderboard Card ══ -->
-      <div class="leaderboard-card reveal from-left">
+      <div class="leaderboard-card-wrap reveal from-left">
+      <div class="leaderboard-card">
 
         
         <!-- Rows 4–8: populated dynamically by pages.js -->
@@ -504,6 +505,10 @@
           </div>
         </div>
 
+      </div>
+        <div class="lb-scroll-hint" id="lb-scroll-hint">
+          <div class="chev"></div><div class="chev"></div><div class="chev"></div>
+        </div>
       </div>
 
       <!-- ══ You Card ══ -->
@@ -676,19 +681,33 @@
             <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/>
           </svg>
         </div>
-        <h1 class="wd-title">Withdraw Your Earnings</h1>
+        <h1 class="wd-title" id="wd-hero-title">Withdraw Your Earnings</h1>
         <div class="wd-balance-row">
           <span>Balance</span>
           <strong id="wd-balance">$0.00</strong>
         </div>
       </div>
 
-      <div class="wd-form">
+      <!-- ── Tab switcher — Withdraw / Deposit ── -->
+      <div class="wd-tabs reveal from-top">
+        <button class="wd-tab active" id="tab-btn-withdraw" onclick="switchWdTab('withdraw')">
+          <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
+          <span>Withdraw</span>
+        </button>
+        <button class="wd-tab" id="tab-btn-deposit" onclick="switchWdTab('deposit')">
+          <svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          <span>Deposit</span>
+        </button>
+        <div class="wd-tab-glider" id="wd-tab-glider"></div>
+      </div>
 
-        <div class="wd-wallet-block reveal from-left">
-          <div id="ton-connect-button"></div>
-          <span class="wd-wallet-address" id="ad-wallet"></span>
-        </div>
+      <div class="wd-wallet-block reveal from-left">
+        <div id="ton-connect-button"></div>
+        <span class="wd-wallet-address" id="ad-wallet"></span>
+      </div>
+
+      <!-- ══ Withdraw section ══ -->
+      <div class="wd-form" id="wd-section-withdraw">
 
         <div class="wd-amount-row reveal from-left">
           <div class="wd-amount-label-row">
@@ -711,6 +730,19 @@
           </svg>
           <span>Withdraw</span>
         </button>
+
+      </div>
+
+      <!-- ══ Deposit section — buy competition tickets with TON ══ -->
+      <div class="dp-form" id="wd-section-deposit" style="display:none">
+
+        <div class="dp-label-row reveal from-left">
+          <span class="wd-label">Choose a Ticket Package</span>
+        </div>
+
+        <div class="dp-packages" id="dp-packages"><!-- filled by renderDepositPackages() --></div>
+
+        <div class="dp-status" id="dp-status"></div>
 
       </div>
     </div>

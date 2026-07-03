@@ -15,6 +15,9 @@ const CHANNEL_LINK = 'https://t.me/YourChannelUsername';
 // (مرفق في التسليم) في جذر نفس الدومين بحيث يكون متاح على /tonconnect-manifest.json
 const TONCONNECT_MANIFEST_URL = 'https://spin-snowy.vercel.app/tonconnect-manifest.json';
 
+// عنوان محفظة الاستلام (Treasury) — كل ايداعات التذاكر تُرسل هنا مباشرة عبر TonConnect SDK
+const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-T';
+
 /* ══════════════════════════════════════════════════════
    APP_CONFIG — Single source of truth for all values
    Edit here and everything (frontend + backend) stays in sync.
@@ -31,6 +34,13 @@ const APP_CONFIG = {
 
   /* Withdrawal */
   WITHDRAW_MIN      : 0.2,   // minimum withdrawal in USD
+
+  /* Deposit — شراء تذاكر مقابل TON عبر TonConnect (يُستبدل بقيمة السرفر) */
+  TICKET_PACKAGES: [
+    { id: 'pkg_5k',  tickets: 5000,  ton: 0.05 },
+    { id: 'pkg_12k', tickets: 12000, ton: 0.09 },
+    { id: 'pkg_30k', tickets: 30000, ton: 0.2  },
+  ],
 
   /* Podium prizes (contest page) */
   PODIUM_PRIZES: {

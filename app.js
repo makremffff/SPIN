@@ -389,6 +389,149 @@ function initWalletConnect() {
 }
 
 /* ══════════════════════════════════════════════════════
+   Deposit — Buy competition tickets with TON via TonConnect
+   الفلو: depositInit (يحجز صف pending بالسيرفر) → tonConnectUI
+   .sendTransaction (المستخدم يوقّع من محفظته) → depositStatus
+   بوّلينغ يتحقق من السرفر على TonCenter لحد ما تتأكد المعاملة
+   على السلسلة فعلياً، وقتها فقط تُضاف التذاكر للرصيد.
+══════════════════════════════════════════════════════ */
+const TICKET_SVG = `<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><line x1="12" y1="6" x2="12" y2="18" stroke-dasharray="2 2"/></svg>`;
+
+/* ── Tab switcher ── */
+function switchWdTab(tab) {
+  const glider = document.getElementById('wd-tab-glider')?.parentElement;
+  const wSec   = document.getElementById('wd-section-withdraw');
+  const dSec   = document.getElementById('wd-section-deposit');
+  const wBtn   = document.getElementById('tab-btn-withdraw');
+  const dBtn   = document.getElementById('tab-btn-deposit');
+  const title  = document.getElementById('wd-hero-title');
+
+  const isDeposit = tab === 'deposit';
+  glider?.classList.toggle('dp-active', isDeposit);
+  wBtn?.classList.toggle('active', !isDeposit);
+  dBtn?.classList.toggle('active', isDeposit);
+  if (wSec) wSec.style.display = isDeposit ? 'none' : 'flex';
+  if (dSec) dSec.style.display = isDeposit ? 'flex' : 'none';
+  if (title) title.textContent = isDeposit ? 'Buy Competition Tickets' : 'Withdraw Your Earnings';
+
+  if (isDeposit) renderDepositPackages();
+}
+
+/* ── Render ticket package cards from server-synced config ── */
+function renderDepositPackages() {
+  const wrap = document.getElementById('dp-packages');
+  if (!wrap) return;
+
+  const cfg  = appState.config || APP_CONFIG;
+  const pkgs = cfg.TICKET_PACKAGES || APP_CONFIG.TICKET_PACKAGES || [];
+  if (!pkgs.length) { wrap.innerHTML = ''; return; }
+
+  const bestId = pkgs.reduce((a, b) => (b.tickets / b.ton > a.tickets / a.ton ? b : a)).id;
+
+  wrap.innerHTML = pkgs.map(p => `
+    <div class="dp-card ${p.id === bestId ? 'best' : ''}">
+      <div class="dp-card-left">
+        <div class="dp-ticket-ic">${TICKET_SVG}</div>
+        <div class="dp-card-info">
+          <div class="dp-tickets">${p.tickets.toLocaleString()} Tickets${p.id === bestId ? '<span class="dp-best-badge">BEST VALUE</span>' : ''}</div>
+          <div class="dp-price"><b>${p.ton}</b> TON</div>
+        </div>
+      </div>
+      <button class="dp-buy-btn" data-pkg="${p.id}" onclick="buyTicketPackage('${p.id}')"><span>Buy</span></button>
+    </div>
+  `).join('');
+}
+
+/* ── Buy flow ── */
+async function buyTicketPackage(pkgId) {
+  if (!secAllow('withdraw')) {
+    showToast({ type: 'withdraw', title: 'Too Many Attempts', msg: 'Please wait before trying again', duration: 3000 });
+    return;
+  }
+
+  if (!tonConnectUI || !tonConnectUI.wallet) {
+    showToast({ type: 'withdraw', title: 'Connect Your Wallet', msg: 'Tap "Connect Wallet" first to buy tickets', duration: 3500 });
+    try { tonConnectUI?.openModal(); } catch {}
+    return;
+  }
+
+  const cfg  = appState.config || APP_CONFIG;
+  const pkgs = cfg.TICKET_PACKAGES || APP_CONFIG.TICKET_PACKAGES || [];
+  const pkg  = pkgs.find(p => p.id === pkgId);
+  if (!pkg) return;
+
+  const statusEl = document.getElementById('dp-status');
+  const btn = document.querySelector(`.dp-buy-btn[data-pkg="${pkgId}"]`);
+  document.querySelectorAll('.dp-buy-btn').forEach(b => b.disabled = true);
+  if (statusEl) statusEl.textContent = 'Waiting for wallet confirmation…';
+
+  try {
+    // 1) نحجز صف الايداع Pending بالسيرفر أولاً
+    const initRes = await fetchApi({
+      type: 'depositInit',
+      data: { packageId: pkg.id, walletAddress: tonConnectUI.wallet.account.address }
+    });
+
+    if (!initRes || !initRes.ok) {
+      showToast({ type: 'withdraw', title: 'Could Not Start Deposit', msg: initRes?.error || 'Please try again', duration: 3500 });
+      if (statusEl) statusEl.textContent = '';
+      return;
+    }
+
+    const nanotons = Math.round(pkg.ton * 1e9).toString();
+
+    // 2) المستخدم يوقّع ويرسل المعاملة من محفظته مباشرة للخزينة
+    await tonConnectUI.sendTransaction({
+      validUntil: Math.floor(Date.now() / 1000) + 300,
+      messages: [{ address: TREASURY_WALLET_ADDRESS, amount: nanotons }]
+    });
+
+    if (statusEl) statusEl.textContent = 'Confirming on the TON blockchain…';
+
+    // 3) بوّلينغ السرفر لحد ما يتأكد وصول المعاملة فعلياً على السلسلة
+    await pollDepositStatus(initRes.depositId, pkg, statusEl);
+
+  } catch (err) {
+    console.error('[buyTicketPackage] failed:', err);
+    if (statusEl) statusEl.textContent = '';
+    showToast({ type: 'withdraw', title: 'Transaction Cancelled', msg: 'No TON was deducted', duration: 3000 });
+  } finally {
+    document.querySelectorAll('.dp-buy-btn').forEach(b => b.disabled = false);
+  }
+}
+
+/* ── Poll backend, which itself verifies the tx on TonCenter ── */
+async function pollDepositStatus(depositId, pkg, statusEl, attempt = 0) {
+  const MAX_ATTEMPTS = 20; // ~80s
+  const res = await fetchApi({ type: 'depositStatus', data: { depositId } });
+
+  if (res?.ok && res.status === 'confirmed') {
+    if (statusEl) statusEl.textContent = '';
+    showToast({
+      type: 'referral',
+      title: 'Tickets Credited!',
+      msg: `+${pkg.tickets.toLocaleString()} Tickets · ${pkg.ton} TON confirmed`,
+      duration: 5000
+    });
+    refreshState();
+    return;
+  }
+
+  if (res?.ok && res.status === 'failed') {
+    if (statusEl) statusEl.textContent = '';
+    showToast({ type: 'withdraw', title: 'Deposit Failed', msg: 'Transaction was not found on-chain', duration: 4000 });
+    return;
+  }
+
+  if (attempt >= MAX_ATTEMPTS) {
+    if (statusEl) statusEl.textContent = 'Still confirming — tickets will be credited automatically once verified.';
+    return;
+  }
+
+  setTimeout(() => pollDepositStatus(depositId, pkg, statusEl, attempt + 1), 4000);
+}
+
+/* ══════════════════════════════════════════════════════
    Partial Reward Modal — shown when ad session < 33s
    Displayed centered on screen with play.jpg image
 ══════════════════════════════════════════════════════ */
@@ -520,6 +663,26 @@ function initOnboarding(alreadySeen = false) {
 
   setTimeout(checkScroll, 600);
 }
+
+/* ── Leaderboard scroll hint ──────────────────────────
+   نفس فكرة الشيفرون بصفحة التعليمات: يبين وقت في صفوف
+   إضافية تحت (مستخدمين تانيين) والصفوف تختفي بتدرّج عبر
+   mask-image بالـ CSS، بدون أي حساب لكل صف بالجافاسكربت. */
+function checkLbScroll() {
+  const card = document.querySelector('.leaderboard-card');
+  const hint = document.getElementById('lb-scroll-hint');
+  if (!card || !hint) return;
+  const overflows = card.scrollHeight - card.scrollTop > card.clientHeight + 6;
+  hint.classList.toggle('show', overflows);
+}
+
+(function initLbScrollHint() {
+  const card = document.querySelector('.leaderboard-card');
+  if (!card) return;
+  card.addEventListener('scroll', checkLbScroll, { passive: true });
+  window.addEventListener('resize', checkLbScroll);
+  setTimeout(checkLbScroll, 600); // بعد ما تتحمل بيانات الليدربورد أول مرة
+})();
 
 /* ══════════════════════════════════════════════════════
    Startup

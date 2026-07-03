@@ -113,6 +113,9 @@ function renderLeaderboardRows() {
     const photo = entry.telegram_id === appState.user.telegram_id ? getMyPhotoUrl() : entry.photo_url;
     setAvatar(row.querySelector('.lb-avatar'), photo);
   });
+
+  // بعد ما تتحدث الصفوف، تحقق إذا لسا في مستخدمين تحت لإظهار/إخفاء السهم
+  if (typeof checkLbScroll === 'function') setTimeout(checkLbScroll, 50);
 }
 
 /* ── Render: referral page ──────────────────────────────── */
