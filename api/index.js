@@ -74,44 +74,71 @@ async function sql(query, params = []) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  TonCenter — التحقق الفعلي من وصول معاملة TON للخزينة قبل تسليم أي تذاكر
-//  نقارن: العنوان المرسل (raw "workchain:hex") + المبلغ بالنانوتون + التوقيت
-//  بعد إنشاء صف الايداع. لا نثق أبداً بمجرد رد "نجاح" من TonConnect بالفرونت.
+//  المطابقة الأساسية: التعليق on-chain (نص = telegram_id المستخدم، decoded تلقائياً
+//  من toncenter بحقل in_msg.message لأنه simple comment) + المبلغ بالنانوتون + التوقيت.
+//  عنوان المرسل (raw) يُستخدم كتأكيد إضافي لو موجود ومتطابق، لكن مش شرط أساسي —
+//  لأن بعض المحافظ ممكن ترجع عنوان "غير bounceable/bounceable" مختلف شكلاً عن اللي
+//  خزّناه من TonConnect، فيما التعليق + المبلغ كفاية للتأكد بدقة عالية.
+//  لا نثق أبداً بمجرد رد "نجاح" من TonConnect بالفرونت.
 // ══════════════════════════════════════════════════════════════════════════════
 function normalizeTonAddr(addr) {
   if (!addr) return '';
-  // "0:abcd..." → "0:abcd..." lowercase وبدون أصفار زائدة بالبداية داخل الجزء الست عشري
   const parts = String(addr).trim().toLowerCase().split(':');
   if (parts.length !== 2) return String(addr).trim().toLowerCase();
   return `${parts[0]}:${parts[1].replace(/^0+/, '') || '0'}`;
 }
 
-async function findConfirmingTonTransaction({ treasury, senderRaw, nanotons, sinceMs }) {
+async function findConfirmingTonTransaction({ treasury, senderRaw, nanotons, memo, sinceMs, depositId }) {
   if (!treasury) throw new Error('TREASURY_WALLET_ADDRESS not configured');
 
   const url = new URL(`${TONCENTER_BASE}/getTransactions`);
   url.searchParams.set('address', treasury);
   url.searchParams.set('limit', '40');
-  url.searchParams.set('to_lt', '0');
-  url.searchParams.set('archival', 'true');
   if (TONCENTER_API_KEY) url.searchParams.set('api_key', TONCENTER_API_KEY);
 
   const resp = await fetch(url.toString());
-  if (!resp.ok) throw new Error(`TonCenter HTTP ${resp.status}`);
-  const body = await resp.json();
-  if (!body?.ok || !Array.isArray(body.result)) return null;
+  const rawBody = await resp.text();
+
+  if (!resp.ok) {
+    // 🪵 لوجينغ حقيقي — يظهر في Vercel logs بدل ما يُبلع بصمت كـ "pending"
+    console.error(`[deposit#${depositId}] TonCenter HTTP ${resp.status}: ${rawBody.slice(0, 300)}`);
+    throw new Error(`TonCenter HTTP ${resp.status}`);
+  }
+
+  let body;
+  try { body = JSON.parse(rawBody); }
+  catch { console.error(`[deposit#${depositId}] TonCenter returned non-JSON: ${rawBody.slice(0, 300)}`); throw new Error('TonCenter bad JSON'); }
+
+  if (!body?.ok || !Array.isArray(body.result)) {
+    console.error(`[deposit#${depositId}] TonCenter body not ok:`, JSON.stringify(body).slice(0, 300));
+    return null;
+  }
 
   const wantSender = normalizeTonAddr(senderRaw);
   const wantValue  = String(nanotons);
-  const sinceSec   = Math.floor(sinceMs / 1000) - 60; // هامش 60 ثانية لفروق الساعة
+  const wantMemo   = String(memo).trim();
+  const sinceSec   = Math.floor(sinceMs / 1000) - 120; // هامش دقيقتين لفروق الساعة/الأرشيف
+
+  console.error(`[deposit#${depositId}] checking ${body.result.length} txs on treasury — want value=${wantValue} memo="${wantMemo}" sender=${wantSender} since=${sinceSec}`);
 
   for (const tx of body.result) {
     const inMsg = tx.in_msg;
-    if (!inMsg || !inMsg.source) continue;
+    if (!inMsg) continue;
     if (Number(tx.utime) < sinceSec) continue;
-    if (normalizeTonAddr(inMsg.source) !== wantSender) continue;
     if (String(inMsg.value) !== wantValue) continue;
-    return { hash: tx.transaction_id?.hash || null, utime: tx.utime };
+
+    const txMemo = (inMsg.message || '').trim();
+    const memoMatches   = wantMemo && txMemo === wantMemo;
+    const senderMatches = inMsg.source && normalizeTonAddr(inMsg.source) === wantSender;
+
+    // ✅ نقبل لو التعليق مطابق (الأقوى) أو لو العنوان مطابق — طالما المبلغ والتوقيت صح
+    if (memoMatches || senderMatches) {
+      console.error(`[deposit#${depositId}] MATCH found — memoMatches=${memoMatches} senderMatches=${senderMatches} hash=${tx.transaction_id?.hash}`);
+      return { hash: tx.transaction_id?.hash || null, utime: tx.utime };
+    }
   }
+
+  console.error(`[deposit#${depositId}] no match in this batch`);
   return null;
 }
 
@@ -1364,7 +1391,9 @@ module.exports = async function handler(req, res) {
             treasury:  TREASURY_WALLET_ADDRESS,
             senderRaw: dep.wallet_address,
             nanotons,
-            sinceMs:   new Date(dep.created_at).getTime()
+            memo:      dbUser.telegram_id,
+            sinceMs:   new Date(dep.created_at).getTime(),
+            depositId: dep.id
           });
 
           if (!found) return res.json({ ok: true, status: 'pending' });
