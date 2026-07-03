@@ -181,8 +181,8 @@ body::before {
 }
 
 .pod-points .coin-ic {
-  width: 22px;
-  height: 22px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
 }
@@ -204,8 +204,8 @@ body::before {
 }
 
 .pod-pts-value .coin-ic {
-  width: 22px;
-  height: 22px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
 }
@@ -566,7 +566,7 @@ body::before {
 }
 
 .lb-pts img {
-  width: 20px; height: 20px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 3px rgba(245,200,64,0.4));
 }
@@ -907,7 +907,7 @@ nav {
 }
 
 .ref-reward-pill img {
-  width: 22px; height: 22px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 5px rgba(245,200,64,0.55));
 }
@@ -1033,7 +1033,7 @@ nav {
 }
 
 .earn-ad-reward img {
-  width: 22px; height: 22px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
 }
@@ -1522,11 +1522,26 @@ background-size: blur(3px);
 .dp-card.best {
   border-color: rgba(245,200,64,0.35);
   box-shadow: 0 0 24px rgba(245,200,64,0.08);
+  padding-top: 26px;
 }
 
 .dp-card.best::before { opacity: 1; }
 
 .dp-card:active { transform: scale(0.98); }
+
+.dp-best-ribbon {
+  position: absolute;
+  top: 0; left: 18px;
+  padding: 3px 12px 4px;
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(135deg, #ffe87c 0%, #f5c840 55%, #dba91d 100%);
+  font-family: 'Permanent Marker', cursive;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #07090f;
+  box-shadow: 0 3px 10px rgba(245,200,64,0.35);
+  z-index: 1;
+}
 
 .dp-card-left {
   display: flex;
@@ -1537,21 +1552,15 @@ background-size: blur(3px);
 
 .dp-ticket-ic {
   flex-shrink: 0;
-  width: 42px; height: 42px;
-  border-radius: 50%;
+  width: 46px; height: 46px;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle, rgba(245,200,64,0.16) 0%, rgba(245,200,64,0.02) 70%);
-  border: 1.5px solid rgba(245,200,64,0.22);
+  overflow: hidden;
 }
 
-.dp-ticket-ic svg {
-  width: 20px; height: 20px;
-  stroke: var(--gold);
-  fill: none;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 5px rgba(245,200,64,0.4));
+.dp-ticket-ic img {
+  width: 36px; height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(245,200,64,0.45));
 }
 
 .dp-card-info {
@@ -1568,20 +1577,6 @@ background-size: blur(3px);
   letter-spacing: .5px;
   color: rgba(230,232,245,0.92);
   white-space: nowrap;
-}
-
-.dp-best-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 7px;
-  border-radius: 20px;
-  background: var(--gold-a20);
-  border: 1px solid rgba(245,200,64,0.3);
-  font-family: 'Permanent Marker', cursive;
-  font-size: 8px;
-  letter-spacing: 1px;
-  color: var(--gold);
-  vertical-align: middle;
 }
 
 .dp-price {
@@ -2337,7 +2332,7 @@ background-size: blur(3px);
   display: flex; align-items: center; gap: 5px;
   pointer-events: none; z-index: 10;
 }
-#score-top img { width: 22px; height: 22px; object-fit: contain;
+#score-top img { width: 36px; height: 36px; object-fit: contain;
   filter: drop-shadow(0 0 5px rgba(245,200,64,0.55)); }
 #score-top span {
   font-family: 'Permanent Marker', cursive;
@@ -2454,7 +2449,7 @@ background-size: blur(3px);
 
 .end-score-wrap { display: flex; align-items: center; gap: 7px; }
 .end-score-wrap img {
-  width: 26px; height: 26px; object-fit: contain;
+  width: 36px; height: 36px; object-fit: contain;
   filter: drop-shadow(0 0 8px rgba(245,200,64,0.7));
 }
 .end-score-num {

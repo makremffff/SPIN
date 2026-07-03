@@ -19,7 +19,7 @@
 
   /* ── Assets ──────────────────────────────────────── */
   const TICKET_IMG = new Image();
-  TICKET_IMG.src = 'https://meme.crypto-apps.center/images/5247ad..png';
+  TICKET_IMG.src = 'https://files.catbox.moe/b3yq30.png';
 
   const BASKET_IMG = new Image();
   BASKET_IMG.src = 'asesst/basket.png'; // اختياري — عند عدم توفره تُرسم سلة بديلة تلقائياً (fallback أدناه)

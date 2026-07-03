@@ -103,7 +103,7 @@ function renderLeaderboardRows() {
       <div class="lb-info">
         <span class="lb-name">${escapeHtml(entry.name)}</span>
         <div class="lb-pts">
-          <img src="https://meme.crypto-apps.center/images/5247ad..png" alt="coin">
+          <img src="https://files.catbox.moe/b3yq30.png" alt="coin">
           <span>${(entry.pts || 0).toLocaleString()}</span>
         </div>
       </div>

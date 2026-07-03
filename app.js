@@ -395,7 +395,7 @@ function initWalletConnect() {
    بوّلينغ يتحقق من السرفر على TonCenter لحد ما تتأكد المعاملة
    على السلسلة فعلياً، وقتها فقط تُضاف التذاكر للرصيد.
 ══════════════════════════════════════════════════════ */
-const TICKET_SVG = `<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><line x1="12" y1="6" x2="12" y2="18" stroke-dasharray="2 2"/></svg>`;
+const TICKET_IMG = 'https://files.catbox.moe/b3yq30.png';
 
 /* ── TON text-comment payload — بدون أي مكتبة خارجية ──
    يبني BOC صحيح لخلية تعليق بسيطة (opcode صفري + UTF-8 نص) ليُرفق
@@ -497,10 +497,11 @@ function renderDepositPackages() {
 
   wrap.innerHTML = pkgs.map(p => `
     <div class="dp-card ${p.id === bestId ? 'best' : ''}">
+      
       <div class="dp-card-left">
-        <div class="dp-ticket-ic">${TICKET_SVG}</div>
+        <div class="dp-ticket-ic"><img src="${TICKET_IMG}" alt="ticket"></div>
         <div class="dp-card-info">
-          <div class="dp-tickets">${p.tickets.toLocaleString()} Tickets${p.id === bestId ? '<span class="dp-best-badge">BEST VALUE</span>' : ''}</div>
+          <div class="dp-tickets">${p.tickets.toLocaleString()} Tickets</div>
           <div class="dp-price"><b>${p.ton}</b> TON</div>
         </div>
       </div>
