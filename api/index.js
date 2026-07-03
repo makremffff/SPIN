@@ -42,7 +42,7 @@ const APP_CFG = {
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
   TICKET_PACKAGES: [
-    { id: 'pkg_5k',  tickets: 5000,  ton: 0.05 },
+    { id: 'pkg_5k',  tickets: 5000,  ton: 0.001 },
     { id: 'pkg_12k', tickets: 12000, ton: 0.09 },
     { id: 'pkg_30k', tickets: 30000, ton: 0.2  },
   ],
@@ -274,6 +274,10 @@ async function ensureSchema() {
     confirmed_at    TIMESTAMPTZ
   )`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, status)`);
+  // 🛡️ منع التلاعب: نفس معاملة TON (tx_hash) ميقدرش يأكد غير صف ايداع واحد بس —
+  // بيمنع المستخدم من عمل عدة depositInit لنفس الباكدج ودفع مرة وحدة عشان
+  // ياخد التذاكر مضاعفة عن طريق إعادة polling كل صف على حدة (replay attack).
+  await sql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_deposits_txhash_unique ON deposits(tx_hash) WHERE tx_hash IS NOT NULL`);
   await sql(`CREATE TABLE IF NOT EXISTS ad_watches (
     id         SERIAL PRIMARY KEY,
     user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1398,13 +1402,34 @@ module.exports = async function handler(req, res) {
 
           if (!found) return res.json({ ok: true, status: 'pending' });
 
-          // ✅ المعاملة موجودة فعلياً على السلسلة — نسلّم التذاكر الآن فقط
+          // ✅ المعاملة موجودة فعلياً على السلسلة — نحاول نحجزها ذرياً لهذا الصف فقط
           const txHashHex = found.hash ? Buffer.from(found.hash, 'base64').toString('hex') : null;
+          const finalHash = txHashHex || found.hash;
 
-          await sql(
-            `UPDATE deposits SET status = 'confirmed', tx_hash = $1, confirmed_at = NOW() WHERE id = $2 AND status = 'pending'`,
-            [txHashHex || found.hash, dep.id]
-          );
+          let claimed;
+          try {
+            claimed = await sql(
+              `UPDATE deposits SET status = 'confirmed', tx_hash = $1, confirmed_at = NOW()
+               WHERE id = $2 AND status = 'pending' RETURNING id`,
+              [finalHash, dep.id]
+            );
+          } catch (e) {
+            // 🛡️ 23505 = unique_violation → نفس tx_hash اتاستخدم بالفعل لتأكيد صف تاني
+            // (محاولة تلاعب عبر عدة depositInit لنفس الدفعة، أو سباق race بين طلبين)
+            if (e?.code === '23505' || /duplicate key/i.test(String(e?.message))) {
+              await sql(`UPDATE deposits SET status = 'failed' WHERE id = $1 AND status = 'pending'`, [dep.id]);
+              console.error(`[deposit#${dep.id}] BLOCKED — tx already claimed by another deposit row`);
+              return res.json({ ok: true, status: 'failed', error: 'This transaction was already used for another deposit' });
+            }
+            throw e;
+          }
+
+          if (!claimed || !claimed.length) {
+            // سباق: طلب متزامن آخر لنفس الصف أكّده أول منا — منرجعش نضيف نقاط تاني
+            return res.json({ ok: true, status: 'confirmed' });
+          }
+
+          // ✅ نجحنا فعلاً في حجز هذه المعاملة لهذا الصف فقط — الآن فقط نسلّم التذاكر
           await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [dep.tickets, dbUser.id]);
 
           const explorerLine = txHashHex
