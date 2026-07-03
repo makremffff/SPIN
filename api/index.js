@@ -1370,21 +1370,28 @@ module.exports = async function handler(req, res) {
           if (!found) return res.json({ ok: true, status: 'pending' });
 
           // ✅ المعاملة موجودة فعلياً على السلسلة — نسلّم التذاكر الآن فقط
+          const txHashHex = found.hash ? Buffer.from(found.hash, 'base64').toString('hex') : null;
+
           await sql(
             `UPDATE deposits SET status = 'confirmed', tx_hash = $1, confirmed_at = NOW() WHERE id = $2 AND status = 'pending'`,
-            [found.hash, dep.id]
+            [txHashHex || found.hash, dep.id]
           );
           await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [dep.tickets, dbUser.id]);
+
+          const explorerLine = txHashHex
+            ? `🔗 *TX:* [tonviewer.com/transaction/${txHashHex.slice(0, 10)}…](https://tonviewer.com/transaction/${txHashHex})\n\n`
+            : '';
 
           sendTelegramMessage(
             Number(dbUser.telegram_id),
             `💎 *Deposit Confirmed!*\n\n` +
             `✅ *${dep.tickets.toLocaleString()} Tickets* added to your balance\n` +
-            `💰 *Amount:* ${parseFloat(dep.ton_amount)} TON\n\n` +
+            `💰 *Amount:* ${parseFloat(dep.ton_amount)} TON\n` +
+            explorerLine +
             `Good luck in the competition! 🏆`
           ).catch(e => console.error('[deposit bot notify]', e.message));
 
-          return res.json({ ok: true, status: 'confirmed' });
+          return res.json({ ok: true, status: 'confirmed', txHash: txHashHex });
         } catch (e) {
           console.error('[depositStatus] TonCenter check failed:', e.message);
           return res.json({ ok: true, status: 'pending' }); // نحاول تاني بالبوّلينغ الجاي
