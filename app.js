@@ -397,6 +397,73 @@ function initWalletConnect() {
 ══════════════════════════════════════════════════════ */
 const TICKET_SVG = `<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><line x1="12" y1="6" x2="12" y2="18" stroke-dasharray="2 2"/></svg>`;
 
+/* ── TON text-comment payload — بدون أي مكتبة خارجية ──
+   يبني BOC صحيح لخلية تعليق بسيطة (opcode صفري + UTF-8 نص) ليُرفق
+   بمعاملة TonConnect، بحيث يظهر تعليق "ايدي المستخدم" على السلسلة
+   نفسها كما يظهر بأي محفظة/مستكشف. تم التحقق من تطابقه byte-for-byte
+   مع مخرجات مكتبة @ton/core الرسمية. */
+const _CRC32C_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0x82F63B78 ^ (c >>> 1)) : (c >>> 1);
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function _crc32c(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) crc = _CRC32C_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function _b64FromBytes(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function tonCommentPayload(text) {
+  const textBytes = new TextEncoder().encode(String(text));
+  if (textBytes.length > 123) throw new Error('Comment too long for a single-cell payload');
+
+  const n = 4 + textBytes.length; // 32-bit zero opcode + UTF-8 text
+  const cellPayload = new Uint8Array(n);
+  cellPayload.set([0, 0, 0, 0], 0);
+  cellPayload.set(textBytes, 4);
+
+  const cellData = new Uint8Array(2 + n);
+  cellData[0] = 0;         // d1: refs=0, not exotic, level=0
+  cellData[1] = n * 2;     // d2: byte-aligned data → 2n
+  cellData.set(cellPayload, 2);
+
+  const header = new Uint8Array([
+    0xb5, 0xee, 0x9c, 0x72,   // BOC magic
+    0x41,                     // has_crc32c=1, size=1
+    0x01,                     // off_bytes = 1
+    0x01,                     // cells = 1
+    0x01,                     // roots = 1
+    0x00,                     // absent = 0
+    cellData.length,          // tot_cells_size
+    0x00                      // root_list[0] = 0
+  ]);
+
+  const withoutCrc = new Uint8Array(header.length + cellData.length);
+  withoutCrc.set(header, 0);
+  withoutCrc.set(cellData, header.length);
+
+  const crc = _crc32c(withoutCrc);
+  const full = new Uint8Array(withoutCrc.length + 4);
+  full.set(withoutCrc, 0);
+  full[withoutCrc.length]     = crc & 0xFF;
+  full[withoutCrc.length + 1] = (crc >>> 8) & 0xFF;
+  full[withoutCrc.length + 2] = (crc >>> 16) & 0xFF;
+  full[withoutCrc.length + 3] = (crc >>> 24) & 0xFF;
+
+  return _b64FromBytes(full);
+}
+
 /* ── Tab switcher ── */
 function switchWdTab(tab) {
   const glider = document.getElementById('wd-tab-glider')?.parentElement;
@@ -480,10 +547,15 @@ async function buyTicketPackage(pkgId) {
 
     const nanotons = Math.round(pkg.ton * 1e9).toString();
 
+    // 🧾 نرفق ايدي المستخدم (Telegram ID) كتعليق on-chain حقيقي على المعاملة
+    let payload;
+    try { payload = tonCommentPayload(String(appState.user.telegram_id || appState.user.id)); }
+    catch (e) { console.warn('[buyTicketPackage] comment payload failed, sending without memo:', e); }
+
     // 2) المستخدم يوقّع ويرسل المعاملة من محفظته مباشرة للخزينة
     await tonConnectUI.sendTransaction({
       validUntil: Math.floor(Date.now() / 1000) + 300,
-      messages: [{ address: TREASURY_WALLET_ADDRESS, amount: nanotons }]
+      messages: [{ address: TREASURY_WALLET_ADDRESS, amount: nanotons, ...(payload ? { payload } : {}) }]
     });
 
     if (statusEl) statusEl.textContent = 'Confirming on the TON blockchain…';
