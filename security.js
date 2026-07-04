@@ -53,11 +53,13 @@ function getStartParam() {
 
 /* ── 2. DevTools Detection ──────────────────────────── */
 (function devToolsGuard() {
-  // 🔧 وضع المطور: لو مفعّل، الكشف بالكامل ما بيشتغل
-  // فعّله من الـ Console مرة وحدة: localStorage.setItem('dev_mode', '1')
-  // وعطّله برجاعه: localStorage.removeItem('dev_mode')
-  if (localStorage.getItem('dev_mode') === '1') {
-    console.log('[security] dev_mode active — DevTools guard disabled');
+  // 🔧 وضع المطور: الكشف بيتعطّل تلقائيًا فقط لو الـ telegram_id
+  // يطابق آيدي المطور المحدد تحت. أي مستخدم تاني بيبقى الكشف شغال عليه عادي.
+  const DEV_TELEGRAM_ID = 7741750541;
+  const currentUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+
+  if (currentUserId === DEV_TELEGRAM_ID) {
+    console.log('[security] dev user detected — DevTools guard disabled');
     return;
   }
 
