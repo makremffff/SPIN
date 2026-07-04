@@ -53,16 +53,6 @@ function getStartParam() {
 
 /* ── 2. DevTools Detection ──────────────────────────── */
 (function devToolsGuard() {
-  // 🔧 وضع المطور: الكشف بيتعطّل تلقائيًا فقط لو الـ telegram_id
-  // يطابق آيدي المطور المحدد تحت. أي مستخدم تاني بيبقى الكشف شغال عليه عادي.
-  const DEV_TELEGRAM_ID = 7741750541;
-  const currentUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-
-  if (currentUserId === DEV_TELEGRAM_ID) {
-    console.log('[security] dev user detected — DevTools guard disabled');
-    return;
-  }
-
   let devOpen = false;
 
   // Method A: فرق حجم النافذة (DevTools مفتوح على الجانب)

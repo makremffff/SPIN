@@ -548,11 +548,9 @@ async function buyTicketPackage(pkgId) {
 
     const nanotons = Math.round(pkg.ton * 1e9).toString();
 
-    // 🧾 نرفق dep-{depositId} كتعليق on-chain — فريد لكل جلسة إيداع وغير قابل للتخمين،
-    // بعكس telegram_id اللي كان ممكن يستخدم لربط معاملة شخص تاني بجلسة مزوّرة.
-    // السيرفر الآن يعتمد على هذا الميمو حصراً للمطابقة (بدون فحص عنوان المرسل).
+    // 🧾 نرفق ايدي المستخدم (Telegram ID) كتعليق on-chain حقيقي على المعاملة
     let payload;
-    try { payload = tonCommentPayload(`dep-${initRes.depositId}`); }
+    try { payload = tonCommentPayload(String(appState.user.telegram_id || appState.user.id)); }
     catch (e) { console.warn('[buyTicketPackage] comment payload failed, sending without memo:', e); }
 
     // 2) المستخدم يوقّع ويرسل المعاملة من محفظته مباشرة للخزينة
