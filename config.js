@@ -37,9 +37,10 @@ const APP_CONFIG = {
 
   /* Deposit — شراء تذاكر مقابل TON عبر TonConnect (يُستبدل بقيمة السرفر) */
   TICKET_PACKAGES: [
-    { id: 'pkg_5k',  tickets: 5000,  ton: 0.05 },
-    { id: 'pkg_12k', tickets: 12000, ton: 0.09 },
-    { id: 'pkg_30k', tickets: 30000, ton: 0.2  },
+    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
+    { id: 'pkg_2',  tickets: 35000,  ton: 0.25 },
+    { id: 'pkg_3',  tickets: 90000,  ton: 0.5  },
+    { id: 'pkg_4',  tickets: 200000, ton: 1    },
   ],
 
   /* Podium prizes (contest page) */

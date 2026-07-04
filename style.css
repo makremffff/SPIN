@@ -181,8 +181,8 @@ body::before {
 }
 
 .pod-points .coin-ic {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
 }
@@ -204,8 +204,8 @@ body::before {
 }
 
 .pod-pts-value .coin-ic {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
 }
@@ -566,7 +566,7 @@ body::before {
 }
 
 .lb-pts img {
-  width: 30px; height: 30px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 3px rgba(245,200,64,0.4));
 }
@@ -686,7 +686,7 @@ nav {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 30px 20px 30px;
+  padding: 36px 20px 32px;
   gap: 0;
 }
 
@@ -907,7 +907,7 @@ nav {
 }
 
 .ref-reward-pill img {
-  width: 30px; height: 30px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 5px rgba(245,200,64,0.55));
 }
@@ -1033,7 +1033,7 @@ nav {
 }
 
 .earn-ad-reward img {
-  width: 30px; height: 30px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
 }
@@ -1558,7 +1558,7 @@ background-size: blur(3px);
 }
 
 .dp-ticket-ic img {
-  width: 30px; height: 30px;
+  width: 36px; height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 5px rgba(245,200,64,0.45));
 }
@@ -2332,7 +2332,7 @@ background-size: blur(3px);
   display: flex; align-items: center; gap: 5px;
   pointer-events: none; z-index: 10;
 }
-#score-top img { width: 30px; height: 30px; object-fit: contain;
+#score-top img { width: 36px; height: 36px; object-fit: contain;
   filter: drop-shadow(0 0 5px rgba(245,200,64,0.55)); }
 #score-top span {
   font-family: 'Permanent Marker', cursive;
@@ -2449,7 +2449,7 @@ background-size: blur(3px);
 
 .end-score-wrap { display: flex; align-items: center; gap: 7px; }
 .end-score-wrap img {
-  width: 30px; height: 30px; object-fit: contain;
+  width: 36px; height: 36px; object-fit: contain;
   filter: drop-shadow(0 0 8px rgba(245,200,64,0.7));
 }
 .end-score-num {
