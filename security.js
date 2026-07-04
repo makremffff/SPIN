@@ -53,6 +53,14 @@ function getStartParam() {
 
 /* ── 2. DevTools Detection ──────────────────────────── */
 (function devToolsGuard() {
+  // 🔧 وضع المطور: لو مفعّل، الكشف بالكامل ما بيشتغل
+  // فعّله من الـ Console مرة وحدة: localStorage.setItem('dev_mode', '1')
+  // وعطّله برجاعه: localStorage.removeItem('dev_mode')
+  if (localStorage.getItem('dev_mode') === '1') {
+    console.log('[security] dev_mode active — DevTools guard disabled');
+    return;
+  }
+
   let devOpen = false;
 
   // Method A: فرق حجم النافذة (DevTools مفتوح على الجانب)
