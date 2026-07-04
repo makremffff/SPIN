@@ -209,6 +209,8 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
+  // 🟢 last_seen_at — نبضة "أونلاين" تتحدث مع كل طلب من المستخدم (يستخدمها أدمن بانل لعرض المتصلين الآن)
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
   // 🎮 عملات الدولار داخل اللعبة (0.0001 USDT للعملة) — توسيع الدقة العشرية لدعم مبالغ صغيرة جداً
   await sql(`ALTER TABLE users ALTER COLUMN balance_usd TYPE NUMERIC(14,6)`);
 
@@ -860,6 +862,10 @@ module.exports = async function handler(req, res) {
       console.error('[upsertUser error]', err.message);
       return res.status(500).json({ ok: false, error: 'DB error: ' + err.message });
     }
+
+    // 🟢 نبضة أونلاين — best-effort وغير محجوبة (fire-and-forget) عشان ما تبطئش الرد على المستخدم
+    sql(`UPDATE users SET last_seen_at = NOW() WHERE id = $1`, [dbUser.id])
+      .catch(err => console.error('[last_seen_at update]', err.message));
 
     // 🛡️ تلاشي تدريجي لـ risk_score مع الوقت + رفع شادو-بان تلقائي لو رجع الـ score صفر
     if (dbUser.risk_score > 0 || dbUser.shadow_banned) {
