@@ -42,7 +42,7 @@ const APP_CFG = {
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
   TICKET_PACKAGES: [
-    { id: 'pkg_1',  tickets: 15000,  ton: 0.01  },
+    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
     { id: 'pkg_2',  tickets: 40000,  ton: 0.25 },
     { id: 'pkg_3',  tickets: 100000,  ton: 0.5  },
     { id: 'pkg_4',  tickets: 250000, ton: 1    },
@@ -89,7 +89,7 @@ function normalizeTonAddr(addr) {
   return `${parts[0]}:${parts[1].replace(/^0+/, '') || '0'}`;
 }
 
-async function findConfirmingTonTransaction({ treasury, nanotons, memo, sinceMs, depositId }) {
+async function findConfirmingTonTransaction({ treasury, senderRaw, nanotons, memo, sinceMs, depositId }) {
   if (!treasury) throw new Error('TREASURY_WALLET_ADDRESS not configured');
 
   const url = new URL(`${TONCENTER_BASE}/getTransactions`);
@@ -115,19 +115,12 @@ async function findConfirmingTonTransaction({ treasury, nanotons, memo, sinceMs,
     return null;
   }
 
+  const wantSender = normalizeTonAddr(senderRaw);
   const wantValue  = String(nanotons);
   const wantMemo   = String(memo).trim();
   const sinceSec   = Math.floor(sinceMs / 1000) - 120; // هامش دقيقتين لفروق الساعة/الأرشيف
 
-  // 🛡️ الميمو هو الفيصل الوحيد للمطابقة. senderRaw لم يعد يُستخدم للتحقق —
-  // الاعتماد على عنوان المرسل كان بيسمح لمهاجم يربط معاملة حقيقية لشخص تاني
-  // بجلسة إيداع مزوّرة (نفس القيمة + توقيت قريب) بدون ما يكون هو صاحب المعاملة فعلاً.
-  if (!wantMemo) {
-    console.error(`[deposit#${depositId}] BLOCKED — empty memo, refusing to match by amount alone`);
-    return null;
-  }
-
-  console.error(`[deposit#${depositId}] checking ${body.result.length} txs on treasury — want value=${wantValue} memo="${wantMemo}" since=${sinceSec}`);
+  console.error(`[deposit#${depositId}] checking ${body.result.length} txs on treasury — want value=${wantValue} memo="${wantMemo}" sender=${wantSender} since=${sinceSec}`);
 
   for (const tx of body.result) {
     const inMsg = tx.in_msg;
@@ -136,10 +129,14 @@ async function findConfirmingTonTransaction({ treasury, nanotons, memo, sinceMs,
     if (String(inMsg.value) !== wantValue) continue;
 
     const txMemo = (inMsg.message || '').trim();
-    if (txMemo !== wantMemo) continue;
+    const memoMatches   = wantMemo && txMemo === wantMemo;
+    const senderMatches = inMsg.source && normalizeTonAddr(inMsg.source) === wantSender;
 
-    console.error(`[deposit#${depositId}] MATCH found — memo="${txMemo}" hash=${tx.transaction_id?.hash}`);
-    return { hash: tx.transaction_id?.hash || null, utime: tx.utime };
+    // ✅ نقبل لو التعليق مطابق (الأقوى) أو لو العنوان مطابق — طالما المبلغ والتوقيت صح
+    if (memoMatches || senderMatches) {
+      console.error(`[deposit#${depositId}] MATCH found — memoMatches=${memoMatches} senderMatches=${senderMatches} hash=${tx.transaction_id?.hash}`);
+      return { hash: tx.transaction_id?.hash || null, utime: tx.utime };
+    }
   }
 
   console.error(`[deposit#${depositId}] no match in this batch`);
@@ -1397,8 +1394,9 @@ module.exports = async function handler(req, res) {
           const nanotons = Math.round(parseFloat(dep.ton_amount) * 1e9);
           const found = await findConfirmingTonTransaction({
             treasury:  TREASURY_WALLET_ADDRESS,
+            senderRaw: dep.wallet_address,
             nanotons,
-            memo:      `dep-${dep.id}`,
+            memo:      dbUser.telegram_id,
             sinceMs:   new Date(dep.created_at).getTime(),
             depositId: dep.id
           });
