@@ -490,24 +490,53 @@ function renderDepositPackages() {
   if (!wrap) return;
 
   const cfg  = appState.config || APP_CONFIG;
-  const pkgs = cfg.TICKET_PACKAGES || APP_CONFIG.TICKET_PACKAGES || [];
+  const pkgs = (cfg.TICKET_PACKAGES || APP_CONFIG.TICKET_PACKAGES || []).slice();
   if (!pkgs.length) { wrap.innerHTML = ''; return; }
 
-  const bestId = pkgs.reduce((a, b) => (b.tickets / b.ton > a.tickets / a.ton ? b : a)).id;
+  // ترتيب تصاعدي حسب سعر TON، حتى لو ترتيب السيرفر مختلف
+  pkgs.sort((a, b) => a.ton - b.ton);
 
-  wrap.innerHTML = pkgs.map(p => `
-    <div class="dp-card ${p.id === bestId ? 'best' : ''}">
-      
-      <div class="dp-card-left">
-        <div class="dp-ticket-ic"><img src="${TICKET_IMG}" alt="ticket"></div>
-        <div class="dp-card-info">
-          <div class="dp-tickets">${p.tickets.toLocaleString()} Tickets</div>
-          <div class="dp-price"><b>${p.ton}</b> TON</div>
-        </div>
+  const ratio   = p => p.tickets / p.ton;
+  const baseRate = ratio(pkgs[0]);
+  const bestId  = pkgs.reduce((a, b) => (ratio(b) > ratio(a) ? b : a)).id;
+  // سعر TON تقريبي بالدولار (لو متوفر من السيرفر)، وإلا نتجاهل عرض القيمة التقريبية
+  const tonUsdRate = Number(cfg.TON_USD_RATE || APP_CONFIG.TON_USD_RATE) || null;
+
+  const arrowSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>`;
+  const tonIconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
+
+  wrap.innerHTML = pkgs.map((p, i) => {
+    const isBest = p.id === bestId;
+    const bonusPct = Math.round((ratio(p) / baseRate - 1) * 100);
+
+    let tierClass, tagLabel;
+    if (isBest)      { tierClass = 'best';        tagLabel = '★ Best Value'; }
+    else if (i === 0) { tierClass = '';            tagLabel = null; }
+    else if (i === 1) { tierClass = 'tier-popular'; tagLabel = 'Popular'; }
+    else              { tierClass = 'tier-deal';    tagLabel = 'Great Deal'; }
+
+    const showBonus = bonusPct > 0 && (isBest || tierClass === 'tier-deal');
+    const usdLine = tonUsdRate ? `<div class="dp-usd">≈ $${(p.ton * tonUsdRate).toFixed(2)}</div>` : '';
+
+    return `
+    <div class="dp-card ${isBest ? 'best' : tierClass}">
+      <div class="dp-tag-row">
+        ${tagLabel ? `<span class="dp-tag">${tagLabel}</span>` : '<span></span>'}
+        ${showBonus ? `<span class="dp-bonus">+${bonusPct}%</span>` : ''}
       </div>
-      <button class="dp-buy-btn" data-pkg="${p.id}" onclick="buyTicketPackage('${p.id}')"><span>Buy</span></button>
-    </div>
-  `).join('');
+      <div class="dp-ticket-ic"><img src="${TICKET_IMG}" alt="ticket"></div>
+      <div class="dp-card-info">
+        <div class="dp-tickets">${p.tickets.toLocaleString()}</div>
+        <div class="dp-tickets-label">TICKETS</div>
+        <div class="dp-rate">${Math.round(ratio(p) / 1000)}K / TON</div>
+        <div class="dp-price">${tonIconSvg}${p.ton} TON</div>
+        ${usdLine}
+      </div>
+      <button class="dp-buy-btn" data-pkg="${p.id}" onclick="buyTicketPackage('${p.id}')">
+        <span>Buy Now</span>${arrowSvg}
+      </button>
+    </div>`;
+  }).join('');
 }
 
 /* ── Buy flow ── */

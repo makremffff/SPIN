@@ -1484,130 +1484,195 @@ background-size: blur(3px);
 .dp-label-row {
   width: 100%;
   padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dp-ton-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid var(--border);
+  font-family: 'DynaPuff', cursive;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: rgba(220,225,240,0.75);
+  white-space: nowrap;
+}
+
+.dp-ton-pill svg {
+  width: 11px; height: 11px;
+  stroke: #7dd3fc;
+  fill: none;
+  stroke-width: 2;
 }
 
 .dp-packages {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 14px;
+  padding: 6px 4px 10px;
 }
 
+/* ── Card ── */
 .dp-card {
+  --tier: #8B5CF6;
   position: relative;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.045), rgba(255,255,255,0.014));
+  border: 1px solid var(--border);
+  padding: 13px 11px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  box-shadow: 0 14px 24px -14px rgba(0,0,0,0.6);
+  transform: rotate(3.5deg);
+  transition: transform .15s;
+}
+.dp-card:nth-child(4n+1) { transform: rotate(2.5deg); }
+.dp-card:nth-child(4n+2) { transform: rotate(4.5deg); }
+.dp-card:nth-child(4n+3) { transform: rotate(3.5deg); }
+.dp-card:nth-child(4n+4) { transform: rotate(5.5deg); }
+.dp-card:active { transform: rotate(2deg) scale(0.97); }
+
+.dp-card.tier-popular { --tier: #3B82F6; }
+.dp-card.tier-deal     { --tier: #22C55E; }
+.dp-card.best          { --tier: #F5A623; }
+
+.dp-card.best {
+  border-color: rgba(245,166,35,0.35);
+  box-shadow: 0 14px 26px -10px rgba(245,166,35,0.28);
+}
+
+.dp-tag-row {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
-  border: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-  overflow: hidden;
-  transition: border-color .2s, transform .15s;
+  min-height: 16px;
 }
 
-.dp-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(245,200,64,0.4), transparent);
-  opacity: 0;
-  transition: opacity .2s;
+.dp-tag {
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-family: 'DynaPuff', cursive;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--tier) 16%, transparent);
+  color: var(--tier);
 }
 
-.dp-card.best {
-  border-color: rgba(245,200,64,0.35);
-  box-shadow: 0 0 24px rgba(245,200,64,0.08);
-  padding-top: 26px;
+.dp-bonus {
+  font-family: 'DynaPuff', cursive;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: rgba(110,231,160,0.14);
+  color: #6ee7a0;
 }
-
-.dp-card.best::before { opacity: 1; }
-
-.dp-card:active { transform: scale(0.98); }
-
-.dp-best-ribbon {
-  position: absolute;
-  top: 0; left: 18px;
-  padding: 3px 12px 4px;
-  border-radius: 0 0 10px 10px;
-  background: linear-gradient(135deg, #ffe87c 0%, #f5c840 55%, #dba91d 100%);
-  font-family: 'Permanent Marker', cursive;
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: #07090f;
-  box-shadow: 0 3px 10px rgba(245,200,64,0.35);
-  z-index: 1;
-}
-
-.dp-card-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
+.dp-card.best .dp-bonus { background: color-mix(in srgb, var(--tier) 16%, transparent); color: var(--tier); }
 
 .dp-ticket-ic {
-  flex-shrink: 0;
   width: 46px; height: 46px;
+  border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
+  margin-top: 9px; margin-bottom: 10px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--tier) 24%, transparent) 0%, transparent 72%);
 }
 
 .dp-ticket-ic img {
-  width: 36px; height: 36px;
+  width: 30px; height: 30px;
   object-fit: contain;
-  filter: drop-shadow(0 0 5px rgba(245,200,64,0.45));
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
 }
 
-.dp-card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
+.dp-card-info { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
 
 .dp-tickets {
   font-family: 'DynaPuff', cursive;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 17px;
+  letter-spacing: -.2px;
+  color: rgba(232,235,246,0.96);
+  line-height: 1.15;
+}
+
+.dp-tickets-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.dp-rate {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 9px;
   letter-spacing: .5px;
-  color: rgba(230,232,245,0.92);
-  white-space: nowrap;
+  color: var(--muted);
+  margin-top: 6px;
 }
 
 .dp-price {
-  font-family: 'Permanent Marker', cursive;
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--muted);
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 100px;
+  font-family: 'DynaPuff', cursive;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--tier) 14%, transparent);
+  color: var(--tier);
 }
 
-.dp-price b {
-  color: rgba(245,200,64,0.75);
-  font-weight: 400;
+.dp-price svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+.dp-usd {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 6px;
 }
 
 .dp-buy-btn {
-  flex-shrink: 0;
-  padding: 10px 18px;
-  border-radius: 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 0;
+  border-radius: 100px;
   border: none;
-  background: linear-gradient(135deg, #ffe87c 0%, #f5c840 55%, #dba91d 100%);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tier) 78%, white 22%), var(--tier));
+  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--tier) 60%, transparent);
   -webkit-tap-highlight-color: transparent;
   transition: transform .15s, filter .15s;
 }
 
 .dp-buy-btn span {
-  font-family: 'Permanent Marker', cursive;
-  font-size: 11px;
-  letter-spacing: 1.2px;
-  color: #07090f;
+  font-family: 'DynaPuff', cursive;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: #fff;
 }
+
+.dp-buy-btn svg { width: 13px; height: 13px; stroke: #fff; fill: none; stroke-width: 2.5; }
 
 .dp-buy-btn:active { transform: scale(0.94); filter: brightness(0.94); }
 .dp-buy-btn:disabled { opacity: 0.55; pointer-events: none; }
