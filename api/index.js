@@ -37,12 +37,12 @@ const APP_CFG = {
   REF_USDT_REWARD   : 0.01,  // USDT added to referrer balance per referral
   AD_TICKET_REWARD  : 750,    // tickets per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
-  WITHDRAW_MIN      : 0.002,
+  WITHDRAW_MIN      : 0.2,
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
   TICKET_PACKAGES: [
-    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
+    { id: 'pkg_1',  tickets: 15000,  ton: 0.01  },
     { id: 'pkg_2',  tickets: 40000,  ton: 0.25 },
     { id: 'pkg_3',  tickets: 100000,  ton: 0.5  },
     { id: 'pkg_4',  tickets: 250000, ton: 1    },
