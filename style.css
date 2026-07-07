@@ -686,20 +686,29 @@ nav {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 36px 20px 32px;
+  padding: 40px 22px 40px;
   gap: 0;
 }
 
-/* ── Hero title ── */
-.ref-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
+/* ── Hero ── */
+.ref-hero { text-align: center; width: 100%; }
+
+.ref-crest-wrap {
+  position: relative;
+  width: 64px; height: 64px;
+  margin: 0 auto;
+  padding-bottom: 34px;
+}
+
+.ref-crest-glow {
+  position: absolute; top: 0; left: 0; width: 64px; height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,200,64,0.16) 0%, transparent 70%);
+  filter: blur(6px);
 }
 
 .ref-icon-wrap {
+  position: relative;
   width: 64px; height: 64px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(245,200,64,0.18) 0%, rgba(245,200,64,0.04) 70%);
@@ -718,382 +727,222 @@ nav {
   filter: drop-shadow(0 0 6px rgba(245,200,64,0.5));
 }
 
+.ref-chip {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(10,12,19,0.9);
+  box-shadow: 0 0 0 1px rgba(245,200,64,0.25);
+  font-family: 'Permanent Marker', cursive;
+  font-size: 10px; letter-spacing: 0.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ref-chip b { color: var(--gold); }
+
 .ref-title {
   font-family: 'Permanent Marker', cursive;
-  font-size: 28px;
-  letter-spacing: 2px;
-  line-height: 1.1;
-  text-align: center;
+  font-size: 27px;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  margin-top: 32px;
+  color: #fff;
+}
+.ref-title span {
   background: linear-gradient(135deg, #ffe87c 0%, #f5c840 45%, #c8860a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 18px rgba(245,200,64,0.35));
+  filter: drop-shadow(0 0 14px rgba(245,200,64,0.3));
 }
 
 .ref-sub {
   font-family: 'Permanent Marker', cursive;
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  line-height: 1.9;
   color: var(--muted);
   text-align: center;
+  max-width: 270px;
+  margin: 14px auto 0;
 }
 
-/* ── Stats row ── */
-.ref-stats {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 22px;
-}
-
-.ref-stat-card {
-  background: transparent;
-  border: none;
-  border-radius: 16px;
-  padding: 16px 14px;
-  display: flex;
-  flex-direction: column;
+/* ── Reward pill ── */
+.ref-reward-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-}
-
-.ref-stat-num {
-  font-family: 'DynaPuff', cursive;
-  font-weight: 800;
-  font-size: 26px;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #ffe87c, #f5c840, #c8860a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 8px rgba(245,200,64,0.3));
-}
-
-.ref-stat-lbl {
+  gap: 8px;
+  margin-top: 22px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: rgba(245,200,64,0.10);
+  box-shadow: 0 0 0 1px rgba(245,200,64,0.25);
   font-family: 'Permanent Marker', cursive;
-  font-size: 9px;
-  letter-spacing: 2px;
+  font-size: 13px;
+  color: #ffe9a8;
+}
+.ref-reward-pill img {
+  width: 16px; height: 16px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(245,200,64,0.55));
+}
+.ref-reward-pill .pill-label {
+  font-size: 10px;
+  letter-spacing: 1px;
   color: var(--muted);
-  text-transform: uppercase;
-  text-align: center;
 }
 
-/* ── Copy link box ── */
-.ref-copy-box {
-  width: 100%;
-  
-  background: rgba(14,16,26,0.95);
-  border: 1px solid rgba(245,200,64,0.15);
-  border-radius: 18px;
-  padding: 14px 16px;
+/* ── Stats row (no cards) ── */
+.ref-stats {
+  margin-top: 28px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ref-stat-num {
+  font-size: 20px;
+  color: #fff;
+}
+
+/* ── Section block ── */
+.ref-block { width: 100%; margin-top: 50px; }
+.ref-label {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  color: var(--gold);
+  opacity: 0.8;
+  margin-bottom: 16px;
+}
+
+/* ── Copy link row ── */
+.ref-link-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02) inset;
+  gap: 14px;
+  width: 100%;
 }
-
 .ref-link-text {
   flex: 1;
+  min-width: 0;
   font-family: 'Permanent Marker', cursive;
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: rgba(200,195,170,0.7);
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .ref-copy-btn {
   flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(245,200,64,0.3);
-  background: rgba(245,200,64,0.1);
+  display: flex; align-items: center; gap: 7px;
+  background: var(--gold);
+  border: none;
+  border-radius: 999px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background .2s, transform .15s;
-}
-.ref-copy-btn:active { background: rgba(245,200,64,0.2); transform: scale(0.96); }
-
-.ref-copy-btn svg {
-  width: 14px; height: 14px;
-  stroke: var(--gold); fill: none;
-  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-}
-
-.ref-copy-btn span {
-  font-family: 'Permanent Marker', cursive;
-  font-size: 10px;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #ffe87c, #f5c840);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* copied feedback */
-.ref-copy-btn.copied { background: rgba(100,200,120,0.15); border-color: rgba(100,200,120,0.35); }
-.ref-copy-btn.copied svg { stroke: #7edc9a; }
-.ref-copy-btn.copied span {
-  background: linear-gradient(135deg, #a0ebb5, #7edc9a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Share buttons ── */
-.ref-share-grid {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.ref-share-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 15px 10px;
-  border-radius: 16px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform .15s, filter .15s;
-  text-decoration: none;
-}
-.ref-share-btn:active { transform: scale(0.96); filter: brightness(0.9); }
-
-.ref-share-btn span {
+  color: #1a1200;
   font-family: 'Permanent Marker', cursive;
   font-size: 11px;
-  letter-spacing: 1.5px;
-  color: #fff;
+  padding: 9px 16px;
+  transition: transform .15s ease, background .2s ease;
 }
+.ref-copy-btn:active { transform: scale(0.93); }
+.ref-copy-btn svg { width: 13px; height: 13px; }
+.ref-copy-btn.copied { background: #7bdc8f; }
 
-/* Facebook */
-.ref-share-btn.fb {
-  background: linear-gradient(135deg, rgba(24,79,193,0.85) 0%, rgba(16,55,140,0.9) 100%);
-  border-color: rgba(66,103,215,0.4);
-  box-shadow: 0 4px 20px rgba(24,79,193,0.25);
-}
-
-/* WhatsApp */
-.ref-share-btn.wa {
-  background: linear-gradient(135deg, rgba(37,165,82,0.85) 0%, rgba(22,110,55,0.9) 100%);
-  border-color: rgba(37,165,82,0.4);
-  box-shadow: 0 4px 20px rgba(37,165,82,0.22);
-}
-
-.ref-share-btn svg {
-  width: 20px; height: 20px;
-  flex-shrink: 0;
-}
-
-/* ── Referral reward pill ── */
-.ref-reward-pill {
+/* ── Share row — circles only ── */
+.ref-share-row {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  border-radius: 999px;
-  padding: 7px 16px;
-  margin-top: 2px;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 28px;
 }
-
-.ref-reward-pill img {
-  width: 28px; height: 28px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 5px rgba(245,200,64,0.55));
+.ref-share-btn {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.04);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.09);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .2s ease, box-shadow .2s ease;
 }
+.ref-share-btn:active { transform: scale(0.9); }
+.ref-share-btn svg { width: 20px; height: 20px; }
+.ref-share-btn.tg:hover { box-shadow: 0 0 0 1px #4fb6ea; }
+.ref-share-btn.wa:hover { box-shadow: 0 0 0 1px #38d17a; }
+.ref-share-btn.x:hover  { box-shadow: 0 0 0 1px #cfd4dd; }
+.ref-share-btn.more:hover { box-shadow: 0 0 0 1px rgba(245,200,64,0.45); }
 
-.ref-reward-pill span {
-  font-family: 'DynaPuff', cursive;
-  font-weight: 800;
-  font-size: 14px;
-  letter-spacing: 1.5px;
-  background: linear-gradient(135deg, #ffe87c, #f5c840, #c8860a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 4px rgba(245,200,64,0.3));
-}
-
-.ref-reward-pill .pill-label {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--muted);
-  background: none;
-  -webkit-text-fill-color: var(--muted);
-  filter: none;
-}
-
-/* ── Earn section ── */
-.earn-section {
-  width: 100%;
-  margin-top: 24px;
-}
-
-.earn-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding: 0 2px;
-}
-
-.earn-title {
-  font-family: 'Permanent Marker', cursive;
-  font-size: 20px;
-  letter-spacing: 2px;
-  background: linear-gradient(135deg, #ffe87c, #f5c840, #c8860a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 10px rgba(245,200,64,0.3));
-}
-
-.earn-divider {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(245,200,64,0.25), transparent);
-  border-radius: 1px;
-}
-
-/* ad button card */
+/* ── Ad CTA row ── */
+.earn-section { width: 100%; margin-top: 50px; }
 .earn-ad-card {
-  width: 100%;
- background: rgba(0,0,0,0.5);
-  border-radius: 20px;
-  padding: 20px 18px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.02) inset,
-    0 8px 32px rgba(0,0,0,0.75),
-    0 0 20px rgba(245,200,64,0.09);
-  position: relative;
-  overflow: hidden;
-  border-left: solid gold 4px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: radial-gradient(circle at 15% 20%, rgba(245,200,64,0.10), transparent 70%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
 }
-
-.earn-ad-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(245,200,64,0.4) 50%, transparent 100%);
-}
-
 .earn-ad-icon {
-  width: 52px; height: 52px;
-  border-radius: 14px;
-  background: rgba(245,200,64,0.1);
-  border: 1px solid rgba(245,200,64,0.2);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 16px rgba(245,200,64,0.12);
-}
-
-.earn-ad-icon img {
   width: 44px; height: 44px;
-  stroke: var(--gold);
-  fill: none;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 5px rgba(245,200,64,0.4));
-  border-radius: 40%;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(245,200,64,0.10);
+  box-shadow: 0 0 0 1px rgba(245,200,64,0.25);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
-
-.earn-ad-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
+.earn-ad-icon img { width: 100%; height: 100%; object-fit: cover; }
+.earn-ad-info { flex: 1; min-width: 0; }
 .earn-ad-label {
   font-family: 'Permanent Marker', cursive;
-  font-size: 14px;
-  letter-spacing: 1.5px;
-  color: rgba(220,220,240,0.88);
-}
-
-.earn-ad-reward {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.earn-ad-reward img {
-  width: 28px; height: 28px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 4px rgba(245,200,64,0.5));
-}
-
-.earn-ad-reward span {
-  font-family: 'DynaPuff', cursive;
-  font-weight: 800;
   font-size: 13px;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #ffe87c, #f5c840, #c8860a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 4px rgba(245,200,64,0.3));
+  color: #fff;
 }
-
-.earn-ad-reward .per-ad {
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  color: var(--muted);
-  background: none;
-  -webkit-text-fill-color: var(--muted);
-  filter: none;
-}
-
-/* watch button */
-.earn-watch-btn {
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  gap: 6px;
-  padding: 11px 18px;
-  border-radius: 14px;
-  border: none;
-  background: rgba(0,0,200,0.4);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  
-  transition: transform .15s, filter .15s, box-shadow .15s;
-box-shadow: 0 2px 0 rgba(0,0,200,0.8);
-transition: 0.7s;
-background-size: blur(3px);
-}
-.earn-watch-btn:active { transform: scale(0.94); filter: brightness(0.88); 
- 
-}
-.earn-watch-btn:disabled { opacity: 0.6; transform: none; 
-  
-}
-
-.earn-watch-btn svg {
-  width: 16px; height: 16px;
-  fill: #07090f;
-  flex-shrink: 0;
-}
-
-.earn-watch-btn span {
+.earn-ad-reward {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px;
   font-family: 'Permanent Marker', cursive;
   font-size: 11px;
-  letter-spacing: 1.5px;
-  color: white;
+  color: var(--gold);
+}
+.earn-ad-reward img { width: 13px; height: 13px; }
+.earn-ad-reward .per-ad { color: var(--muted); font-size: 9.5px; }
+.earn-watch-btn {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(135deg, #ffe9a8, var(--gold) 60%, #a9791f);
+  color: #1a1200;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 11px;
+  transition: transform .15s ease;
+}
+.earn-watch-btn:active { transform: scale(0.94); }
+.earn-watch-btn:disabled { opacity: 0.6; transform: none; }
+.earn-watch-btn svg { width: 11px; height: 11px; fill: currentColor; }
+
+.ref-foot-note {
+  width: 100%;
+  text-align: center;
+  margin-top: 36px;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  opacity: 0.7;
 }
 
 /* ══════════════════════════════════════

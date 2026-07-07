@@ -86,30 +86,58 @@ async function handleCopyLink() {
   const btn   = document.getElementById('ref-copy-btn');
   const label = document.getElementById('copy-label');
   btn.classList.add('copied');
-  label.textContent = 'Copied!';
+  label.textContent = 'Copied';
   setTimeout(() => {
     btn.classList.remove('copied');
-    label.textContent = 'Copy Link';
+    label.textContent = 'Copy';
   }, 2000);
 }
 
 /* ══════════════════════════════════════════════════════
    Share buttons
 ══════════════════════════════════════════════════════ */
-function handleShareFacebook(e) {
+/* ══════════════════════════════════════════════════════
+   Share buttons — one promo message, reused everywhere
+══════════════════════════════════════════════════════ */
+function getPromoText() {
+  return "🏆 I'm competing on BigLeague — watch ads, climb the leaderboard, and win real USDT every season. No bots, no shortcuts. Join me and start earning:";
+}
+
+function handleShareTelegram(e) {
   e.preventDefault();
-  fetchApi({ type: 'logShare', data: { platform: 'facebook' } });
-  window.open(
-    'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(REF_LINK),
-    '_blank'
-  );
+  fetchApi({ type: 'logShare', data: { platform: 'telegram' } });
+  const url = 'https://t.me/share/url?url=' + encodeURIComponent(REF_LINK) +
+              '&text=' + encodeURIComponent(getPromoText());
+  if (window.Telegram?.WebApp?.openTelegramLink) {
+    window.Telegram.WebApp.openTelegramLink(url);
+  } else {
+    window.open(url, '_blank');
+  }
 }
 
 function handleShareWhatsApp(e) {
   e.preventDefault();
   fetchApi({ type: 'logShare', data: { platform: 'whatsapp' } });
-  const msg = 'Join me and earn USDT rewards! ' + REF_LINK;
+  const msg = getPromoText() + ' ' + REF_LINK;
   window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function handleShareX(e) {
+  e.preventDefault();
+  fetchApi({ type: 'logShare', data: { platform: 'x' } });
+  const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(getPromoText()) +
+              '&url=' + encodeURIComponent(REF_LINK);
+  window.open(url, '_blank');
+}
+
+async function handleShareMore(e) {
+  e.preventDefault();
+  fetchApi({ type: 'logShare', data: { platform: 'more' } });
+  const shareData = { title: 'BigLeague', text: getPromoText(), url: REF_LINK };
+  if (navigator.share) {
+    try { await navigator.share(shareData); return; } catch { /* user cancelled — fall through */ }
+  }
+  handleCopyLink();
 }
 
 /* ══════════════════════════════════════════════════════
