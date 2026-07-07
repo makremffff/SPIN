@@ -42,7 +42,7 @@ const APP_CFG = {
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
   TICKET_PACKAGES: [
-    { id: 'pkg_1',  tickets: 15000,  ton: 0.01  },
+    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
     { id: 'pkg_2',  tickets: 40000,  ton: 0.25 },
     { id: 'pkg_3',  tickets: 100000,  ton: 0.5  },
     { id: 'pkg_4',  tickets: 250000, ton: 1    },
@@ -306,7 +306,8 @@ async function ensureSchema() {
   )`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_users_pts ON users (pts DESC)`);
 
-  // 🛡️ Device fingerprints — يمنع تسجيل أكثر من حساب واحد من نفس الجهاز
+  // 🛡️ Device fingerprints — سجل تاريخي (many-to-many) لكل الحسابات اللي ظهرت
+  // على كل فنغربرنت، للمراجعة الإدارية فقط — القرار الفعلي بيتحدد من device_fp_owner
   await sql(`CREATE TABLE IF NOT EXISTS device_fingerprints (
     fingerprint  TEXT    NOT NULL,
     telegram_id  BIGINT  NOT NULL,
@@ -314,6 +315,26 @@ async function ensureSchema() {
     PRIMARY KEY (fingerprint, telegram_id)
   )`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_device_fp ON device_fingerprints(fingerprint)`);
+
+  // 🛡️ Device fingerprint ownership — UNIQUE(fingerprint) لضمان حجز atomic
+  // (INSERT...ON CONFLICT DO NOTHING RETURNING) بدل SELECT-ثم-INSERT اللي فيه race condition
+  await sql(`CREATE TABLE IF NOT EXISTS device_fp_owner (
+    fingerprint  TEXT PRIMARY KEY,
+    telegram_id  BIGINT  NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  // 🔄 Backfill لمرة واحدة: أقدم telegram_id مسجّل لكل فنغربرنت في السجل التاريخي
+  // يصير هو المالك الرسمي، عشان أول طلب جديد بعد النشر ما "يسرقش" الملكية
+  await sql(`
+    INSERT INTO device_fp_owner (fingerprint, telegram_id, created_at)
+    SELECT fingerprint, telegram_id, created_at FROM (
+      SELECT fingerprint, telegram_id, created_at,
+             ROW_NUMBER() OVER (PARTITION BY fingerprint ORDER BY created_at ASC) AS rn
+      FROM device_fingerprints
+    ) t
+    WHERE rn = 1
+    ON CONFLICT (fingerprint) DO NOTHING
+  `);
 
   // 🎁 تتبع حالة الإحالة — referral_activated يصير TRUE بعد الوصول لـ 3000 نقطة
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_activated BOOLEAN NOT NULL DEFAULT FALSE`);
@@ -553,33 +574,38 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
   `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
 
   // 🛡️ Device fingerprint — يحظر فقط الحسابات الجديدة من نفس الجهاز
+  // ⚠️ الحجز atomic عبر device_fp_owner (UNIQUE fingerprint) بدل SELECT-ثم-INSERT
+  // (على Neon مافيش transaction بين الاستعلامات، فـ check-then-act كان بيسمح
+  // لحسابين يسجلوا بنفس اللحظة تقريباً ويفوتوا الحظر — race condition)
   if (fp) {
     try {
       if (isNewUser) {
-        // حساب جديد: تحقق هل الجهاز مسجّل مسبقاً
-        const existingFp = await sql(
-          'SELECT telegram_id FROM device_fingerprints WHERE fingerprint = $1 ORDER BY created_at ASC LIMIT 1',
-          [fp]
-        );
-        if (existingFp.length > 0) {
-          // الجهاز عنده حساب قديم → احظر الحساب الجديد فوراً
-          await sql('UPDATE users SET banned = TRUE WHERE telegram_id = $1', [telegram_id]);
-          console.warn(`[DEVICE-BAN] banned NEW account ${telegram_id} — device already has ${existingFp[0].telegram_id}`);
-        } else {
-          // أول حساب على هذا الجهاز → سجّل الـ fingerprint
-          await sql(
-            'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [fp, telegram_id]
-          );
-          console.log(`[DEVICE-FP] registered for ${telegram_id}`);
-        }
-      } else {
-        // حساب قديم: فقط احفظ الـ fingerprint لو ما كان محفوظ (مثلاً قبل الـ deployment)
-        await sql(
-          'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        const claim = await sql(
+          `INSERT INTO device_fp_owner (fingerprint, telegram_id)
+           VALUES ($1, $2)
+           ON CONFLICT (fingerprint) DO NOTHING
+           RETURNING telegram_id`,
           [fp, telegram_id]
         );
+
+        if (claim.length === 0) {
+          // الفنغربرنت محجوز فعلاً لحساب تاني → احظر الحساب الجديد فوراً
+          const owner = await sql(
+            'SELECT telegram_id FROM device_fp_owner WHERE fingerprint = $1',
+            [fp]
+          );
+          await sql('UPDATE users SET banned = TRUE WHERE telegram_id = $1', [telegram_id]);
+          console.warn(`[DEVICE-BAN] banned NEW account ${telegram_id} — device already owned by ${owner[0]?.telegram_id}`);
+        } else {
+          console.log(`[DEVICE-FP] owner registered for ${telegram_id}`);
+        }
       }
+
+      // سجل تاريخي (many-to-many) لكل الحسابات اللي ظهرت على هذا الفنغربرنت — للمراجعة الإدارية بس
+      await sql(
+        'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [fp, telegram_id]
+      );
     } catch (fpErr) {
       console.error('[DEVICE-FP] error:', fpErr.message);
     }
