@@ -130,14 +130,12 @@ function handleShareX(e) {
   window.open(url, '_blank');
 }
 
-async function handleShareMore(e) {
+function handleShareFacebook(e) {
   e.preventDefault();
-  fetchApi({ type: 'logShare', data: { platform: 'more' } });
-  const shareData = { title: 'BigLeague', text: getPromoText(), url: REF_LINK };
-  if (navigator.share) {
-    try { await navigator.share(shareData); return; } catch { /* user cancelled — fall through */ }
-  }
-  handleCopyLink();
+  fetchApi({ type: 'logShare', data: { platform: 'facebook' } });
+  const url = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(REF_LINK) +
+              '&quote=' + encodeURIComponent(getPromoText());
+  window.open(url, '_blank');
 }
 
 /* ══════════════════════════════════════════════════════

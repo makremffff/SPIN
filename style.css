@@ -878,7 +878,7 @@ nav {
 .ref-share-btn.tg:hover { box-shadow: 0 0 0 1px #4fb6ea; }
 .ref-share-btn.wa:hover { box-shadow: 0 0 0 1px #38d17a; }
 .ref-share-btn.x:hover  { box-shadow: 0 0 0 1px #cfd4dd; }
-.ref-share-btn.more:hover { box-shadow: 0 0 0 1px rgba(245,200,64,0.45); }
+.ref-share-btn.fb:hover { box-shadow: 0 0 0 1px #1877f2; }
 
 /* ── Ad CTA row ── */
 .earn-section { width: 100%; margin-top: 50px; }
