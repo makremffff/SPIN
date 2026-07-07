@@ -256,16 +256,64 @@ function secAllow(action) {
 
 /* ── 8. Session Fingerprint ─────────────────────────── */
 const _fingerprint = (function () {
+  // 🖼️ Canvas fingerprint — رسم نص/شكل ثابت وقراءة بكسلاته؛ يختلف حسب
+  // الـ GPU/driver/font-rendering الفعلي للجهاز (إنتروبيا عالية بين أجهزة مختلفة)
+  function canvasSig() {
+    try {
+      const c = document.createElement('canvas');
+      c.width = 220; c.height = 30;
+      const ctx = c.getContext('2d');
+      if (!ctx) return '';
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(0, 0, 100, 20);
+      ctx.fillStyle = '#069';
+      ctx.fillText('bigleague-fp-🧸', 2, 2);
+      return c.toDataURL();
+    } catch { return ''; }
+  }
+
+  // 🎮 WebGL fingerprint — اسم كارت الشاشة الفعلي (vendor/renderer)؛ نادراً
+  // يتطابق بين جهازين مختلفين حقيقيين حتى لو نفس موديل الموبايل تقريباً
+  function webglSig() {
+    try {
+      const c = document.createElement('canvas');
+      const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) return '';
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const vendor   = ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)   : gl.getParameter(gl.VENDOR);
+      const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+      return `${vendor}|${renderer}`;
+    } catch { return ''; }
+  }
+
+  // 🔊 Audio fingerprint (خصائص متزامنة فقط، بدون rendering غير متزامن)
+  function audioSig() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return '';
+      const ctx = new AC();
+      const sig = `${ctx.sampleRate}|${ctx.destination.maxChannelCount}|${ctx.destination.channelCount}`;
+      ctx.close?.();
+      return sig;
+    } catch { return ''; }
+  }
+
   function build() {
     const raw = [
       navigator.language    || '',
       navigator.languages?.join(',') || '',
       navigator.platform    || '',
       navigator.hardwareConcurrency || 0,
+      navigator.deviceMemory || 0,
       screen.width + 'x' + screen.height,
       screen.colorDepth     || 0,
       Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-      new Date().getTimezoneOffset()
+      new Date().getTimezoneOffset(),
+      canvasSig(),
+      webglSig(),
+      audioSig()
     ].join('|');
 
     // djb2 hash
