@@ -30,11 +30,11 @@ const APP_CONFIG = {
   REF_USDT_REWARD   : 0.01,  // USDT added to balance per referral
 
   /* Ad rewards */
-  AD_TICKET_REWARD  : 750,    // tickets per ad watch
+  AD_USD_REWARD     : 0.001,  // USD per ad watch
   AD_DAILY_MAX      : 3000,     // max ads per day
 
   /* Withdrawal */
-  WITHDRAW_MIN      : 0.2,   // minimum withdrawal in USD
+  WITHDRAW_MIN      : 0.07,   // minimum withdrawal in USD
 
   /* Deposit — شراء تذاكر مقابل TON عبر TonConnect (يُستبدل بقيمة السرفر) */
   TICKET_PACKAGES: [

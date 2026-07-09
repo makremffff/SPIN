@@ -163,7 +163,7 @@ function renderConfig() {
 
   // Ad reward card
   const adReward = document.getElementById('ad-ticket-reward');
-  if (adReward) adReward.textContent = cfg.AD_TICKET_REWARD.toLocaleString();
+  if (adReward) adReward.textContent = `$${cfg.AD_USD_REWARD.toFixed(3)}`;
 
   // Withdraw minimum badge
   const wdMin = document.getElementById('wd-min-label');
