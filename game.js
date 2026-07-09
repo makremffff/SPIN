@@ -66,6 +66,7 @@
   let _basketLog    = [];     // [x/W normalized 0-1, ...]
   let _basketLogTimer = null;
   let _burstFired   = false;  // تم إطلاق انفجار آخر 5 ثواني؟
+  let _devToolsOpen = false;  // 🛡️ true أثناء فتح أدوات المطوّر — يوقف/يمنع اللعب
 
   // ticket/bomb فقط — بدون دولار (الدولار يُفرض في فتحات ثابتة عبر _pickDollarSlots)
   const TYPES = [
@@ -201,6 +202,10 @@
 
   /* ── Countdown → Start ──────────────────────────── */
   async function startCountdown() {
+    if (_devToolsOpen || window.__devToolsOpen) { // 🛡️ يمنع بدء جولة جديدة وأدوات المطوّر مفتوحة
+      _showDevToolsOverlay(true);
+      return;
+    }
     const wrap = document.getElementById('game-canvas-wrap');
     wrap.classList.add('active');
     document.getElementById('end-overlay').classList.remove('active');
@@ -373,8 +378,16 @@
       spawnX = biasRnd < 0.80
         ? W * 0.30 + xRnd * (W * 0.40)  // zone مركزية
         : m + xRnd * (W - m * 2);         // عشوائي كامل
+    } else if (t.type === 'dollar') {
+      // 🎮 عملات USDT: تنزل دائماً بالقرب من منتصف الشاشة (زون 35%–65%)
+      spawnX = W * 0.35 + xRnd * (W * 0.30);
     } else {
-      spawnX = m + xRnd * (W - m * 2);   // تذاكر: عشوائي كامل
+      // 🎮 تذاكر (عادية/نادرة): bias يبعدها عن المنتصف نحو الجوانب —
+      // يمنع كسب سهل بترك السلة ثابتة في الوسط، ويشجع تحريك السلة فعلياً.
+      const d  = Math.abs(xRnd - 0.5) * 2;        // مسافة عن المنتصف 0..1
+      const d2 = Math.pow(d, 0.55);                // <1 يبعد التوزيع عن المنتصف
+      const u  = 0.5 + Math.sign(xRnd - 0.5) * (d2 / 2);
+      spawnX = m + u * (W - m * 2);
     }
 
     Object.assign(t, {
@@ -388,22 +401,25 @@
     spawnCd = Math.max(.3, .85 - prog * .5) + cdRnd * .2;
   }
 
-  // 🛡️ انفجار 10 قنابل سريعة في المنتصف — مخصص لآخر 5 ثواني
+  // 🛡️ انفجار 40 قنبلة سريعة في المنتصف فقط — مخصص لآخر 5 ثواني
+  // زون أضيق ومكثّف أكثر من الوسط (35%–65%) لضمان صعوبة أعلى
   // غير مُتتبَّعة في _caughtIds (تأثير بصري + عقوبة محلية فقط)
   function _spawnBombBurst() {
-    for (let i = 0; i < 10; i++) {
+    const BURST_COUNT    = 40;
+    const BURST_INTERVAL = 105; // ms بين كل قنبلة — 40×105ms ≈ 4.2s، يناسب آخر 5 ثواني
+    for (let i = 0; i < BURST_COUNT; i++) {
       setTimeout(() => {
         if (!running) return;
         const bomb = { ...TYPES[2], _idx: -1, _burst: true };
         Object.assign(bomb, {
-          x:      W * 0.22 + Math.random() * (W * 0.56), // مركز 22%–78%
+          x:      W * 0.35 + Math.random() * (W * 0.30), // مركز فقط 35%–65%
           y:      -bomb.r,
           speed:  360 + Math.random() * 80,
           wobble: (Math.random() - .5) * 0.5,
           ang:    0,
         });
         items.push(bomb);
-      }, i * 160); // قنبلة كل 160ms
+      }, i * BURST_INTERVAL);
     }
   }
 
@@ -712,6 +728,40 @@
     submitRound(); // يرسل الجلسة لو كانت الجولة انتهت قبل أن يغادر المستخدم
     document.getElementById('end-overlay').classList.remove('active');
   }
+
+  /* ── 🛡️ إيقاف اللعبة عند فتح أدوات المطوّر ─────────────
+     يعتمد على devToolsGuard في security.js الذي يُطلق حدث
+     'bl:devtools' على window عند فتح/إغلاق الأدوات.
+     عند الفتح أثناء جولة جارية: تُسقَط الجولة بالكامل فوراً
+     (بدون إرسال/مكافأة) — منعاً لاستخدام الأدوات للتلاعب. ───── */
+  function _showDevToolsOverlay(show) {
+    const ov = document.getElementById('devtools-overlay');
+    if (ov) ov.style.display = show ? 'flex' : 'none';
+  }
+
+  function _handleDevToolsChange(open) {
+    _devToolsOpen = open;
+    _showDevToolsOverlay(open);
+
+    if (open) {
+      cdToken++; // يلغي أي countdown جارٍ
+      document.getElementById('cd-overlay').style.display = 'none';
+      if (running) {
+        running = false;
+        if (animId) cancelAnimationFrame(animId);
+        if (_basketLogTimer) { clearInterval(_basketLogTimer); _basketLogTimer = null; }
+        _sessionToken = null; // 🛡️ إسقاط الجولة — بدون claim أو submitRound
+        _roundEnded   = false;
+        document.getElementById('end-overlay').classList.remove('active');
+      }
+    } else {
+      // إعادة بدء جولة جديدة تلقائياً لو المستخدم لا يزال داخل تبويب اللعبة
+      const wrap = document.getElementById('game-canvas-wrap');
+      if (wrap && wrap.classList.contains('active')) startCountdown();
+    }
+  }
+
+  window.addEventListener('bl:devtools', e => _handleDevToolsChange(!!e.detail?.open));
 
   /* ── Expose entry points ─────────────────────────────── */
   window.gameStart  = startCountdown; // يُستدعى من pages.js عند دخول تبويب اللعبة

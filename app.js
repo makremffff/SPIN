@@ -320,6 +320,54 @@ window.onReferralJoin = function({ friendName = 'A friend', reward = 5000 } = {}
 };
 
 /* ══════════════════════════════════════════════════════
+   📢 Channel Gate — يظهر لما السحب يرجع channel_required
+   زر "Join Channel" يفتح القناة، زر "Verify" يتحقق فوراً
+   ويعيد محاولة السحب تلقائياً لو العضوية تأكدت.
+══════════════════════════════════════════════════════ */
+let _pendingWithdrawAmount = null;
+
+function showChannelGate(amount) {
+  _pendingWithdrawAmount = amount;
+  document.getElementById('channel-gate-overlay')?.classList.add('active');
+}
+
+function hideChannelGate() {
+  document.getElementById('channel-gate-overlay')?.classList.remove('active');
+}
+
+function openChannelFromGate() {
+  const link = typeof CHANNEL_LINK !== 'undefined' ? CHANNEL_LINK : null;
+  if (!link) return;
+  if (window.Telegram?.WebApp?.openTelegramLink) {
+    Telegram.WebApp.openTelegramLink(link);
+  } else {
+    window.open(link, '_blank');
+  }
+}
+
+async function verifyChannelAndRetry() {
+  const btn = document.getElementById('cg-verify-btn');
+  if (btn) { btn.disabled = true; btn.textContent = ' Checking...'; }
+
+  const res = await fetchApi({ type: 'checkChannel' });
+
+  if (res?.ok) {
+    hideChannelGate();
+    if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
+    if (_pendingWithdrawAmount != null) {
+      document.getElementById('wd-amount').value = _pendingWithdrawAmount;
+      _pendingWithdrawAmount = null;
+      handleWithdraw();
+    }
+  } else {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
+    showToast({ type: 'withdraw', title: 'Not Joined Yet', msg: 'Join the channel first, then tap Verify', duration: 3500 });
+  }
+}
+window.openChannelFromGate  = openChannelFromGate;
+window.verifyChannelAndRetry = verifyChannelAndRetry;
+
+/* ══════════════════════════════════════════════════════
    Withdraw → toast on success
 ══════════════════════════════════════════════════════ */
 async function handleWithdraw() {
@@ -362,6 +410,9 @@ async function handleWithdraw() {
     document.getElementById('wd-amount').value  = '';
 
     refreshState();
+  } else if (res?.error === 'channel_required') {
+    // 📢 اشتراك إجباري بالقناة — يظهر بوابة الاشتراك بدل رسالة خطأ عادية
+    showChannelGate(amount);
   } else {
     showToast({
       type:     'withdraw',

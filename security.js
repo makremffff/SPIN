@@ -72,12 +72,17 @@ function getStartParam() {
   function onOpen() {
     if (devOpen) return;
     devOpen = true;
+    window.__devToolsOpen = true;
     console.warn('[security] DevTools detected');
     _reportSecEvent('devtools_open', { ua: navigator.userAgent.slice(0, 80) });
+    // 🛡️ يبلغ باقي التطبيق (مثل game.js) لإيقاف أي نشاط حساس فوراً
+    window.dispatchEvent(new CustomEvent('bl:devtools', { detail: { open: true } }));
   }
 
   function onClose() {
     devOpen = false;
+    window.__devToolsOpen = false;
+    window.dispatchEvent(new CustomEvent('bl:devtools', { detail: { open: false } }));
   }
 
   setInterval(() => {

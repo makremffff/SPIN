@@ -640,6 +640,15 @@
 
       <div id="cd-overlay"><div id="cd-num"></div></div>
 
+      <div id="devtools-overlay">
+        <div class="dt-backdrop"></div>
+        <div class="dt-card">
+          <svg viewBox="0 0 24 24" class="dt-icon"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg>
+          <div class="dt-title">Game Paused</div>
+          <div class="dt-msg">Close Developer Tools to continue playing.</div>
+        </div>
+      </div>
+
       <div id="end-overlay">
         <div class="end-backdrop"></div>
         <div class="end-card">
@@ -810,6 +819,22 @@
 <script src="game.js"></script>
 <script src="pages.js"></script>
 <script src="app.js"></script>
+
+  <!-- ══ Channel Gate Overlay — اشتراك إجباري بالقناة قبل السحب ══ -->
+  <div id="channel-gate-overlay">
+    <div class="cg-backdrop"></div>
+    <div class="cg-card">
+      <svg viewBox="0 0 24 24" class="cg-icon">
+        <path d="M22 2 11 13"/>
+        <path d="M22 2 15 22l-4-9-9-4 20-7Z"/>
+      </svg>
+      <div class="cg-title">Join Our Channel</div>
+      <div class="cg-msg">You need to join our channel before you can withdraw. It only takes a second.</div>
+      <button class="btn-ad" id="cg-join-btn" type="button" onclick="openChannelFromGate()">Join Channel</button>
+      <button class="btn-claim" id="cg-verify-btn" type="button" onclick="verifyChannelAndRetry()">✓ I Joined — Verify</button>
+      <button class="btn-again" type="button" onclick="hideChannelGate()">Cancel</button>
+    </div>
+  </div>
 
 </body>
 </html>
