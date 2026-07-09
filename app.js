@@ -274,7 +274,7 @@ async function handleWatchAd() {
     const reward = res.reward ?? 0.001;
 
     if (res.partial) {
-      // 60% reward — show center modal instead of normal toast
+      // 50% reward — show center modal instead of normal toast
       showPartialRewardModal(reward);
     } else {
       showToast({
@@ -725,7 +725,7 @@ function showPartialRewardModal(reward) {
     <div id="partial-reward-card">
       <img src="asesst/play.jpg" alt="" id="partial-reward-img">
       <div id="partial-reward-body">
-        <p id="partial-reward-pct">You got <strong>60%</strong> of the reward</p>
+        <p id="partial-reward-pct">You got <strong>50%</strong> of the reward</p>
         <p id="partial-reward-amount">+$${reward.toFixed(3)}</p>
         <p id="partial-reward-hint">Engage with the ad fully to unlock<br>your <strong>100% reward</strong> next time</p>
         <button id="partial-reward-close">Got it</button>
