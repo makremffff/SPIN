@@ -16,7 +16,7 @@ const TONCENTER_BASE          = process.env.TONCENTER_BASE || 'https://toncenter
 
 // 📢 قناة الاشتراك الإجباري قبل السحب — بدون @ — لازم يطابق CHANNEL_LINK في config.js
 // ⚠️ البوت يجب أن يكون عضو/أدمن في القناة حتى يقدر يستخدم getChatMember
-const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'YourChannelUsername';
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'withdrawlProof2026';
 
 // 🛡️ يتحقق من عضوية المستخدم في القناة عبر Telegram Bot API — تحقق فوري، بدون تخزين وسيط
 async function isChannelMember(telegramId) {
