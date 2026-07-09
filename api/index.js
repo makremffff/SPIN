@@ -14,6 +14,27 @@ const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-
 const TONCENTER_API_KEY       = process.env.TONCENTER_API_KEY || ''; // اختياري، يرفع الـ rate limit
 const TONCENTER_BASE          = process.env.TONCENTER_BASE || 'https://toncenter.com/api/v2';
 
+// 📢 قناة الاشتراك الإجباري قبل السحب — بدون @ — لازم يطابق CHANNEL_LINK في config.js
+// ⚠️ البوت يجب أن يكون عضو/أدمن في القناة حتى يقدر يستخدم getChatMember
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'YourChannelUsername';
+
+// 🛡️ يتحقق من عضوية المستخدم في القناة عبر Telegram Bot API — تحقق فوري، بدون تخزين وسيط
+async function isChannelMember(telegramId) {
+  if (!BOT_TOKEN || !CHANNEL_USERNAME) return true; // fail-open لو غير مُهيّأ
+  try {
+    const r = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${telegramId}`
+    );
+    const j = await r.json();
+    if (!j.ok) return false;
+    const status = j.result?.status;
+    return ['creator', 'administrator', 'member'].includes(status);
+  } catch (e) {
+    console.error('[channel check]', e.message);
+    return false; // fail-closed عند خطأ فعلي بالتحقق
+  }
+}
+
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
   AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
@@ -1355,6 +1376,12 @@ module.exports = async function handler(req, res) {
         if (isNaN(amt) || amt < APP_CFG.WITHDRAW_MIN) return res.status(400).json({ ok: false, error: `Minimum withdrawal is $${APP_CFG.WITHDRAW_MIN.toFixed(2)}` });
         if (parseFloat(dbUser.balance_usd) < amt) return res.status(400).json({ ok: false, error: 'Insufficient balance' });
 
+        // 📢 اشتراك إجباري بالقناة قبل أي سحب — تحقق فوري عبر Telegram Bot API
+        const isMember = await isChannelMember(dbUser.telegram_id);
+        if (!isMember) {
+          return res.status(403).json({ ok: false, error: 'channel_required', channel: CHANNEL_USERNAME });
+        }
+
         // 🛡️ Shadow ban — رد ناجح وهمي بدون خصم رصيد فعلي أو تسجيل سحب حقيقي
         if (dbUser.shadow_banned) {
           return res.json({ ok: true });
@@ -1375,6 +1402,12 @@ module.exports = async function handler(req, res) {
         ).catch(e => console.error('[withdraw bot notify]', e.message));
 
         return res.json({ ok: true });
+      }
+
+      // 📢 فحص عضوية القناة فقط — يُستخدم من زر "I Joined - Verify" بعد السحب المرفوض
+      case 'checkChannel': {
+        const isMember = await isChannelMember(dbUser.telegram_id);
+        return res.json({ ok: isMember, channel: CHANNEL_USERNAME });
       }
 
       // 💎 depositInit — يحجز صف "pending" قبل ما نرسل المستخدم يوقّع بمحفظته
