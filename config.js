@@ -10,7 +10,7 @@ const ADSGRAM_BLOCK_ID = '35167';
 
 // ⚠️ غيّر يوزرنيم قناتك هنا — يُستخدم في زر "Join Channel" بالأونبوردنغ وبصفحة السحب
 // ⚠️ لازم يطابق نفس اليوزرنيم في متغير البيئة CHANNEL_USERNAME على السيرفر (api/index.js)
-const CHANNEL_LINK = 'https://t.me/YourChannelUsername';
+const CHANNEL_LINK = 'https://t.me/withdrawlProof2026';
 
 // ⚠️ غيّره بدومينك الحقيقي بعد رفع المشروع — لازم ترفع ملف tonconnect-manifest.json
 // (مرفق في التسليم) في جذر نفس الدومين بحيث يكون متاح على /tonconnect-manifest.json
