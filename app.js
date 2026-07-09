@@ -279,7 +279,7 @@ async function handleWatchAd() {
     } else {
       showToast({
         type:     'ad',
-        title:    `+$${reward.toFixed(3)} Earned!`,
+        title:    `+$${reward.toFixed(4)} Earned!`,
         msg:      'Ad watched successfully · Keep going',
         duration: 4500
       });
@@ -726,7 +726,7 @@ function showPartialRewardModal(reward) {
       <img src="asesst/play.jpg" alt="" id="partial-reward-img">
       <div id="partial-reward-body">
         <p id="partial-reward-pct">You got <strong>50%</strong> of the reward</p>
-        <p id="partial-reward-amount">+$${reward.toFixed(3)}</p>
+        <p id="partial-reward-amount">+$${reward.toFixed(4)}</p>
         <p id="partial-reward-hint">Engage with the ad fully to unlock<br>your <strong>100% reward</strong> next time</p>
         <button id="partial-reward-close">Got it</button>
       </div>
