@@ -56,9 +56,9 @@ const CFG = {
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
   REF_USDT_REWARD   : 0.01,  // USDT added to referrer balance per referral
-  AD_TICKET_REWARD  : 750,    // tickets per ad
+  AD_USD_REWARD     : 0.001,  // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
-  WITHDRAW_MIN      : 0.2,
+  WITHDRAW_MIN      : 0.07,
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
@@ -305,9 +305,12 @@ async function ensureSchema() {
   await sql(`CREATE TABLE IF NOT EXISTS ad_watches (
     id         SERIAL PRIMARY KEY,
     user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    reward     INT NOT NULL DEFAULT 750,
+    reward     NUMERIC(14,6) NOT NULL DEFAULT 0.001,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  // 💵 صارت مكافأة الإعلان دولار (0.001$) بدل تذاكر — توسيع الدقة العشرية لدعم القيم الصغيرة
+  await sql(`ALTER TABLE ad_watches ALTER COLUMN reward TYPE NUMERIC(14,6)`);
+  await sql(`ALTER TABLE ad_watches ALTER COLUMN reward SET DEFAULT 0.001`);
 
   // 🛡️ تأكيدات Adsgram Reward URL — server-to-server، لا تمر من متصفح المستخدم أبداً
   // كل صف يعني "Adsgram أكّد أن هذا المستخدم شاهد إعلاناً فعلياً الآن"
@@ -1117,11 +1120,11 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Duplicate request' });
         }
 
-        const AD_REWARD = APP_CFG.AD_TICKET_REWARD;
+        const AD_REWARD = APP_CFG.AD_USD_REWARD;
 
         // 🎯 تحديد المكافأة: أقل من AD_FULL_REWARD_MIN_SEC → 60% فقط
         const isPartialWatch = sessionAge < AD_FULL_REWARD_MIN_SEC;
-        const actualReward   = isPartialWatch ? Math.round(AD_REWARD * 0.6) : AD_REWARD;
+        const actualReward   = isPartialWatch ? +(AD_REWARD * 0.6).toFixed(6) : AD_REWARD;
 
         // 🛡️ Shadow ban — كل الفحوصات أعلاه نجحت بشكل طبيعي (نفس تجربة مستخدم حقيقي)،
         // بس ما رايح نمنح نقاط فعلية. الرد يبدو ناجح عشان المخترق ما يلاحظ شي،
@@ -1145,7 +1148,7 @@ module.exports = async function handler(req, res) {
         // 🔒 Atomic update
         await sql(`
           UPDATE users SET
-            pts           = pts + $1,
+            balance_usd   = balance_usd + $1,
             last_ad_watch = NOW(),
             daily_ads     = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
             last_ad_date  = CURRENT_DATE
