@@ -889,8 +889,9 @@ nav {
   gap: 16px;
   padding: 18px 20px;
   border-radius: 24px;
-  background: radial-gradient(circle at 15% 20%, rgba(245,200,64,0.10), transparent 70%);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
+  background: radial-gradient(circle at 15% 20%, rgba(245,200,255,0.30), transparent 70%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+  backdrop-filter: blur(5px);
 }
 .earn-ad-icon {
   width: 44px; height: 44px;
@@ -1831,24 +1832,22 @@ nav {
 }
 
 #partial-reward-modal.visible {
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(4, 4, 7, 0.84);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
 }
 
 #partial-reward-card {
-  width: min(88vw, 340px);
-  background: #111218;
+  width: min(88vw, 330px);
+  background: #0c0d13;
   border-radius: 20px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04);
-  transform: scale(0.88) translateY(20px);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255,255,255,0.05);
+  transform: scale(0.92) translateY(14px);
   opacity: 0;
-  transition: transform .38s cubic-bezier(.34,1.5,.64,1), opacity .3s ease;
- font-family: 'Permanent Marker', cursive;
+  transition: transform .3s ease, opacity .28s ease;
+  font-family: 'Permanent Marker', cursive;
 }
 
 #partial-reward-modal.visible #partial-reward-card {
@@ -1856,71 +1855,120 @@ nav {
   opacity: 1;
 }
 
+#partial-reward-media {
+  position: relative;
+  height: 120px;
+}
+
 #partial-reward-img {
   width: 100%;
-  height: 55%;
+  height: 100%;
   object-fit: cover;
-  flex-shrink: 0;
   display: block;
-  min-height: 160px;
+}
+
+#partial-reward-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12,13,19,0) 40%, #0c0d13 100%);
 }
 
 #partial-reward-body {
-  padding: 22px 22px 20px;
+  padding: 8px 26px 24px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
   text-align: center;
 }
 
-#partial-reward-pct {
-  font-size: 14px;
-  color: rgba(255,255,255,0.55);
-  margin: 0;
-  letter-spacing: 0.01em;
+#partial-reward-eyebrow {
+  font-family: 'Sora', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin: 0 0 6px;
 }
 
-#partial-reward-pct strong {
-  color: var(--gold, #f5c840);
-  font-size: 15px;
+#partial-reward-title {
+  font-size: 22px;
+  color: rgba(255,255,255,0.92);
+  margin: 0 0 22px;
+}
+
+#partial-reward-amount-wrap {
+  position: relative;
+  margin-bottom: 10px;
 }
 
 #partial-reward-amount {
-  font-family: 'DynaPuff', cursive;
-  font-size: 36px;
-  letter-spacing: 0.04em;
+  font-size: 48px;
   color: var(--gold, #f5c840);
-  margin: 2px 0 4px;
   line-height: 1;
-  text-shadow: 0 0 20px rgba(245,200,64,0.35);
+  margin: 0;
+}
+
+#partial-reward-amount-wrap svg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  width: 100%;
+  height: 10px;
+}
+
+#partial-reward-full {
+  font-family: 'Sora', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  margin: 14px 0 20px;
+  letter-spacing: 0.01em;
+}
+
+#partial-reward-full b {
+  color: rgba(255,255,255,0.78);
+  font-weight: 700;
 }
 
 #partial-reward-hint {
-  font-size: 12.5px;
-  color: rgba(255,255,255,0.4);
-  line-height: 1.6;
-  margin: 0 0 14px;
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 13px 15px;
+  margin-bottom: 20px;
 }
 
-#partial-reward-hint strong {
-  color: rgba(255,255,255,0.7);
+#partial-reward-hint p {
+  margin: 0;
+  font-family: 'Sora', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.62);
+}
+
+#partial-reward-hint b {
+  color: var(--gold, #f5c840);
+  font-weight: 700;
 }
 
 #partial-reward-close {
   width: 100%;
-  padding: 13px 0;
+  padding: 15px 0;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #f5c840, #c8860a);
-  color: #000;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  background: var(--gold, #f5c840);
+  color: #241800;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 16px;
   cursor: pointer;
-  transition: opacity .2s;
+  transition: transform .12s ease;
 }
 
-#partial-reward-close:active { opacity: 0.8; }
+#partial-reward-close:active { transform: scale(0.97); }
 
 /* ══════════════════════════════════════════════════════
    § Onboarding Overlay (5-slide swipeable intro)

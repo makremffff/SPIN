@@ -711,7 +711,7 @@ async function pollDepositStatus(depositId, pkg, statusEl, attempt = 0) {
 }
 
 /* ══════════════════════════════════════════════════════
-   Partial Reward Modal — shown when ad session < 33s
+   Partial Reward Modal — shown when ad session < AD_FULL_REWARD_MIN_SEC
    Displayed centered on screen with play.jpg image
 ══════════════════════════════════════════════════════ */
 function showPartialRewardModal(reward) {
@@ -719,15 +719,33 @@ function showPartialRewardModal(reward) {
   const old = document.getElementById('partial-reward-modal');
   if (old) old.remove();
 
+  const cfg      = appState.config || APP_CONFIG;
+  const fullAmt  = Number(cfg.AD_USD_REWARD) || 0.001;
+
   const modal = document.createElement('div');
   modal.id = 'partial-reward-modal';
   modal.innerHTML = `
     <div id="partial-reward-card">
-      <img src="asesst/play.jpg" alt="" id="partial-reward-img">
+      <div id="partial-reward-media">
+        <img src="asesst/play.jpg" alt="" id="partial-reward-img">
+      </div>
       <div id="partial-reward-body">
-        <p id="partial-reward-pct">You got <strong>50%</strong> of the reward</p>
-        <p id="partial-reward-amount">+$${reward.toFixed(4)}</p>
-        <p id="partial-reward-hint">Engage with the ad fully to unlock<br>your <strong>100% reward</strong> next time</p>
+        <p id="partial-reward-eyebrow">AD RESULT</p>
+        <p id="partial-reward-title">You got half</p>
+
+        <div id="partial-reward-amount-wrap">
+          <p id="partial-reward-amount">+$${reward.toFixed(4)}</p>
+          <svg viewBox="0 0 200 10" preserveAspectRatio="none">
+            <path d="M2,6 C50,2 150,9 198,4" fill="none" stroke="#f5c840" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+          </svg>
+        </div>
+
+        <p id="partial-reward-full">Full reward is <b>$${fullAmt.toFixed(3)}</b></p>
+
+        <div id="partial-reward-hint">
+          <p>Ad closed early. Watch the full ad next time for the <b>full reward</b>.</p>
+        </div>
+
         <button id="partial-reward-close">Got it</button>
       </div>
     </div>
