@@ -86,7 +86,7 @@ const AD_DURATIONS = {
 // نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
 const AD_GRACE_SEC = 90;
 
-// 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 60% فقط من المكافأة
+// 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 50% فقط من المكافأة
 const AD_FULL_REWARD_MIN_SEC = 35;
 
 const _db = neon(DATABASE_URL);
@@ -1122,9 +1122,9 @@ module.exports = async function handler(req, res) {
 
         const AD_REWARD = APP_CFG.AD_USD_REWARD;
 
-        // 🎯 تحديد المكافأة: أقل من AD_FULL_REWARD_MIN_SEC → 60% فقط
+        // 🎯 تحديد المكافأة: أقل من AD_FULL_REWARD_MIN_SEC → 50% فقط
         const isPartialWatch = sessionAge < AD_FULL_REWARD_MIN_SEC;
-        const actualReward   = isPartialWatch ? +(AD_REWARD * 0.6).toFixed(6) : AD_REWARD;
+        const actualReward   = isPartialWatch ? +(AD_REWARD * 0.5).toFixed(6) : AD_REWARD;
 
         // 🛡️ Shadow ban — كل الفحوصات أعلاه نجحت بشكل طبيعي (نفس تجربة مستخدم حقيقي)،
         // بس ما رايح نمنح نقاط فعلية. الرد يبدو ناجح عشان المخترق ما يلاحظ شي،
