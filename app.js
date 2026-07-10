@@ -395,14 +395,15 @@ async function handleWithdraw(amount, fee) {
     return;
   }
 
-  // الصافي بعد خصم الرسوم — هذا هو المبلغ الفعلي اللي بينبعت بطلب السحب
+  // الصافي بعد خصم الرسوم — نعرضه للمستخدم بالتوست، لكن السيرفر هو اللي بيحسب
+  // الخصم من الرصيد (بالإجمالي) والمبلغ المستحق فعلياً (بالصافي) عشان الحد الأدنى يضل يتحقق صح
   const netAmount = Math.round((amount - fee) * 1000) / 1000;
 
   const btn = document.querySelector(`.wc-buy-btn[data-amt="${amount}"]`);
   document.querySelectorAll('.wc-buy-btn').forEach(b => b.disabled = true);
   if (btn) btn.style.opacity = '0.7';
 
-  const res = await fetchApi({ type: 'withdraw', data: { address: connectedWalletAddress, amount: netAmount } });
+  const res = await fetchApi({ type: 'withdraw', data: { address: connectedWalletAddress, amount, fee } });
 
   document.querySelectorAll('.wc-buy-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
 
