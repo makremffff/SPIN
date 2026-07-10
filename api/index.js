@@ -1373,9 +1373,11 @@ module.exports = async function handler(req, res) {
       }
 
       case 'withdraw': {
-        const { address, memo, amount } = data;
+        const { address, memo, amount, fee } = data;
         if (!address?.trim()) return res.status(400).json({ ok: false, error: 'Wallet address required' });
-        const amt = parseFloat(amount);
+        const amt    = parseFloat(amount);           // الإجمالي — يُخصم من رصيد المستخدم
+        const feeAmt = parseFloat(fee) || 0;          // رسوم المنصة
+        const netAmt = Math.max(0, Math.round((amt - feeAmt) * 100) / 100); // الصافي — يُسجَّل كمبلغ السحب المستحق فعلياً
         if (isNaN(amt) || amt < APP_CFG.WITHDRAW_MIN) return res.status(400).json({ ok: false, error: `Minimum withdrawal is $${APP_CFG.WITHDRAW_MIN.toFixed(2)}` });
         if (parseFloat(dbUser.balance_usd) < amt) return res.status(400).json({ ok: false, error: 'Insufficient balance' });
 
@@ -1390,16 +1392,19 @@ module.exports = async function handler(req, res) {
           return res.json({ ok: true });
         }
 
+        const feeMemo  = feeAmt > 0 ? `Fee: $${feeAmt.toFixed(3).replace(/0$/, '')} (gross $${amt.toFixed(2)})` : null;
+        const fullMemo = [memo?.trim(), feeMemo].filter(Boolean).join(' | ') || null;
+
         await sql('UPDATE users SET balance_usd = balance_usd - $1 WHERE id = $2', [amt, dbUser.id]);
         await sql('INSERT INTO withdrawals (user_id, address, memo, amount) VALUES ($1,$2,$3,$4)',
-          [dbUser.id, address.trim(), memo?.trim() || null, amt]);
+          [dbUser.id, address.trim(), fullMemo, netAmt]);
 
         // ✅ إشعار بوت مباشر من الباكند
         sendTelegramMessage(
           Number(dbUser.telegram_id),
           `✅ *Withdrawal Request Submitted*\n\n` +
           `Your request has been received and is being processed.\n\n` +
-          `💎 *Amount:* $${amt.toFixed(2)} USDT\n` +
+          `💎 *Amount:* $${netAmt.toFixed(2)} USDT\n` +
           `👛 *Wallet:* \`${address.trim()}\`\n\n` +
           `🕒 *Processing...* We'll notify you once it's confirmed.`
         ).catch(e => console.error('[withdraw bot notify]', e.message));
