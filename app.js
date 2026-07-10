@@ -325,9 +325,11 @@ window.onReferralJoin = function({ friendName = 'A friend', reward = 5000 } = {}
    ويعيد محاولة السحب تلقائياً لو العضوية تأكدت.
 ══════════════════════════════════════════════════════ */
 let _pendingWithdrawAmount = null;
+let _pendingWithdrawFee    = null;
 
-function showChannelGate(amount) {
+function showChannelGate(amount, fee) {
   _pendingWithdrawAmount = amount;
+  _pendingWithdrawFee    = fee;
   document.getElementById('channel-gate-overlay')?.classList.add('active');
 }
 
@@ -356,8 +358,10 @@ async function verifyChannelAndRetry() {
     if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
     if (_pendingWithdrawAmount != null) {
       const retryAmount = _pendingWithdrawAmount;
+      const retryFee    = _pendingWithdrawFee;
       _pendingWithdrawAmount = null;
-      handleWithdraw(retryAmount);
+      _pendingWithdrawFee    = null;
+      handleWithdraw(retryAmount, retryFee);
     }
   } else {
     if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
@@ -370,7 +374,7 @@ window.verifyChannelAndRetry = verifyChannelAndRetry;
 /* ══════════════════════════════════════════════════════
    Withdraw → toast on success
 ══════════════════════════════════════════════════════ */
-async function handleWithdraw(amount) {
+async function handleWithdraw(amount, fee) {
   // 🛡️ فحص rate limit على الفرونت
   if (!secAllow('withdraw')) {
     showToast({ type: 'withdraw', title: 'Too Many Attempts', msg: 'Please wait before trying again', duration: 3000 });
@@ -383,6 +387,7 @@ async function handleWithdraw(amount) {
   }
 
   amount = parseFloat(amount);
+  fee    = parseFloat(fee) || 0;
 
   const withdrawMin = (appState.config || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {})).WITHDRAW_MIN;
   if (isNaN(amount) || amount < withdrawMin) {
@@ -390,11 +395,14 @@ async function handleWithdraw(amount) {
     return;
   }
 
+  // الصافي بعد خصم الرسوم — هذا هو المبلغ الفعلي اللي بينبعت بطلب السحب
+  const netAmount = Math.round((amount - fee) * 1000) / 1000;
+
   const btn = document.querySelector(`.wc-buy-btn[data-amt="${amount}"]`);
   document.querySelectorAll('.wc-buy-btn').forEach(b => b.disabled = true);
   if (btn) btn.style.opacity = '0.7';
 
-  const res = await fetchApi({ type: 'withdraw', data: { address: connectedWalletAddress, amount } });
+  const res = await fetchApi({ type: 'withdraw', data: { address: connectedWalletAddress, amount: netAmount } });
 
   document.querySelectorAll('.wc-buy-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
 
@@ -402,14 +410,14 @@ async function handleWithdraw(amount) {
     showToast({
       type:     'withdraw',
       title:    `Withdrawal Submitted`,
-      msg:      `$${amount.toFixed(2)} · Processing within 24 hours`,
+      msg:      `$${netAmount.toFixed(3).replace(/0$/, '')} · Processing within 24 hours`,
       duration: 5000
     });
 
     refreshState();
   } else if (res?.error === 'channel_required') {
     // 📢 اشتراك إجباري بالقناة — يظهر بوابة الاشتراك بدل رسالة خطأ عادية
-    showChannelGate(amount);
+    showChannelGate(amount, fee);
   } else {
     showToast({
       type:     'withdraw',
@@ -601,7 +609,7 @@ function renderWithdrawTiers() {
         <div class="wc-fee">Fee $${t.fee.toFixed(3).replace(/0$/, '')}</div>
         <div class="wc-net">${dollarSvg}$${net.toFixed(3).replace(/0$/, '')} net</div>
       </div>
-      <button class="wc-buy-btn" data-amt="${t.amount}" onclick="handleWithdraw(${t.amount})">
+      <button class="wc-buy-btn" data-amt="${t.amount}" onclick="handleWithdraw(${t.amount}, ${t.fee})">
         <span>Withdraw</span>${arrowSvg}
       </button>
     </div>`;
