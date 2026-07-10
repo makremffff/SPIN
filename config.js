@@ -36,6 +36,14 @@ const APP_CONFIG = {
   /* Withdrawal */
   WITHDRAW_MIN      : 0.07,   // minimum withdrawal in USD
 
+  /* Withdraw tiers — quick-select cards on the withdraw page (fee deducted from amount) */
+  WITHDRAW_TIERS: [
+    { id: 'wd_1', amount: 0.07, fee: 0.01 },
+    { id: 'wd_2', amount: 0.15, fee: 0.015 },
+    { id: 'wd_3', amount: 0.35, fee: 0.04 },
+    { id: 'wd_4', amount: 0.60, fee: 0.03, best: true },
+  ],
+
   /* Deposit — شراء تذاكر مقابل TON عبر TonConnect (يُستبدل بقيمة السرفر) */
   TICKET_PACKAGES: [
     { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },

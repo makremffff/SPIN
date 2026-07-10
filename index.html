@@ -710,30 +710,20 @@
         <span class="wd-wallet-address" id="ad-wallet"></span>
       </div>
 
-      <!-- ══ Withdraw section ══ -->
+      <!-- ══ Withdraw section — quick-select tier cards ══ -->
       <div class="wd-form" id="wd-section-withdraw">
 
-        <div class="wd-amount-row reveal from-left">
-          <div class="wd-amount-label-row">
-            <span class="wd-label">Amount</span>
-            <div class="wd-min-badge">
-              <span id="wd-min-label">Min $1.00</span>
-            </div>
-          </div>
-          <div class="wd-amount-wrap">
-            <span class="wd-currency">$</span>
-            <input class="wd-amount-input" id="wd-amount" type="number" placeholder="0.00" min="1" step="0.01">
-          </div>
+        <div class="wc-label-row reveal from-left">
+          <span class="wd-label">Choose a Withdraw Amount</span>
+          <span class="wc-instant-pill">
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            Instant
+          </span>
         </div>
 
-        <button class="wd-btn reveal from-bottom" onclick="handleWithdraw()">
-          <svg viewBox="0 0 24 24">
-            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
-            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
-            <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/>
-          </svg>
-          <span>Withdraw</span>
-        </button>
+        <div class="wc-packages" id="wc-packages"><!-- filled by renderWithdrawTiers() --></div>
+
+        <div class="wc-status" id="wc-status">Fee is deducted automatically from the amount</div>
 
       </div>
 

@@ -248,5 +248,6 @@ document.querySelectorAll('.nb').forEach(btn => {
     animatePage(target);
 
     if (target === 'game' && typeof gameStart === 'function') gameStart();
+    if (target === 'withdraw' && typeof renderWithdrawTiers === 'function') renderWithdrawTiers();
   });
 });

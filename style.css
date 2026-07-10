@@ -1544,6 +1544,186 @@ nav {
 }
 
 /* ══════════════════════════════════════
+   ── Withdraw Tier Cards (same curve/shape as deposit cards) ──
+══════════════════════════════════════ */
+.wc-label-row {
+  width: 100%;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wc-instant-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid var(--border);
+  font-family: 'Permanent Marker', cursive;
+  font-size: 9.5px;
+  color: rgba(220,225,240,0.75);
+  white-space: nowrap;
+}
+.wc-instant-pill svg { width: 11px; height: 11px; stroke: #6ee7a0; fill: none; stroke-width: 2; }
+
+.wc-packages {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 14px;
+  padding: 6px 4px 10px;
+}
+
+.wc-card {
+  --tier: #8B5CF6;
+  position: relative;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.045), rgba(255,255,255,0.014));
+  border: 1px solid var(--border);
+  padding: 13px 11px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  box-shadow: 0 14px 24px -14px rgba(0,0,0,0.6);
+  transform: rotate(3.5deg);
+  transition: transform .15s;
+  backdrop-filter: blur(24px);
+}
+.wc-card:nth-child(4n+1) { transform: rotate(2.5deg); }
+.wc-card:nth-child(4n+2) { transform: rotate(4.5deg); }
+.wc-card:nth-child(4n+3) { transform: rotate(3.5deg); }
+.wc-card:nth-child(4n+4) { transform: rotate(5.5deg); }
+.wc-card:active { transform: rotate(2deg) scale(0.97); }
+
+.wc-card.tier-popular { --tier: #3B82F6; }
+.wc-card.tier-deal    { --tier: #22C55E; }
+.wc-card.best         { --tier: #F5A623; }
+
+.wc-card.best {
+  border-color: rgba(245,166,35,0.35);
+  box-shadow: 0 14px 26px -10px rgba(245,166,35,0.28);
+}
+
+.wc-tag-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 16px;
+}
+
+.wc-tag {
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 8px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--tier) 16%, transparent);
+  color: var(--tier);
+}
+
+.wc-bonus {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 8px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: rgba(110,231,160,0.14);
+  color: #6ee7a0;
+}
+.wc-card.best .wc-bonus { background: color-mix(in srgb, var(--tier) 16%, transparent); color: var(--tier); }
+
+.wc-icon {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 9px; margin-bottom: 10px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--tier) 24%, transparent) 0%, transparent 72%);
+}
+.wc-icon svg { width: 22px; height: 22px; stroke: var(--tier); fill: none; stroke-width: 2; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4)); }
+
+.wc-card-info { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
+
+.wc-amount {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 17px;
+  letter-spacing: -.2px;
+  color: rgba(232,235,246,0.96);
+  line-height: 1.15;
+}
+
+.wc-amount-label {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 9px;
+  letter-spacing: .6px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.wc-fee {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 9px;
+  letter-spacing: .5px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.wc-net {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 100px;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 11.5px;
+  background: color-mix(in srgb, var(--tier) 14%, transparent);
+  color: var(--tier);
+}
+.wc-net svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+.wc-buy-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 0;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tier) 78%, white 22%), var(--tier));
+  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--tier) 60%, transparent);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .15s, filter .15s;
+}
+.wc-buy-btn span {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 12px;
+  letter-spacing: .2px;
+  color: #fff;
+}
+.wc-buy-btn svg { width: 13px; height: 13px; stroke: #fff; fill: none; stroke-width: 2.5; }
+.wc-buy-btn:active { transform: scale(0.94); filter: brightness(0.94); }
+.wc-buy-btn:disabled { opacity: 0.55; pointer-events: none; }
+
+.wc-status {
+  width: 100%;
+  min-height: 18px;
+  text-align: center;
+  font-family: 'Permanent Marker', cursive;
+  font-size: 11.5px;
+  letter-spacing: .5px;
+  color: rgba(245,200,64,0.7);
+}
+
+/* ══════════════════════════════════════
    ── Toast Notification System (v2 · Premium) ──
 ══════════════════════════════════════ */
 #toast-container {

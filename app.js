@@ -355,9 +355,9 @@ async function verifyChannelAndRetry() {
     hideChannelGate();
     if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
     if (_pendingWithdrawAmount != null) {
-      document.getElementById('wd-amount').value = _pendingWithdrawAmount;
+      const retryAmount = _pendingWithdrawAmount;
       _pendingWithdrawAmount = null;
-      handleWithdraw();
+      handleWithdraw(retryAmount);
     }
   } else {
     if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
@@ -370,7 +370,7 @@ window.verifyChannelAndRetry = verifyChannelAndRetry;
 /* ══════════════════════════════════════════════════════
    Withdraw → toast on success
 ══════════════════════════════════════════════════════ */
-async function handleWithdraw() {
+async function handleWithdraw(amount) {
   // 🛡️ فحص rate limit على الفرونت
   if (!secAllow('withdraw')) {
     showToast({ type: 'withdraw', title: 'Too Many Attempts', msg: 'Please wait before trying again', duration: 3000 });
@@ -382,7 +382,7 @@ async function handleWithdraw() {
     return;
   }
 
-  const amount = parseFloat(document.getElementById('wd-amount').value);
+  amount = parseFloat(amount);
 
   const withdrawMin = (appState.config || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : {})).WITHDRAW_MIN;
   if (isNaN(amount) || amount < withdrawMin) {
@@ -390,14 +390,13 @@ async function handleWithdraw() {
     return;
   }
 
-  const btn = document.querySelector('.wd-btn');
-  btn.disabled = true;
-  btn.style.opacity = '0.7';
+  const btn = document.querySelector(`.wc-buy-btn[data-amt="${amount}"]`);
+  document.querySelectorAll('.wc-buy-btn').forEach(b => b.disabled = true);
+  if (btn) btn.style.opacity = '0.7';
 
   const res = await fetchApi({ type: 'withdraw', data: { address: connectedWalletAddress, amount } });
 
-  btn.disabled = false;
-  btn.style.opacity = '1';
+  document.querySelectorAll('.wc-buy-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
 
   if (res && res.ok) {
     showToast({
@@ -406,8 +405,6 @@ async function handleWithdraw() {
       msg:      `$${amount.toFixed(2)} · Processing within 24 hours`,
       duration: 5000
     });
-
-    document.getElementById('wd-amount').value  = '';
 
     refreshState();
   } else if (res?.error === 'channel_required') {
@@ -559,6 +556,56 @@ function switchWdTab(tab) {
   if (title) title.textContent = isDeposit ? 'Buy Competition Tickets' : 'Withdraw Your Earnings';
 
   if (isDeposit) renderDepositPackages();
+  else renderWithdrawTiers();
+}
+
+/* ── Render withdraw tier cards from server-synced config ── */
+function renderWithdrawTiers() {
+  const wrap = document.getElementById('wc-packages');
+  if (!wrap) return;
+
+  const cfg   = appState.config || APP_CONFIG;
+  const tiers = (cfg.WITHDRAW_TIERS || APP_CONFIG.WITHDRAW_TIERS || []).slice();
+  if (!tiers.length) { wrap.innerHTML = ''; return; }
+
+  tiers.sort((a, b) => a.amount - b.amount);
+
+  const feePct  = t => t.fee / t.amount;
+  const bestTier = tiers.reduce((a, b) => (feePct(b) < feePct(a) ? b : a));
+
+  const arrowSvg  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>`;
+  const walletSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>`;
+  const dollarSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+
+  wrap.innerHTML = tiers.map((t, i) => {
+    const isBest = t.best || t.id === bestTier.id;
+    const net = t.amount - t.fee;
+    const pct = Math.round(feePct(t) * 100);
+
+    let tierClass, tagLabel;
+    if (isBest)       { tierClass = 'best';        tagLabel = '★ Best Offer'; }
+    else if (i === 0)  { tierClass = '';             tagLabel = null; }
+    else if (i === 1)  { tierClass = 'tier-popular'; tagLabel = 'Popular'; }
+    else               { tierClass = 'tier-deal';    tagLabel = 'Great Deal'; }
+
+    return `
+    <div class="wc-card ${isBest ? 'best' : tierClass}">
+      <div class="wc-tag-row">
+        ${tagLabel ? `<span class="wc-tag">${tagLabel}</span>` : '<span></span>'}
+        <span class="wc-bonus">${pct}% fee</span>
+      </div>
+      <div class="wc-icon">${walletSvg}</div>
+      <div class="wc-card-info">
+        <div class="wc-amount">$${t.amount.toFixed(2)}</div>
+        <div class="wc-amount-label">WITHDRAW</div>
+        <div class="wc-fee">Fee $${t.fee.toFixed(3).replace(/0$/, '')}</div>
+        <div class="wc-net">${dollarSvg}$${net.toFixed(3).replace(/0$/, '')} net</div>
+      </div>
+      <button class="wc-buy-btn" data-amt="${t.amount}" onclick="handleWithdraw(${t.amount})">
+        <span>Withdraw</span>${arrowSvg}
+      </button>
+    </div>`;
+  }).join('');
 }
 
 /* ── Render ticket package cards from server-synced config ── */
