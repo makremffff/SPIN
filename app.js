@@ -743,7 +743,7 @@ function showPartialRewardModal(reward) {
         <p id="partial-reward-full">Full reward is <b>$${fullAmt.toFixed(3)}</b></p>
 
         <div id="partial-reward-hint">
-          <p>Ad closed early. Watch the full ad next time for the <b>full reward</b>.</p>
+          <p>Reward not granted. Please tap the action button in the ad (Play, Go, Install, or Subscribe) to receive<b>full reward</b>.</p>
         </div>
 
         <button id="partial-reward-close">Got it</button>
