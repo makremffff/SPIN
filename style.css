@@ -2574,6 +2574,7 @@ nav {
 #devtools-overlay .dt-icon {
   width: 40px; height: 40px;
   stroke: #ff5555; fill: none; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
   filter: drop-shadow(0 0 14px rgba(255,85,85,.55));
   margin-bottom: 14px;
 }
