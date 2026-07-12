@@ -69,12 +69,20 @@ function getStartParam() {
     return performance.now() - t > 100;
   }
 
+  // 🛡️ يتحكم بالأوفرلاي العام مباشرة — يشتغل بكل صفحات التطبيق دايماً،
+  // مش بس صفحة اللعبة (game.js لسا بيسمع الحدث لإسقاط أي جولة جارية).
+  function _toggleOverlay(show) {
+    const ov = document.getElementById('devtools-overlay');
+    if (ov) ov.style.display = show ? 'flex' : 'none';
+  }
+
   function onOpen() {
     if (devOpen) return;
     devOpen = true;
     window.__devToolsOpen = true;
     console.warn('[security] DevTools detected');
     _reportSecEvent('devtools_open', { ua: navigator.userAgent.slice(0, 80) });
+    _toggleOverlay(true);
     // 🛡️ يبلغ باقي التطبيق (مثل game.js) لإيقاف أي نشاط حساس فوراً
     window.dispatchEvent(new CustomEvent('bl:devtools', { detail: { open: true } }));
   }
@@ -82,6 +90,7 @@ function getStartParam() {
   function onClose() {
     devOpen = false;
     window.__devToolsOpen = false;
+    _toggleOverlay(false);
     window.dispatchEvent(new CustomEvent('bl:devtools', { detail: { open: false } }));
   }
 

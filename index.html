@@ -12,7 +12,6 @@
         }
     </script>
 <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-<script src="https://app.adsgalaxy.online/sdk.js/sdk.js?id=10"></script>
 <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,100..900;1,100..900&family=Permanent+Marker&family=DynaPuff:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -640,15 +639,6 @@
 
       <div id="cd-overlay"><div id="cd-num"></div></div>
 
-      <div id="devtools-overlay">
-        <div class="dt-backdrop"></div>
-        <div class="dt-card">
-          <svg viewBox="0 0 24 24" class="dt-icon"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg>
-          <div class="dt-title">Game Paused</div>
-          <div class="dt-msg">Close Developer Tools to continue playing.</div>
-        </div>
-      </div>
-
       <div id="end-overlay">
         <div class="end-backdrop"></div>
         <div class="end-card">
@@ -826,47 +816,15 @@
     </div>
   </div>
 
-<!-- ══ AdsGalaxy — Support Ad Loop (كل 30 ثانية، بدون مكافأة) ══ -->
-<script>
-(function () {
-  const ADSGALAXY_MINIAPP_ID = 10;
-  const ADSGALAXY_INTERVAL_MS = 30000;
-  let adsGalaxyTimer = null;
-
-  function showSupportAd() {
-    if (typeof window.showAdsGalaxy !== 'function') return;
-    window.showAdsGalaxy({ miniappId: ADSGALAXY_MINIAPP_ID })
-      .then(function (result) {
-        console.log('[AdsGalaxy] support ad shown', result && result.request_id);
-      })
-      .catch(function (error) {
-        console.log('[AdsGalaxy] support ad skipped:', error && error.code);
-      });
-  }
-
-  function startAdsGalaxyLoop() {
-    if (adsGalaxyTimer) return;
-    showSupportAd();
-    adsGalaxyTimer = setInterval(showSupportAd, ADSGALAXY_INTERVAL_MS);
-  }
-
-  function stopAdsGalaxyLoop() {
-    if (!adsGalaxyTimer) return;
-    clearInterval(adsGalaxyTimer);
-    adsGalaxyTimer = null;
-  }
-
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) {
-      stopAdsGalaxyLoop();
-    } else {
-      startAdsGalaxyLoop();
-    }
-  });
-
-  startAdsGalaxyLoop();
-})();
-</script>
+  <!-- 🛡️ Developer Tools Block Overlay — global, يظهر فوق كل الصفحات دايماً -->
+  <div id="devtools-overlay">
+    <div class="dt-backdrop"></div>
+    <div class="dt-card">
+      <svg viewBox="0 0 24 24" class="dt-icon"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg>
+      <div class="dt-title">Access Blocked</div>
+      <div class="dt-msg">Close Developer Tools to continue using the app.</div>
+    </div>
+  </div>
 
 </body>
 </html>

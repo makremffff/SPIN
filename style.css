@@ -2555,7 +2555,7 @@ nav {
 
 /* 🛡️ devtools pause overlay */
 #devtools-overlay {
-  display: none; position: fixed; inset: 0; z-index: 40;
+  display: none; position: fixed; inset: 0; z-index: 99999;
   align-items: center; justify-content: center;
 }
 #devtools-overlay .dt-backdrop {
