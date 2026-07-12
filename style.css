@@ -2790,3 +2790,46 @@ nav {
   cursor: pointer;
 }
 .btn-again:active { opacity: .7; }
+
+/* ══════════════════════════════════════════════════════
+   ── Ranking Card Entrance (Podium + Leaderboard) ──
+   انيميشن دخول متدرّج (Spring) لكروت أول 3 + كروت الليدربورد
+   يشتغل من جديد كل مرة توصل فيها صفحة Big League (فتح أول مرة
+   أو رجوع لها من تبويب ثاني) عبر animateRankingCards() بـ pages.js
+══════════════════════════════════════════════════════ */
+/* podium — كل عنصر جوّا الكارد (الصورة/الأفاتار/النقاط/الجايزة) يدخل لحاله */
+.pod-anim-item {
+  opacity: 0;
+  transform: translateY(16px) scale(.82);
+  transition:
+    opacity .45s cubic-bezier(.34, 1.56, .64, 1),
+    transform .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+.pod-anim-item.item-enter {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* leaderboard — كل كارد لحاله بتدريج */
+.leaderboard-card .lb-row.card-in,
+.you-card .lb-row.card-in {
+  opacity: 0;
+  transform: translateY(26px) scale(.90) rotate(-1.5deg);
+  transition:
+    opacity .55s cubic-bezier(.34, 1.56, .64, 1),
+    transform .55s cubic-bezier(.34, 1.56, .64, 1),
+    box-shadow .4s;
+}
+.leaderboard-card .lb-row.card-in.card-enter,
+.you-card .lb-row.card-in.card-enter {
+  opacity: 1;
+  transform: translateY(0) scale(1) rotate(0deg);
+}
+.leaderboard-card .lb-row.card-in.card-enter.card-flash,
+.you-card .lb-row.card-in.card-enter.card-flash {
+  animation: rankCardFlash .7s ease-out;
+}
+@keyframes rankCardFlash {
+  0%   { box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 6px 18px rgba(0,0,0,0.35), 0 0 22px rgba(245,200,64,0.35); }
+  100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 6px 18px rgba(0,0,0,0.35), 0 0 0 rgba(245,200,64,0); }
+}

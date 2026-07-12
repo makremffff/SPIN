@@ -232,6 +232,75 @@ function animatePage(pageId) {
       items.forEach(item => item.classList.add('revealed'));
     });
   });
+
+  if (pageId === 'contest' && typeof animateRankingCards === 'function') {
+    animateRankingCards();
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   Ranking Cards Entrance (Podium + Leaderboard)
+   Spring-bounce, staggered per card. Replays every time
+   the contest ("Big League") page becomes active — same
+   trigger point as animatePage('contest').
+══════════════════════════════════════════════════════ */
+function animateRankingCards() {
+  const podSlots = Array.from(document.querySelectorAll('.pod-slot'));
+  const lbRows   = Array.from(document.querySelectorAll('.leaderboard-card .lb-row'));
+  const youRows  = Array.from(document.querySelectorAll('.you-card .lb-row'));
+  if (!podSlots.length && !lbRows.length && !youRows.length) return;
+
+  const ITEM_STEP = 65; // فرق الدخول بين عناصر نفس كارد البوديوم (صورة، أفاتار، نقاط، جايزة)
+
+  // ترتيب دخول البوديوم: الأول بعد 0.6 ثانية، الثاني بعده بـ 0.7 ثانية، الثالث بعد الثاني بـ 0.8 ثانية
+  const SLOT_DELAY = { first: 600, second: 600 + 700, third: 600 + 700 + 800 };
+
+  let maxPodEnd = 0;
+  podSlots.forEach(slot => {
+    const rankClass = ['first', 'second', 'third'].find(c => slot.classList.contains(c));
+    const baseDelay = SLOT_DELAY[rankClass] ?? 0;
+    const items = Array.from(slot.querySelectorAll('.pod-anim-item'));
+
+    items.forEach(el => {
+      el.classList.remove('item-enter');
+      void el.offsetHeight; // force reflow so it can replay
+    });
+    items.forEach((el, itemIdx) => {
+      const delay = baseDelay + itemIdx * ITEM_STEP;
+      maxPodEnd = Math.max(maxPodEnd, delay + 450);
+      setTimeout(() => el.classList.add('item-enter'), delay);
+    });
+  });
+
+  // كروت الليدربورد (4-8): تطلع كلها دفعة وحدة بعد ما يخلص البوديوم
+  const LB_BATCH_DELAY = podSlots.length ? maxPodEnd + 60 : 0;
+  lbRows.forEach(el => {
+    el.classList.remove('card-enter', 'card-flash');
+    el.classList.add('card-in');
+  });
+  void document.body.offsetHeight; // force reflow
+  setTimeout(() => {
+    lbRows.forEach(el => {
+      el.classList.add('card-enter');
+      setTimeout(() => el.classList.add('card-flash'), 300);
+      setTimeout(() => el.classList.remove('card-in', 'card-enter', 'card-flash'), 1050);
+    });
+  }, LB_BATCH_DELAY);
+
+  // كارد You: يطلع لحاله بعد ما تخلص كروت الليدربورد بـ 0.5 ثانية
+  const YOU_DELAY = LB_BATCH_DELAY + 500;
+  youRows.forEach(el => {
+    el.classList.remove('card-enter', 'card-flash');
+    el.classList.add('card-in');
+  });
+  void document.body.offsetHeight; // force reflow
+  setTimeout(() => {
+    youRows.forEach(el => {
+      el.classList.add('card-enter');
+      setTimeout(() => el.classList.add('card-flash'), 300);
+      setTimeout(() => el.classList.remove('card-in', 'card-enter', 'card-flash'), 1050);
+    });
+  }, YOU_DELAY);
 }
 
 /* ── Navigation ─────────────────────────────────────────── */
