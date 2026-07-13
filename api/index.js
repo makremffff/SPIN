@@ -319,6 +319,13 @@ async function ensureSchema() {
     total_count INT  NOT NULL DEFAULT 0
   )`);
 
+  // 📊 جدول مستقل تماماً — فقط لتتبّع عدد إعلانات "مضاعفة اللعبة" (double reward)
+  // لا علاقة له بـ daily_ads ولا بـ AD_DAILY_MAX ولا بأي حد آخر — عدّاد إحصائي بحت
+  await sql(`CREATE TABLE IF NOT EXISTS game_double_ad_stats (
+    day         DATE PRIMARY KEY,
+    total_count INT  NOT NULL DEFAULT 0
+  )`);
+
   // 🛡️ تأكيدات Adsgram Reward URL — server-to-server، لا تمر من متصفح المستخدم أبداً
   // كل صف يعني "Adsgram أكّد أن هذا المستخدم شاهد إعلاناً فعلياً الآن"
   await sql(`CREATE TABLE IF NOT EXISTS ad_reward_confirmations (
@@ -566,6 +573,15 @@ async function bumpAdDailyStat() {
     INSERT INTO ad_daily_stats (day, total_count)
     VALUES (CURRENT_DATE, 1)
     ON CONFLICT (day) DO UPDATE SET total_count = ad_daily_stats.total_count + 1
+  `);
+}
+
+// 📊 عدّاد مستقل بحت لإعلانات مضاعفة اللعبة فقط — لا يمس daily_ads ولا AD_DAILY_MAX إطلاقاً
+async function bumpGameDoubleAdStat() {
+  await sql(`
+    INSERT INTO game_double_ad_stats (day, total_count)
+    VALUES (CURRENT_DATE, 1)
+    ON CONFLICT (day) DO UPDATE SET total_count = game_double_ad_stats.total_count + 1
   `);
 }
 
@@ -1250,15 +1266,6 @@ module.exports = async function handler(req, res) {
         if (gAvRows[0].double_approved)
           return res.status(400).json({ ok: false, error: 'Double already applied' });
 
-        // 📊 إعلان الدوبل يُحسب ضمن الحد اليومي للإعلانات مثل أي إعلان عادي
-        const gAvToday = new Date().toISOString().slice(0, 10);
-        const gAvURows = await sql(`SELECT daily_ads, last_ad_date FROM users WHERE id = $1`, [dbUser.id]);
-        const gAvU = gAvURows[0];
-        const gAvSameDay = gAvU.last_ad_date && String(gAvU.last_ad_date).slice(0, 10) === gAvToday;
-        if ((gAvSameDay ? gAvU.daily_ads : 0) >= CFG.AD_DAILY_MAX) {
-          return res.status(429).json({ ok: false, error: 'Daily ad limit reached' });
-        }
-
         // 🛡️ تأكيد Adsgram S2S — نفس آلية الإعلانات الرئيسية
         if (process.env.ADSGRAM_REWARD_SECRET) {
           const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id);
@@ -1269,14 +1276,9 @@ module.exports = async function handler(req, res) {
 
         await sql(`UPDATE game_sessions SET double_approved = TRUE WHERE id = $1`, [gAvSid]);
 
-        // 📊 يُحتسب كإعلان مشاهَد: يزيد عداد المستخدم اليومي + الإجمالي العام لليوم
-        await sql(`
-          UPDATE users SET
-            daily_ads    = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
-            last_ad_date = CURRENT_DATE
-          WHERE id = $1
-        `, [dbUser.id]);
-        await bumpAdDailyStat();
+        // 📊 تتبّع عدد فقط — جدول مستقل خاص بإعلانات مضاعفة اللعبة، لا علاقة له
+        // بـ daily_ads ولا بحد AD_DAILY_MAX إطلاقاً (لا يُقرأ ولا يُكتب هنا)
+        await bumpGameDoubleAdStat();
 
         return res.json({ ok: true });
       }
