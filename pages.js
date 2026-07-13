@@ -272,23 +272,27 @@ function animateRankingCards() {
     });
   });
 
-  // كروت الليدربورد (4-8): تطلع كلها دفعة وحدة بعد ما يخلص البوديوم
+  // كروت الليدربورد (4-8): تطلع وحده وحده، فرق 0.6 ثانية بين كل وحدة
   const LB_BATCH_DELAY = podSlots.length ? maxPodEnd + 60 : 0;
+  const LB_STEP = 600;
   lbRows.forEach(el => {
     el.classList.remove('card-enter', 'card-flash');
     el.classList.add('card-in');
   });
   void document.body.offsetHeight; // force reflow
-  setTimeout(() => {
-    lbRows.forEach(el => {
+  let lbEnd = LB_BATCH_DELAY;
+  lbRows.forEach((el, idx) => {
+    const delay = LB_BATCH_DELAY + idx * LB_STEP;
+    lbEnd = Math.max(lbEnd, delay + 1050);
+    setTimeout(() => {
       el.classList.add('card-enter');
       setTimeout(() => el.classList.add('card-flash'), 300);
       setTimeout(() => el.classList.remove('card-in', 'card-enter', 'card-flash'), 1050);
-    });
-  }, LB_BATCH_DELAY);
+    }, delay);
+  });
 
-  // كارد You: يطلع لحاله بعد ما تخلص كروت الليدربورد بـ 0.5 ثانية
-  const YOU_DELAY = LB_BATCH_DELAY + 500;
+  // كارد You: يطلع لحاله بعد ما تخلص كل كروت الليدربورد بـ 0.5 ثانية
+  const YOU_DELAY = (lbRows.length ? lbEnd : LB_BATCH_DELAY) + 500;
   youRows.forEach(el => {
     el.classList.remove('card-enter', 'card-flash');
     el.classList.add('card-in');
