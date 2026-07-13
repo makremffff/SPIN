@@ -312,6 +312,13 @@ async function ensureSchema() {
   await sql(`ALTER TABLE ad_watches ALTER COLUMN reward TYPE NUMERIC(14,6)`);
   await sql(`ALTER TABLE ad_watches ALTER COLUMN reward SET DEFAULT 0.001`);
 
+  // 📊 إجمالي الإعلانات اليومي لكل المستخدمين مجتمعين — صف واحد لكل يوم، يُحدَّث ذرياً
+  // (بدل COUNT(*) على ad_watches اللي بتكبر بمرور الوقت — قراءة/كتابة O(1))
+  await sql(`CREATE TABLE IF NOT EXISTS ad_daily_stats (
+    day         DATE PRIMARY KEY,
+    total_count INT  NOT NULL DEFAULT 0
+  )`);
+
   // 🛡️ تأكيدات Adsgram Reward URL — server-to-server، لا تمر من متصفح المستخدم أبداً
   // كل صف يعني "Adsgram أكّد أن هذا المستخدم شاهد إعلاناً فعلياً الآن"
   await sql(`CREATE TABLE IF NOT EXISTS ad_reward_confirmations (
@@ -551,6 +558,15 @@ async function checkAndMarkInitHash(initData, token) {
   } catch {
     return false; // مكرر ✗
   }
+}
+
+// 📊 يزيد إجمالي إعلانات اليوم (كل المستخدمين) بشكل ذري — تُستدعى من watchAd و gameAdVerify
+async function bumpAdDailyStat() {
+  await sql(`
+    INSERT INTO ad_daily_stats (day, total_count)
+    VALUES (CURRENT_DATE, 1)
+    ON CONFLICT (day) DO UPDATE SET total_count = ad_daily_stats.total_count + 1
+  `);
 }
 
 // 🛡️ يستهلك تأكيد Adsgram (إن وُجد) لهذا المستخدم — يُستدعى من watchAd
@@ -1158,6 +1174,7 @@ module.exports = async function handler(req, res) {
         // وسّم الـ token كمستخدم
         await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
         await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, actualReward]);
+        await bumpAdDailyStat(); // 📊 إجمالي إعلانات اليوم لكل المستخدمين
 
         // 🎁 فحص تفعيل الإحالة — await لضمان إرسال الإشعار قبل انتهاء الدالة
         await checkReferralActivation(dbUser.id);
@@ -1233,6 +1250,15 @@ module.exports = async function handler(req, res) {
         if (gAvRows[0].double_approved)
           return res.status(400).json({ ok: false, error: 'Double already applied' });
 
+        // 📊 إعلان الدوبل يُحسب ضمن الحد اليومي للإعلانات مثل أي إعلان عادي
+        const gAvToday = new Date().toISOString().slice(0, 10);
+        const gAvURows = await sql(`SELECT daily_ads, last_ad_date FROM users WHERE id = $1`, [dbUser.id]);
+        const gAvU = gAvURows[0];
+        const gAvSameDay = gAvU.last_ad_date && String(gAvU.last_ad_date).slice(0, 10) === gAvToday;
+        if ((gAvSameDay ? gAvU.daily_ads : 0) >= CFG.AD_DAILY_MAX) {
+          return res.status(429).json({ ok: false, error: 'Daily ad limit reached' });
+        }
+
         // 🛡️ تأكيد Adsgram S2S — نفس آلية الإعلانات الرئيسية
         if (process.env.ADSGRAM_REWARD_SECRET) {
           const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id);
@@ -1242,6 +1268,16 @@ module.exports = async function handler(req, res) {
         }
 
         await sql(`UPDATE game_sessions SET double_approved = TRUE WHERE id = $1`, [gAvSid]);
+
+        // 📊 يُحتسب كإعلان مشاهَد: يزيد عداد المستخدم اليومي + الإجمالي العام لليوم
+        await sql(`
+          UPDATE users SET
+            daily_ads    = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
+            last_ad_date = CURRENT_DATE
+          WHERE id = $1
+        `, [dbUser.id]);
+        await bumpAdDailyStat();
+
         return res.json({ ok: true });
       }
 
