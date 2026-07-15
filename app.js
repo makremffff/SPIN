@@ -992,7 +992,7 @@ function startFeatureTour() {
     {
       dot: 0, step: 'STEP 1 OF 4', head: 'Earn $0.001 Per Ad',
       text: 'Every ad you watch here adds $0.001 straight to your balance — no daily cap.',
-      target: () => document.getElementById('earn-ad-card'), side: 'bottom', pad: 10,
+      target: () => document.getElementById('earn-ad-card'), side: 'top', pad: 10,
       preScroll: true
     },
     {
@@ -1009,7 +1009,7 @@ function startFeatureTour() {
     {
       dot: 2, step: 'STEP 3 OF 4', head: 'Instant Withdrawals',
       text: 'Pick an amount and cash out straight to your wallet — no waiting, no hidden delays.',
-      target: () => document.getElementById('wc-packages'), side: 'bottom', pad: 10,
+      target: () => document.getElementById('wc-packages'), side: 'top', pad: 10,
       preScroll: true
     },
     {
@@ -1022,7 +1022,7 @@ function startFeatureTour() {
       dot: 3, step: 'STEP 4 OF 4', head: 'Win Real USDT',
       text: 'The higher you rank when the season ends, the bigger your share of the prize pool.',
       target: () => document.querySelector('.leaderboard-card-wrap') || document.querySelector('.leaderboard-card'),
-      side: 'bottom', pad: 10, preScroll: true, isLast: true
+      side: 'top', pad: 10, preScroll: true, isLast: true
     }
   ];
 
@@ -1040,16 +1040,19 @@ function startFeatureTour() {
     finger.style.top = (top + h - 6) + 'px';
     finger.style.left = (left + w / 2 - 21) + 'px';
 
-    const tipW = 236;
+    const tipW = 236, tipH = 128; // ~ارتفاع تقريبي للتولتيب عشان الـ clamp
     let tipLeft = Math.max(14, Math.min(left + w / 2 - tipW / 2, window.innerWidth - tipW - 14));
+    const safeTop = 56, safeBottom = window.innerHeight - 56;
     let tipTop;
     if (side === 'top') {
-      tipTop = top - 126;
+      tipTop = top - tipH - 6;
       arrow.style.top = 'auto'; arrow.style.bottom = '-7px';
     } else {
       tipTop = top + h + 16;
       arrow.style.bottom = 'auto'; arrow.style.top = '-7px';
     }
+    // clamp — لو مافي مكان بالاتجاه المطلوب، خليه يبقى بأقرب مكان ظاهر بالكامل
+    tipTop = Math.max(safeTop, Math.min(tipTop, safeBottom - tipH));
     arrow.style.left = (left + w / 2 - tipLeft - 7) + 'px'; arrow.style.right = 'auto';
     tip.style.top = tipTop + 'px';
     tip.style.left = tipLeft + 'px';
