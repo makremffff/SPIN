@@ -2838,3 +2838,108 @@ nav {
   0%   { box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 6px 18px rgba(0,0,0,0.35), 0 0 22px rgba(245,200,64,0.35); }
   100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset, 0 6px 18px rgba(0,0,0,0.35), 0 0 0 rgba(245,200,64,0); }
 }
+
+/* ══════════════════════════════════════════════════════
+   Feature Tour — coach-mark walkthrough (4 steps)
+   Non-blocking: only the tooltip + skip button capture taps,
+   everything else lets real clicks pass straight through.
+══════════════════════════════════════════════════════ */
+#tour { position: fixed; inset: 0; z-index: 9000; pointer-events: none; }
+
+.cm-veil {
+  position: absolute; inset: 0;
+  background: rgba(2,3,6,0.66);
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s ease;
+}
+.cm-veil.show { opacity: 1; }
+
+.cm-hole {
+  position: absolute;
+  border-radius: 18px;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 0 2px var(--gold), 0 0 0 3000px rgba(2,3,6,0.001);
+  transition: top .5s cubic-bezier(.65,0,.35,1), left .5s cubic-bezier(.65,0,.35,1),
+              width .5s cubic-bezier(.65,0,.35,1), height .5s cubic-bezier(.65,0,.35,1),
+              opacity .35s ease;
+  animation: cmPulse 1.8s ease-in-out infinite;
+}
+.cm-hole.show { opacity: 1; }
+@keyframes cmPulse {
+  0%,100% { box-shadow: 0 0 0 2px var(--gold), 0 0 26px 4px var(--gold-a40); }
+  50%     { box-shadow: 0 0 0 4px var(--gold), 0 0 40px 10px var(--gold-a40); }
+}
+
+.cm-finger {
+  position: absolute; width: 42px; height: 42px;
+  opacity: 0; pointer-events: none;
+  transition: top .5s cubic-bezier(.65,0,.35,1), left .5s cubic-bezier(.65,0,.35,1), opacity .35s ease;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.5));
+}
+.cm-finger.show { opacity: 1; animation: cmTap 1.1s ease-in-out infinite; }
+@keyframes cmTap {
+  0%,100% { transform: translateY(0) scale(1); }
+  35%     { transform: translateY(10px) scale(.94); }
+  55%     { transform: translateY(0) scale(1); }
+}
+
+.cm-tip {
+  position: absolute; max-width: 236px;
+  background: linear-gradient(180deg, rgba(20,17,10,0.97), rgba(10,8,4,0.97));
+  border: 1px solid var(--gold-a40);
+  border-radius: 16px;
+  padding: 14px 16px;
+  opacity: 0; pointer-events: none;
+  transform: translateY(6px);
+  transition: top .5s cubic-bezier(.65,0,.35,1), left .5s cubic-bezier(.65,0,.35,1),
+              opacity .35s ease .05s, transform .35s ease .05s;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.5);
+}
+.cm-tip.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.cm-tip .cm-eyebrow {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--gold); font-size: 10.5px; letter-spacing: .05em;
+  margin-bottom: 7px; display: flex; align-items: center; gap: 6px;
+}
+.cm-tip .cm-eyebrow::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+.cm-tip .cm-headline {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--gold); font-size: 14px; margin-bottom: 5px;
+  text-shadow: 0 0 10px var(--gold-a40);
+}
+.cm-tip p {
+  margin: 0; color: rgba(255,248,225,0.92);
+  font-size: 12px; line-height: 1.6;
+}
+.cm-tip .cm-arrow {
+  position: absolute; width: 14px; height: 14px;
+  background: inherit; border: inherit; border-radius: 3px;
+  transform: rotate(45deg);
+}
+.cm-nextbtn {
+  margin-top: 10px; width: 100%;
+  background: var(--gold); color: #171205; border: none;
+  border-radius: 10px; padding: 9px; font-family: 'DynaPuff', cursive; font-size: 12px;
+  cursor: pointer;
+}
+
+.cm-skip {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); left: 14px;
+  z-index: 5;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--muted); font-family: 'DynaPuff', cursive; font-size: 10px;
+  padding: 7px 13px; border-radius: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s ease;
+}
+.cm-skip.show { opacity: 1; pointer-events: auto; }
+
+.cm-progress {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 14px;
+  z-index: 5; display: flex; gap: 5px;
+  opacity: 0; transition: opacity .3s ease;
+}
+.cm-progress.show { opacity: 1; }
+.cm-progress i { width: 16px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); }
+.cm-progress i.on { background: var(--gold); }

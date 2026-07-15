@@ -598,7 +598,7 @@
       </div>
 
       <div class="earn-section reveal from-bottom">
-        <div class="earn-ad-card">
+        <div class="earn-ad-card" id="earn-ad-card">
           <div class="earn-ad-icon">
             <img src="asesst/adsgram.jpg" alt="Adsgram">
           </div>
@@ -825,6 +825,28 @@
       <div class="dt-title">Access Blocked</div>
       <div class="dt-msg">Close Developer Tools to continue using the app.</div>
     </div>
+  </div>
+
+  <!-- 🖐️ Feature Tour — 4-step coach-mark walkthrough, shown once (tour_seen) -->
+  <div id="tour">
+    <div class="cm-veil" id="cm-veil"></div>
+    <div class="cm-hole" id="cm-hole"></div>
+
+    <svg class="cm-finger" id="cm-finger" viewBox="0 0 64 64" fill="none">
+      <path d="M27 58c-3-1-5-4-6-7l-6-15c-1-3 1-6 4-6 1.5 0 3 .8 3.8 2.2L27 39V13c0-2.8 2.2-5 5-5s5 2.2 5 5v18l1.5-1c1-.7 2.3-.9 3.5-.5 2.4.8 3.6 3.4 2.7 5.7l-4 10.5c-1.6 4.2-4 7.3-6.7 9.2-2.2 1.5-4.6 2.4-6.9 3.1Z"
+        fill="#f5c840" stroke="#8a6a10" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+
+    <div class="cm-tip" id="cm-tip">
+      <div class="cm-eyebrow" id="cm-step">STEP 1 OF 4</div>
+      <div class="cm-headline" id="cm-head"></div>
+      <p id="cm-text"></p>
+      <button class="cm-nextbtn" id="cm-next" type="button">Next</button>
+      <div class="cm-arrow" id="cm-arrow"></div>
+    </div>
+
+    <button class="cm-skip" id="cm-skip" type="button">Skip</button>
+    <div class="cm-progress" id="cm-progress"><i></i><i></i><i></i><i></i></div>
   </div>
 
 </body>
