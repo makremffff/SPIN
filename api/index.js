@@ -55,7 +55,7 @@ const CFG = {
 // ── App business-logic config (synced to frontend via init response) ──────────
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.01,  // USDT added to referrer balance per referral
+  REF_USDT_REWARD   : 0.03,  // USDT added to referrer balance per referral
   AD_USD_REWARD     : 0.001,  // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
   WITHDRAW_MIN      : 0.07,
@@ -229,7 +229,6 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_seen BOOLEAN NOT NULL DEFAULT FALSE`); // 🖐️ Feature Tour — نفس منطق onboarding_seen
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
   // 🟢 last_seen_at — نبضة "أونلاين" تتحدث مع كل طلب من المستخدم (يستخدمها أدمن بانل لعرض المتصلين الآن)
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
@@ -1003,8 +1002,7 @@ module.exports = async function handler(req, res) {
             referral_code: dbUser.referral_code,
             rank:          userRank,
             banned:        dbUser.banned || false,
-            onboarding_seen: dbUser.onboarding_seen || false,
-            tour_seen:     dbUser.tour_seen || false
+            onboarding_seen: dbUser.onboarding_seen || false
           },
           leaderboard: leaderboard.map(r => ({
             telegram_id: Number(r.telegram_id),
@@ -1026,12 +1024,6 @@ module.exports = async function handler(req, res) {
       // ✅ markOnboardingSeen — يُسجَّل في DB بدل localStorage (يضمن مشاهدة واحدة فقط حتى بعد مسح الكاش)
       case 'markOnboardingSeen': {
         await sql(`UPDATE users SET onboarding_seen = TRUE WHERE id = $1`, [dbUser.id]);
-        return res.json({ ok: true });
-      }
-
-      // 🖐️ markTourSeen — الجولة التعليمية (Feature Tour) اتشافت، ما ترجع تظهر
-      case 'markTourSeen': {
-        await sql(`UPDATE users SET tour_seen = TRUE WHERE id = $1`, [dbUser.id]);
         return res.json({ ok: true });
       }
 
