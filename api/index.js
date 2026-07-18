@@ -80,6 +80,7 @@ const AD_DURATIONS = {
   adsgram: 15,
   monetag: 16,
   telega:  16,
+  taddy:   8,   // لازم تتخطى 7 ثواني
   default: 16,
 };
 // نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
@@ -87,6 +88,13 @@ const AD_GRACE_SEC = 90;
 
 // 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 50% فقط من المكافأة
 const AD_FULL_REWARD_MIN_SEC = 35;
+
+// ── Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram (عدّاد/تبريد/مكافأة خاصة بيها) ──
+const TADDY_CFG = {
+  USD_REWARD:      0.01,  // مكافأة الدولار تُمنح مرة كل TADDY_ADS_PER_REWARD إعلانات
+  ADS_PER_REWARD:  2,     // عدد الإعلانات المطلوبة قبل منح الجائزة
+  COOLDOWN_SEC:    3,    // فاصل بسيط بين إعلانات Taddy (مستقل عن كولداون Adsgram)
+};
 
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
@@ -231,6 +239,10 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
   // 🟢 last_seen_at — نبضة "أونلاين" تتحدث مع كل طلب من المستخدم (يستخدمها أدمن بانل لعرض المتصلين الآن)
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+
+  // 🎯 Taddy ads — عدّاد وتبريد مستقلين تماماً عن Adsgram (نظام إعلانات منفصل)
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_taddy_ad_watch TIMESTAMPTZ`);
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS taddy_ads_progress INT NOT NULL DEFAULT 0`);
   // 🎮 عملات الدولار داخل اللعبة (0.0001 USDT للعملة) — توسيع الدقة العشرية لدعم مبالغ صغيرة جداً
   await sql(`ALTER TABLE users ALTER COLUMN balance_usd TYPE NUMERIC(14,6)`);
 
@@ -1216,6 +1228,143 @@ module.exports = async function handler(req, res) {
           rankUp,
           newRank:   rankAfter,
           rankDelta: rankUp ? rankBefore - rankAfter : 0
+        });
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // 🎯 Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram: عدّاد وتبريد
+      //    خاصين بيها، ولازم TADDY_CFG.ADS_PER_REWARD إعلانات قبل منح الجائزة
+      // ══════════════════════════════════════════════════════════════════
+      case 'startTaddyAd': {
+        const tRows = await sql(`SELECT last_taddy_ad_watch FROM users WHERE id = $1`, [dbUser.id]);
+        const tUser = tRows[0];
+
+        if (tUser.last_taddy_ad_watch) {
+          const secSince = (Date.now() - new Date(tUser.last_taddy_ad_watch).getTime()) / 1000;
+          if (secSince < TADDY_CFG.COOLDOWN_SEC) {
+            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(TADDY_CFG.COOLDOWN_SEC - secSince) });
+          }
+        }
+
+        // 🛡️ احذف أي token قديم غير مستخدم لهذا النوع — يمنع تجميع tokens
+        await sql(`DELETE FROM ad_sessions WHERE user_id = $1 AND ad_type = 'taddy' AND used = FALSE`, [dbUser.id]);
+
+        const dur   = AD_DURATIONS.taddy;
+        const token = signAdToken({ uid: dbUser.id, adType: 'taddy', dur, iat: Date.now() });
+
+        await sql(`INSERT INTO ad_sessions (token, user_id, ad_type) VALUES ($1, $2, 'taddy')`, [token, dbUser.id]);
+        return res.json({ ok: true, token });
+      }
+
+      case 'watchTaddyAd': {
+        const { token } = data;
+
+        const payload = verifyAdToken(token);
+        if (!payload || typeof payload.uid !== 'number' || typeof payload.iat !== 'number' || payload.adType !== 'taddy') {
+          await addRisk(dbUser.id, 30, 'no_token');
+          return res.status(400).json({ ok: false, error: 'Invalid session' });
+        }
+
+        if (payload.uid !== dbUser.id) {
+          await addRisk(dbUser.id, 80, 'token_stolen');
+          return res.status(403).json({ ok: false, error: 'Session mismatch' });
+        }
+
+        const ipAdOk = await checkIPLimit(clientIP, 'hr');
+        if (!ipAdOk) return res.status(429).json({ ok: false, error: 'Too many ads from this network' });
+
+        const sessions = await sql(`SELECT * FROM ad_sessions WHERE token = $1`, [token]);
+        if (sessions.length === 0) {
+          await addRisk(dbUser.id, 40, 'fake_token');
+          return res.status(400).json({ ok: false, error: 'Invalid session' });
+        }
+        const session = sessions[0];
+
+        if (session.user_id !== dbUser.id) {
+          await addRisk(dbUser.id, 80, 'token_stolen');
+          return res.status(403).json({ ok: false, error: 'Session mismatch' });
+        }
+        if (session.used) {
+          await addRisk(dbUser.id, 60, 'used_token');
+          return res.status(400).json({ ok: false, error: 'Session already used' });
+        }
+
+        // 🛡️ لازم تتخطى 7 ثواني فعلياً (المدة المطلوبة موقّعة بالتوكن، لا يتحكم بها العميل)
+        const requiredDur = AD_DURATIONS.taddy;
+        const sessionAge  = (Date.now() - payload.iat) / 1000;
+
+        if (sessionAge < requiredDur - CFG.AD_TIMING_TOLERANCE_SEC) {
+          await addRisk(dbUser.id, 70, `too_fast_${Math.round(sessionAge)}s`);
+          return res.status(400).json({ ok: false, error: 'Ad not fully watched' });
+        }
+        if (sessionAge > requiredDur + AD_GRACE_SEC) {
+          await sql(`DELETE FROM ad_sessions WHERE token = $1`, [token]);
+          await addRisk(dbUser.id, 20, `token_expired_${Math.round(sessionAge)}s`);
+          return res.status(400).json({ ok: false, error: 'Session expired' });
+        }
+
+        // 🛡️ فحص تبريد Taddy مرة ثانية (atomic) — مستقل عن Adsgram
+        const uRows2 = await sql(`SELECT last_taddy_ad_watch, taddy_ads_progress FROM users WHERE id = $1`, [dbUser.id]);
+        const u2 = uRows2[0];
+        if (u2.last_taddy_ad_watch) {
+          const secSince = (Date.now() - new Date(u2.last_taddy_ad_watch).getTime()) / 1000;
+          if (secSince < TADDY_CFG.COOLDOWN_SEC) {
+            await addRisk(dbUser.id, 40, `cooldown_bypass_${Math.round(secSince)}s`);
+            return res.status(429).json({ ok: false, error: 'Please wait between ads' });
+          }
+        }
+
+        // 🛡️ منع replay
+        const hashOk = await checkAndMarkInitHash(rawInitData, token);
+        if (!hashOk) {
+          await addRisk(dbUser.id, 50, 'replay_initData');
+          return res.status(400).json({ ok: false, error: 'Duplicate request' });
+        }
+
+        // وسّم الـ token كمستخدم أولاً
+        await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
+
+        // 🎯 عدّاد التقدّم — كل TADDY_CFG.ADS_PER_REWARD إعلانات تمنح جائزة واحدة
+        const newProgress   = (u2.taddy_ads_progress + 1) % TADDY_CFG.ADS_PER_REWARD;
+        const rewardUnlocked = newProgress === 0; // وصل للعدد المطلوب
+        const adsRemaining   = TADDY_CFG.ADS_PER_REWARD - newProgress;
+
+        if (dbUser.shadow_banned) {
+          await sql(`UPDATE users SET last_taddy_ad_watch = NOW(), taddy_ads_progress = $1 WHERE id = $2`, [newProgress, dbUser.id]);
+          return res.json({
+            ok:            true,
+            reward:        rewardUnlocked ? TADDY_CFG.USD_REWARD : 0,
+            rewardUnlocked,
+            adsRemaining,
+          });
+        }
+
+        if (rewardUnlocked) {
+          await sql(`
+            UPDATE users SET
+              balance_usd         = balance_usd + $1,
+              last_taddy_ad_watch = NOW(),
+              taddy_ads_progress  = 0
+            WHERE id = $2
+          `, [TADDY_CFG.USD_REWARD, dbUser.id]);
+          await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, TADDY_CFG.USD_REWARD]);
+          await checkReferralActivation(dbUser.id);
+        } else {
+          await sql(`
+            UPDATE users SET
+              last_taddy_ad_watch = NOW(),
+              taddy_ads_progress  = $1
+            WHERE id = $2
+          `, [newProgress, dbUser.id]);
+        }
+
+        await bumpAdDailyStat();
+
+        return res.json({
+          ok:            true,
+          reward:        rewardUnlocked ? TADDY_CFG.USD_REWARD : 0,
+          rewardUnlocked,
+          adsRemaining,
         });
       }
 
