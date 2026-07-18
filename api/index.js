@@ -93,7 +93,7 @@ const AD_FULL_REWARD_MIN_SEC = 35;
 const TADDY_CFG = {
   USD_REWARD:      0.01,  // مكافأة الدولار تُمنح مرة كل TADDY_ADS_PER_REWARD إعلانات
   ADS_PER_REWARD:  2,     // عدد الإعلانات المطلوبة قبل منح الجائزة
-  COOLDOWN_SEC:    3,    // فاصل بسيط بين إعلانات Taddy (مستقل عن كولداون Adsgram)
+  COOLDOWN_SEC:    20,    // فاصل بسيط بين إعلانات Taddy (مستقل عن كولداون Adsgram)
 };
 
 const _db = neon(DATABASE_URL);
@@ -1236,10 +1236,13 @@ module.exports = async function handler(req, res) {
       //    خاصين بيها، ولازم TADDY_CFG.ADS_PER_REWARD إعلانات قبل منح الجائزة
       // ══════════════════════════════════════════════════════════════════
       case 'startTaddyAd': {
-        const tRows = await sql(`SELECT last_taddy_ad_watch FROM users WHERE id = $1`, [dbUser.id]);
+        const tRows = await sql(`SELECT last_taddy_ad_watch, taddy_ads_progress FROM users WHERE id = $1`, [dbUser.id]);
         const tUser = tRows[0];
 
-        if (tUser.last_taddy_ad_watch) {
+        // 🛡️ الكولداون يُفرض فقط عند بدء دورة جديدة (progress = 0) — الإعلان الثاني
+        // من نفس الدورة لازم يبدأ فوراً تلقائياً بدون أي انتظار
+        const isFreshCycle = tUser.taddy_ads_progress === 0;
+        if (isFreshCycle && tUser.last_taddy_ad_watch) {
           const secSince = (Date.now() - new Date(tUser.last_taddy_ad_watch).getTime()) / 1000;
           if (secSince < TADDY_CFG.COOLDOWN_SEC) {
             return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(TADDY_CFG.COOLDOWN_SEC - secSince) });
@@ -1303,10 +1306,11 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ ok: false, error: 'Session expired' });
         }
 
-        // 🛡️ فحص تبريد Taddy مرة ثانية (atomic) — مستقل عن Adsgram
+        // 🛡️ فحص تبريد Taddy مرة ثانية (atomic) — مستقل عن Adsgram، وفقط لو دورة جديدة
         const uRows2 = await sql(`SELECT last_taddy_ad_watch, taddy_ads_progress FROM users WHERE id = $1`, [dbUser.id]);
         const u2 = uRows2[0];
-        if (u2.last_taddy_ad_watch) {
+        const isFreshCycle2 = u2.taddy_ads_progress === 0;
+        if (isFreshCycle2 && u2.last_taddy_ad_watch) {
           const secSince = (Date.now() - new Date(u2.last_taddy_ad_watch).getTime()) / 1000;
           if (secSince < TADDY_CFG.COOLDOWN_SEC) {
             await addRisk(dbUser.id, 40, `cooldown_bypass_${Math.round(secSince)}s`);
