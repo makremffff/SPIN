@@ -37,7 +37,7 @@ async function isChannelMember(telegramId) {
 
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
-  AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
+  AD_COOLDOWN_SEC:    30,   // cooldown بين إعلانين
   AD_DAILY_MAX:       3000,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 60,   // أكثر طلب عام لكل IP بالدقيقة
@@ -55,13 +55,14 @@ const CFG = {
 // ── App business-logic config (synced to frontend via init response) ──────────
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.01,  // USDT added to referrer balance per referral
-  AD_USD_REWARD     : 0.001,  // USD per ad
+  REF_USDT_REWARD   : 0.1,    // USDT added to referrer balance per referral
+  AD_USD_REWARD     : 0.03,   // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
-  WITHDRAW_MIN      : 0.01,
+  WITHDRAW_MIN      : 10,
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
-  // 💎 باقات شراء التذاكر مقابل TON — نفس القيم لازم تطابق أي عرض بالواجهة
+  // 💎 باقات شراء التذاكر مقابل TON — لا تزال مستخدمة داخلياً (depositInit) حتى لو
+  // الواجهة الحالية ما بتعرضش صفحة الإيداع
   TICKET_PACKAGES: [
     { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
     { id: 'pkg_2',  tickets: 40000,  ton: 0.25 },
@@ -69,8 +70,6 @@ const APP_CFG = {
     { id: 'pkg_4',  tickets: 250000, ton: 1    },
   ],
   // توقيت المسابقة — اضبط COMPETITION_END_MS في Vercel env (Unix ms timestamp)
-  // مثال: Date.now() + 20 * 24 * 60 * 60 * 1000 ← 20 يوم من الآن
-  // للتعيين: node -e "console.log(Date.now() + 20*24*60*60*1000)"
   COMPETITION_END_MS: process.env.COMPETITION_END_MS
     ? parseInt(process.env.COMPETITION_END_MS, 10)
     : Date.now() + 20 * 24 * 60 * 60 * 1000,
