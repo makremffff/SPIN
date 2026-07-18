@@ -532,6 +532,14 @@ async function handleWithdraw(amount, fee) {
   } else if (res?.error === 'channel_required') {
     // 📢 اشتراك إجباري بالقناة — يظهر بوابة الاشتراك بدل رسالة خطأ عادية
     showChannelGate(amount, fee);
+  } else if (res?.error === 'referrals_required') {
+    const need = (res.required ?? 5) - (res.current ?? 0);
+    showToast({
+      type:     'withdraw',
+      title:    'More Active Referrals Needed',
+      msg:      `Invite ${need} more active friend${need > 1 ? 's' : ''} to unlock withdrawals (${res.current ?? 0}/${res.required ?? 5})`,
+      duration: 5000
+    });
   } else {
     showToast({
       type:     'withdraw',
