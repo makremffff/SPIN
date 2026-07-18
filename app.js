@@ -292,6 +292,94 @@ async function handleWatchAd() {
 }
 
 /* ══════════════════════════════════════════════════════
+   Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram
+   لازم TADDY_ADS_PER_REWARD إعلانات قبل منح الجائزة، وكل
+   جلسة إعلان لازم تتخطى 7 ثواني (مفروض من السيرفر عبر التوكن)
+══════════════════════════════════════════════════════ */
+function getTaddyErrorMessage(res) {
+  switch (res?.error) {
+    case 'Please wait':
+    case 'Please wait between ads':
+      return res?.waitSec
+        ? { title: 'Please Wait', msg: `Next ad available in ${res.waitSec}s` }
+        : { title: 'Please Wait', msg: 'Wait a bit before watching another ad' };
+    case 'Too many ads from this network':
+      return { title: 'Slow Down', msg: 'Too many requests — try again later' };
+    case 'Ad not fully watched':
+      return { title: 'Ad Not Counted', msg: 'Please watch the full ad to get your reward' };
+    default:
+      return { title: 'Ad Not Available', msg: 'Try again in a moment' };
+  }
+}
+
+async function handleWatchTaddyAd() {
+  const btn = document.getElementById('taddy-watch-btn');
+  btn.disabled = true;
+
+  const startRes = await fetchApi({ type: 'startTaddyAd', data: { ts: Math.floor(Date.now() / 1000) } });
+  if (!startRes || !startRes.ok) {
+    btn.disabled = false;
+    const { title, msg } = getTaddyErrorMessage(startRes);
+    showToast({ type: 'error', title, msg, duration: 3500 });
+    return;
+  }
+
+  const adToken = startRes.token;
+
+  const taddy = window.Taddy;
+  if (!taddy || typeof taddy.ads !== 'function') {
+    btn.disabled = false;
+    showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
+    return;
+  }
+
+  let watched = false;
+  try {
+    const success = await taddy.ads().interstitial({
+      onClosed:      () => {},
+      onViewThrough: () => { watched = true; }
+    });
+    watched = watched || success === true;
+  } catch (err) {
+    btn.disabled = false;
+    showToast({ type: 'error', title: 'No Ads Available', msg: 'No ads right now — try again in a moment', duration: 3000 });
+    return;
+  }
+
+  if (!watched) {
+    btn.disabled = false;
+    showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
+    return;
+  }
+
+  const res = await fetchApi({ type: 'watchTaddyAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
+
+  if (res && res.ok) {
+    if (res.rewardUnlocked) {
+      showToast({
+        type:     'ad',
+        title:    `+$${res.reward.toFixed(2)} Earned!`,
+        msg:      'Ad watched successfully · Keep going',
+        duration: 4500
+      });
+    } else {
+      showToast({
+        type:     'ad',
+        title:    'Ad Watched',
+        msg:      `${res.adsRemaining} more ad${res.adsRemaining > 1 ? 's' : ''} to unlock your reward`,
+        duration: 3500
+      });
+    }
+    refreshState();
+  } else {
+    const { title, msg } = getTaddyErrorMessage(res);
+    showToast({ type: 'ad', title, msg, duration: 3500 });
+  }
+
+  setTimeout(() => { btn.disabled = false; }, 3000);
+}
+
+/* ══════════════════════════════════════════════════════
    Referral join — called from backend webhook / bot
    Exposed on window so backend-injected scripts can call it
 ══════════════════════════════════════════════════════ */

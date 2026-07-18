@@ -39,11 +39,9 @@ function getMyPhotoUrl() {
 
 /* ── Render: referral page ──────────────────────────────── */
 function renderReferral() {
-  const countEl  = document.getElementById('ref-count');
-  const earnedEl = document.getElementById('ref-earned');
-  const linkEl   = document.getElementById('ref-link-display');
-  if (countEl)  countEl.textContent  = (appState.referral.count  || 0).toLocaleString();
-  if (earnedEl) earnedEl.textContent = (appState.referral.earned || 0).toLocaleString();
+  const countEl = document.getElementById('ref-count');
+  const linkEl  = document.getElementById('ref-link-display');
+  if (countEl) countEl.textContent = (appState.referral.count || 0).toLocaleString();
   if (appState.user.telegram_id) {
     const param = `ref_${appState.user.telegram_id}`;
     REF_LINK = `https://t.me/${BOT_USERNAME}/play?startapp=${param}`;

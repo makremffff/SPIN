@@ -12,6 +12,7 @@
         }
     </script>
 <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<script src="https://sdk.taddy.pro/web/taddy.min.js" data-pub-id="20728df5e1554d2c5ae58c8adc6d7305"></script>
 <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Aleo:ital,wght@0,100..900;1,100..900&family=Permanent+Marker&family=DynaPuff:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -68,6 +69,23 @@
             <span>Watch</span>
           </button>
         </div>
+
+        <div class="earn-ad-card">
+          <div class="earn-ad-icon">
+            <img src="asesst/taddy.jpg" alt="Taddy">
+          </div>
+          <div class="earn-ad-info">
+            <span class="earn-ad-label">Watch an Ad</span>
+            <div class="earn-ad-reward">
+              <span id="taddy-ad-reward">$0.01</span>
+              <span class="per-ad" id="taddy-ad-progress">per 2 ads</span>
+            </div>
+          </div>
+          <button class="earn-watch-btn" id="taddy-watch-btn" onclick="handleWatchTaddyAd()">
+            <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Watch</span>
+          </button>
+        </div>
       </div>
 
     </div>
@@ -98,12 +116,6 @@
           <span id="ref-usdt-reward">+$0.1</span>
           <span class="pill-label">per friend</span>
         </div>
-      </div>
-
-      <div class="ref-stats reveal from-top">
-        <img class="ref-stat-icon" src="https://files.catbox.moe/b3yq30.png" alt="tickets">
-        <span class="ref-stat-num" id="ref-earned">0</span>
-        <span>tickets earned</span>
       </div>
 
       <div class="ref-block reveal from-left">
