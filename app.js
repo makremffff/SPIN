@@ -293,8 +293,10 @@ async function handleWatchAd() {
 
 /* ══════════════════════════════════════════════════════
    Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram
-   لازم TADDY_ADS_PER_REWARD إعلانات قبل منح الجائزة، وكل
-   جلسة إعلان لازم تتخطى 7 ثواني (مفروض من السيرفر عبر التوكن)
+   ضغطة واحدة على الزر = إعلانين يشتغلوا تلقائياً ورا بعض
+   بدون أي تدخل من المستخدم، وبعد اكتمال الثاني مباشرة تُمنح
+   الجائزة. كل جلسة إعلان لازم تتخطى 7 ثواني (مفروض من
+   السيرفر عبر التوكن، لا يتحكم بها العميل).
 ══════════════════════════════════════════════════════ */
 function getTaddyErrorMessage(res) {
   switch (res?.error) {
@@ -312,25 +314,16 @@ function getTaddyErrorMessage(res) {
   }
 }
 
-async function handleWatchTaddyAd() {
-  const btn = document.getElementById('taddy-watch-btn');
-  btn.disabled = true;
-
+/* يشغّل إعلان Taddy واحد كامل: يحجز token، يعرض الإعلان، ثم يطالب بالتأكيد.
+   يرجّع { ok, res } — res هو رد watchTaddyAd عند النجاح. */
+async function playOneTaddyAd() {
   const startRes = await fetchApi({ type: 'startTaddyAd', data: { ts: Math.floor(Date.now() / 1000) } });
-  if (!startRes || !startRes.ok) {
-    btn.disabled = false;
-    const { title, msg } = getTaddyErrorMessage(startRes);
-    showToast({ type: 'error', title, msg, duration: 3500 });
-    return;
-  }
+  if (!startRes || !startRes.ok) return { ok: false, res: startRes };
 
   const adToken = startRes.token;
-
-  const taddy = window.Taddy;
+  const taddy   = window.Taddy;
   if (!taddy || typeof taddy.ads !== 'function') {
-    btn.disabled = false;
-    showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
-    return;
+    return { ok: false, res: { error: 'sdk_missing' } };
   }
 
   let watched = false;
@@ -341,40 +334,87 @@ async function handleWatchTaddyAd() {
     });
     watched = watched || success === true;
   } catch (err) {
-    btn.disabled = false;
-    showToast({ type: 'error', title: 'No Ads Available', msg: 'No ads right now — try again in a moment', duration: 3000 });
-    return;
+    return { ok: false, res: { error: 'no_fill' } };
   }
 
-  if (!watched) {
-    btn.disabled = false;
-    showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
-    return;
-  }
+  if (!watched) return { ok: false, res: { error: 'Ad not fully watched' } };
 
   const res = await fetchApi({ type: 'watchTaddyAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
+  return { ok: !!(res && res.ok), res };
+}
 
-  if (res && res.ok) {
-    if (res.rewardUnlocked) {
-      showToast({
-        type:     'ad',
-        title:    `+$${res.reward.toFixed(2)} Earned!`,
-        msg:      'Ad watched successfully · Keep going',
-        duration: 4500
-      });
+async function handleWatchTaddyAd() {
+  const btn = document.getElementById('taddy-watch-btn');
+  btn.disabled = true;
+
+  // ── الإعلان الأول ──
+  const first = await playOneTaddyAd();
+  if (!first.ok) {
+    btn.disabled = false;
+    if (first.res?.error === 'sdk_missing') {
+      showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
+    } else if (first.res?.error === 'no_fill') {
+      showToast({ type: 'error', title: 'No Ads Available', msg: 'No ads right now — try again in a moment', duration: 3000 });
+    } else if (first.res?.error === 'Ad not fully watched') {
+      showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
     } else {
-      showToast({
-        type:     'ad',
-        title:    'Ad Watched',
-        msg:      `${res.adsRemaining} more ad${res.adsRemaining > 1 ? 's' : ''} to unlock your reward`,
-        duration: 3500
-      });
+      const { title, msg } = getTaddyErrorMessage(first.res);
+      showToast({ type: 'error', title, msg, duration: 3500 });
     }
-    refreshState();
-  } else {
-    const { title, msg } = getTaddyErrorMessage(res);
-    showToast({ type: 'ad', title, msg, duration: 3500 });
+    return;
   }
+
+  showToast({ type: 'ad', title: 'First Ad Watched', msg: 'Loading your second ad automatically…', duration: 2500 });
+
+  // 🛡️ لو كانت فيه دورة سابقة غير مكتملة (مثلاً المستخدم قفل التطبيق بعد إعلان واحد)،
+  // ممكن هذا الإعلان الأول يكمّل الدورة فعلياً. في هذه الحالة لا نشغّل إعلان ثانٍ إضافي.
+  if (first.res?.rewardUnlocked) {
+    showToast({
+      type:     'ad',
+      title:    `+$${first.res.reward.toFixed(2)} Earned!`,
+      msg:      'Reward unlocked · Keep going',
+      duration: 4500
+    });
+    refreshState();
+    setTimeout(() => { btn.disabled = false; }, 3000);
+    return;
+  }
+
+  // ── الإعلان الثاني — يبدأ تلقائياً بدون أي ضغطة تانية من المستخدم ──
+  const second = await playOneTaddyAd();
+  if (!second.ok) {
+    btn.disabled = false;
+    if (second.res?.error === 'sdk_missing') {
+      showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
+    } else if (second.res?.error === 'no_fill') {
+      showToast({ type: 'error', title: 'No Ads Available', msg: 'Second ad unavailable — try again in a moment', duration: 3500 });
+    } else if (second.res?.error === 'Ad not fully watched') {
+      showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
+    } else {
+      const { title, msg } = getTaddyErrorMessage(second.res);
+      showToast({ type: 'error', title, msg, duration: 3500 });
+    }
+    return;
+  }
+
+  const res = second.res;
+  if (res.rewardUnlocked) {
+    showToast({
+      type:     'ad',
+      title:    `+$${res.reward.toFixed(2)} Earned!`,
+      msg:      'Both ads watched successfully · Keep going',
+      duration: 4500
+    });
+  } else {
+    // نادر — يعني السيرفر ما اعتبرها دورة كاملة (مثلاً تزامن غير متوقع)
+    showToast({
+      type:     'ad',
+      title:    'Ad Watched',
+      msg:      `${res.adsRemaining} more ad${res.adsRemaining > 1 ? 's' : ''} to unlock your reward`,
+      duration: 3500
+    });
+  }
+  refreshState();
 
   setTimeout(() => { btn.disabled = false; }, 3000);
 }
