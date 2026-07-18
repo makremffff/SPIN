@@ -59,6 +59,8 @@ const APP_CFG = {
   AD_USD_REWARD     : 0.03,   // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
   WITHDRAW_MIN      : 10,
+  REFERRAL_ADS_REQUIRED       : 10,  // عدد الإعلانات (أي نوع) اللي لازم يشوفها المُحال عشان تتفعّل إحالته
+  WITHDRAW_MIN_ACTIVE_REFERRALS: 5,  // أقل عدد إحالات مفعّلة مطلوب عشان يقدر المستخدم يسحب
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — لا تزال مستخدمة داخلياً (depositInit) حتى لو
@@ -385,8 +387,11 @@ async function ensureSchema() {
     ON CONFLICT (fingerprint) DO NOTHING
   `);
 
-  // 🎁 تتبع حالة الإحالة — referral_activated يصير TRUE بعد الوصول لـ 3000 نقطة
+  // 🎁 تتبع حالة الإحالة — referral_activated يصير TRUE بعد مشاهدة المُحال لـ 10 إعلانات
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_activated BOOLEAN NOT NULL DEFAULT FALSE`);
+
+  // 📊 إجمالي الإعلانات اللي شافها المستخدم (Adsgram + Taddy مع بعض) — شرط تفعيل الإحالة
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_ads_watched INT NOT NULL DEFAULT 0`);
 
   // جدول المسابقات — يخزن توقيت كل موسم (start/end)
   // السرفر يقرأ منه ويرسل COMPETITION_END_MS للفرونت عبر init response
@@ -678,7 +683,7 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
     }
   }
 
-  // 🕐 إشعار "إحالة معلّقة" عند التسجيل — المكافأة الفعلية تُعطى فقط عند الوصول لـ 3000 نقطة
+  // 🕐 إشعار "إحالة معلّقة" عند التسجيل — المكافأة الفعلية تُعطى فقط عند مشاهدة عدد الإعلانات المطلوب
   if (isNewUser && referredBy) {
     const joinerName = first_name || username || 'Someone';
 
@@ -696,9 +701,9 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
       `🔔 *New Pending Referral!*\n\n` +
       `👤 *${joinerName}* just joined using your link.\n\n` +
       `📊 Status: *⏳ Pending*\n` +
-      `🎯 Condition: *Reach 3,000 pts to activate*\n` +
+      `🎯 Condition: *Watch ${APP_CFG.REFERRAL_ADS_REQUIRED} ads to activate*\n` +
       `👥 *Total Pending: ${pendingReferrals}*\n\n` +
-      `💡 Once they hit 3,000 pts you'll get your reward automatically!`
+      `💡 Once they watch ${APP_CFG.REFERRAL_ADS_REQUIRED} ads you'll get your reward automatically!`
     ).catch(e => console.error('[referral-pending bot notify]', e.message));
   }
 
@@ -706,18 +711,18 @@ async function upsertUser(tgUser, startParam = null, fp = null) {
   return rows[0];
 }
 
-// 🎁 فحص وتفعيل الإحالة — يُستدعى بعد كل مكافأة نقاط
-// يعطي المُحيل مكافأته فوراً عند وصول المُحال لـ 3000 نقطة
+// 🎁 فحص وتفعيل الإحالة — يُستدعى بعد كل مشاهدة إعلان (أي نوع)
+// يعطي المُحيل مكافأته فوراً عند وصول المُحال لعدد الإعلانات المطلوب
 async function checkReferralActivation(userId) {
   try {
     const rows = await sql(
-      'SELECT referred_by, referral_activated, pts, first_name, username FROM users WHERE id = $1',
+      'SELECT referred_by, referral_activated, total_ads_watched, first_name, username FROM users WHERE id = $1',
       [userId]
     );
     if (!rows[0] || !rows[0].referred_by || rows[0].referral_activated) return;
-    if (Number(rows[0].pts) < 3000) return;
+    if (Number(rows[0].total_ads_watched) < APP_CFG.REFERRAL_ADS_REQUIRED) return;
 
-    // ✅ وصل للـ 3000 — فعّل الإحالة وامنح المُحيل مكافأته
+    // ✅ وصل لعدد الإعلانات المطلوب — فعّل الإحالة وامنح المُحيل مكافأته
     await sql('UPDATE users SET referral_activated = TRUE WHERE id = $1', [userId]);
 
     try {
@@ -1191,10 +1196,11 @@ module.exports = async function handler(req, res) {
         // 🔒 Atomic update
         await sql(`
           UPDATE users SET
-            balance_usd   = balance_usd + $1,
-            last_ad_watch = NOW(),
-            daily_ads     = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
-            last_ad_date  = CURRENT_DATE
+            balance_usd       = balance_usd + $1,
+            last_ad_watch     = NOW(),
+            daily_ads         = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
+            last_ad_date      = CURRENT_DATE,
+            total_ads_watched = total_ads_watched + 1
           WHERE id = $2
         `, [actualReward, dbUser.id]);
 
@@ -1348,19 +1354,23 @@ module.exports = async function handler(req, res) {
             UPDATE users SET
               balance_usd         = balance_usd + $1,
               last_taddy_ad_watch = NOW(),
-              taddy_ads_progress  = 0
+              taddy_ads_progress  = 0,
+              total_ads_watched   = total_ads_watched + 1
             WHERE id = $2
           `, [TADDY_CFG.USD_REWARD, dbUser.id]);
           await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, TADDY_CFG.USD_REWARD]);
-          await checkReferralActivation(dbUser.id);
         } else {
           await sql(`
             UPDATE users SET
               last_taddy_ad_watch = NOW(),
-              taddy_ads_progress  = $1
+              taddy_ads_progress  = $1,
+              total_ads_watched   = total_ads_watched + 1
             WHERE id = $2
           `, [newProgress, dbUser.id]);
         }
+
+        // 🎁 فحص تفعيل الإحالة — بعد كل إعلان يُشاهد فعلياً (مش بس عند فوز الجائزة)
+        await checkReferralActivation(dbUser.id);
 
         await bumpAdDailyStat();
 
@@ -1570,6 +1580,21 @@ module.exports = async function handler(req, res) {
         const netAmt = Math.max(0, Math.round((amt - feeAmt) * 100) / 100); // الصافي — يُسجَّل كمبلغ السحب المستحق فعلياً
         if (isNaN(amt) || amt < APP_CFG.WITHDRAW_MIN) return res.status(400).json({ ok: false, error: `Minimum withdrawal is $${APP_CFG.WITHDRAW_MIN.toFixed(2)}` });
         if (parseFloat(dbUser.balance_usd) < amt) return res.status(400).json({ ok: false, error: 'Insufficient balance' });
+
+        // 🎯 شرط السحب: لازم عدد إحالات مفعّلة كافٍ
+        const activeRefRows = await sql(
+          'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = TRUE',
+          [dbUser.telegram_id]
+        );
+        const activeReferralsCount = activeRefRows[0]?.cnt ?? 0;
+        if (activeReferralsCount < APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS) {
+          return res.status(403).json({
+            ok:              false,
+            error:           'referrals_required',
+            required:        APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS,
+            current:         activeReferralsCount,
+          });
+        }
 
         // 📢 اشتراك إجباري بالقناة قبل أي سحب — تحقق فوري عبر Telegram Bot API
         const isMember = await isChannelMember(dbUser.telegram_id);
