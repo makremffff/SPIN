@@ -18,347 +18,6 @@
 </head>
 <body>
 
-<!-- ══ Onboarding ══ -->
-<div id="ob">
-  <div id="flash"></div>
-
-  <div id="scroll-hint">
-    <span>scroll</span>
-    <div class="chevron-wrap">
-      <div class="chev"></div><div class="chev"></div><div class="chev"></div>
-    </div>
-  </div>
-
-  <div id="track">
-
-    <!-- ══ SLIDE 0 — WHO WE ARE ══ -->
-    <div class="slide visible" id="s0">
-      <svg class="ill" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stop-color="#ffe87c"/>
-            <stop offset="50%"  stop-color="#f5c840"/>
-            <stop offset="100%" stop-color="#c8860a"/>
-          </linearGradient>
-          <filter id="gf1"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="75" cy="80" rx="55" ry="50" fill="rgba(245,200,64,0.07)"/>
-        <path d="M50 52 Q32 52 32 68 Q32 84 50 84" stroke="url(#g1)" stroke-width="5.5" stroke-linecap="round" fill="none" filter="url(#gf1)"/>
-        <path d="M100 52 Q118 52 118 68 Q118 84 100 84" stroke="url(#g1)" stroke-width="5.5" stroke-linecap="round" fill="none" filter="url(#gf1)"/>
-        <path d="M50 38 H100 L94 86 Q91 102 75 102 Q59 102 56 86 Z" fill="url(#g1)" filter="url(#gf1)"/>
-        <rect x="58" y="100" width="34" height="10" rx="5" fill="url(#g1)" opacity="0.8"/>
-        <rect x="48" y="108" width="54" height="8"  rx="4" fill="url(#g1)" opacity="0.7"/>
-        <path d="M62 48 Q65 40 70 43" stroke="rgba(255,255,255,0.45)" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <path d="M75 54 l3 9h9l-7 5 3 9-8-5-8 5 3-9-7-5h9z" fill="rgba(255,255,255,0.20)"/>
-        <circle cx="28" cy="34" r="5" fill="url(#g1)" opacity="0.55"/>
-        <circle cx="120" cy="28" r="4" fill="url(#g1)" opacity="0.40"/>
-        <circle cx="128" cy="56" r="3" fill="url(#g1)" opacity="0.30"/>
-      </svg>
-      <div class="eyebrow">Welcome</div>
-      <h1 class="heading">Big League</h1>
-      <div class="rule"></div>
-      <p class="lead">
-        Big League is a <b>competitive Telegram app</b> where real players go head to head every season.<br><br>
-        Each season has a full leaderboard. The players with the most tickets at the end of the season <b>win real USDT</b> paid directly to their wallet.<br><br>
-        No bots. No shortcuts. Just your effort against everyone else.
-      </p>
-    </div>
-
-    <!-- ══ SLIDE 1 — HOW TO PLAY ══ -->
-    <div class="slide" id="s1">
-      <svg class="ill" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ffe87c"/><stop offset="100%" stop-color="#c8860a"/>
-          </linearGradient>
-          <filter id="gf2"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="75" cy="80" rx="55" ry="50" fill="rgba(245,200,64,0.06)"/>
-        <rect x="20"  y="96"  width="32" height="26" rx="4" fill="url(#g2)" opacity="0.45"/>
-        <rect x="59"  y="78"  width="32" height="44" rx="4" fill="url(#g2)" opacity="0.85" filter="url(#gf2)"/>
-        <rect x="98"  y="88"  width="32" height="34" rx="4" fill="url(#g2)" opacity="0.50"/>
-        <text x="36"  y="114" font-family="'Permanent Marker',cursive" font-size="13" fill="#07090f" text-anchor="middle">2</text>
-        <text x="75"  y="100" font-family="'Permanent Marker',cursive" font-size="16" fill="#07090f" text-anchor="middle">1</text>
-        <text x="114" y="108" font-family="'Permanent Marker',cursive" font-size="13" fill="#07090f" text-anchor="middle">3</text>
-        <path d="M75 56 l2.5 7.5h8l-6.5 4.5 2.5 7.5-6.5-4.5-6.5 4.5 2.5-7.5-6.5-4.5h8z" fill="url(#g2)" filter="url(#gf2)"/>
-        <circle cx="24" cy="46" r="7"  fill="url(#g2)" opacity="0.55"/>
-        <text x="24" y="46" font-family="'Permanent Marker',cursive" font-size="7" fill="#07090f" text-anchor="middle" dominant-baseline="middle">$</text>
-        <circle cx="126" cy="38" r="5.5" fill="url(#g2)" opacity="0.40"/>
-        <circle cx="118" cy="70" r="4"   fill="url(#g2)" opacity="0.30"/>
-      </svg>
-      <div class="eyebrow">How It Works</div>
-      <h1 class="heading">Play to Rank</h1>
-      <div class="rule"></div>
-      <p class="lead">Every action you take earns you <b>competition tickets</b>. The more tickets you hold by season end, the higher you place on the board.</p>
-      <div class="section-label">Your path to the podium</div>
-      <div class="steps">
-        <div class="step">
-          <div class="step-n">01</div>
-          <div class="step-body">
-            <div class="step-title">Watch Ads Daily</div>
-            <div class="step-desc">Each ad you watch awards you tickets and adds to your USDT balance. You have a daily limit — use it every day without missing.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">02</div>
-          <div class="step-body">
-            <div class="step-title">Complete Social Tasks</div>
-            <div class="step-desc">Join channels, follow accounts, and submit proof. Verified tasks give you big ticket bonuses on top of your daily ads.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">03</div>
-          <div class="step-body">
-            <div class="step-title">Invite Your Network</div>
-            <div class="step-desc">Every friend you bring in earns you referral tickets automatically. The more you invite, the faster you climb the board.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">04</div>
-          <div class="step-body">
-            <div class="step-title">Watch the Leaderboard</div>
-            <div class="step-desc">Track your rank live against every player in the season. The countdown timer shows you exactly how much time is left to move up.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ SLIDE 2 — EARN ══ -->
-    <div class="slide" id="s2">
-      <svg class="ill" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="g3" cx="50%" cy="35%" r="65%">
-            <stop offset="0%"   stop-color="#ffe87c"/>
-            <stop offset="60%"  stop-color="#f5c840"/>
-            <stop offset="100%" stop-color="#c8860a"/>
-          </radialGradient>
-          <filter id="gf3"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="75" cy="85" rx="52" ry="45" fill="rgba(245,200,64,0.07)" filter="url(#gf3)"/>
-        <ellipse cx="75" cy="102" rx="28" ry="9" fill="url(#g3)" opacity="0.40"/>
-        <rect x="47" y="88" width="56" height="14" rx="4" fill="url(#g3)" opacity="0.45"/>
-        <ellipse cx="75" cy="88" rx="28" ry="9" fill="url(#g3)" opacity="0.55"/>
-        <rect x="47" y="72" width="56" height="16" rx="4" fill="url(#g3)" opacity="0.65"/>
-        <ellipse cx="75" cy="72" rx="28" ry="9" fill="url(#g3)" opacity="0.78"/>
-        <rect x="47" y="55" width="56" height="17" rx="4" fill="url(#g3)" opacity="0.88" filter="url(#gf3)"/>
-        <ellipse cx="75" cy="55" rx="28" ry="9" fill="url(#g3)" opacity="1" filter="url(#gf3)"/>
-        <text x="75" y="55" font-family="'Permanent Marker',cursive" font-size="11" fill="#07090f" text-anchor="middle" dominant-baseline="middle" font-weight="900">USDT</text>
-        <ellipse cx="75" cy="55" rx="18" ry="5" fill="rgba(255,255,255,0.12)"/>
-        <path d="M75 34 L75 22 M75 22 L68 30 M75 22 L82 30" stroke="url(#g3)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
-        <circle cx="116" cy="46" r="10" fill="url(#g3)" opacity="0.65" filter="url(#gf3)"/>
-        <text x="116" y="46" font-family="'Permanent Marker',cursive" font-size="9" fill="#07090f" text-anchor="middle" dominant-baseline="middle">$</text>
-        <circle cx="32" cy="44" r="8"  fill="url(#g3)" opacity="0.50"/>
-        <text x="32"  y="44" font-family="'Permanent Marker',cursive" font-size="7" fill="#07090f" text-anchor="middle" dominant-baseline="middle">$</text>
-        <circle cx="124" cy="80" r="5.5" fill="url(#g3)" opacity="0.35"/>
-      </svg>
-      <div class="eyebrow">Your Rewards</div>
-      <h1 class="heading">Real USDT,<br>Every Season</h1>
-      <div class="rule"></div>
-      <p class="lead">
-        Every season ends with a <b>prize payout</b>. The top players on the podium receive USDT sent straight to their wallet — no minimum withdrawal, no waiting list.
-      </p>
-      <div class="section-label">Where the money comes from</div>
-      <div class="steps">
-        <div class="step">
-          <div class="step-n">01</div>
-          <div class="step-body">
-            <div class="step-title">Ads Build Your Balance</div>
-            <div class="step-desc">Each ad you watch credits a fixed USDT amount to your in-app balance. Watch every day to stack up your earnings before you withdraw.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">02</div>
-          <div class="step-body">
-            <div class="step-title">Season Prizes Are Bigger</div>
-            <div class="step-desc">The top 3 players at season end receive a prize from the season prize pool — paid on top of whatever ad balance they already earned.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">03</div>
-          <div class="step-body">
-            <div class="step-title">Withdraw Anytime</div>
-            <div class="step-desc">Once you hit the minimum, withdraw your USDT balance to any TON wallet at any time. Season prizes are sent automatically after the podium locks in.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ SLIDE 3 — REFERRALS ══ -->
-    <div class="slide" id="s3">
-      <svg class="ill" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stop-color="#ffe87c"/>
-            <stop offset="50%"  stop-color="#f5c840"/>
-            <stop offset="100%" stop-color="#c8860a"/>
-          </linearGradient>
-          <filter id="gf4"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="75" cy="82" rx="54" ry="48" fill="rgba(245,200,64,0.06)"/>
-        <circle cx="75" cy="60" r="14" fill="url(#g4)" filter="url(#gf4)"/>
-        <path d="M55 90 Q55 76 75 76 Q95 76 95 90" stroke="url(#g4)" stroke-width="5" stroke-linecap="round" fill="none" filter="url(#gf4)"/>
-        <circle cx="32" cy="72" r="10" fill="url(#g4)" opacity="0.55"/>
-        <path d="M18 98 Q18 86 32 86 Q46 86 46 98" stroke="url(#g4)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.55"/>
-        <circle cx="118" cy="72" r="10" fill="url(#g4)" opacity="0.55"/>
-        <path d="M104 98 Q104 86 118 86 Q132 86 132 98" stroke="url(#g4)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.55"/>
-        <line x1="55" y1="68" x2="44" y2="72" stroke="url(#g4)" stroke-width="2" stroke-dasharray="3 3" opacity="0.50"/>
-        <line x1="95" y1="68" x2="106" y2="72" stroke="url(#g4)" stroke-width="2" stroke-dasharray="3 3" opacity="0.50"/>
-        <circle cx="50" cy="108" r="9" fill="url(#g4)" opacity="0.80" filter="url(#gf4)"/>
-        <text x="50" y="108" font-family="'Permanent Marker',cursive" font-size="10" fill="#07090f" text-anchor="middle" dominant-baseline="middle">+</text>
-        <circle cx="100" cy="108" r="9" fill="url(#g4)" opacity="0.80" filter="url(#gf4)"/>
-        <text x="100" y="108" font-family="'Permanent Marker',cursive" font-size="10" fill="#07090f" text-anchor="middle" dominant-baseline="middle">+</text>
-        <circle cx="22" cy="40" r="3.5" fill="url(#g4)" opacity="0.40"/>
-        <circle cx="128" cy="44" r="3"  fill="url(#g4)" opacity="0.30"/>
-      </svg>
-      <div class="eyebrow">Grow Together</div>
-      <h1 class="heading">Invite &<br>Multiply</h1>
-      <div class="rule"></div>
-      <p class="lead">
-        Your referral link is one of the most powerful tools in the game. Every friend who joins through your link <b>earns you tickets and USDT commission</b> automatically — every time they earn.
-      </p>
-      <div class="section-label">How referrals work</div>
-      <div class="steps">
-        <div class="step">
-          <div class="step-n">01</div>
-          <div class="step-body">
-            <div class="step-title">Share Your Link</div>
-            <div class="step-desc">Tap the Invite button on the home screen to copy your unique referral link or share it directly to any chat.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">02</div>
-          <div class="step-body">
-            <div class="step-title">They Join, You Earn</div>
-            <div class="step-desc">The moment a friend opens the app through your link and starts playing, you receive referral tickets added to your season total instantly.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">03</div>
-          <div class="step-body">
-            <div class="step-title">Passive USDT Commission</div>
-            <div class="step-desc">Every time your referral watches an ad, a percentage of their earnings flows directly into your USDT balance — forever, with no cap.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">04</div>
-          <div class="step-body">
-            <div class="step-title">The More, The Better</div>
-            <div class="step-desc">There's no limit on how many friends you can invite. The bigger your network, the faster your tickets and balance grow — even while you sleep.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ SLIDE 4 — FAIR PLAY ══ -->
-    <div class="slide" id="s4">
-      <svg class="ill" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="g5" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stop-color="#ffe87c"/>
-            <stop offset="50%"  stop-color="#f5c840"/>
-            <stop offset="100%" stop-color="#c8860a"/>
-          </linearGradient>
-          <filter id="gf5"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="75" cy="82" rx="54" ry="48" fill="rgba(245,200,64,0.06)"/>
-        <path d="M75 28 L108 44 L108 78 Q108 106 75 120 Q42 106 42 78 L42 44 Z" fill="url(#g5)" opacity="0.12"/>
-        <path d="M75 28 L108 44 L108 78 Q108 106 75 120 Q42 106 42 78 L42 44 Z" stroke="url(#g5)" stroke-width="3.5" fill="none" filter="url(#gf5)"/>
-        <path d="M58 74 L70 86 L93 60" stroke="url(#g5)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#gf5)"/>
-        <circle cx="26" cy="36" r="4"   fill="url(#g5)" opacity="0.40"/>
-        <circle cx="124" cy="30" r="3.5" fill="url(#g5)" opacity="0.30"/>
-        <circle cx="130" cy="88" r="3"   fill="url(#g5)" opacity="0.25"/>
-        <circle cx="20"  cy="90" r="3"   fill="url(#g5)" opacity="0.25"/>
-      </svg>
-      <div class="eyebrow">The Rules</div>
-      <h1 class="heading">Play Fair,<br>Win Real</h1>
-      <div class="rule"></div>
-      <p class="lead">
-        Big League is built on <b>honest competition</b>. We use server-side verification for every reward. Cheating doesn't just get you banned — it removes you from the prize pool permanently.
-      </p>
-      <div class="section-label">What you need to know</div>
-      <div class="steps">
-        <div class="step">
-          <div class="step-n">01</div>
-          <div class="step-body">
-            <div class="step-title">One Account Per Person</div>
-            <div class="step-desc">Each Telegram account is allowed one player profile. Creating multiple accounts to farm rewards will result in a permanent ban on all of them.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">02</div>
-          <div class="step-body">
-            <div class="step-title">Real Ads, Real Rewards</div>
-            <div class="step-desc">Every ad view is verified by the ad network before the reward is credited. Closing ads early or using bots resets your streak and voids the reward.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">03</div>
-          <div class="step-body">
-            <div class="step-title">Task Proof Is Checked</div>
-            <div class="step-desc">Social tasks require manual proof reviewed by our team. Submitting fake screenshots or leaving channels after verification will disqualify your account.</div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-n">04</div>
-          <div class="step-body">
-            <div class="step-title">Prizes Go to Real Players</div>
-            <div class="step-desc">At season end, the top accounts are reviewed before prizes are sent. Any account flagged for abuse is removed and the prize moves to the next clean player on the board.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ SLIDE 5 — JOIN CHANNEL ══ -->
-    <div class="slide" id="s5">
-      <svg class="ill" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="g6" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stop-color="#ffe87c"/>
-            <stop offset="50%"  stop-color="#f5c840"/>
-            <stop offset="100%" stop-color="#c8860a"/>
-          </linearGradient>
-          <filter id="gf6"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="75" cy="80" rx="55" ry="50" fill="rgba(245,200,64,0.07)"/>
-        <path d="M40 50 Q40 38 52 38 H98 Q110 38 110 50 V78 Q110 90 98 90 H66 L50 104 V90 H52 Q40 90 40 78 Z" fill="url(#g6)" opacity="0.14"/>
-        <path d="M40 50 Q40 38 52 38 H98 Q110 38 110 50 V78 Q110 90 98 90 H66 L50 104 V90 H52 Q40 90 40 78 Z" stroke="url(#g6)" stroke-width="3.5" fill="none" filter="url(#gf6)"/>
-        <circle cx="61" cy="64" r="4"   fill="url(#g6)"/>
-        <circle cx="75" cy="64" r="4"   fill="url(#g6)" opacity="0.75"/>
-        <circle cx="89" cy="64" r="4"   fill="url(#g6)" opacity="0.5"/>
-        <circle cx="24" cy="32" r="4"   fill="url(#g6)" opacity="0.40"/>
-        <circle cx="126" cy="100" r="3.5" fill="url(#g6)" opacity="0.30"/>
-        <circle cx="120" cy="30" r="3"   fill="url(#g6)" opacity="0.25"/>
-      </svg>
-      <div class="eyebrow">Stay Updated</div>
-      <h1 class="heading">Join Our<br>Channel</h1>
-      <div class="rule"></div>
-      <p class="lead">
-        Get <b>season announcements</b>, prize-pool updates, and important news the moment they drop — everything that matters happens there first.
-      </p>
-      <button class="ob-join-btn" id="ob-join-btn" type="button">
-        <svg viewBox="0 0 24 24">
-          <path d="M22 2 11 13"/>
-          <path d="M22 2 15 22l-4-9-9-4 20-7Z"/>
-        </svg>
-        <span>Join Channel</span>
-      </button>
-    </div>
-
-  </div><!-- /track -->
-
-  <div id="bar">
-    <div id="dots">
-      <div class="dot on"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-    </div>
-    <button id="btn">Next</button>
-  </div>
-</div>
-
 <!-- ══ Ban Screen ══ -->
 <div id="ban-screen" style="display:none; position:fixed; inset:0; z-index:9999; background:#0d0d0f; display:none; align-items:center; justify-content:center; flex-direction:column; gap:24px; text-align:center;">
   <svg xmlns="http://www.w3.org/2000/svg" width="148" height="148" viewBox="0 0 128 128" fill="none">
@@ -384,151 +43,30 @@
 
 <div class="pages">
   <div class="page active" id="page-contest">
-    <div class="contest-header">
+    <div class="home-wrap">
 
-      <div style="padding: 0 24px; width:100%; display:flex; flex-direction:column; align-items:center;">
-        <h1 class="contest-title reveal from-top">Big League</h1>
-        <div class="contest-underline reveal from-top"></div>
-
-        <div class="countdown reveal from-top">
-          <span class="cd-word">days left</span>
-          <span class="cd-number" id="cd-days">07</span>
-        </div>
-
-        <!-- Podium — 2nd | 1st | 3rd -->
-        <div class="podium">
-
-          <!-- 2nd -->
-          <div class="pod-slot second reveal from-top">
-            <img class="pod-badge" src="asesst/sec.png" alt="2nd badge">
-            <div class="pod-avatar">
-              <img alt="">
-              <div class="pod-avatar-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
-              </div>
-            </div>
-            <div class="pod-hidden-pts"></div>
-            <div class="pod-pts-value"><img class="coin-ic" src="https://files.catbox.moe/b3yq30.png" alt="coin"><span class="pod-pts-num"></span></div>
-            <span class="pod-earn" id="pod-prize-second">$10</span>
-          </div>
-
-          <!-- 1st -->
-          <div class="pod-slot first reveal from-top">
-            <img class="pod-badge" src="asesst/frst.png" alt="1st badge">
-            <div class="pod-avatar">
-              <img alt="">
-              <div class="pod-avatar-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
-              </div>
-            </div>
-            <div class="pod-hidden-pts"></div>
-            <div class="pod-pts-value"><img class="coin-ic" src="https://files.catbox.moe/b3yq30.png" alt="coin"><span class="pod-pts-num"></span></div>
-            <span class="pod-earn" id="pod-prize-first">$25</span>
-          </div>
-
-          <!-- 3rd -->
-          <div class="pod-slot third reveal from-top">
-            <img class="pod-badge" src="asesst/thrd.png" alt="3rd badge">
-            <div class="pod-avatar">
-              <img alt="">
-              <div class="pod-avatar-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
-              </div>
-            </div>
-            <div class="pod-hidden-pts"></div>
-            <div class="pod-pts-value"><img class="coin-ic" src="https://files.catbox.moe/b3yq30.png" alt="coin"><span class="pod-pts-num"></span></div>
-            <span class="pod-earn" id="pod-prize-third">$7</span>
-          </div>
-
-        </div>
-      </div>
-<div class="lb-header">
-          <span class="lb-title">Rankings</span>
-          <div class="lb-prize-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f5c840" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-              <path d="M10 15.5V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.23 7 22"/>
-              <path d="M14 15.5V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.23 17 22"/>
-              <line x1="4" y1="22" x2="20" y2="22"/>
-            </svg>
-            <span id="lb-prize-label">For Each $1</span>
-          </div>
-        </div>
-
-      <!-- ══ Leaderboard Card ══ -->
-      <div class="leaderboard-card-wrap reveal from-left">
-      <div class="leaderboard-card">
-
-        
-        <!-- Rows 4–8: populated dynamically by pages.js -->
-        <div id="lb-rows">
-          <div class="lb-row">
-            <span class="lb-rank">4</span>
-            <div class="lb-avatar"><img alt=""><div class="lb-avatar-placeholder"><svg viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div></div>
-            <div class="lb-info"><div class="lb-hidden-name"></div><div class="lb-pts"><div class="lb-hidden-pts"></div></div></div>
-            <div class="lb-hidden-reward"></div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">5</span>
-            <div class="lb-avatar"><img alt=""><div class="lb-avatar-placeholder"><svg viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div></div>
-            <div class="lb-info"><div class="lb-hidden-name"></div><div class="lb-pts"><div class="lb-hidden-pts"></div></div></div>
-            <div class="lb-hidden-reward"></div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">6</span>
-            <div class="lb-avatar"><img alt=""><div class="lb-avatar-placeholder"><svg viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div></div>
-            <div class="lb-info"><div class="lb-hidden-name"></div><div class="lb-pts"><div class="lb-hidden-pts"></div></div></div>
-            <div class="lb-hidden-reward"></div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">7</span>
-            <div class="lb-avatar"><img alt=""><div class="lb-avatar-placeholder"><svg viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div></div>
-            <div class="lb-info"><div class="lb-hidden-name"></div><div class="lb-pts"><div class="lb-hidden-pts"></div></div></div>
-            <div class="lb-hidden-reward"></div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">8</span>
-            <div class="lb-avatar"><img alt=""><div class="lb-avatar-placeholder"><svg viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div></div>
-            <div class="lb-info"><div class="lb-hidden-name"></div><div class="lb-pts"><div class="lb-hidden-pts"></div></div></div>
-            <div class="lb-hidden-reward"></div>
-          </div>
-        </div>
-
-      </div>
-        <div class="lb-scroll-hint" id="lb-scroll-hint">
-          <div class="chev"></div><div class="chev"></div><div class="chev"></div>
-        </div>
+      <div class="home-hero reveal from-top">
+        <h1 class="contest-title">Big League</h1>
+        <div class="contest-underline"></div>
+        <p class="home-sub">Watch ads, earn USDT — simple as that.</p>
       </div>
 
-      <!-- ══ You Card ══ -->
-      <div class="you-card reveal from-right">
-        <div class="lb-row">
-          <span class="lb-rank" id="you-rank">—</span>
-          <div class="lb-avatar">
-            <img alt="">
-            <div class="lb-avatar-placeholder">
-              <svg viewBox="0 0 24 24" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <div class="earn-section reveal from-bottom">
+        <div class="earn-ad-card">
+          <div class="earn-ad-icon">
+            <img src="asesst/adsgram.jpg" alt="Adsgram">
+          </div>
+          <div class="earn-ad-info">
+            <span class="earn-ad-label">Watch an Ad</span>
+            <div class="earn-ad-reward">
+              <span id="ad-ticket-reward">$0.03</span>
+              <span class="per-ad">per ad</span>
             </div>
           </div>
-          <div class="lb-info">
-            <span class="lb-name" id="you-name">You</span>
-            <div class="lb-pts">
-              <img src="https://files.catbox.moe/b3yq30.png" alt="coin">
-              <span id="you-pts">0</span>
-            </div>
-            <span class="you-tag">Your position</span>
-          </div>
+          <button class="earn-watch-btn" id="watch-btn" onclick="handleWatchAd()">
+            <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Watch</span>
+          </button>
         </div>
       </div>
 
@@ -557,17 +95,15 @@
         <p class="ref-sub">Bring in players, earn USDT on everything they play — automatically, forever.</p>
 
         <div class="ref-reward-pill">
-          <img src="https://files.catbox.moe/b3yq30.png" alt="coin">
-          <span id="ref-ticket-reward">5,000</span>
-          <span class="pill-label">·</span>
-          <span id="ref-usdt-reward">+$0.015</span>
+          <span id="ref-usdt-reward">+$0.1</span>
           <span class="pill-label">per friend</span>
         </div>
       </div>
 
       <div class="ref-stats reveal from-top">
+        <img class="ref-stat-icon" src="https://files.catbox.moe/b3yq30.png" alt="tickets">
         <span class="ref-stat-num" id="ref-earned">0</span>
-        <span>USDT earned</span>
+        <span>tickets earned</span>
       </div>
 
       <div class="ref-block reveal from-left">
@@ -596,71 +132,8 @@
         </div>
       </div>
 
-      <div class="earn-section reveal from-bottom">
-        <div class="earn-ad-card">
-          <div class="earn-ad-icon">
-            <img src="asesst/adsgram.jpg" alt="Adsgram">
-          </div>
-          <div class="earn-ad-info">
-            <span class="earn-ad-label">Watch an Ad</span>
-            <div class="earn-ad-reward">
-              <span id="ad-ticket-reward">$0.001</span>
-              <span class="per-ad">per ad</span>
-            </div>
-          </div>
-          <button class="earn-watch-btn" id="watch-btn" onclick="handleWatchAd()">
-            <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <span>Watch</span>
-          </button>
-        </div>
-      </div>
-
       <div class="ref-foot-note reveal from-bottom">No limit on invites · No cap on earnings</div>
 
-    </div>
-  </div>
-
-  <!-- ══ Game Page ══ -->
-  <div class="page" id="page-game">
-    <div id="game-canvas-wrap">
-      <div id="timer-top">
-        <div class="timer-num" id="timerNum">40</div>
-        <div class="timer-label">seconds</div>
-      </div>
-      <div id="score-top">
-        <img src="https://files.catbox.moe/b3yq30.png" alt="ticket">
-        <span id="scoreVal">0</span>
-      </div>
-      <div id="best-top">BEST <span id="bestVal">0</span></div>
-
-      <div id="combo-badge"></div>
-
-      <canvas id="canvas"></canvas>
-
-      <div id="cd-overlay"><div id="cd-num"></div></div>
-
-      <div id="end-overlay">
-        <div class="end-backdrop"></div>
-        <div class="end-card">
-          <div class="end-card-title">Game Over</div>
-          <div class="end-divider"></div>
-          <div class="end-score-wrap">
-            <img src="https://files.catbox.moe/b3yq30.png" alt="ticket" id="endTicketImg">
-            <div class="end-score-num" id="finalScore">0</div>
-          </div>
-          <div class="end-unit">Tickets Collected</div>
-
-          <div class="end-usd-wrap" id="endUsdWrap">
-            <img src="asesst/dollar.png" alt="usdt" id="endDollarImg">
-            <div class="end-usd-num" id="finalUsd">$0.0000</div>
-          </div>
-
-          <div class="new-best-tag" id="newBestTag">NEW BEST!</div>
-          <button class="btn-ad"    id="adBtn"    onclick="onWatchAd()"> Double Tickets</button>
-          <button class="btn-claim" id="claimBtn" onclick="claimRound()">✓ Claim Tickets</button>
-          <button class="btn-again" onclick="playAgain()">↩ Play Again</button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -681,19 +154,6 @@
           <span>Balance</span>
           <strong id="wd-balance">$0.00</strong>
         </div>
-      </div>
-
-      <!-- ── Tab switcher — Withdraw / Deposit ── -->
-      <div class="wd-tabs reveal from-top">
-        <button class="wd-tab active" id="tab-btn-withdraw" onclick="switchWdTab('withdraw')">
-          <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></svg>
-          <span>Withdraw</span>
-        </button>
-        <button class="wd-tab" id="tab-btn-deposit" onclick="switchWdTab('deposit')">
-          <svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
-          <span>Deposit</span>
-        </button>
-        <div class="wd-tab-glider" id="wd-tab-glider"></div>
       </div>
 
       <div class="wd-wallet-block reveal from-left">
@@ -717,23 +177,6 @@
         <div class="wc-status" id="wc-status">Fee is deducted automatically from the amount</div>
 
       </div>
-
-      <!-- ══ Deposit section — buy competition tickets with TON ══ -->
-      <div class="dp-form" id="wd-section-deposit" style="display:none">
-
-        <div class="dp-label-row reveal from-left">
-          <span class="wd-label">Choose a Ticket Package</span>
-          <span class="dp-ton-pill">
-            <svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            Paid in TON
-          </span>
-        </div>
-
-        <div class="dp-packages" id="dp-packages"><!-- filled by renderDepositPackages() --></div>
-
-        <div class="dp-status" id="dp-status"></div>
-
-      </div>
     </div>
   </div>
 </div>
@@ -742,15 +185,10 @@
   <button class="nb active" data-page="contest">
     <div class="ic">
       <svg viewBox="0 0 24 24">
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-        <path d="M10 15.5V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.23 7 22"/>
-        <path d="M14 15.5V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.23 17 22"/>
-        <line x1="4" y1="22" x2="20" y2="22"/>
+        <path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z"/>
       </svg>
     </div>
-    <span class="lbl">Contest</span>
+    <span class="lbl">Home</span>
   </button>
 
   <button class="nb" data-page="referral">
@@ -764,19 +202,6 @@
       </svg>
     </div>
     <span class="lbl">Referral</span>
-  </button>
-
-  <button class="nb" data-page="game">
-    <div class="ic">
-      <svg viewBox="0 0 24 24">
-        <rect x="2" y="7" width="20" height="12" rx="4"/>
-        <line x1="8"  y1="10" x2="8"  y2="16"/>
-        <line x1="5"  y1="13" x2="11" y2="13"/>
-        <circle cx="16" cy="11" r="1" fill="currentColor" style="fill:var(--muted)"/>
-        <circle cx="19" cy="14" r="1" fill="currentColor" style="fill:var(--muted)"/>
-      </svg>
-    </div>
-    <span class="lbl">Game</span>
   </button>
 
   <button class="nb" data-page="withdraw">
@@ -796,7 +221,6 @@
 <script src="api.js"></script>
 <script src="security.js"></script>
 <script src="notifications.js"></script>
-<script src="game.js"></script>
 <script src="pages.js"></script>
 <script src="app.js"></script>
 

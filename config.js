@@ -27,43 +27,22 @@ const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-
 const APP_CONFIG = {
   /* Referral rewards */
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.01,  // USDT added to balance per referral
+  REF_USDT_REWARD   : 0.1,    // USDT added to balance per referral
 
   /* Ad rewards */
-  AD_USD_REWARD     : 0.001,  // USD per ad watch
-  AD_DAILY_MAX      : 3000,     // max ads per day
+  AD_USD_REWARD     : 0.03,   // USD per ad watch
+  AD_DAILY_MAX      : 3000,   // max ads per day
 
   /* Withdrawal */
-  WITHDRAW_MIN      : 0.01,   // minimum withdrawal in USD
+  WITHDRAW_MIN      : 10,     // minimum withdrawal in USD
 
   /* Withdraw tiers — quick-select cards on the withdraw page (fee deducted from amount) */
   WITHDRAW_TIERS: [
-    { id: 'wd_1', amount: 0.01, fee: 0.001 },
-    { id: 'wd_2', amount: 0.15, fee: 0.015 },
-    { id: 'wd_3', amount: 0.35, fee: 0.04 },
-    { id: 'wd_4', amount: 0.60, fee: 0.03, best: true },
+    { id: 'wd_1', amount: 10,  fee: 0.5 },
+    { id: 'wd_2', amount: 20,  fee: 0.8 },
+    { id: 'wd_3', amount: 50,  fee: 1.5 },
+    { id: 'wd_4', amount: 100, fee: 2, best: true },
   ],
-
-  /* Deposit — شراء تذاكر مقابل TON عبر TonConnect (يُستبدل بقيمة السرفر) */
-  TICKET_PACKAGES: [
-    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
-    { id: 'pkg_2',  tickets: 35000,  ton: 0.25 },
-    { id: 'pkg_3',  tickets: 90000,  ton: 0.5  },
-    { id: 'pkg_4',  tickets: 200000, ton: 1    },
-  ],
-
-  /* Podium prizes (contest page) */
-  PODIUM_PRIZES: {
-    first  : 25,   // $
-    second : 10,   // $
-    third  :  7,   // $
-  },
-
-  /* Leaderboard badge label */
-  LB_PRIZE_LABEL : 'Each $1',
-
-  /* توقيت المسابقة — يُستبدل بقيمة السرفر فور وصول init response */
-  COMPETITION_END_MS: Date.now() + 20 * 24 * 60 * 60 * 1000,
 };
 
 /* Single source of truth — all pages read from here */

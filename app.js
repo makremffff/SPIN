@@ -4,15 +4,6 @@
                notifications.js, pages.js
 ══════════════════════════════════════════════════════ */
 
-/* 🛡️ Wire up onboarding FIRST, before anything else runs.
-   initOnboarding() is pure static UI logic with no dependency
-   on config.js/api.js/etc. Running it first guarantees the
-   Next button always works even if something later in this
-   file throws (e.g. a missing/broken APP_CONFIG, a failed
-   network call). function declarations are hoisted, so
-   initOnboarding is already defined here even though its
-   body is written further down in this file. */
-
 /* ── Initial load ───────────────────────────────────── */
 async function initApp() {
   initTelegramApp();
@@ -30,12 +21,6 @@ async function initApp() {
       return;
     }
     applyState(res);
-    // ✅ شاشة التعليمات — تُعرض مرة وحدة فقط (الـ flag محفوظ في DB)
-    try {
-      initOnboarding(res.user?.onboarding_seen === true);
-    } catch (err) {
-      console.error('[initOnboarding] failed to initialize', err);
-    }
   } else {
     console.error('[initApp] failed:', res?.error);
   }
@@ -271,7 +256,7 @@ async function handleWatchAd() {
   }
 
   if (res && res.ok) {
-    const reward = res.reward ?? 0.001;
+    const reward = res.reward ?? 0.03;
 
     if (res.partial) {
       // 50% reward — show center modal instead of normal toast
@@ -547,27 +532,6 @@ function tonCommentPayload(text) {
   return _b64FromBytes(full);
 }
 
-/* ── Tab switcher ── */
-function switchWdTab(tab) {
-  const glider = document.getElementById('wd-tab-glider')?.parentElement;
-  const wSec   = document.getElementById('wd-section-withdraw');
-  const dSec   = document.getElementById('wd-section-deposit');
-  const wBtn   = document.getElementById('tab-btn-withdraw');
-  const dBtn   = document.getElementById('tab-btn-deposit');
-  const title  = document.getElementById('wd-hero-title');
-
-  const isDeposit = tab === 'deposit';
-  glider?.classList.toggle('dp-active', isDeposit);
-  wBtn?.classList.toggle('active', !isDeposit);
-  dBtn?.classList.toggle('active', isDeposit);
-  if (wSec) wSec.style.display = isDeposit ? 'none' : 'flex';
-  if (dSec) dSec.style.display = isDeposit ? 'flex' : 'none';
-  if (title) title.textContent = isDeposit ? 'Buy Competition Tickets' : 'Withdraw Your Earnings';
-
-  if (isDeposit) renderDepositPackages();
-  else renderWithdrawTiers();
-}
-
 /* ── Render withdraw tier cards from server-synced config ── */
 function renderWithdrawTiers() {
   const wrap = document.getElementById('wc-packages');
@@ -617,155 +581,6 @@ function renderWithdrawTiers() {
   }).join('');
 }
 
-/* ── Render ticket package cards from server-synced config ── */
-function renderDepositPackages() {
-  const wrap = document.getElementById('dp-packages');
-  if (!wrap) return;
-
-  const cfg  = appState.config || APP_CONFIG;
-  const pkgs = (cfg.TICKET_PACKAGES || APP_CONFIG.TICKET_PACKAGES || []).slice();
-  if (!pkgs.length) { wrap.innerHTML = ''; return; }
-
-  // ترتيب تصاعدي حسب سعر TON، حتى لو ترتيب السيرفر مختلف
-  pkgs.sort((a, b) => a.ton - b.ton);
-
-  const ratio   = p => p.tickets / p.ton;
-  const baseRate = ratio(pkgs[0]);
-  const bestId  = pkgs.reduce((a, b) => (ratio(b) > ratio(a) ? b : a)).id;
-  // سعر TON تقريبي بالدولار (لو متوفر من السيرفر)، وإلا نتجاهل عرض القيمة التقريبية
-  const tonUsdRate = Number(cfg.TON_USD_RATE || APP_CONFIG.TON_USD_RATE) || null;
-
-  const arrowSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>`;
-  const tonIconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
-
-  wrap.innerHTML = pkgs.map((p, i) => {
-    const isBest = p.id === bestId;
-    const bonusPct = Math.round((ratio(p) / baseRate - 1) * 100);
-
-    let tierClass, tagLabel;
-    if (isBest)      { tierClass = 'best';        tagLabel = '★ Best Value'; }
-    else if (i === 0) { tierClass = '';            tagLabel = null; }
-    else if (i === 1) { tierClass = 'tier-popular'; tagLabel = 'Popular'; }
-    else              { tierClass = 'tier-deal';    tagLabel = 'Great Deal'; }
-
-    const showBonus = bonusPct > 0 && (isBest || tierClass === 'tier-deal');
-    const usdLine = tonUsdRate ? `<div class="dp-usd">≈ $${(p.ton * tonUsdRate).toFixed(2)}</div>` : '';
-
-    return `
-    <div class="dp-card ${isBest ? 'best' : tierClass}">
-      <div class="dp-tag-row">
-        ${tagLabel ? `<span class="dp-tag">${tagLabel}</span>` : '<span></span>'}
-        ${showBonus ? `<span class="dp-bonus">+${bonusPct}%</span>` : ''}
-      </div>
-      <div class="dp-ticket-ic"><img src="${TICKET_IMG}" alt="ticket"></div>
-      <div class="dp-card-info">
-        <div class="dp-tickets">${p.tickets.toLocaleString()}</div>
-        <div class="dp-tickets-label">TICKETS</div>
-        <div class="dp-rate">${Math.round(ratio(p) / 1000)}K / TON</div>
-        <div class="dp-price">${tonIconSvg}${p.ton} TON</div>
-        ${usdLine}
-      </div>
-      <button class="dp-buy-btn" data-pkg="${p.id}" onclick="buyTicketPackage('${p.id}')">
-        <span>Buy Now</span>${arrowSvg}
-      </button>
-    </div>`;
-  }).join('');
-}
-
-/* ── Buy flow ── */
-async function buyTicketPackage(pkgId) {
-  if (!secAllow('withdraw')) {
-    showToast({ type: 'withdraw', title: 'Too Many Attempts', msg: 'Please wait before trying again', duration: 3000 });
-    return;
-  }
-
-  if (!tonConnectUI || !tonConnectUI.wallet) {
-    showToast({ type: 'withdraw', title: 'Connect Your Wallet', msg: 'Tap "Connect Wallet" first to buy tickets', duration: 3500 });
-    try { tonConnectUI?.openModal(); } catch {}
-    return;
-  }
-
-  const cfg  = appState.config || APP_CONFIG;
-  const pkgs = cfg.TICKET_PACKAGES || APP_CONFIG.TICKET_PACKAGES || [];
-  const pkg  = pkgs.find(p => p.id === pkgId);
-  if (!pkg) return;
-
-  const statusEl = document.getElementById('dp-status');
-  const btn = document.querySelector(`.dp-buy-btn[data-pkg="${pkgId}"]`);
-  document.querySelectorAll('.dp-buy-btn').forEach(b => b.disabled = true);
-  if (statusEl) statusEl.textContent = 'Waiting for wallet confirmation…';
-
-  try {
-    // 1) نحجز صف الايداع Pending بالسيرفر أولاً
-    const initRes = await fetchApi({
-      type: 'depositInit',
-      data: { packageId: pkg.id, walletAddress: tonConnectUI.wallet.account.address }
-    });
-
-    if (!initRes || !initRes.ok) {
-      showToast({ type: 'withdraw', title: 'Could Not Start Deposit', msg: initRes?.error || 'Please try again', duration: 3500 });
-      if (statusEl) statusEl.textContent = '';
-      return;
-    }
-
-    const nanotons = Math.round(pkg.ton * 1e9).toString();
-
-    // 🧾 نرفق ايدي المستخدم (Telegram ID) كتعليق on-chain حقيقي على المعاملة
-    let payload;
-    try { payload = tonCommentPayload(String(appState.user.telegram_id || appState.user.id)); }
-    catch (e) { console.warn('[buyTicketPackage] comment payload failed, sending without memo:', e); }
-
-    // 2) المستخدم يوقّع ويرسل المعاملة من محفظته مباشرة للخزينة
-    await tonConnectUI.sendTransaction({
-      validUntil: Math.floor(Date.now() / 1000) + 300,
-      messages: [{ address: TREASURY_WALLET_ADDRESS, amount: nanotons, ...(payload ? { payload } : {}) }]
-    });
-
-    if (statusEl) statusEl.textContent = 'Confirming on the TON blockchain…';
-
-    // 3) بوّلينغ السرفر لحد ما يتأكد وصول المعاملة فعلياً على السلسلة
-    await pollDepositStatus(initRes.depositId, pkg, statusEl);
-
-  } catch (err) {
-    console.error('[buyTicketPackage] failed:', err);
-    if (statusEl) statusEl.textContent = '';
-    showToast({ type: 'withdraw', title: 'Transaction Cancelled', msg: 'No TON was deducted', duration: 3000 });
-  } finally {
-    document.querySelectorAll('.dp-buy-btn').forEach(b => b.disabled = false);
-  }
-}
-
-/* ── Poll backend, which itself verifies the tx on TonCenter ── */
-async function pollDepositStatus(depositId, pkg, statusEl, attempt = 0) {
-  const MAX_ATTEMPTS = 20; // ~80s
-  const res = await fetchApi({ type: 'depositStatus', data: { depositId } });
-
-  if (res?.ok && res.status === 'confirmed') {
-    if (statusEl) statusEl.textContent = '';
-    showToast({
-      type: 'referral',
-      title: 'Tickets Credited!',
-      msg: `+${pkg.tickets.toLocaleString()} Tickets · ${pkg.ton} TON confirmed`,
-      duration: 5000
-    });
-    refreshState();
-    return;
-  }
-
-  if (res?.ok && res.status === 'failed') {
-    if (statusEl) statusEl.textContent = '';
-    showToast({ type: 'withdraw', title: 'Deposit Failed', msg: 'Transaction was not found on-chain', duration: 4000 });
-    return;
-  }
-
-  if (attempt >= MAX_ATTEMPTS) {
-    if (statusEl) statusEl.textContent = 'Still confirming — tickets will be credited automatically once verified.';
-    return;
-  }
-
-  setTimeout(() => pollDepositStatus(depositId, pkg, statusEl, attempt + 1), 4000);
-}
-
 /* ══════════════════════════════════════════════════════
    Partial Reward Modal — shown when ad session < AD_FULL_REWARD_MIN_SEC
    Displayed centered on screen with play.jpg image
@@ -776,7 +591,7 @@ function showPartialRewardModal(reward) {
   if (old) old.remove();
 
   const cfg      = appState.config || APP_CONFIG;
-  const fullAmt  = Number(cfg.AD_USD_REWARD) || 0.001;
+  const fullAmt  = Number(cfg.AD_USD_REWARD) || 0.03;
 
   const modal = document.createElement('div');
   modal.id = 'partial-reward-modal';
@@ -820,122 +635,6 @@ function showPartialRewardModal(reward) {
   document.getElementById('partial-reward-close').addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 }
-
-/* ══════════════════════════════════════════════════════
-/* ══════════════════════════════════════════════════════
-   Onboarding — first-launch swipeable intro (6 slides)
-   Shown once; suppressed afterwards via DB flag (onboarding_seen).
-   Called from initApp() after the init response arrives.
-══════════════════════════════════════════════════════ */
-
-function initOnboarding(alreadySeen = false) {
-  const ob = document.getElementById('ob');
-  if (!ob) return;
-
-  if (alreadySeen) {
-    // ob already hidden via CSS default (display:none)
-    return;
-  }
-
-  // First visit — reveal the overlay
-  ob.style.display = 'flex';
-
-  const slides = ob.querySelectorAll('.slide');
-  const track  = document.getElementById('track');
-  const dots   = ob.querySelectorAll('.dot');
-  const btn    = document.getElementById('btn');
-  const flash  = document.getElementById('flash');
-  const hint   = document.getElementById('scroll-hint');
-  const labels = ['Next', 'Next', 'Next', 'Next', 'Next', 'Start Playing'];
-  let cur = 0, busy = false;
-
-  // زر "Join Channel" داخل سلايد التعليمات
-  const joinBtn = document.getElementById('ob-join-btn');
-  if (joinBtn) {
-    joinBtn.addEventListener('click', () => {
-      if (window.Telegram?.WebApp?.openTelegramLink) {
-        Telegram.WebApp.openTelegramLink(CHANNEL_LINK);
-      } else {
-        window.open(CHANNEL_LINK, '_blank');
-      }
-    });
-  }
-
-  function checkScroll() {
-    const sl = slides[cur];
-    const overflows = sl.scrollHeight - sl.scrollTop > sl.clientHeight + 10;
-    hint.classList.toggle('show', overflows);
-  }
-  slides.forEach(s => s.addEventListener('scroll', checkScroll, { passive: true }));
-
-  function goTo(n) {
-    if (busy || n === cur) return;
-    busy = true;
-    flash.classList.remove('pop');
-    void flash.offsetWidth;
-    flash.classList.add('pop');
-    slides[cur].classList.remove('visible');
-    cur = n;
-    track.style.transform = `translateX(-${cur * 100}%)`;
-    dots.forEach((d, i) => d.classList.toggle('on', i === cur));
-    btn.textContent = labels[cur];
-    btn.classList.toggle('go', cur === slides.length - 1);
-    setTimeout(() => {
-      slides[cur].classList.add('visible');
-      slides[cur].scrollTop = 0;
-      setTimeout(checkScroll, 300);
-      busy = false;
-    }, 120);
-  }
-
-  function finishOnboarding() {
-    // ✅ سجّل في DB — يضمن ما تظهر مرة ثانية حتى لو تمسح الكاش أو غيّر جهاز
-    fetchApi({ type: 'markOnboardingSeen' }).catch(err =>
-      console.warn('[onboarding] could not persist seen-state to server', err)
-    );
-    ob.style.transition = 'opacity 0.4s ease';
-    ob.style.opacity = '0';
-    setTimeout(() => { ob.style.display = 'none'; }, 400);
-  }
-
-  btn.addEventListener('click', () => {
-    if (cur < slides.length - 1) goTo(cur + 1);
-    else finishOnboarding();
-  });
-
-  // swipe between slides
-  let sx = 0;
-  track.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
-  track.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - sx;
-    if (Math.abs(dx) > 48) {
-      if (dx < 0 && cur < slides.length - 1) goTo(cur + 1);
-      if (dx > 0 && cur > 0)                 goTo(cur - 1);
-    }
-  });
-
-  setTimeout(checkScroll, 600);
-}
-
-/* ── Leaderboard scroll hint ──────────────────────────
-   نفس فكرة الشيفرون بصفحة التعليمات: يبين وقت في صفوف
-   إضافية تحت (مستخدمين تانيين) والصفوف تختفي بتدرّج عبر
-   mask-image بالـ CSS، بدون أي حساب لكل صف بالجافاسكربت. */
-function checkLbScroll() {
-  const card = document.querySelector('.leaderboard-card');
-  const hint = document.getElementById('lb-scroll-hint');
-  if (!card || !hint) return;
-  const overflows = card.scrollHeight - card.scrollTop > card.clientHeight + 6;
-  hint.classList.toggle('show', overflows);
-}
-
-(function initLbScrollHint() {
-  const card = document.querySelector('.leaderboard-card');
-  if (!card) return;
-  card.addEventListener('scroll', checkLbScroll, { passive: true });
-  window.addEventListener('resize', checkLbScroll);
-  setTimeout(checkLbScroll, 600); // بعد ما تتحمل بيانات الليدربورد أول مرة
-})();
 
 /* ══════════════════════════════════════════════════════
    Startup

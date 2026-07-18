@@ -37,87 +37,6 @@ function getMyPhotoUrl() {
     || null;
 }
 
-/* ── Render: "You" card on the contest page ────────────── */
-function renderYouCard() {
-  const card = document.querySelector('.you-card');
-  if (!card) return;
-  const rankEl = document.getElementById('you-rank');
-  const ptsEl  = document.getElementById('you-pts');
-  const nameEl = document.getElementById('you-name');
-  if (rankEl) rankEl.textContent = appState.user.rank ? `#${appState.user.rank}` : '—';
-  if (ptsEl)  ptsEl.textContent  = (appState.user.pts || 0).toLocaleString();
-  if (nameEl) nameEl.textContent = appState.user.name || 'You';
-  setAvatar(card.querySelector('.lb-avatar'), getMyPhotoUrl());
-}
-
-/* ── Render: podium (top 3) ─────────────────────────────── */
-function renderPodium() {
-  const slots = [
-    { idx: 0, sel: '.pod-slot.first'  },
-    { idx: 1, sel: '.pod-slot.second' },
-    { idx: 2, sel: '.pod-slot.third'  }
-  ];
-  slots.forEach(({ idx, sel }) => {
-    const slot = document.querySelector(sel);
-    if (!slot) return;
-    const entry    = appState.leaderboard[idx];
-    const avatar   = slot.querySelector('.pod-avatar');
-    const ptsValue = slot.querySelector('.pod-pts-value');
-    const ptsNum   = slot.querySelector('.pod-pts-num');
-    const shimmer  = slot.querySelector('.pod-hidden-pts');
-    if (entry) {
-      const photo = entry.telegram_id === appState.user.telegram_id ? getMyPhotoUrl() : entry.photo_url;
-      setAvatar(avatar, photo);
-      if (ptsNum)   ptsNum.textContent        = (entry.pts || 0).toLocaleString();
-      if (ptsValue) ptsValue.style.display    = 'flex';
-      if (shimmer)  shimmer.style.display     = 'none';
-    } else {
-      setAvatar(avatar, null);
-      if (ptsValue) ptsValue.style.display    = 'none';
-      if (shimmer)  shimmer.style.display     = 'block';
-    }
-  });
-}
-
-/* ── Render: leaderboard rows 4–8 ──────────────────────── */
-function renderLeaderboardRows() {
-  const container = document.getElementById('lb-rows');
-  if (!container) return;
-
-  // Use positional slice (not rank filter) — avoids RANK() tie bug where
-  // users with equal pts all get rank=1, leaving rows 4-8 forever as skeleton.
-  const rows = appState.leaderboard.slice(3, 11);
-  if (rows.length === 0) return; // keep skeleton until data arrives
-
-  container.innerHTML = '';
-  rows.forEach((entry, i) => {
-    const displayRank = entry.rank ?? (i + 4);
-    const row = document.createElement('div');
-    row.className = 'lb-row';
-    row.innerHTML = `
-      <span class="lb-rank">${displayRank}</span>
-      <div class="lb-avatar">
-        <img alt="">
-        <div class="lb-avatar-placeholder">${LB_AVATAR_SVG}</div>
-      </div>
-      <div class="lb-info">
-        <span class="lb-name">${escapeHtml(entry.name)}</span>
-        <div class="lb-pts">
-          <img src="https://files.catbox.moe/b3yq30.png" alt="coin">
-          <span>${(entry.pts || 0).toLocaleString()}</span>
-        </div>
-      </div>
-      <span class="lb-reward">$1</span>
-    `;
-    container.appendChild(row);
-    const photo = entry.telegram_id === appState.user.telegram_id ? getMyPhotoUrl() : entry.photo_url;
-    setAvatar(row.querySelector('.lb-avatar'), photo);
-  });
-
-  // بعد ما تتحدث الصفوف، تحقق إذا لسا في مستخدمين تحت لإظهار/إخفاء السهم
-  if (typeof checkLbScroll === 'function') setTimeout(checkLbScroll, 50);
-}
-
 /* ── Render: referral page ──────────────────────────────── */
 function renderReferral() {
   const countEl  = document.getElementById('ref-count');
@@ -143,27 +62,13 @@ function renderWithdraw() {
 function renderConfig() {
   const cfg = appState.config || APP_CONFIG;
 
-  // Podium prizes
-  const p1 = document.getElementById('pod-prize-first');
-  const p2 = document.getElementById('pod-prize-second');
-  const p3 = document.getElementById('pod-prize-third');
-  if (p1) p1.textContent = `$${cfg.PODIUM_PRIZES.first}`;
-  if (p2) p2.textContent = `$${cfg.PODIUM_PRIZES.second}`;
-  if (p3) p3.textContent = `$${cfg.PODIUM_PRIZES.third}`;
-
-  // Leaderboard prize badge
-  const lbLabel = document.getElementById('lb-prize-label');
-  if (lbLabel) lbLabel.textContent = cfg.LB_PRIZE_LABEL;
-
   // Referral reward pill
-  const refTicket = document.getElementById('ref-ticket-reward');
-  const refUsdt   = document.getElementById('ref-usdt-reward');
-  if (refTicket) refTicket.textContent = cfg.REF_TICKET_REWARD.toLocaleString();
-  if (refUsdt)   refUsdt.textContent   = `+$${cfg.REF_USDT_REWARD.toFixed(3)}`;
+  const refUsdt = document.getElementById('ref-usdt-reward');
+  if (refUsdt) refUsdt.textContent = `+$${cfg.REF_USDT_REWARD.toFixed(2)}`;
 
   // Ad reward card
   const adReward = document.getElementById('ad-ticket-reward');
-  if (adReward) adReward.textContent = `$${cfg.AD_USD_REWARD.toFixed(3)}`;
+  if (adReward) adReward.textContent = `$${cfg.AD_USD_REWARD.toFixed(2)}`;
 
   // Withdraw minimum badge
   const wdMin = document.getElementById('wd-min-label');
@@ -177,9 +82,6 @@ function renderConfig() {
 /* ── Master render: applies appState to every page ─────── */
 function renderAll() {
   renderConfig();
-  renderYouCard();
-  renderPodium();
-  renderLeaderboardRows();
   renderReferral();
   renderWithdraw();
 }
@@ -233,86 +135,12 @@ function animatePage(pageId) {
     });
   });
 
-  if (pageId === 'contest' && typeof animateRankingCards === 'function') {
-    animateRankingCards();
-  }
-}
-
-/* ══════════════════════════════════════════════════════
-   Ranking Cards Entrance (Podium + Leaderboard)
-   Spring-bounce, staggered per card. Replays every time
-   the contest ("Big League") page becomes active — same
-   trigger point as animatePage('contest').
-══════════════════════════════════════════════════════ */
-function animateRankingCards() {
-  const podSlots = Array.from(document.querySelectorAll('.pod-slot'));
-  const lbRows   = Array.from(document.querySelectorAll('.leaderboard-card .lb-row'));
-  const youRows  = Array.from(document.querySelectorAll('.you-card .lb-row'));
-  if (!podSlots.length && !lbRows.length && !youRows.length) return;
-
-  const ITEM_STEP = 65; // فرق الدخول بين عناصر نفس كارد البوديوم (صورة، أفاتار، نقاط، جايزة)
-
-  // ترتيب دخول البوديوم: الأول بعد 0.6 ثانية، الثاني بعده بـ 0.7 ثانية، الثالث بعد الثاني بـ 0.8 ثانية
-  const SLOT_DELAY = { first: 600, second: 600 + 700, third: 600 + 700 + 800 };
-
-  let maxPodEnd = 0;
-  podSlots.forEach(slot => {
-    const rankClass = ['first', 'second', 'third'].find(c => slot.classList.contains(c));
-    const baseDelay = SLOT_DELAY[rankClass] ?? 0;
-    const items = Array.from(slot.querySelectorAll('.pod-anim-item'));
-
-    items.forEach(el => {
-      el.classList.remove('item-enter');
-      void el.offsetHeight; // force reflow so it can replay
-    });
-    items.forEach((el, itemIdx) => {
-      const delay = baseDelay + itemIdx * ITEM_STEP;
-      maxPodEnd = Math.max(maxPodEnd, delay + 450);
-      setTimeout(() => el.classList.add('item-enter'), delay);
-    });
-  });
-
-  // كروت الليدربورد (4-8): تطلع وحده وحده، فرق 0.6 ثانية بين كل وحدة
-  const LB_BATCH_DELAY = podSlots.length ? maxPodEnd + 60 : 0;
-  const LB_STEP = 600;
-  lbRows.forEach(el => {
-    el.classList.remove('card-enter', 'card-flash');
-    el.classList.add('card-in');
-  });
-  void document.body.offsetHeight; // force reflow
-  let lbEnd = LB_BATCH_DELAY;
-  lbRows.forEach((el, idx) => {
-    const delay = LB_BATCH_DELAY + idx * LB_STEP;
-    lbEnd = Math.max(lbEnd, delay + 1050);
-    setTimeout(() => {
-      el.classList.add('card-enter');
-      setTimeout(() => el.classList.add('card-flash'), 300);
-      setTimeout(() => el.classList.remove('card-in', 'card-enter', 'card-flash'), 1050);
-    }, delay);
-  });
-
-  // كارد You: يطلع لحاله بعد ما تخلص كل كروت الليدربورد بـ 0.5 ثانية
-  const YOU_DELAY = (lbRows.length ? lbEnd : LB_BATCH_DELAY) + 500;
-  youRows.forEach(el => {
-    el.classList.remove('card-enter', 'card-flash');
-    el.classList.add('card-in');
-  });
-  void document.body.offsetHeight; // force reflow
-  setTimeout(() => {
-    youRows.forEach(el => {
-      el.classList.add('card-enter');
-      setTimeout(() => el.classList.add('card-flash'), 300);
-      setTimeout(() => el.classList.remove('card-in', 'card-enter', 'card-flash'), 1050);
-    });
-  }, YOU_DELAY);
 }
 
 /* ── Navigation ─────────────────────────────────────────── */
 document.querySelectorAll('.nb').forEach(btn => {
   btn.addEventListener('click', function () {
-    const target  = this.dataset.page;
-    const wasGame = document.getElementById('page-game')?.classList.contains('active');
-    if (wasGame && target !== 'game' && typeof gameStop === 'function') gameStop();
+    const target = this.dataset.page;
 
     document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -320,7 +148,6 @@ document.querySelectorAll('.nb').forEach(btn => {
     document.getElementById('page-' + target).classList.add('active');
     animatePage(target);
 
-    if (target === 'game' && typeof gameStart === 'function') gameStart();
     if (target === 'withdraw' && typeof renderWithdrawTiers === 'function') renderWithdrawTiers();
   });
 });
