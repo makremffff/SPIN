@@ -37,7 +37,7 @@ async function isChannelMember(telegramId) {
 
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
-  AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
+  AD_COOLDOWN_SEC:    30,   // cooldown بين إعلانين
   AD_DAILY_MAX:       3000,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 120,  // أكثر طلب عام لكل IP بالدقيقة (تم مضاعفته)
@@ -94,7 +94,7 @@ const AD_FULL_REWARD_MIN_SEC = 35;
 // ── Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram (عدّاد/تبريد/مكافأة خاصة بيها) ──
 const TADDY_CFG = {
   USD_REWARD:      0.01,  // مكافأة الدولار تُمنح مرة كل TADDY_ADS_PER_REWARD إعلانات
-  ADS_PER_REWARD:  2,     // عدد الإعلانات المطلوبة قبل منح الجائزة
+  ADS_PER_REWARD:  3,     // عدد الإعلانات المطلوبة قبل منح الجائزة
   COOLDOWN_SEC:    20,    // فاصل بسيط بين إعلانات Taddy (مستقل عن كولداون Adsgram)
 };
 
