@@ -37,10 +37,10 @@ async function isChannelMember(telegramId) {
 
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
-  AD_COOLDOWN_SEC:    30,   // cooldown بين إعلانين
+  AD_COOLDOWN_SEC:    300,   // cooldown بين إعلانين
   AD_DAILY_MAX:       3000,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
-  IP_MAX_REQ_PER_MIN: 60,   // أكثر طلب عام لكل IP بالدقيقة
+  IP_MAX_REQ_PER_MIN: 120,  // أكثر طلب عام لكل IP بالدقيقة (تم مضاعفته)
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
   TS_DRIFT_SEC:       300,  // أكثر فرق مقبول بالـ timestamp
   AD_TIMING_TOLERANCE_SEC: 2,
@@ -241,6 +241,10 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
   // 🟢 last_seen_at — نبضة "أونلاين" تتحدث مع كل طلب من المستخدم (يستخدمها أدمن بانل لعرض المتصلين الآن)
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+
+  // 🟢 نظام الـ risk score/shadow-ban متوقف بالكامل — فك الحظر عن أي مستخدم كان
+  // اتحظر بالغلط من النظام القديم، وصفّر الـ risk_score تبعه (استعلام رخيص وآمن للتكرار)
+  await sql(`UPDATE users SET shadow_banned = FALSE, risk_score = 0 WHERE shadow_banned = TRUE OR risk_score > 0`);
 
   // 🎯 Taddy ads — عدّاد وتبريد مستقلين تماماً عن Adsgram (نظام إعلانات منفصل)
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_taddy_ad_watch TIMESTAMPTZ`);
@@ -535,7 +539,14 @@ function generateGameSequence(seed) {
   return seq;
 }
 
+// 🟢 نظام الـ risk score متوقف بالكامل بناءً على طلب المالك — المستخدمين
+// يلعبوا بحريتهم بدون أي نقاط خطر أو حظر تلقائي (shadow ban). الدالة سيبناها
+// كـ no-op بدل ما نمسحها من كل الأماكن اللي بتستدعيها (عشرات النداءات بالملف)،
+// عشان لو حبيت ترجّع النظام تاني يكفي ترجّع الكود المعلّق تحت.
 async function addRisk(userId, points, reason) {
+  return; // متعطّل — لا نقاط خطر ولا حظر تلقائي
+
+  /* الكود الأصلي — فعّله لو حبيت ترجّع نظام الـ risk score:
   console.warn(`[RISK] user=${userId} +${points} reason=${reason}`);
   const rows = await sql(
     `UPDATE users SET risk_score = risk_score + $1, risk_updated_at = NOW() WHERE id = $2
@@ -546,6 +557,7 @@ async function addRisk(userId, points, reason) {
     await sql(`UPDATE users SET shadow_banned = TRUE WHERE id = $1`, [userId]);
     console.warn(`[SHADOWBAN] auto-banned user=${userId}`);
   }
+  */
 }
 
 // 🛡️ يقلل risk_score تدريجياً مع الوقت (RISK_DECAY_PER_DAY نقطة/يوم) — يمنع
