@@ -1263,6 +1263,12 @@ module.exports = async function handler(req, res) {
       //    خاصين بيها، ولازم TADDY_CFG.ADS_PER_REWARD إعلانات قبل منح الجائزة
       // ══════════════════════════════════════════════════════════════════
       case 'startTaddyAd': {
+        // 📢 اشتراك إجباري بالقناة قبل مشاهدة أي إعلان — نفس البوابة المستخدمة عند Adsgram/السحب
+        const isMemberForTaddy = await isChannelMember(dbUser.telegram_id);
+        if (!isMemberForTaddy) {
+          return res.status(403).json({ ok: false, error: 'channel_required', channel: CHANNEL_USERNAME });
+        }
+
         const tRows = await sql(`SELECT last_taddy_ad_watch, taddy_ads_progress FROM users WHERE id = $1`, [dbUser.id]);
         const tUser = tRows[0];
 
