@@ -361,6 +361,13 @@ async function handleWatchTaddyAd() {
   const first = await playOneTaddyAd();
   if (!first.ok) {
     btn.disabled = false;
+
+    // 📢 غير منضم للقناة — امنع تشغيل الإعلان بالكامل واعرض بوابة الانضمام فوراً
+    if (first.res?.error === 'channel_required') {
+      showChannelGateWithRetry(() => handleWatchTaddyAd());
+      return;
+    }
+
     if (first.res?.error === 'sdk_missing') {
       showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
     } else if (first.res?.error === 'no_fill') {
@@ -394,6 +401,12 @@ async function handleWatchTaddyAd() {
   const second = await playOneTaddyAd();
   if (!second.ok) {
     btn.disabled = false;
+
+    if (second.res?.error === 'channel_required') {
+      showChannelGateWithRetry(() => handleWatchTaddyAd());
+      return;
+    }
+
     if (second.res?.error === 'sdk_missing') {
       showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
     } else if (second.res?.error === 'no_fill') {
