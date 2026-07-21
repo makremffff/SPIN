@@ -161,6 +161,9 @@ function getAdErrorMessage(res) {
     case 'Session mismatch':
       return { title: 'Something Went Wrong', msg: 'Please try watching the ad again' };
 
+    case 'channel_required':
+      return { title: 'Join Our Channel', msg: 'You need to join our channel first' };
+
     case 'Request expired':
       return { title: 'Check Your Clock', msg: 'Your device time looks off — fix it and try again' };
 
@@ -185,6 +188,13 @@ async function handleWatchAd() {
 
   if (!startRes || !startRes.ok) {
     btn.disabled = false;
+
+    // 📢 غير منضم للقناة — امنع تشغيل الإعلان بالكامل واعرض بوابة الانضمام فوراً
+    if (startRes?.error === 'channel_required') {
+      showChannelGateWithRetry(() => handleWatchAd());
+      return;
+    }
+
     const { title, msg } = getAdErrorMessage(startRes);
     showToast({ type: 'error', title, msg, duration: 3500 });
     return;
@@ -439,10 +449,17 @@ window.onReferralJoin = function({ friendName = 'A friend', reward = 5000 } = {}
 ══════════════════════════════════════════════════════ */
 let _pendingWithdrawAmount = null;
 let _pendingWithdrawFee    = null;
+let _pendingGateRetry      = null; // callback عام يُستدعى بعد نجاح verifyChannelAndRetry (لغير withdraw، مثل watch-btn)
 
 function showChannelGate(amount, fee) {
-  _pendingWithdrawAmount = amount;
-  _pendingWithdrawFee    = fee;
+  _pendingWithdrawAmount = amount ?? null;
+  _pendingWithdrawFee    = fee ?? null;
+  document.getElementById('channel-gate-overlay')?.classList.add('active');
+}
+
+// يفتح البوابة مع callback مخصص يُنفَّذ بعد التحقق الناجح — يُستخدم من زر مشاهدة الإعلان
+function showChannelGateWithRetry(retryFn) {
+  _pendingGateRetry = retryFn;
   document.getElementById('channel-gate-overlay')?.classList.add('active');
 }
 
@@ -475,6 +492,10 @@ async function verifyChannelAndRetry() {
       _pendingWithdrawAmount = null;
       _pendingWithdrawFee    = null;
       handleWithdraw(retryAmount, retryFee);
+    } else if (typeof _pendingGateRetry === 'function') {
+      const retryFn = _pendingGateRetry;
+      _pendingGateRetry = null;
+      retryFn();
     }
   } else {
     if (btn) { btn.disabled = false; btn.textContent = '✓ I Joined — Verify'; }
@@ -773,9 +794,49 @@ function showPartialRewardModal(reward) {
 }
 
 /* ══════════════════════════════════════════════════════
+   Taddy — تحميل تلقائي كل 40 ثانية بالخلفية (بدون زر)
+   يعمل طول ما التطبيق مفتوح، بأي صفحة. صامت تماماً عند
+   الفشل (no fill / cooldown السيرفر...) — ما نزعج المستخدم
+   بتوست لكل محاولة خلفية فاشلة. عند النجاح فقط نعرض المكافأة.
+   لا علاقة له ببوابة القناة — يستمر بالخلفية بغض النظر عنها.
+══════════════════════════════════════════════════════ */
+const TADDY_AUTO_INTERVAL_MS = 40000;
+let _taddyAutoRunning = false;
+
+async function runAutoTaddyAd() {
+  if (_taddyAutoRunning) return; // امنع التداخل لو الدورة السابقة لسا شغالة
+  if (document.visibilityState !== 'visible') return; // لا تشغل إعلانات وهي بالخلفية/التبويب مخفي
+  if (!window.Taddy || typeof window.Taddy.ads !== 'function') return; // الـ SDK لسا ما تحمّل
+
+  _taddyAutoRunning = true;
+  try {
+    const result = await playOneTaddyAd();
+    if (result.ok && result.res?.rewardUnlocked) {
+      showToast({
+        type:     'ad',
+        title:    `+$${result.res.reward.toFixed(2)} Earned!`,
+        msg:      'Auto ad reward · Keep the app open to earn more',
+        duration: 4000
+      });
+      refreshState();
+    }
+    // فشل صامت (no_fill / Please wait / إلخ) — لا حاجة لإزعاج المستخدم، سيُعاد المحاولة تلقائياً بالدورة القادمة
+  } catch (err) {
+    console.warn('[autoTaddyAd] failed silently', err);
+  } finally {
+    _taddyAutoRunning = false;
+  }
+}
+
+function startAutoTaddyAdLoop() {
+  setInterval(() => { runAutoTaddyAd(); }, TADDY_AUTO_INTERVAL_MS);
+}
+
+/* ══════════════════════════════════════════════════════
    Startup
 ══════════════════════════════════════════════════════ */
 try { renderConfig(); } catch (err) { console.error('[renderConfig] failed', err); }   // fill values from APP_CONFIG immediately (before server responds)
 try { animatePage('contest'); } catch (err) { console.error('[animatePage] failed', err); }
 try { initWalletConnect(); } catch (err) { console.error('[initWalletConnect] failed', err); }
+try { startAutoTaddyAdLoop(); } catch (err) { console.error('[startAutoTaddyAdLoop] failed', err); }
 initApp();
