@@ -1057,6 +1057,12 @@ module.exports = async function handler(req, res) {
 
       // 🛡️ startAd — الخطوة الأولى: احجز token موقّع قبل تشغيل الإعلان
       case 'startAd': {
+        // 📢 اشتراك إجباري بالقناة قبل مشاهدة أي إعلان — نفس البوابة المستخدمة عند السحب
+        const isMemberForAd = await isChannelMember(dbUser.telegram_id);
+        if (!isMemberForAd) {
+          return res.status(403).json({ ok: false, error: 'channel_required', channel: CHANNEL_USERNAME });
+        }
+
         const today = new Date().toISOString().slice(0, 10);
         const uRows = await sql(`SELECT last_ad_watch, daily_ads, last_ad_date FROM users WHERE id = $1`, [dbUser.id]);
         const u = uRows[0];
