@@ -14,19 +14,22 @@ const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-
 const TONCENTER_API_KEY       = process.env.TONCENTER_API_KEY || ''; // اختياري، يرفع الـ rate limit
 const TONCENTER_BASE          = process.env.TONCENTER_BASE || 'https://toncenter.com/api/v2';
 
-// 📢 قناة الاشتراك الإجباري قبل السحب — بدون @ — لازم يطابق CHANNEL_LINK في config.js
+// 📢 قناة الاشتراك الإجباري — قيمة ثابتة بالكود مباشرة (بدون @) — لازم يطابق CHANNEL_LINK في config.js
 // ⚠️ البوت يجب أن يكون عضو/أدمن في القناة حتى يقدر يستخدم getChatMember
-const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'withdrawlProof2026';
+const CHANNEL_USERNAME = 'withdrawlProof2026';
 
 // 🛡️ يتحقق من عضوية المستخدم في القناة عبر Telegram Bot API — تحقق فوري، بدون تخزين وسيط
 async function isChannelMember(telegramId) {
-  if (!BOT_TOKEN || !CHANNEL_USERNAME) return true; // fail-open لو غير مُهيّأ
+  if (!BOT_TOKEN) return true; // fail-open فقط لو التوكن نفسه غير موجود (حالة استثنائية جداً — بدونه التطبيق كله لا يعمل)
   try {
     const r = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${telegramId}`
     );
     const j = await r.json();
-    if (!j.ok) return false;
+    if (!j.ok) {
+      console.error('[channel check] Telegram API error:', j.description || j);
+      return false; // fail-closed — أي خطأ (بوت مش أدمن، يوزرنيم غلط...) = يُعتبر غير منضم
+    }
     const status = j.result?.status;
     return ['creator', 'administrator', 'member'].includes(status);
   } catch (e) {
