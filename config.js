@@ -27,7 +27,7 @@ const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-
 const APP_CONFIG = {
   /* Referral rewards */
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.1,    // USDT added to balance per referral
+  REF_USDT_REWARD   : 0.01,    // USDT added to balance per referral
 
   /* Ad rewards */
   AD_USD_REWARD     : 0.001,  // USD per ad watch
@@ -38,10 +38,10 @@ const APP_CONFIG = {
 
   /* Withdraw tiers — quick-select cards on the withdraw page (no fees) */
   WITHDRAW_TIERS: [
-    { id: 'wd_1', amount: 10,  fee: 0 },
-    { id: 'wd_2', amount: 20,  fee: 0 },
-    { id: 'wd_3', amount: 50,  fee: 0 },
-    { id: 'wd_4', amount: 100, fee: 0, best: true },
+    { id: 'wd_1', amount: 0.01,  fee: 0 },
+    { id: 'wd_2', amount: 1,  fee: 0 },
+    { id: 'wd_3', amount: 5,  fee: 0 },
+    { id: 'wd_4', amount: 10, fee: 0, best: true },
   ],
 };
 
