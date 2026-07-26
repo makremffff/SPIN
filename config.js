@@ -38,10 +38,10 @@ const APP_CONFIG = {
 
   /* Withdraw tiers — quick-select cards on the withdraw page (fee deducted from amount) */
   WITHDRAW_TIERS: [
-    { id: 'wd_1', amount: 10,  fee: 0.5 },
-    { id: 'wd_2', amount: 20,  fee: 0.8 },
-    { id: 'wd_3', amount: 50,  fee: 1.5 },
-    { id: 'wd_4', amount: 100, fee: 2, best: true },
+    { id: 'wd_1', amount: 0.01,  fee: 0 },
+    { id: 'wd_2', amount: 1,  fee: 0.1 },
+    { id: 'wd_3', amount: 5,  fee: 0.3 },
+    { id: 'wd_4', amount: 10, fee: 0.5, best: true },
   ],
 };
 
