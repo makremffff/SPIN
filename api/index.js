@@ -58,12 +58,12 @@ const CFG = {
 // ── App business-logic config (synced to frontend via init response) ──────────
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.1,    // USDT added to referrer balance per referral
-  AD_USD_REWARD     : 0.03,   // USD per ad
+  REF_USDT_REWARD   : 0.01,    // USDT added to referrer balance per referral
+  AD_USD_REWARD     : 0.001,   // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
-  WITHDRAW_MIN      : 10,
+  WITHDRAW_MIN      : 0.01,
   REFERRAL_ADS_REQUIRED       : 10,  // عدد الإعلانات (أي نوع) اللي لازم يشوفها المُحال عشان تتفعّل إحالته
-  WITHDRAW_MIN_ACTIVE_REFERRALS: 5,  // أقل عدد إحالات مفعّلة مطلوب عشان يقدر المستخدم يسحب
+  WITHDRAW_MIN_ACTIVE_REFERRALS: 0,  // أقل عدد إحالات مفعّلة مطلوب عشان يقدر المستخدم يسحب
   PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
   LB_PRIZE_LABEL    : 'Each $1',
   // 💎 باقات شراء التذاكر مقابل TON — لا تزال مستخدمة داخلياً (depositInit) حتى لو
@@ -96,8 +96,8 @@ const AD_FULL_REWARD_MIN_SEC = 35;
 
 // ── Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram (عدّاد/تبريد/مكافأة خاصة بيها) ──
 const TADDY_CFG = {
-  USD_REWARD:      0.01,  // مكافأة الدولار تُمنح مرة كل TADDY_ADS_PER_REWARD إعلانات
-  ADS_PER_REWARD:  3,     // عدد الإعلانات المطلوبة قبل منح الجائزة
+  USD_REWARD:      0.0001,  // مكافأة الدولار تُمنح مرة كل TADDY_ADS_PER_REWARD إعلانات
+  ADS_PER_REWARD:  2,     // عدد الإعلانات المطلوبة قبل منح الجائزة
   COOLDOWN_SEC:    20,    // فاصل بسيط بين إعلانات Taddy (مستقل عن كولداون Adsgram)
 };
 
