@@ -41,7 +41,7 @@ async function isChannelMember(telegramId) {
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
   AD_COOLDOWN_SEC:    30,   // cooldown بين إعلانين
-  AD_DAILY_MAX:       3000,   // أكثر إعلان يومي
+  AD_DAILY_MAX:       12,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
   IP_MAX_REQ_PER_MIN: 120,  // أكثر طلب عام لكل IP بالدقيقة (تم مضاعفته)
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
@@ -58,7 +58,7 @@ const CFG = {
 // ── App business-logic config (synced to frontend via init response) ──────────
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.1,    // USDT added to referrer balance per referral
+  REF_USDT_REWARD   : 0.01,    // USDT added to referrer balance per referral
   AD_USD_REWARD     : 0.001,  // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
   WITHDRAW_MIN      : 0.01,   // لا رسوم على السحب
