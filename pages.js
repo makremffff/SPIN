@@ -64,9 +64,9 @@ function renderConfig() {
   const refUsdt = document.getElementById('ref-usdt-reward');
   if (refUsdt) refUsdt.textContent = `+$${cfg.REF_USDT_REWARD.toFixed(2)}`;
 
-  // Ad reward card
+  // Ad reward card — عرض الرقم كامل (بدون تقريب يخفي قيم صغيرة زي 0.001)
   const adReward = document.getElementById('ad-ticket-reward');
-  if (adReward) adReward.textContent = `$${cfg.AD_USD_REWARD.toFixed(2)}`;
+  if (adReward) adReward.textContent = `$${cfg.AD_USD_REWARD.toFixed(4).replace(/0$/, '')}`;
 
   // Withdraw minimum badge
   const wdMin = document.getElementById('wd-min-label');

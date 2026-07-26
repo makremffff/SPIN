@@ -266,7 +266,7 @@ async function handleWatchAd() {
   }
 
   if (res && res.ok) {
-    const reward = res.reward ?? 0.03;
+    const reward = res.reward ?? 0.001;
 
     if (res.partial) {
       // 50% reward — show center modal instead of normal toast
@@ -297,147 +297,6 @@ async function handleWatchAd() {
     const { title, msg } = getAdErrorMessage(res);
     showToast({ type: 'ad', title, msg, duration: 3500 });
   }
-
-  setTimeout(() => { btn.disabled = false; }, 3000);
-}
-
-/* ══════════════════════════════════════════════════════
-   Taddy — بطاقة إعلانات مستقلة تماماً عن Adsgram
-   ضغطة واحدة على الزر = إعلانين يشتغلوا تلقائياً ورا بعض
-   بدون أي تدخل من المستخدم، وبعد اكتمال الثاني مباشرة تُمنح
-   الجائزة. كل جلسة إعلان لازم تتخطى 7 ثواني (مفروض من
-   السيرفر عبر التوكن، لا يتحكم بها العميل).
-══════════════════════════════════════════════════════ */
-function getTaddyErrorMessage(res) {
-  switch (res?.error) {
-    case 'Please wait':
-    case 'Please wait between ads':
-      return res?.waitSec
-        ? { title: 'Please Wait', msg: `Next ad available in ${res.waitSec}s` }
-        : { title: 'Please Wait', msg: 'Wait a bit before watching another ad' };
-    case 'Too many ads from this network':
-      return { title: 'Slow Down', msg: 'Too many requests — try again later' };
-    case 'Ad not fully watched':
-      return { title: 'Ad Not Counted', msg: 'Please watch the full ad to get your reward' };
-    default:
-      return { title: 'Ad Not Available', msg: 'Try again in a moment' };
-  }
-}
-
-/* يشغّل إعلان Taddy واحد كامل: يحجز token، يعرض الإعلان، ثم يطالب بالتأكيد.
-   يرجّع { ok, res } — res هو رد watchTaddyAd عند النجاح. */
-async function playOneTaddyAd() {
-  const startRes = await fetchApi({ type: 'startTaddyAd', data: { ts: Math.floor(Date.now() / 1000) } });
-  if (!startRes || !startRes.ok) return { ok: false, res: startRes };
-
-  const adToken = startRes.token;
-  const taddy   = window.Taddy;
-  if (!taddy || typeof taddy.ads !== 'function') {
-    return { ok: false, res: { error: 'sdk_missing' } };
-  }
-
-  let watched = false;
-  try {
-    const success = await taddy.ads().interstitial({
-      onClosed:      () => {},
-      onViewThrough: () => { watched = true; }
-    });
-    watched = watched || success === true;
-  } catch (err) {
-    return { ok: false, res: { error: 'no_fill' } };
-  }
-
-  if (!watched) return { ok: false, res: { error: 'Ad not fully watched' } };
-
-  const res = await fetchApi({ type: 'watchTaddyAd', data: { token: adToken, ts: Math.floor(Date.now() / 1000) } });
-  return { ok: !!(res && res.ok), res };
-}
-
-async function handleWatchTaddyAd() {
-  const btn = document.getElementById('taddy-watch-btn');
-  btn.disabled = true;
-
-  // ── الإعلان الأول ──
-  const first = await playOneTaddyAd();
-  if (!first.ok) {
-    btn.disabled = false;
-
-    // 📢 غير منضم للقناة — امنع تشغيل الإعلان بالكامل واعرض بوابة الانضمام فوراً
-    if (first.res?.error === 'channel_required') {
-      showChannelGateWithRetry(() => handleWatchTaddyAd());
-      return;
-    }
-
-    if (first.res?.error === 'sdk_missing') {
-      showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
-    } else if (first.res?.error === 'no_fill') {
-      showToast({ type: 'error', title: 'No Ads Available', msg: 'No ads right now — try again in a moment', duration: 3000 });
-    } else if (first.res?.error === 'Ad not fully watched') {
-      showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
-    } else {
-      const { title, msg } = getTaddyErrorMessage(first.res);
-      showToast({ type: 'error', title, msg, duration: 3500 });
-    }
-    return;
-  }
-
-  showToast({ type: 'ad', title: 'First Ad Watched', msg: 'Loading your second ad automatically…', duration: 2500 });
-
-  // 🛡️ لو كانت فيه دورة سابقة غير مكتملة (مثلاً المستخدم قفل التطبيق بعد إعلان واحد)،
-  // ممكن هذا الإعلان الأول يكمّل الدورة فعلياً. في هذه الحالة لا نشغّل إعلان ثانٍ إضافي.
-  if (first.res?.rewardUnlocked) {
-    showToast({
-      type:     'ad',
-      title:    `+$${first.res.reward.toFixed(2)} Earned!`,
-      msg:      'Reward unlocked · Keep going',
-      duration: 4500
-    });
-    refreshState();
-    setTimeout(() => { btn.disabled = false; }, 3000);
-    return;
-  }
-
-  // ── الإعلان الثاني — يبدأ تلقائياً بدون أي ضغطة تانية من المستخدم ──
-  const second = await playOneTaddyAd();
-  if (!second.ok) {
-    btn.disabled = false;
-
-    if (second.res?.error === 'channel_required') {
-      showChannelGateWithRetry(() => handleWatchTaddyAd());
-      return;
-    }
-
-    if (second.res?.error === 'sdk_missing') {
-      showToast({ type: 'error', title: 'Error', msg: 'Ad SDK not loaded', duration: 3000 });
-    } else if (second.res?.error === 'no_fill') {
-      showToast({ type: 'error', title: 'No Ads Available', msg: 'Second ad unavailable — try again in a moment', duration: 3500 });
-    } else if (second.res?.error === 'Ad not fully watched') {
-      showToast({ type: 'error', title: 'Ad Skipped', msg: 'You must watch the full ad to get the reward', duration: 3000 });
-    } else {
-      const { title, msg } = getTaddyErrorMessage(second.res);
-      showToast({ type: 'error', title, msg, duration: 3500 });
-    }
-    return;
-  }
-
-  const res = second.res;
-  if (res.rewardUnlocked) {
-    showToast({
-      type:     'ad',
-      title:    `+$${res.reward.toFixed(2)} Earned!`,
-      msg:      'Both ads watched successfully · Keep going',
-      duration: 4500
-    });
-  } else {
-    // نادر — يعني السيرفر ما اعتبرها دورة كاملة (مثلاً تزامن غير متوقع)
-    showToast({
-      type:     'ad',
-      title:    'Ad Watched',
-      msg:      `${res.adsRemaining} more ad${res.adsRemaining > 1 ? 's' : ''} to unlock your reward`,
-      duration: 3500
-    });
-  }
-  refreshState();
 
   setTimeout(() => { btn.disabled = false; }, 3000);
 }
@@ -807,49 +666,9 @@ function showPartialRewardModal(reward) {
 }
 
 /* ══════════════════════════════════════════════════════
-   Taddy — تحميل تلقائي كل 40 ثانية بالخلفية (بدون زر)
-   يعمل طول ما التطبيق مفتوح، بأي صفحة. صامت تماماً عند
-   الفشل (no fill / cooldown السيرفر...) — ما نزعج المستخدم
-   بتوست لكل محاولة خلفية فاشلة. عند النجاح فقط نعرض المكافأة.
-   لا علاقة له ببوابة القناة — يستمر بالخلفية بغض النظر عنها.
-══════════════════════════════════════════════════════ */
-const TADDY_AUTO_INTERVAL_MS = 40000;
-let _taddyAutoRunning = false;
-
-async function runAutoTaddyAd() {
-  if (_taddyAutoRunning) return; // امنع التداخل لو الدورة السابقة لسا شغالة
-  if (document.visibilityState !== 'visible') return; // لا تشغل إعلانات وهي بالخلفية/التبويب مخفي
-  if (!window.Taddy || typeof window.Taddy.ads !== 'function') return; // الـ SDK لسا ما تحمّل
-
-  _taddyAutoRunning = true;
-  try {
-    const result = await playOneTaddyAd();
-    if (result.ok && result.res?.rewardUnlocked) {
-      showToast({
-        type:     'ad',
-        title:    `+$${result.res.reward.toFixed(2)} Earned!`,
-        msg:      'Auto ad reward · Keep the app open to earn more',
-        duration: 4000
-      });
-      refreshState();
-    }
-    // فشل صامت (no_fill / Please wait / إلخ) — لا حاجة لإزعاج المستخدم، سيُعاد المحاولة تلقائياً بالدورة القادمة
-  } catch (err) {
-    console.warn('[autoTaddyAd] failed silently', err);
-  } finally {
-    _taddyAutoRunning = false;
-  }
-}
-
-function startAutoTaddyAdLoop() {
-  setInterval(() => { runAutoTaddyAd(); }, TADDY_AUTO_INTERVAL_MS);
-}
-
-/* ══════════════════════════════════════════════════════
    Startup
 ══════════════════════════════════════════════════════ */
 try { renderConfig(); } catch (err) { console.error('[renderConfig] failed', err); }   // fill values from APP_CONFIG immediately (before server responds)
 try { animatePage('contest'); } catch (err) { console.error('[animatePage] failed', err); }
 try { initWalletConnect(); } catch (err) { console.error('[initWalletConnect] failed', err); }
-try { startAutoTaddyAdLoop(); } catch (err) { console.error('[startAutoTaddyAdLoop] failed', err); }
 initApp();

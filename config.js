@@ -30,18 +30,18 @@ const APP_CONFIG = {
   REF_USDT_REWARD   : 0.1,    // USDT added to balance per referral
 
   /* Ad rewards */
-  AD_USD_REWARD     : 0.03,   // USD per ad watch
+  AD_USD_REWARD     : 0.001,  // USD per ad watch
   AD_DAILY_MAX      : 3000,   // max ads per day
 
   /* Withdrawal */
-  WITHDRAW_MIN      : 10,     // minimum withdrawal in USD
+  WITHDRAW_MIN      : 0.01,   // minimum withdrawal in USD — no fees
 
-  /* Withdraw tiers — quick-select cards on the withdraw page (fee deducted from amount) */
+  /* Withdraw tiers — quick-select cards on the withdraw page (no fees) */
   WITHDRAW_TIERS: [
-    { id: 'wd_1', amount: 0.01,  fee: 0 },
-    { id: 'wd_2', amount: 1,  fee: 0.1 },
-    { id: 'wd_3', amount: 5,  fee: 0.3 },
-    { id: 'wd_4', amount: 10, fee: 0.5, best: true },
+    { id: 'wd_1', amount: 10,  fee: 0 },
+    { id: 'wd_2', amount: 20,  fee: 0 },
+    { id: 'wd_3', amount: 50,  fee: 0 },
+    { id: 'wd_4', amount: 100, fee: 0, best: true },
   ],
 };
 
