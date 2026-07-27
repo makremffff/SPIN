@@ -41,9 +41,9 @@ async function isChannelMember(telegramId) {
 // ── Anti-abuse config ─────────────────────────────────────────────────────────
 const CFG = {
   AD_COOLDOWN_SEC:    30,   // cooldown بين إعلانين
-  AD_DAILY_MAX:       12,   // أكثر إعلان يومي
+  AD_DAILY_MAX:       40,   // أكثر إعلان يومي
   IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
-  IP_MAX_REQ_PER_MIN: 120,  // أكثر طلب عام لكل IP بالدقيقة (تم مضاعفته)
+  IP_MAX_REQ_PER_MIN: 220,  // أكثر طلب عام لكل IP بالدقيقة (تم مضاعفته)
   RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
   TS_DRIFT_SEC:       300,  // أكثر فرق مقبول بالـ timestamp
   AD_TIMING_TOLERANCE_SEC: 2,
@@ -58,7 +58,7 @@ const CFG = {
 // ── App business-logic config (synced to frontend via init response) ──────────
 const APP_CFG = {
   REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.01,    // USDT added to referrer balance per referral
+  REF_USDT_REWARD   : 0.01,   // USDT added to referrer balance per referral
   AD_USD_REWARD     : 0.001,  // USD per ad
   AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
   WITHDRAW_MIN      : 0.01,   // لا رسوم على السحب
@@ -87,6 +87,14 @@ const AD_DURATIONS = {
   telega:  16,
   default: 16,
 };
+// 💬 Chat — غرفة عامة: حدود بسيطة لمنع السبام
+const CHAT_CFG = {
+  MSG_MAX_LEN:     500,   // أقصى طول للرسالة
+  COOLDOWN_SEC:    5,     // أقل فاصل بين رسالتين لنفس المستخدم
+  HISTORY_LIMIT:   50,    // عدد الرسائل عند التحميل الأول
+  POLL_LIMIT:      100,   // أقصى عدد رسائل يرجعها الـ polling بالمرة الواحدة
+};
+
 // نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
 const AD_GRACE_SEC = 90;
 
@@ -236,6 +244,17 @@ async function ensureSchema() {
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
   // 🟢 last_seen_at — نبضة "أونلاين" تتحدث مع كل طلب من المستخدم (يستخدمها أدمن بانل لعرض المتصلين الآن)
   await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+  // 💬 Chat — تبريد بسيط لمنع السبام (يُحدَّث مع كل رسالة يرسلها المستخدم)
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_chat_msg_at TIMESTAMPTZ`);
+
+  // 💬 Chat — غرفة عامة واحدة لكل المستخدمين
+  await sql(`CREATE TABLE IF NOT EXISTS chat_messages (
+    id         BIGSERIAL   PRIMARY KEY,
+    user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message    TEXT        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_chat_messages_id ON chat_messages(id DESC)`);
 
   // 🟢 نظام الـ risk score/shadow-ban متوقف بالكامل — فك الحظر عن أي مستخدم كان
   // اتحظر بالغلط من النظام القديم، وصفّر الـ risk_score تبعه (استعلام رخيص وآمن للتكرار)
@@ -1635,6 +1654,93 @@ module.exports = async function handler(req, res) {
         if (!chatId || !text) return res.status(400).json({ ok: false, error: 'chatId and text required' });
         const result = await sendTelegramMessage(chatId, text);
         return res.json({ ok: !!result.ok });
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // 💬 Chat — غرفة عامة واحدة لكل المستخدمين
+      // ══════════════════════════════════════════════════════════════════
+      case 'getChatMessages': {
+        const afterId = parseInt(data.afterId, 10) || 0;
+
+        let rows;
+        if (afterId > 0) {
+          // 📡 Polling — بس الرسائل الجديدة بعد آخر id شافه العميل
+          rows = await sql(`
+            SELECT cm.id, cm.user_id, cm.message, cm.created_at,
+                   u.telegram_id, COALESCE(u.first_name, u.username, 'Player') AS name, u.photo_url
+            FROM chat_messages cm
+            JOIN users u ON u.id = cm.user_id
+            WHERE cm.id > $1
+            ORDER BY cm.id ASC
+            LIMIT $2
+          `, [afterId, CHAT_CFG.POLL_LIMIT]);
+        } else {
+          // 🕐 التحميل الأول — آخر HISTORY_LIMIT رسالة (نعكس الترتيب لعرضها تصاعدي)
+          const recent = await sql(`
+            SELECT cm.id, cm.user_id, cm.message, cm.created_at,
+                   u.telegram_id, COALESCE(u.first_name, u.username, 'Player') AS name, u.photo_url
+            FROM chat_messages cm
+            JOIN users u ON u.id = cm.user_id
+            ORDER BY cm.id DESC
+            LIMIT $1
+          `, [CHAT_CFG.HISTORY_LIMIT]);
+          rows = recent.reverse();
+        }
+
+        return res.json({
+          ok: true,
+          messages: rows.map(r => ({
+            id:          Number(r.id),
+            user_id:     r.user_id,
+            telegram_id: Number(r.telegram_id),
+            name:        r.name,
+            photo_url:   r.photo_url || null,
+            message:     r.message,
+            created_at:  r.created_at,
+            is_me:       r.user_id === dbUser.id
+          }))
+        });
+      }
+
+      case 'sendChatMessage': {
+        if (dbUser.banned) return res.status(403).json({ ok: false, error: 'Forbidden' });
+
+        const text = String(data.text || '').trim();
+        if (!text) return res.status(400).json({ ok: false, error: 'Message is empty' });
+        if (text.length > CHAT_CFG.MSG_MAX_LEN) {
+          return res.status(400).json({ ok: false, error: `Message too long (max ${CHAT_CFG.MSG_MAX_LEN})` });
+        }
+
+        // 🛡️ تبريد بسيط لمنع السبام
+        const rows = await sql(`SELECT last_chat_msg_at FROM users WHERE id = $1`, [dbUser.id]);
+        const lastAt = rows[0]?.last_chat_msg_at;
+        if (lastAt) {
+          const secSince = (Date.now() - new Date(lastAt).getTime()) / 1000;
+          if (secSince < CHAT_CFG.COOLDOWN_SEC) {
+            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CHAT_CFG.COOLDOWN_SEC - secSince) });
+          }
+        }
+
+        const inserted = await sql(`
+          INSERT INTO chat_messages (user_id, message) VALUES ($1, $2)
+          RETURNING id, created_at
+        `, [dbUser.id, text]);
+
+        await sql(`UPDATE users SET last_chat_msg_at = NOW() WHERE id = $1`, [dbUser.id]);
+
+        return res.json({
+          ok: true,
+          message: {
+            id:          Number(inserted[0].id),
+            user_id:     dbUser.id,
+            telegram_id: Number(dbUser.telegram_id),
+            name:        dbUser.first_name || dbUser.username || 'Player',
+            photo_url:   dbUser.photo_url || null,
+            message:     text,
+            created_at:  inserted[0].created_at,
+            is_me:       true
+          }
+        });
       }
 
       case 'logRefCopy': {
