@@ -1,5 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  api/index.js  —  BigLeague · Vercel Serverless Function
+//  api/index.js  —  RealCash (ريل كاش) · Vercel Serverless Function
+//  نفس بنية أمان مشروع BigLeague: initData HMAC + signed ad tokens + Neon Postgres
 // ══════════════════════════════════════════════════════════════════════════════
 
 const { neon } = require('@neondatabase/serverless');
@@ -7,99 +8,24 @@ const crypto   = require('crypto');
 
 const DATABASE_URL    = process.env.DATABASE_URL;
 const BOT_TOKEN       = process.env.BOT_TOKEN;
-const INTERNAL_SECRET = process.env.INTERNAL_SECRET; // ← أضفه في Vercel env vars
+const INTERNAL_SECRET = process.env.INTERNAL_SECRET; // ← أضفه في Vercel env vars (يستخدمه أدمن بانل + توقيع ad tokens)
 
-// 💎 TON Deposits — عنوان الخزينة اللي المستخدمين يرسلون له TON، ومفتاح TonCenter الاختياري
-const TREASURY_WALLET_ADDRESS = 'UQABsMMUakTi2iRO5pox4DDR--0J7uqsULYqHDv4Zo3w0E-T';
-const TONCENTER_API_KEY       = process.env.TONCENTER_API_KEY || ''; // اختياري، يرفع الـ rate limit
-const TONCENTER_BASE          = process.env.TONCENTER_BASE || 'https://toncenter.com/api/v2';
+// 📢 قناة الاشتراك الإجباري (اختيارية) — اتركها فارغة لتعطيل مهمة "انضم لقناة تيليجرام"
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME || 'ReaalCashbot';
 
-// 📢 قناة الاشتراك الإجباري — قيمة ثابتة بالكود مباشرة (بدون @) — لازم يطابق CHANNEL_LINK في config.js
-// ⚠️ البوت يجب أن يكون عضو/أدمن في القناة حتى يقدر يستخدم getChatMember
-const CHANNEL_USERNAME = 'withdrawlProof2026';
+// 🎬 Adsgram — بوابة تأكيد server-to-server حقيقية (اختيارية لكن يُنصح بشدة بتفعيلها).
+// بدونها، claimAd يعتمد فقط على توقيت التوكن (لا يزال آمناً)، لكن مع ضبط هذا السر
+// وربط Reward URL في partner.adsgram.ai (راجع api/adsgram-reward.js) يصير التأكيد
+// حقيقياً 100% ولا يمكن لأي سكربت عميل تزويره.
+const ADSGRAM_REWARD_SECRET = process.env.ADSGRAM_REWARD_SECRET || '';
 
-// 🛡️ يتحقق من عضوية المستخدم في القناة عبر Telegram Bot API — تحقق فوري، بدون تخزين وسيط
-async function isChannelMember(telegramId) {
-  if (!BOT_TOKEN) return true; // fail-open فقط لو التوكن نفسه غير موجود (حالة استثنائية جداً — بدونه التطبيق كله لا يعمل)
-  try {
-    const r = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${telegramId}`
-    );
-    const j = await r.json();
-    if (!j.ok) {
-      console.error('[channel check] Telegram API error:', j.description || j);
-      return false; // fail-closed — أي خطأ (بوت مش أدمن، يوزرنيم غلط...) = يُعتبر غير منضم
-    }
-    const status = j.result?.status;
-    return ['creator', 'administrator', 'member'].includes(status);
-  } catch (e) {
-    console.error('[channel check]', e.message);
-    return false; // fail-closed عند خطأ فعلي بالتحقق
-  }
+if (!DATABASE_URL) {
+  throw new Error('[FATAL] DATABASE_URL env var is not set');
 }
-
-// ── Anti-abuse config ─────────────────────────────────────────────────────────
-const CFG = {
-  AD_COOLDOWN_SEC:    30,   // cooldown بين إعلانين
-  AD_DAILY_MAX:       40,   // أكثر إعلان يومي
-  IP_MAX_ADS_PER_HR:  40,   // أكثر إعلان لكل IP بالساعة
-  IP_MAX_REQ_PER_MIN: 220,  // أكثر طلب عام لكل IP بالدقيقة (تم مضاعفته)
-  RISK_BAN_THRESHOLD: 100,  // risk score يؤدي لـ shadow ban
-  TS_DRIFT_SEC:       300,  // أكثر فرق مقبول بالـ timestamp
-  AD_TIMING_TOLERANCE_SEC: 2,
-  RISK_DECAY_PER_DAY: 10,
-
-  // 🎮 Coin Rain mini-game — جلسة سيرفر لكل جولة، لا تُرسَل نقاط من العميل أبداً
-  GAME_ROUND_TICKETS:         600,   // تذاكر ثابتة لكل جولة مكتملة (السيرفر يقرر، لا العميل)
-  GAME_ROUND_DURATION_SEC:     40,   // مدة الجولة الفعلية — لا تقبل إرسال أسرع من هذا
-  GAME_ROUND_SESSION_TTL_SEC: 300,   // أقصى وقت لإرسال الجولة بعد بدئها (5 دقائق)
-};
-
-// ── App business-logic config (synced to frontend via init response) ──────────
-const APP_CFG = {
-  REF_TICKET_REWARD : 5000,   // competition tickets per referral
-  REF_USDT_REWARD   : 0.01,   // USDT added to referrer balance per referral
-  AD_USD_REWARD     : 0.001,  // USD per ad
-  AD_DAILY_MAX      : CFG.AD_DAILY_MAX,
-  WITHDRAW_MIN      : 0.01,   // لا رسوم على السحب
-  REFERRAL_ADS_REQUIRED       : 10,  // عدد الإعلانات (أي نوع) اللي لازم يشوفها المُحال عشان تتفعّل إحالته
-  WITHDRAW_MIN_ACTIVE_REFERRALS: 0,  // 🚫 تم إلغاء شرط الإحالات المفعّلة للسحب
-  PODIUM_PRIZES     : { first: 25, second: 10, third: 7 },
-  LB_PRIZE_LABEL    : 'Each $1',
-  // 💎 باقات شراء التذاكر مقابل TON — لا تزال مستخدمة داخلياً (depositInit) حتى لو
-  // الواجهة الحالية ما بتعرضش صفحة الإيداع
-  TICKET_PACKAGES: [
-    { id: 'pkg_1',  tickets: 15000,  ton: 0.1  },
-    { id: 'pkg_2',  tickets: 40000,  ton: 0.25 },
-    { id: 'pkg_3',  tickets: 100000,  ton: 0.5  },
-    { id: 'pkg_4',  tickets: 250000, ton: 1    },
-  ],
-  // توقيت المسابقة — اضبط COMPETITION_END_MS في Vercel env (Unix ms timestamp)
-  COMPETITION_END_MS: process.env.COMPETITION_END_MS
-    ? parseInt(process.env.COMPETITION_END_MS, 10)
-    : Date.now() + 20 * 24 * 60 * 60 * 1000,
-};
-
-// 🛡️ مدة المشاهدة المطلوبة — لكل شبكة إعلانات مدتها الحقيقية (عدّل القيم حسب شبكتك)
-const AD_DURATIONS = {
-  adsgram: 15,
-  monetag: 16,
-  telega:  16,
-  default: 16,
-};
-// 💬 Chat — غرفة عامة: حدود بسيطة لمنع السبام
-const CHAT_CFG = {
-  MSG_MAX_LEN:     500,   // أقصى طول للرسالة
-  COOLDOWN_SEC:    5,     // أقل فاصل بين رسالتين لنفس المستخدم
-  HISTORY_LIMIT:   50,    // عدد الرسائل عند التحميل الأول
-  POLL_LIMIT:      100,   // أقصى عدد رسائل يرجعها الـ polling بالمرة الواحدة
-};
-
-// نافذة استخدام الـ token بعد انتهاء المدة المطلوبة — صلاحية ضيقة بدل 5 دقائق ثابتة
-const AD_GRACE_SEC = 90;
-
-// 🎯 عتبة المشاهدة الكاملة — أقل من هذه القيمة يُمنح 50% فقط من المكافأة
-const AD_FULL_REWARD_MIN_SEC = 35;
+if (!INTERNAL_SECRET) {
+  // 🛡️ بدون هذا السر أي شخص يقدر يزوّر ad tokens أو ينادي endpoints الأدمن — fail-closed
+  throw new Error('[FATAL] INTERNAL_SECRET env var is not set — refusing to run with an insecure fallback key');
+}
 
 const _db = neon(DATABASE_URL);
 async function sql(query, params = []) {
@@ -107,86 +33,119 @@ async function sql(query, params = []) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  TonCenter — التحقق الفعلي من وصول معاملة TON للخزينة قبل تسليم أي تذاكر
-//  المطابقة الأساسية: التعليق on-chain (نص = telegram_id المستخدم، decoded تلقائياً
-//  من toncenter بحقل in_msg.message لأنه simple comment) + المبلغ بالنانوتون + التوقيت.
-//  عنوان المرسل (raw) يُستخدم كتأكيد إضافي لو موجود ومتطابق، لكن مش شرط أساسي —
-//  لأن بعض المحافظ ممكن ترجع عنوان "غير bounceable/bounceable" مختلف شكلاً عن اللي
-//  خزّناه من TonConnect، فيما التعليق + المبلغ كفاية للتأكد بدقة عالية.
-//  لا نثق أبداً بمجرد رد "نجاح" من TonConnect بالفرونت.
+//  إعدادات التطبيق — عدّل هذه القيم بحرية، السيرفر هو مصدر الحقيقة الوحيد لأي رقم
 // ══════════════════════════════════════════════════════════════════════════════
-function normalizeTonAddr(addr) {
-  if (!addr) return '';
-  const parts = String(addr).trim().toLowerCase().split(':');
-  if (parts.length !== 2) return String(addr).trim().toLowerCase();
-  return `${parts[0]}:${parts[1].replace(/^0+/, '') || '0'}`;
-}
+const APP_CFG = {
+  // 🎬 مهمة "شاهد إعلانات"
+  AD_REWARD_USD:        0,      // لا مكافأة نقدية لكل إعلان منفرد — فقط عند إكمال الـ 15 كاملة (تحت)
+  AD_REWARD_POINTS:     10,     // نقاط المكافآت لكل إعلان
+  AD_BATCH_REQUIRED:    10,     // عدد الإعلانات في المهمة اليومية "شاهد 15 إعلان"
+  AD_BATCH_BONUS_USD:   0.02,   // مكافأة إضافية عند إكمال الدفعة كاملة
+  AD_DAILY_MAX:         40,     // أقصى عدد إعلانات مسموح بها باليوم لكل مستخدم
+  AD_COOLDOWN_SEC:      25,     // أقل فاصل زمني بين مشاهدتين
+  AD_TOKEN_GRACE_SEC:   90,     // صلاحية الـ token بعد اكتمال مدة المشاهدة المطلوبة
+  AD_TIMING_TOLERANCE_SEC: 2,   // هامش صغير لفروق توقيت الشبكة/الجهاز
 
-async function findConfirmingTonTransaction({ treasury, senderRaw, nanotons, memo, sinceMs, depositId }) {
-  if (!treasury) throw new Error('TREASURY_WALLET_ADDRESS not configured');
+  // ⏱️ مدة المشاهدة الحقيقية المطلوبة — لكل شبكة إعلانات مدتها الخاصة (عدّلها حسب شبكتك)
+  // ملاحظة: adsgram مدتها الفعلية بتتراوح، أحياناً بتطلع 17 ثانية بدل 15 — القيمة هون هي أقل حد مقبول
+  AD_DURATIONS: { adsgram: 16, monetag: 16, default: 15 },
 
-  const url = new URL(`${TONCENTER_BASE}/getTransactions`);
-  url.searchParams.set('address', treasury);
-  url.searchParams.set('limit', '40');
-  if (TONCENTER_API_KEY) url.searchParams.set('api_key', TONCENTER_API_KEY);
+  // 🛡️ حد أدنى إضافي للتفاعل الفعلي مع الإعلان (منفصل عن مدة الشبكة أعلاه) —
+  // أي جلسة إعلان أقل من هالمدة تُعتبر "غير مكتملة" ولا تُمنح عنها أي مكافأة،
+  // حتى لو كانت مدة الشبكة نفسها (AD_DURATIONS) أقصر منها
+  AD_MIN_INTERACTION_SEC: 35,
 
-  const resp = await fetch(url.toString());
-  const rawBody = await resp.text();
+  // 🛡️ استثناء من عتبة AD_MIN_INTERACTION_SEC أعلاه — أي adType موجود هون بيتحاسب
+  // على نطاق قصير خاص فيه (17 إلى AD_SHORT_INTERACTION_MAX_SEC) بدل عتبة الـ35، بدون أي هامش شبكة إضافي.
+  // أي adType غير مذكور هون (متل monetag أو أي شبكة جديدة) بيضل خاضع لعتبة الـ35 كاملة.
+  AD_MIN_INTERACTION_EXEMPT_TYPES: ['adsgram'],
+  AD_SHORT_INTERACTION_MAX_SEC: 24, // النطاق المقبول: من AD_DURATIONS[adType] (17) وحتى هالرقم — بالظبط، بدون هامش
 
-  if (!resp.ok) {
-    // 🪵 لوجينغ حقيقي — يظهر في Vercel logs بدل ما يُبلع بصمت كـ "pending"
-    console.error(`[deposit#${depositId}] TonCenter HTTP ${resp.status}: ${rawBody.slice(0, 300)}`);
-    throw new Error(`TonCenter HTTP ${resp.status}`);
-  }
+  // 🎯 مهمة "Task Ads" (Adsgram Block من نوع Task، بصيغة blockId مثل task-40539)
+  // حصة منفصلة تمامًا عن حصة إعلانات الفيديو أعلاه — لا تؤثر على AD_DAILY_MAX ولا العكس
+  TASK_AD_REWARD_USD:   0.001, // مكافأة كل مهمة Task مكتملة
+  TASK_AD_DAILY_MAX:    8,    // أقصى عدد مهام Task مسموح بها باليوم لكل مستخدم — عدّله بحرية
+  TASK_AD_COOLDOWN_SEC: 60,    // أقل فاصل زمني بين مطالبتين (دقيقة واحدة)
 
-  let body;
-  try { body = JSON.parse(rawBody); }
-  catch { console.error(`[deposit#${depositId}] TonCenter returned non-JSON: ${rawBody.slice(0, 300)}`); throw new Error('TonCenter bad JSON'); }
+  // 🎬 كرت Taddy في صفحة المكافآت — إعلانين interstitial ورا بعض عبر Taddy SDK ثم نقاط مباشرة
+  // (بدون تأكيد server-to-server — نفس منطق الثقة بالعميل المستخدم أصلاً في taddy-ads.js)
+  TADDY_REWARD_POINTS: 5,
+  TADDY_DAILY_MAX:     200,   // أقصى عدد مرات يقدر المستخدم ياخد المكافأة فيها باليوم
 
-  if (!body?.ok || !Array.isArray(body.result)) {
-    console.error(`[deposit#${depositId}] TonCenter body not ok:`, JSON.stringify(body).slice(0, 300));
-    return null;
-  }
+  // 🎁 المكافأة اليومية (Daily Bonus) بصفحة المكافآت — يفتح رابط خارجي وبعد مدة انتظار
+  // حقيقية (يتحقق منها السيرفر من started_at، مش من عداد الواجهة) يقدر يستلم المكافأة
+  // حد أقصى 3 مرات لكل مستخدم كل 24 ساعة (نافذة متجددة من أول استلام، مش يوم تقويمي)
+  // إجمالي 0.005$ مقسومة على 3 مرات = مكافأة كل مرة
+  DAILY_BONUS_URL: 'http://horrorpay.online/3gRmcK',
+  DAILY_BONUS_WAIT_SECONDS:   10,
+  DAILY_BONUS_SESSION_EXPIRE_MIN: 10, // أي جلسة غير مستلمة تعتبر منتهية بعد هالمدة
+  DAILY_BONUS_MAX_PER_WINDOW: 3,
+  DAILY_BONUS_WINDOW_HOURS:   24,
+  DAILY_BONUS_TOTAL_USD:      0.005,
+  get DAILY_BONUS_REWARD_USD() { return this.DAILY_BONUS_TOTAL_USD / this.DAILY_BONUS_MAX_PER_WINDOW; },
 
-  const wantSender = normalizeTonAddr(senderRaw);
-  const wantValue  = String(nanotons);
-  const wantMemo   = String(memo).trim();
-  const sinceSec   = Math.floor(sinceMs / 1000) - 120; // هامش دقيقتين لفروق الساعة/الأرشيف
+  // 🌊 "تصفح واربح" — صفحة فيها عداد 60 ثانية وإعلانات Adcash تحمّل بالخلفية، تُصرف دفعات
+  // صغيرة كل 10 ثواني. ⚠️ التحقق من الوقت يتم بالكامل من فرق الوقت المسجّل بالسيرفر
+  // (started_at بجدول ad_surf_sessions) وليس من عداد الواجهة — عشان ما ينقدر يتلاعب فيه أحد
+  // عبر تعديل الـ JS أو نداء API مباشرة بدون انتظار.
+  SURF_TICK_SECONDS:       10,     // طول كل دفعة بالثواني
+  SURF_TOTAL_TICKS:        6,      // 6 × 10 ثانية = 60 ثانية إجمالي
+  SURF_REWARD_PER_TICK_USD: 0.00002, // ⚠️ رقم مبدئي بسيط — غيّره حسب ما تحدد
+  SURF_DAILY_MAX_SESSIONS: 10,     // أقصى عدد جلسات (محاولات بدء) باليوم — يحد من استغلال بدء/هجر الجلسة لتكرار مكافأة أول دفعة فقط
+  SURF_SESSION_EXPIRE_MIN: 10,     // أي جلسة غير مكتملة تعتبر منتهية بعد هالمدة (تنظيف/أمان)
 
-  console.error(`[deposit#${depositId}] checking ${body.result.length} txs on treasury — want value=${wantValue} memo="${wantMemo}" sender=${wantSender} since=${sinceSec}`);
+  // 🎯 مهمة يومية "تصفح 100 مرة" — تُحتسب من عدد جلسات "تصفح واربح" (SURF) المكتملة فعلياً اليوم
+  // (مو بدء الجلسة، حتى ما تنجز المهمة بجلسات مهجورة) — مكافأة إضافية لمرة وحدة باليوم عند الوصول للعدد
+  BROWSE_TASK_TARGET:      10,
+  BROWSE_TASK_REWARD_USD:  0.008,
 
-  for (const tx of body.result) {
-    const inMsg = tx.in_msg;
-    if (!inMsg) continue;
-    if (Number(tx.utime) < sinceSec) continue;
-    if (String(inMsg.value) !== wantValue) continue;
+  // 📢 مهمة الانضمام للقناة
+  JOIN_CHANNEL_REWARD_USD:    0.001,
+  JOIN_CHANNEL_REWARD_POINTS: 50,
+  CHANNEL_RECHECK_HOURS:      0,     // 0 = تحقق فوري من عضوية القناة في كل init (لمين أنجز مهمة الانضمام) — ارفعها لو صار ضغط على حدود تيليجرام
 
-    const txMemo = (inMsg.message || '').trim();
-    const memoMatches   = wantMemo && txMemo === wantMemo;
-    const senderMatches = inMsg.source && normalizeTonAddr(inMsg.source) === wantSender;
+  // 📅 تسجيل الدخول اليومي
+  DAILY_LOGIN_REWARD_USD:      0.002857, // 0.02$ مقسّمة على 7 أيام
+  DAILY_LOGIN_REWARD_POINTS:   20,
+  DAILY_LOGIN_STREAK_DAYS:     7,
+  DAILY_LOGIN_STREAK_BONUS_USD: 0,     // لا مكافأة إضافية — المجموع 0.02$ موزّع على الأيام السبعة فقط
 
-    // ✅ نقبل لو التعليق مطابق (الأقوى) أو لو العنوان مطابق — طالما المبلغ والتوقيت صح
-    if (memoMatches || senderMatches) {
-      console.error(`[deposit#${depositId}] MATCH found — memoMatches=${memoMatches} senderMatches=${senderMatches} hash=${tx.transaction_id?.hash}`);
-      return { hash: tx.transaction_id?.hash || null, utime: tx.utime };
-    }
-  }
+  // 👥 الإحالات
+  REFERRAL_REWARD_USD:          0,     // لا جائزة فورية — فقط نسبة 10% مدى الحياة (تحت)
+  REFERRAL_REWARD_POINTS:       500,   // تُضاف مباشرة لنقاط المسابقة (contest_score) للمُحيل، وليست نقاط المتجر
+  REFERRAL_ACTIVATION_ADS:      0,     // 0 = تفعيل فوري بدون أي شروط عند انضمام الصديق عبر رابط الإحالة
+  REFERRAL_LIFETIME_PERCENT:    0.10,  // نسبة تُضاف للمُحيل من كل أرباح إعلانات المُحال، مدى الحياة
+  REFERRAL_MILESTONE_FRIENDS:   3,     // عدد الأصدقاء المطلوب يوميًا لمهمة "ادعُ 3 أصدقاء" (مهمة يومية تتصفر كل يوم)
+  REFERRAL_MILESTONE_REWARD_USD: 0.007,
 
-  console.error(`[deposit#${depositId}] no match in this batch`);
-  return null;
-}
+  // 💰 السحب
+  WITHDRAW_MIN_USD:              0.02,
+  WITHDRAW_MIN_ACTIVE_REFERRALS: 0,    // 0 = الشرط معطّل، غيّرها لأي رقم لتفعيل شرط الإحالات قبل السحب
+  WITHDRAW_REQUIRE_CHANNEL:      true, // يمنع السحب إذا المستخدم مش عضو بالقناة حالياً
+
+  // 🏆 المسابقة الأسبوعية (نفس نمط "competition" في BigLeague لكن مدتها أسبوع بدل 20 يوم)
+  CONTEST_DURATION_DAYS: 7,
+  CONTEST_PRIZES_USD: { 1: 0.5, 2: 0.3, 3: 0.2 }, // جوائز المراكز 1/2/3 بالدولار، تُصرف تلقائياً عند انتهاء الأسبوع
+
+  // 🎁 متجر النقاط (صفحة المكافآت) — النقاط عملة منفصلة عن رصيد الدولار
+  // ⚠️ ملاحظة أمان: الاستبدال يخصم فقط من عمود points، ولا يمسّ contest_score إطلاقاً —
+  // نقاط ترتيب المسابقة الأسبوعية محفوظة بعمود منفصل تماماً ولا تتأثر بالاستبدال هنا
+  REWARDS_CATALOG: {
+    balance_001usd: { cost: 1000, title: 'رصيد إضافي 0.01$', type: 'balance', amountUsd: 0.01 },
+  },
+};
+
+// ── Anti-abuse config (نفس نمط BigLeague) ──────────────────────────────────────
+const CFG = {
+  IP_MAX_REQ_PER_MIN: 120,
+  TS_DRIFT_SEC:       300,
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  Ad Token — موقّع (HMAC) وغير قابل للتزوير، يُنشأ على السيرفر فقط
 // ══════════════════════════════════════════════════════════════════════════════
-// 🛡️ بدون INTERNAL_SECRET، أي شخص يقدر يحسب AD_TOKEN_KEY ويولّد ad tokens مزوّرة
-// (كان فيه fallback ثابت ومكتوب بالكود — ثغرة). الآن: fail-closed بدل تشغيل غير آمن.
-if (!INTERNAL_SECRET) {
-  throw new Error('[FATAL] INTERNAL_SECRET env var is not set — refusing to run with an insecure fallback key');
-}
-
 const AD_TOKEN_KEY = crypto
-  .createHmac('sha256', 'ad-token-v1')
+  .createHmac('sha256', 'realcash-ad-token-v1')
   .update(INTERNAL_SECRET)
   .digest();
 
@@ -220,63 +179,85 @@ function verifyAdToken(token) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function ensureSchema() {
   await sql(`CREATE TABLE IF NOT EXISTS users (
-    id            SERIAL PRIMARY KEY,
-    telegram_id   BIGINT  UNIQUE NOT NULL,
-    username      TEXT,
-    first_name    TEXT,
-    photo_url     TEXT,
-    pts           BIGINT  NOT NULL DEFAULT 0,
-    balance_usd   NUMERIC(10,2) NOT NULL DEFAULT 0,
-    referral_code TEXT    UNIQUE,
-    referred_by   BIGINT,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                   SERIAL PRIMARY KEY,
+    telegram_id          BIGINT UNIQUE NOT NULL,
+    username             TEXT,
+    first_name           TEXT,
+    photo_url            TEXT,
+    balance_usd          NUMERIC(14,6) NOT NULL DEFAULT 0,
+    points               BIGINT NOT NULL DEFAULT 0,
+    referral_code        TEXT UNIQUE,
+    referred_by          BIGINT,
+    referral_activated    BOOLEAN NOT NULL DEFAULT FALSE,
+    total_ads_watched     INT NOT NULL DEFAULT 0,
+    daily_ads            INT NOT NULL DEFAULT 0,
+    last_ad_date          DATE,
+    last_ad_watch         TIMESTAMPTZ,
+    daily_login_streak    INT NOT NULL DEFAULT 0,
+    last_daily_login       DATE,
+    daily_invites          INT NOT NULL DEFAULT 0,
+    last_invite_date        DATE,
+    wallet_address        TEXT,
+    notify_tasks          BOOLEAN NOT NULL DEFAULT TRUE,
+    notify_earnings       BOOLEAN NOT NULL DEFAULT TRUE,
+    notify_contest        BOOLEAN NOT NULL DEFAULT FALSE,
+    is_elite              BOOLEAN NOT NULL DEFAULT FALSE,
+    double_earn_until      TIMESTAMPTZ,
+    banned                BOOLEAN NOT NULL DEFAULT FALSE,
+    shadow_banned          BOOLEAN NOT NULL DEFAULT FALSE,
+    risk_score             INT NOT NULL DEFAULT 0,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at           TIMESTAMPTZ
   )`);
-  // Backfill columns — آمن على جداول قديمة
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url     TEXT`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ad_watch TIMESTAMPTZ`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_ads     INT NOT NULL DEFAULT 0`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ad_date  DATE`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_score    INT NOT NULL DEFAULT 0`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_banned BOOLEAN NOT NULL DEFAULT FALSE`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS risk_updated_at TIMESTAMPTZ`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_seen BOOLEAN NOT NULL DEFAULT FALSE`);
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_game_round TIMESTAMPTZ`); // 🎮 Coin Rain — آخر جولة لعبة أُرسلت
-  // 🟢 last_seen_at — نبضة "أونلاين" تتحدث مع كل طلب من المستخدم (يستخدمها أدمن بانل لعرض المتصلين الآن)
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
-  // 💬 Chat — تبريد بسيط لمنع السبام (يُحدَّث مع كل رسالة يرسلها المستخدم)
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_chat_msg_at TIMESTAMPTZ`);
-
-  // 💬 Chat — غرفة عامة واحدة لكل المستخدمين
-  await sql(`CREATE TABLE IF NOT EXISTS chat_messages (
-    id         BIGSERIAL   PRIMARY KEY,
-    user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    message    TEXT        NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
-  await sql(`CREATE INDEX IF NOT EXISTS idx_chat_messages_id ON chat_messages(id DESC)`);
-
-  // 🟢 نظام الـ risk score/shadow-ban متوقف بالكامل — فك الحظر عن أي مستخدم كان
-  // اتحظر بالغلط من النظام القديم، وصفّر الـ risk_score تبعه (استعلام رخيص وآمن للتكرار)
-  await sql(`UPDATE users SET shadow_banned = FALSE, risk_score = 0 WHERE shadow_banned = TRUE OR risk_score > 0`);
-
-
-  // 🎮 عملات الدولار داخل اللعبة (0.0001 USDT للعملة) — توسيع الدقة العشرية لدعم مبالغ صغيرة جداً
-  await sql(`ALTER TABLE users ALTER COLUMN balance_usd TYPE NUMERIC(14,6)`);
-
-  // 🎮 جلسات اللعبة — تُنشأ من السيرفر حصراً، لا تُرسَل نقاط من العميل أبداً
-  await sql(`CREATE TABLE IF NOT EXISTS game_sessions (
-    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    used            BOOLEAN     NOT NULL DEFAULT FALSE,
-    double_approved BOOLEAN     NOT NULL DEFAULT FALSE,
-    seed            INT,
-    sequence_json   TEXT
-  )`);
-  await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS seed INT`);
-  await sql(`ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS sequence_json TEXT`);
-  await sql(`CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON game_sessions(user_id, used, created_at)`);
+  // Backfill آمن لأي أعمدة أُضيفت لاحقاً على قاعدة بيانات قائمة
+  const backfillCols = [
+    ['photo_url', 'TEXT'], ['wallet_address', 'TEXT'],
+    ['notify_tasks', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+    ['notify_earnings', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+    ['notify_contest', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['is_elite', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['double_earn_until', 'TIMESTAMPTZ'],
+    ['daily_login_streak', 'INT NOT NULL DEFAULT 0'],
+    ['last_daily_login', 'DATE'],
+    ['referral_activated', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['total_ads_watched', 'INT NOT NULL DEFAULT 0'],
+    ['banned', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['shadow_banned', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['risk_score', 'INT NOT NULL DEFAULT 0'],
+    ['last_seen_at', 'TIMESTAMPTZ'],
+    ['daily_invites', 'INT NOT NULL DEFAULT 0'],
+    ['last_invite_date', 'DATE'],
+    // 🎯 حصة Task Ads — منفصلة تمامًا عن daily_ads / last_ad_date الخاصة بإعلانات الفيديو
+    ['daily_task_ads', 'INT NOT NULL DEFAULT 0'],
+    ['last_task_ad_date', 'DATE'],
+    ['last_task_ad_watch', 'TIMESTAMPTZ'],
+    ['total_task_ads', 'INT NOT NULL DEFAULT 0'],
+    // 📢 تتبّع مغادرة القناة بعد إنجاز مهمة الانضمام — لخصم المكافأة مرة واحدة فقط
+    ['channel_penalized', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['last_channel_check_at', 'TIMESTAMPTZ'],
+    // 🛡️ عمولة الإحالة من مهمة "الانضمام للقناة" تُمنح مرة واحدة فقط مدى الحياة —
+    // مستقلة عن user_tasks لأن تلك الجدولة تُحذف عمداً عند مغادرة القناة (لإعادة تفعيل المهمة)،
+    // وبدون هذا العلم يقدر المستخدم يخرج من القناة ويرجع مرارًا ليمنح المُحيل عمولة مكررة كل مرة
+    ['join_channel_commission_paid', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    // 🎬 كرت Taddy بصفحة المكافآت — حصة يومية مستقلة تمامًا عن daily_ads / daily_task_ads
+    ['daily_taddy', 'INT NOT NULL DEFAULT 0'],
+    ['last_taddy_date', 'DATE'],
+    // 🌊 "تصفح واربح" — حصة يومية لعدد الجلسات (بدء الجلسة يُحتسب حتى لو ما اكتملت،
+    // عشان يمنع تكرار بدء/هجر الجلسة لاستغلال مكافأة الدفعة الأولى بلا حدود)
+    ['daily_surf', 'INT NOT NULL DEFAULT 0'],
+    ['last_surf_date', 'DATE'],
+    // 🎁 المكافأة اليومية (Daily Bonus) — عداد ضمن نافذة 24 ساعة متجددة (مش يوم تقويمي)
+    ['daily_bonus_count', 'INT NOT NULL DEFAULT 0'],
+    ['daily_bonus_window_start', 'TIMESTAMPTZ'],
+    // 🎯 مهمة "تصفح 100 مرة" — عداد الجلسات المكتملة فعلياً (منفصل عن daily_surf اللي يعد المحاولات)
+    // + تاريخ آخر مرة استُلمت فيها مكافأة المهمة (لمنعها من التكرار أكثر من مرة باليوم)
+    ['daily_surf_completed', 'INT NOT NULL DEFAULT 0'],
+    ['last_surf_completed_date', 'DATE'],
+    ['last_browse_reward_date', 'DATE'],
+  ];
+  for (const [col, def] of backfillCols) {
+    await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+  }
 
   // جلسات الإعلانات — كل إعلان له token مؤقت (موقّع HMAC، غير قابل للتزوير)
   await sql(`CREATE TABLE IF NOT EXISTS ad_sessions (
@@ -289,6 +270,16 @@ async function ensureSchema() {
   await sql(`ALTER TABLE ad_sessions ADD COLUMN IF NOT EXISTS ad_type TEXT NOT NULL DEFAULT 'default'`);
   await sql(`CREATE INDEX IF NOT EXISTS idx_ad_sessions_user ON ad_sessions(user_id)`);
 
+  // 🛡️ تأكيدات Adsgram Reward URL — server-to-server، لا تمر من متصفح المستخدم أبداً
+  // كل صف يعني "Adsgram أكّد أن هذا المستخدم شاهد إعلاناً فعلياً الآن" (راجع api/adsgram-reward.js)
+  await sql(`CREATE TABLE IF NOT EXISTS ad_reward_confirmations (
+    id          SERIAL PRIMARY KEY,
+    telegram_id BIGINT NOT NULL,
+    consumed    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_arc_lookup ON ad_reward_confirmations (telegram_id, consumed, created_at)`);
+
   // Rate limiting بالـ IP
   await sql(`CREATE TABLE IF NOT EXISTS ip_limits (
     ip           TEXT NOT NULL,
@@ -298,72 +289,93 @@ async function ensureSchema() {
     PRIMARY KEY (ip, window_type, window_start)
   )`);
 
-  // منع replay نفس initData
-  await sql(`CREATE TABLE IF NOT EXISTS used_init_hashes (
-    hash    TEXT PRIMARY KEY,
-    used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  // مهام لمرة واحدة / تراكمية (انضمام قناة، دعوة 3 أصدقاء...)
+  await sql(`CREATE TABLE IF NOT EXISTS user_tasks (
+    user_id      INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    task_id      TEXT NOT NULL,
+    completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, task_id)
   )`);
+
+  // 🌊 جلسات "تصفح واربح" — كل جلسة لها nonce عشوائي غير قابل للتخمين، وكل التحقق من
+  // الوقت (هل فعلاً مرّت 5/10/15... ثانية) يتم من started_at المسجّل هون بالسيرفر، وليس
+  // من أي قيمة يبعتها الكلايند — هيك ما ينفع حد يتلاعب بالعداد بالواجهة أو ينادي API مباشرة
+  await sql(`CREATE TABLE IF NOT EXISTS ad_surf_sessions (
+    id            SERIAL PRIMARY KEY,
+    user_id       INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    nonce         TEXT NOT NULL UNIQUE,
+    started_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    claimed_ticks INT NOT NULL DEFAULT 0,
+    completed     BOOLEAN NOT NULL DEFAULT FALSE
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_surf_sessions_nonce ON ad_surf_sessions(nonce)`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_surf_sessions_user ON ad_surf_sessions(user_id)`);
+
+  // 🎁 جلسات المكافأة اليومية — نفس منطق ad_surf_sessions: التحقق من مدة الانتظار
+  // (10 ثواني افتراضياً) يتم من started_at المسجّل بالسيرفر، مش من عداد الواجهة
+  await sql(`CREATE TABLE IF NOT EXISTS ad_daily_bonus_sessions (
+    id         SERIAL PRIMARY KEY,
+    user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    nonce      TEXT NOT NULL UNIQUE,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    claimed    BOOLEAN NOT NULL DEFAULT FALSE
+  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_daily_bonus_sessions_nonce ON ad_daily_bonus_sessions(nonce)`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_daily_bonus_sessions_user ON ad_daily_bonus_sessions(user_id)`);
+  // السحوبات
   await sql(`CREATE TABLE IF NOT EXISTS withdrawals (
     id         SERIAL PRIMARY KEY,
     user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     address    TEXT NOT NULL,
-    memo       TEXT,
-    amount     NUMERIC(10,2) NOT NULL,
+    amount     NUMERIC(14,6) NOT NULL,
     status     TEXT NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  // 💎 ايداعات TON — شراء تذاكر المسابقة عبر TonConnect
-  // status: pending → confirmed (بعد التحقق من TonCenter) أو failed (انتهت المهلة بدون إيجاد المعاملة)
-  await sql(`CREATE TABLE IF NOT EXISTS deposits (
-    id              SERIAL PRIMARY KEY,
-    user_id         INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    package_id      TEXT NOT NULL,
-    tickets         INT  NOT NULL,
-    ton_amount      NUMERIC(18,9) NOT NULL,
-    wallet_address  TEXT NOT NULL,
-    status          TEXT NOT NULL DEFAULT 'pending',
-    tx_hash         TEXT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    confirmed_at    TIMESTAMPTZ
+
+  // سجل المعاملات — المصدر الموحّد لصفحتي "السجل" و"المحفظة"
+  await sql(`CREATE TABLE IF NOT EXISTS transactions (
+    id            SERIAL PRIMARY KEY,
+    user_id       INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category      TEXT NOT NULL,   -- earn | withdraw | referral | task | reward
+    title         TEXT NOT NULL,   -- نص احتياطي (عربي) — يُستخدم فقط إن ما وُجد title_key
+    title_key     TEXT,            -- مفتاح ترجمة للعرض بلغة المستخدم الحالية (i18n.js)
+    title_params  JSONB,           -- متغيرات الترجمة، مثال: {"name":"أحمد"}
+    amount_usd    NUMERIC(14,6) NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  await sql(`CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, status)`);
-  // 🛡️ منع التلاعب: نفس معاملة TON (tx_hash) ميقدرش يأكد غير صف ايداع واحد بس —
-  // بيمنع المستخدم من عمل عدة depositInit لنفس الباكدج ودفع مرة وحدة عشان
-  // ياخد التذاكر مضاعفة عن طريق إعادة polling كل صف على حدة (replay attack).
-  await sql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_deposits_txhash_unique ON deposits(tx_hash) WHERE tx_hash IS NOT NULL`);
-  await sql(`CREATE TABLE IF NOT EXISTS ad_watches (
+  await sql(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS title_key TEXT`);
+  await sql(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS title_params JSONB`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, created_at DESC)`);
+
+  // استبدال المكافآت بالنقاط
+  await sql(`CREATE TABLE IF NOT EXISTS reward_redemptions (
     id         SERIAL PRIMARY KEY,
-    user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    reward     NUMERIC(14,6) NOT NULL DEFAULT 0.001,
+    user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reward_id  TEXT NOT NULL,
+    cost       INT  NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  // 💵 صارت مكافأة الإعلان دولار (0.001$) بدل تذاكر — توسيع الدقة العشرية لدعم القيم الصغيرة
-  await sql(`ALTER TABLE ad_watches ALTER COLUMN reward TYPE NUMERIC(14,6)`);
-  await sql(`ALTER TABLE ad_watches ALTER COLUMN reward SET DEFAULT 0.001`);
 
-  // 📊 إجمالي الإعلانات اليومي لكل المستخدمين مجتمعين — صف واحد لكل يوم، يُحدَّث ذرياً
-  // (بدل COUNT(*) على ad_watches اللي بتكبر بمرور الوقت — قراءة/كتابة O(1))
-  await sql(`CREATE TABLE IF NOT EXISTS ad_daily_stats (
-    day         DATE PRIMARY KEY,
-    total_count INT  NOT NULL DEFAULT 0
-  )`);
+  await sql(`CREATE INDEX IF NOT EXISTS idx_users_points ON users (points DESC)`);
 
-  // 📊 جدول مستقل تماماً — فقط لتتبّع عدد إعلانات "مضاعفة اللعبة" (double reward)
-  // لا علاقة له بـ daily_ads ولا بـ AD_DAILY_MAX ولا بأي حد آخر — عدّاد إحصائي بحت
-  await sql(`CREATE TABLE IF NOT EXISTS game_double_ad_stats (
-    day         DATE PRIMARY KEY,
-    total_count INT  NOT NULL DEFAULT 0
+  // موسم المسابقة الأسبوعية
+  await sql(`CREATE TABLE IF NOT EXISTS contest_season (
+    id                 SERIAL PRIMARY KEY,
+    name               TEXT NOT NULL DEFAULT 'الأسبوع 1',
+    start_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    end_at             TIMESTAMPTZ NOT NULL,
+    active             BOOLEAN NOT NULL DEFAULT TRUE,
+    prize_distributed  BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await sql(`
+    INSERT INTO contest_season (name, start_at, end_at, active)
+    SELECT 'الأسبوع 1', NOW(), NOW() + INTERVAL '${APP_CFG.CONTEST_DURATION_DAYS} days', TRUE
+    WHERE NOT EXISTS (SELECT 1 FROM contest_season WHERE active = TRUE)
+  `);
+  // نقاط المسابقة منفصلة عن نقاط متجر المكافآت — تُصفَّر كل أسبوع
+  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS contest_score BIGINT NOT NULL DEFAULT 0`);
 
-  // 🛡️ تأكيدات Adsgram Reward URL — server-to-server، لا تمر من متصفح المستخدم أبداً
-  // كل صف يعني "Adsgram أكّد أن هذا المستخدم شاهد إعلاناً فعلياً الآن"
-  await sql(`CREATE TABLE IF NOT EXISTS ad_reward_confirmations (
-    id          SERIAL PRIMARY KEY,
-    telegram_id BIGINT NOT NULL,
-    consumed    BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
-  await sql(`CREATE INDEX IF NOT EXISTS idx_arc_lookup ON ad_reward_confirmations (telegram_id, consumed, created_at)`);
   await sql(`CREATE TABLE IF NOT EXISTS activity_logs (
     id         SERIAL PRIMARY KEY,
     user_id    INT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -371,67 +383,10 @@ async function ensureSchema() {
     meta       JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  await sql(`CREATE INDEX IF NOT EXISTS idx_users_pts ON users (pts DESC)`);
-
-  // 🛡️ Device fingerprints — سجل تاريخي (many-to-many) لكل الحسابات اللي ظهرت
-  // على كل فنغربرنت، للمراجعة الإدارية فقط — القرار الفعلي بيتحدد من device_fp_owner
-  await sql(`CREATE TABLE IF NOT EXISTS device_fingerprints (
-    fingerprint  TEXT    NOT NULL,
-    telegram_id  BIGINT  NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (fingerprint, telegram_id)
-  )`);
-  await sql(`CREATE INDEX IF NOT EXISTS idx_device_fp ON device_fingerprints(fingerprint)`);
-
-  // 🛡️ Device fingerprint ownership — UNIQUE(fingerprint) لضمان حجز atomic
-  // (INSERT...ON CONFLICT DO NOTHING RETURNING) بدل SELECT-ثم-INSERT اللي فيه race condition
-  await sql(`CREATE TABLE IF NOT EXISTS device_fp_owner (
-    fingerprint  TEXT PRIMARY KEY,
-    telegram_id  BIGINT  NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
-  // 🔄 Backfill لمرة واحدة: أقدم telegram_id مسجّل لكل فنغربرنت في السجل التاريخي
-  // يصير هو المالك الرسمي، عشان أول طلب جديد بعد النشر ما "يسرقش" الملكية
-  await sql(`
-    INSERT INTO device_fp_owner (fingerprint, telegram_id, created_at)
-    SELECT fingerprint, telegram_id, created_at FROM (
-      SELECT fingerprint, telegram_id, created_at,
-             ROW_NUMBER() OVER (PARTITION BY fingerprint ORDER BY created_at ASC) AS rn
-      FROM device_fingerprints
-    ) t
-    WHERE rn = 1
-    ON CONFLICT (fingerprint) DO NOTHING
-  `);
-
-  // 🎁 تتبع حالة الإحالة — referral_activated يصير TRUE بعد مشاهدة المُحال لـ 10 إعلانات
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_activated BOOLEAN NOT NULL DEFAULT FALSE`);
-
-  // 📊 إجمالي الإعلانات اللي شافها المستخدم — شرط تفعيل الإحالة
-  await sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_ads_watched INT NOT NULL DEFAULT 0`);
-
-  // جدول المسابقات — يخزن توقيت كل موسم (start/end)
-  // السرفر يقرأ منه ويرسل COMPETITION_END_MS للفرونت عبر init response
-  await sql(`CREATE TABLE IF NOT EXISTS competition (
-    id         SERIAL PRIMARY KEY,
-    name       TEXT        NOT NULL DEFAULT 'Season 1',
-    start_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    end_at     TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '20 days',
-    active     BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
-  // seed: لو ما في موسم نشط → أنشئ واحد تلقائي 20 يوم من الآن
-  await sql(`
-    INSERT INTO competition (name, start_at, end_at, active)
-    SELECT 'Season 1', NOW(), NOW() + INTERVAL '20 days', TRUE
-    WHERE NOT EXISTS (SELECT 1 FROM competition WHERE active = TRUE)
-  `);
-
-  // 🏆 يتتبّع أي موسم تم توزيع جوائزه فعلاً — يمنع التوزيع المكرر
-  await sql(`ALTER TABLE competition ADD COLUMN IF NOT EXISTS prize_distributed BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  Telegram initData verification
+//  Telegram initData verification (نفس منطق BigLeague حرفياً)
 // ══════════════════════════════════════════════════════════════════════════════
 function verifyInitData(initData) {
   if (!initData || !BOT_TOKEN) return null;
@@ -455,8 +410,20 @@ function verifyInitData(initData) {
   }
 }
 
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// 🛡️ يوحّد قيمة عمود DATE إلى نص "YYYY-MM-DD" بغض النظر هل السائق أرجعها ككائن Date
+// أو كنص جاهز — بدون هذا، مقارنة "===" مع تاريخ اليوم قد تفشل بصمت وتفتح ثغرة استلام متكرر
+function toDateStr(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  return String(v).slice(0, 10);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
-//  🛡️  Helpers: IP · Rate Limit · Risk Score · InitData Hash
+//  🛡️ Helpers: IP · Rate limit
 // ══════════════════════════════════════════════════════════════════════════════
 function getClientIP(req) {
   const fwd = req.headers['x-forwarded-for'];
@@ -464,441 +431,240 @@ function getClientIP(req) {
   return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
 }
 
-async function checkIPLimit(ip, type) {
-  // type: 'min' = دقيقة عام | 'hr' = ساعة للإعلانات
-  const max     = type === 'min' ? CFG.IP_MAX_REQ_PER_MIN : CFG.IP_MAX_ADS_PER_HR;
-  const trunc   = type === 'min' ? `DATE_TRUNC('minute', NOW())` : `DATE_TRUNC('hour', NOW())`;
-  const interval = type === 'min' ? '2 minutes' : '2 hours';
-  await sql(`DELETE FROM ip_limits WHERE window_start < NOW() - INTERVAL '${interval}'`);
+async function checkIPLimit(ip) {
+  await sql(`DELETE FROM ip_limits WHERE window_start < NOW() - INTERVAL '2 minutes'`);
   const rows = await sql(
     `INSERT INTO ip_limits (ip, window_type, window_start, count)
-     VALUES ($1, $2, ${trunc}, 1)
+     VALUES ($1, 'min', DATE_TRUNC('minute', NOW()), 1)
      ON CONFLICT (ip, window_type, window_start)
      DO UPDATE SET count = ip_limits.count + 1
      RETURNING count`,
-    [ip, type]
+    [ip]
   );
-  return rows[0].count <= max; // true = مسموح
+  return rows[0].count <= CFG.IP_MAX_REQ_PER_MIN;
 }
 
-// ══════════════════════════════════════════════════════
-// 🎮 Seed-based sequence generator — mirrors client PRNG
-//    نفس Mulberry32 المستخدم في game.js (يجب أن يبقيا متطابقين)
-// ══════════════════════════════════════════════════════
-function _makePrng(seed) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6D2B79F5) >>> 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+// ══════════════════════════════════════════════════════════════════════════════
+//  Users
+// ══════════════════════════════════════════════════════════════════════════════
+function genReferralCode(telegramId) {
+  return 'ref_' + String(telegramId);
 }
 
-// 🎮 عدد عملات USDT الثابت لكل جولة — عدّل هذا الرقم فقط للتحكم بالعدد
-const GAME_USDT = 2;
-// 🎮 قيمة عملة الدولار الواحدة (0.0001 × GAME_USDT = الحد الأقصى لكل جولة)
-const GAME_DOLLAR_VALUE = 0.0001;
+async function upsertUser(tgUser, startParam) {
+  const telegramId = tgUser.id;
+  const existingRows = await sql(`SELECT * FROM users WHERE telegram_id = $1`, [telegramId]);
 
-// ticket/bomb فقط — بدون دولار (الدولار يُفرض في فتحات ثابتة عبر _pickDollarSlots أدناه)
-const _GAME_TYPES   = [{ w: 58, val: 4 }, { w: 20, val: 16 }, { w: 22, val: -3 }];
-const _GAME_TOTAL_W = _GAME_TYPES.reduce((a, t) => a + t.w, 0); // 100
-const _GAME_SEQ_LEN = 90; // أقصى عدد عناصر يمكن أن تظهر في 40 ثانية
-
-// 🎮 يختار GAME_USDT فتحة ثابتة (indices) من التسلسل ستكون عملات دولار — عبر PRNG منفصل
-// تماماً عن تسلسل الأنواع الأساسي (type/spawnCd/x/bias) حتى لا يؤثر على عددها المُستهلَك
-function _pickDollarSlots(seed) {
-  const rng2 = _makePrng((seed + 0x9E3779B9) >>> 0);
-  const slots = new Set();
-  let guard = 0;
-  while (slots.size < GAME_USDT && guard < 500) {
-    guard++;
-    slots.add(Math.floor(rng2() * _GAME_SEQ_LEN));
+  if (existingRows.length) {
+    const rows = await sql(
+      `UPDATE users SET username = $2, first_name = $3, photo_url = $4
+       WHERE telegram_id = $1 RETURNING *`,
+      [telegramId, tgUser.username || null, tgUser.first_name || null, tgUser.photo_url || null]
+    );
+    return rows[0];
   }
-  return slots;
-}
 
-function generateGameSequence(seed) {
-  const rng = _makePrng(seed);
-  const dollarSlots = _pickDollarSlots(seed);
-  const seq = [];
-  for (let i = 0; i < _GAME_SEQ_LEN; i++) {
-    const typeRoll = rng(); // استهلاك 1: نوع العنصر  (mirrors pickType)
-    rng();                  // استهلاك 2: spawnCd      (mirrors spawnItem)
-    const xRnd    = rng(); // استهلاك 3: موقع X        (mirrors spawnItem)
-    const biasRnd = rng(); // استهلاك 4: center-bias   (mirrors spawnItem — مُستهلَك دائماً)
-
-    let val = _GAME_TYPES[0].val, isBomb = false;
-    let r = typeRoll * _GAME_TOTAL_W, pushed = false;
-    for (const t of _GAME_TYPES) {
-      r -= t.w;
-      if (r <= 0) { val = t.val; isBomb = t.val < 0; pushed = true; break; }
+  // مستخدم جديد — نحدد referred_by من رابط الدعوة (start_param = ref_<telegram_id>) لو موجود
+  let referredBy = null;
+  if (startParam && /^ref_\d+$/.test(startParam)) {
+    const refId = BigInt(startParam.slice(4));
+    if (refId !== BigInt(telegramId)) {
+      const refRows = await sql(`SELECT telegram_id FROM users WHERE telegram_id = $1`, [refId.toString()]);
+      if (refRows.length) referredBy = refId.toString();
     }
-    if (!pushed) isBomb = false;
-
-    const isDollar = dollarSlots.has(i);
-    if (isDollar) { val = 0; isBomb = false; } // فتحة مفروضة كعملة دولار — تتجاوز النوع العشوائي
-
-    // 🛡️ x مُعيَّن بـ seed — قنابل: 80% في المنتصف (30%–70%) ، 20% عشوائي
-    const xNorm = isBomb
-      ? (biasRnd < 0.80
-          ? 0.30 + xRnd * 0.40   // zone مركزية
-          : 0.05 + xRnd * 0.90)  // كامل العرض
-      : 0.05 + xRnd * 0.90;      // تذاكر/دولار: عشوائي كامل
-
-    seq.push({ val, x: xNorm, d: isDollar ? 1 : 0 }); // { val: -3|0|4|16, x: 0.00–1.00, d: عملة دولار؟ }
   }
-  return seq;
-}
 
-// 🟢 نظام الـ risk score متوقف بالكامل بناءً على طلب المالك — المستخدمين
-// يلعبوا بحريتهم بدون أي نقاط خطر أو حظر تلقائي (shadow ban). الدالة سيبناها
-// كـ no-op بدل ما نمسحها من كل الأماكن اللي بتستدعيها (عشرات النداءات بالملف)،
-// عشان لو حبيت ترجّع النظام تاني يكفي ترجّع الكود المعلّق تحت.
-async function addRisk(userId, points, reason) {
-  return; // متعطّل — لا نقاط خطر ولا حظر تلقائي
-
-  /* الكود الأصلي — فعّله لو حبيت ترجّع نظام الـ risk score:
-  console.warn(`[RISK] user=${userId} +${points} reason=${reason}`);
   const rows = await sql(
-    `UPDATE users SET risk_score = risk_score + $1, risk_updated_at = NOW() WHERE id = $2
-     RETURNING risk_score, shadow_banned`,
-    [points, userId]
+    `INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (telegram_id) DO UPDATE SET username = EXCLUDED.username
+     RETURNING *`,
+    [telegramId, tgUser.username || null, tgUser.first_name || null, tgUser.photo_url || null,
+     genReferralCode(telegramId), referredBy]
   );
-  if (!rows[0].shadow_banned && rows[0].risk_score >= CFG.RISK_BAN_THRESHOLD) {
-    await sql(`UPDATE users SET shadow_banned = TRUE WHERE id = $1`, [userId]);
-    console.warn(`[SHADOWBAN] auto-banned user=${userId}`);
+  const newUser = rows[0];
+
+  if (referredBy) {
+    await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'referred', $2)`,
+      [newUser.id, JSON.stringify({ referred_by: referredBy })]);
+    // 🎯 تفعيل فوري بدون شروط — ما في حاجة ننتظر أول إعلان يشاهده الصديق
+    await maybeActivateReferral(newUser).catch(err => console.error('[instant referral activation]', err.message));
   }
-  */
+
+  return newUser;
 }
 
-// 🛡️ يقلل risk_score تدريجياً مع الوقت (RISK_DECAY_PER_DAY نقطة/يوم) — يمنع
-// تراكم دائم من false positives، ويرفع shadow ban تلقائياً لو رجع الـ score صفر
-async function decayRisk(userId) {
-  const rows = await sql(`
-    WITH decayed AS (
-      SELECT id,
-             GREATEST(0, risk_score - FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(risk_updated_at, created_at))) / 86400) * $2)::INT AS new_score
-      FROM users WHERE id = $1
-    )
-    UPDATE users u SET
-      risk_score      = d.new_score,
-      risk_updated_at = NOW(),
-      shadow_banned   = CASE WHEN d.new_score = 0 THEN FALSE ELSE u.shadow_banned END
-    FROM decayed d
-    WHERE u.id = d.id
-    RETURNING u.risk_score, u.shadow_banned
-  `, [userId, CFG.RISK_DECAY_PER_DAY]);
-  return rows[0];
+async function logTx(userId, category, title, amountUsd, titleKey, titleParams) {
+  await sql(
+    `INSERT INTO transactions (user_id, category, title, amount_usd, title_key, title_params) VALUES ($1,$2,$3,$4,$5,$6)`,
+    [userId, category, title, amountUsd, titleKey || null, titleParams ? JSON.stringify(titleParams) : null]
+  );
 }
 
-// 🛡️ هاش لكل (initData + token) لا لكل initData لحالها.
-// initData بتيليجرام ثابتة طوال الجلسة (~ساعة، نفس مدة TTL تحت)، فلو اعتمدنا
-// عليها فقط، أي إعلان ثاني بنفس الجلسة كان يُرفض كـ "مكرر". إضافة الـ token
-// (فريد ومُصدَر لكل إعلان) تحل التضارب وتحافظ على نفس مستوى الحماية ضد replay.
-async function checkAndMarkInitHash(initData, token) {
-  const hash = crypto.createHash('sha256').update(initData + ':watchAd:' + token).digest('hex');
-  await sql(`DELETE FROM used_init_hashes WHERE used_at < NOW() - INTERVAL '1 hour'`);
-  try {
-    await sql(`INSERT INTO used_init_hashes (hash) VALUES ($1)`, [hash]);
-    return true;  // جديد ✓
-  } catch {
-    return false; // مكرر ✗
-  }
-}
-
-// 📊 يزيد إجمالي إعلانات اليوم (كل المستخدمين) بشكل ذري — تُستدعى من watchAd و gameAdVerify
-async function bumpAdDailyStat() {
-  await sql(`
-    INSERT INTO ad_daily_stats (day, total_count)
-    VALUES (CURRENT_DATE, 1)
-    ON CONFLICT (day) DO UPDATE SET total_count = ad_daily_stats.total_count + 1
-  `);
-}
-
-// 📊 عدّاد مستقل بحت لإعلانات مضاعفة اللعبة فقط — لا يمس daily_ads ولا AD_DAILY_MAX إطلاقاً
-async function bumpGameDoubleAdStat() {
-  await sql(`
-    INSERT INTO game_double_ad_stats (day, total_count)
-    VALUES (CURRENT_DATE, 1)
-    ON CONFLICT (day) DO UPDATE SET total_count = game_double_ad_stats.total_count + 1
-  `);
-}
-
-// 🛡️ يستهلك تأكيد Adsgram (إن وُجد) لهذا المستخدم — يُستدعى من watchAd
+// 🛡️ يستهلك تأكيد Adsgram (إن وُجد) لهذا المستخدم — يُستدعى من tasks.claimAd و tasks.claimTaskAd
 // يعيد true فقط لو وصل تأكيد server-to-server حقيقي من Adsgram لم يُستهلك بعد
-async function consumeAdsgramConfirmation(telegramId) {
+// (الصف يُنشَأ عبر api/adsgram-reward.js — endpoint منفصل تستدعيه سيرفرات Adsgram مباشرة)
+// kind: 'reward' لإعلان الفيديو (الافتراضي) أو 'task' لإعلان Task — كل نوع له حوض تأكيدات منفصل
+async function consumeAdsgramConfirmation(telegramId, kind = 'reward') {
   await sql(`DELETE FROM ad_reward_confirmations WHERE created_at < NOW() - INTERVAL '10 minutes'`);
   const rows = await sql(`
     UPDATE ad_reward_confirmations
     SET consumed = TRUE
     WHERE id = (
       SELECT id FROM ad_reward_confirmations
-      WHERE telegram_id = $1 AND consumed = FALSE
+      WHERE telegram_id = $1 AND kind = $2 AND consumed = FALSE
       ORDER BY created_at ASC
       LIMIT 1
     )
     RETURNING id
-  `, [telegramId]);
+  `, [telegramId, kind]);
   return rows.length > 0;
 }
 
-async function upsertUser(tgUser, startParam = null, fp = null) {
-  const { id: telegram_id, username = null, first_name = null, photo_url = null } = tgUser;
-  const refCode = `REF${telegram_id}`;
+// 👥 يفحص هل تجاوز عدد إعلانات المُحال حد التفعيل، ويمنح مكافأة الإحالة للمُحيل مرة واحدة فقط
+async function maybeActivateReferral(dbUser) {
+  if (!dbUser.referred_by || dbUser.referral_activated) return;
+  if (dbUser.total_ads_watched < APP_CFG.REFERRAL_ACTIVATION_ADS) return;
 
-  // Only brand-new users can be attached to a referrer, and only once.
-  const existing = await sql('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
-  const isNewUser = existing.length === 0;
+  const referrerRows = await sql(`SELECT * FROM users WHERE telegram_id = $1`, [dbUser.referred_by]);
+  const referrer = referrerRows[0];
+  if (!referrer) return;
 
-  let referredBy = null;
-  if (isNewUser && startParam) {
-    const m = /^ref_(\d+)$/.exec(String(startParam).trim());
-    if (m && m[1] !== String(telegram_id)) {
-      const refUser = await sql('SELECT telegram_id FROM users WHERE telegram_id = $1', [m[1]]);
-      if (refUser.length > 0) referredBy = m[1];
-    }
+  // 🛡️ تحديث ذري + شرط WHERE referral_activated=false يمنع أي تكرار عند سباق طلبات
+  const claimed = await sql(
+    `UPDATE users SET referral_activated = TRUE WHERE id = $1 AND referral_activated = FALSE RETURNING id`,
+    [dbUser.id]
+  );
+  if (!claimed.length) return;
+
+  await sql(`UPDATE users SET balance_usd = balance_usd + $1, contest_score = contest_score + $2 WHERE id = $3`,
+    [APP_CFG.REFERRAL_REWARD_USD, APP_CFG.REFERRAL_REWARD_POINTS, referrer.id]);
+  await logTx(referrer.id, 'referral', `إحالة جديدة — ${dbUser.first_name || 'صديق'}`, APP_CFG.REFERRAL_REWARD_USD, 'tx.newReferral', { name: dbUser.first_name || '—' });
+
+  // 🎯 مهمة "ادعُ 3 أصدقاء" — يوميّة: تتصفر كل يوم، وتُمنح المكافأة عند وصول 3 إحالات مُفعّلة
+  // في نفس اليوم التقويمي (لا علاقة لها بإجمالي الإحالات مدى الحياة — ذاك محسوب بشكل منفصل)
+  const today = toDateStr(new Date());
+  const inviteRows = await sql(
+    `UPDATE users
+     SET daily_invites = CASE WHEN last_invite_date = $2 THEN daily_invites + 1 ELSE 1 END,
+         last_invite_date = $2
+     WHERE id = $1
+     RETURNING daily_invites`,
+    [referrer.id, today]
+  );
+  const newDailyCount = inviteRows[0]?.daily_invites ?? 0;
+  if (newDailyCount === APP_CFG.REFERRAL_MILESTONE_FRIENDS) {
+    await sql(`UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2`,
+      [APP_CFG.REFERRAL_MILESTONE_REWARD_USD, referrer.id]);
+    await logTx(referrer.id, 'task', 'مكافأة: دعوة 3 أصدقاء اليوم', APP_CFG.REFERRAL_MILESTONE_REWARD_USD, 'tx.inviteMilestone');
   }
 
-  await sql(`
-    INSERT INTO users (telegram_id, username, first_name, photo_url, referral_code, referred_by)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    ON CONFLICT (telegram_id) DO UPDATE SET
-      username   = EXCLUDED.username,
-      first_name = EXCLUDED.first_name,
-      photo_url  = COALESCE(EXCLUDED.photo_url, users.photo_url)
-  `, [telegram_id, username, first_name, photo_url, refCode, referredBy]);
+  sendTelegramMessage(
+    Number(referrer.telegram_id),
+    `🎉 انضم صديقك *${escapeHtml(dbUser.first_name || 'صديقك')}* وستربح 10% من أرباحه مدى الحياة`
+  ).catch(e => console.error('[referral notify]', e.message));
+}
 
-  // 🛡️ Device fingerprint — يحظر فقط الحسابات الجديدة من نفس الجهاز
-  // ⚠️ الحجز atomic عبر device_fp_owner (UNIQUE fingerprint) بدل SELECT-ثم-INSERT
-  // (على Neon مافيش transaction بين الاستعلامات، فـ check-then-act كان بيسمح
-  // لحسابين يسجلوا بنفس اللحظة تقريباً ويفوتوا الحظر — race condition)
-  if (fp) {
-    try {
-      if (isNewUser) {
-        const claim = await sql(
-          `INSERT INTO device_fp_owner (fingerprint, telegram_id)
-           VALUES ($1, $2)
-           ON CONFLICT (fingerprint) DO NOTHING
-           RETURNING telegram_id`,
-          [fp, telegram_id]
-        );
+// 💸 عمولة مدى الحياة 10% للمُحيل — تُستدعى بعد أي ربح فعلي للمُحال (إعلان، مهمة، تسجيل دخول...)
+// تُحسب فقط لو كانت الإحالة مُفعَّلة، وتُرسِل إشعاراً فورياً للمُحيل بحصته من هذا الربح تحديداً
+async function creditReferralCommission(referredDbUser, earnedAmountUsd) {
+  if (!earnedAmountUsd || earnedAmountUsd <= 0) return;
+  if (!referredDbUser.referred_by || !referredDbUser.referral_activated) return;
 
-        if (claim.length === 0) {
-          // الفنغربرنت محجوز فعلاً لحساب تاني → احظر الحساب الجديد فوراً
-          const owner = await sql(
-            'SELECT telegram_id FROM device_fp_owner WHERE fingerprint = $1',
-            [fp]
-          );
-          await sql('UPDATE users SET banned = TRUE WHERE telegram_id = $1', [telegram_id]);
-          console.warn(`[DEVICE-BAN] banned NEW account ${telegram_id} — device already owned by ${owner[0]?.telegram_id}`);
-        } else {
-          console.log(`[DEVICE-FP] owner registered for ${telegram_id}`);
-        }
-      }
+  const commission = earnedAmountUsd * APP_CFG.REFERRAL_LIFETIME_PERCENT;
+  if (commission <= 0) return;
 
-      // سجل تاريخي (many-to-many) لكل الحسابات اللي ظهرت على هذا الفنغربرنت — للمراجعة الإدارية بس
-      await sql(
-        'INSERT INTO device_fingerprints (fingerprint, telegram_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [fp, telegram_id]
-      );
-    } catch (fpErr) {
-      console.error('[DEVICE-FP] error:', fpErr.message);
-    }
-  }
+  const referrerRows = await sql(`SELECT * FROM users WHERE telegram_id = $1`, [referredDbUser.referred_by]);
+  const referrer = referrerRows[0];
+  if (!referrer) return;
 
-  // 🕐 إشعار "إحالة معلّقة" عند التسجيل — المكافأة الفعلية تُعطى فقط عند مشاهدة عدد الإعلانات المطلوب
-  if (isNewUser && referredBy) {
-    const joinerName = first_name || username || 'Someone';
+  await sql(`UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2`, [commission, referrer.id]);
+  const friendName = referredDbUser.first_name || referredDbUser.username || 'صديقك';
+  await logTx(referrer.id, 'referral', `حصة من ربح صديقك ${friendName}`, commission, 'tx.referralCommission', { name: friendName });
 
-    let pendingReferrals = 1;
-    try {
-      const cntRows = await sql(
-        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = FALSE',
-        [referredBy]
-      );
-      pendingReferrals = cntRows[0]?.cnt ?? 1;
-    } catch (_) {}
-
+  if (referrer.notify_earnings) {
     sendTelegramMessage(
-      referredBy,
-      `🔔 *New Pending Referral!*\n\n` +
-      `👤 *${joinerName}* just joined using your link.\n\n` +
-      `📊 Status: *⏳ Pending*\n` +
-      `🎯 Condition: *Watch ${APP_CFG.REFERRAL_ADS_REQUIRED} ads to activate*\n` +
-      `👥 *Total Pending: ${pendingReferrals}*\n\n` +
-      `💡 Once they watch ${APP_CFG.REFERRAL_ADS_REQUIRED} ads you'll get your reward automatically!`
-    ).catch(e => console.error('[referral-pending bot notify]', e.message));
-  }
-
-  const rows = await sql('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
-  return rows[0];
-}
-
-// 🎁 فحص وتفعيل الإحالة — يُستدعى بعد كل مشاهدة إعلان (أي نوع)
-// يعطي المُحيل مكافأته فوراً عند وصول المُحال لعدد الإعلانات المطلوب
-async function checkReferralActivation(userId) {
-  try {
-    const rows = await sql(
-      'SELECT referred_by, referral_activated, total_ads_watched, first_name, username FROM users WHERE id = $1',
-      [userId]
-    );
-    if (!rows[0] || !rows[0].referred_by || rows[0].referral_activated) return;
-    if (Number(rows[0].total_ads_watched) < APP_CFG.REFERRAL_ADS_REQUIRED) return;
-
-    // ✅ وصل لعدد الإعلانات المطلوب — فعّل الإحالة وامنح المُحيل مكافأته
-    await sql('UPDATE users SET referral_activated = TRUE WHERE id = $1', [userId]);
-
-    try {
-      await sql(`
-        UPDATE users
-        SET pts         = pts + $1,
-            balance_usd = balance_usd + $2
-        WHERE telegram_id = $3
-      `, [APP_CFG.REF_TICKET_REWARD, APP_CFG.REF_USDT_REWARD, rows[0].referred_by]);
-      console.log(`[referral] activated & credited — user=${userId} referrer=${rows[0].referred_by}`);
-    } catch (creditErr) {
-      console.error('[referral-activate] credit SQL failed:', creditErr.message);
-    }
-
-    // إحصاء الإحالات المفعّلة للمُحيل
-    let activeReferrals = 1;
-    try {
-      const cntRows = await sql(
-        'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = TRUE',
-        [rows[0].referred_by]
-      );
-      activeReferrals = cntRows[0]?.cnt ?? 1;
-    } catch (_) {}
-
-    const joinerName = rows[0].first_name || rows[0].username || 'Someone';
-
-    sendTelegramMessage(
-      rows[0].referred_by,
-      `🎉 *New Referral Activated!*\n\n` +
-      `Welcome, your referral is now active.\n\n` +
-      `👤 *${joinerName}*\n` +
-      `✅ Active\n\n` +
-      `🎁 *You Earned*\n` +
-      `🪙 *${APP_CFG.REF_TICKET_REWARD.toLocaleString()} Points*\n` +
-      `💵 *${APP_CFG.REF_USDT_REWARD} USDT*\n\n` +
-      `👥 *Total Active Referrals: ${activeReferrals}*\n\n` +
-      `🚀 Keep inviting friends to maximize your earnings!`
-    ).catch(e => console.error('[referral-activate bot notify]', e.message));
-  } catch (err) {
-    console.error('[checkReferralActivation] error:', err.message);
+      Number(referrer.telegram_id),
+      `🎁 لقد حصلت على حصة من ربح صديقك *${escapeHtml(friendName)}*: *${commission.toFixed(5)}$*\n\nتُضاف تلقائياً 10% من أرباح أصدقائك النشطين لرصيدك، مدى الحياة 💰`
+    ).catch(e => console.error('[referral commission notify]', e.message));
   }
 }
 
-async function getUserRank(userId) {
-  const rows = await sql(`
-    SELECT (COUNT(*) + 1)::INT AS rank
-    FROM users WHERE pts > (SELECT pts FROM users WHERE id = $1)
-  `, [userId]);
-  return rows[0]?.rank ?? 1;
-}
-
-async function getActiveCompetition() {
-  const rows = await sql(`
-    SELECT id, name, start_at, end_at
-    FROM competition
-    WHERE active = TRUE
-    ORDER BY created_at DESC
-    LIMIT 1
-  `);
+// ══════════════════════════════════════════════════════════════════════════════
+//  Contest / Leaderboard
+// ══════════════════════════════════════════════════════════════════════════════
+async function getActiveContest() {
+  const rows = await sql(`SELECT * FROM contest_season WHERE active = TRUE ORDER BY id DESC LIMIT 1`);
   return rows[0] || null;
 }
 
-async function getLeaderboard(limit = 8) {
-  return await sql(`
-    SELECT telegram_id,
-           COALESCE(first_name, username, 'Anonymous') AS name,
-           pts,
-           photo_url,
-           ROW_NUMBER() OVER (ORDER BY pts DESC, telegram_id ASC)::INT AS rank
-    FROM users ORDER BY pts DESC, telegram_id ASC LIMIT $1
-  `, [limit]);
+// 🛡️ نستخدم ROW_NUMBER بدل RANK: بها كل المستخدمين اللي نقاطهم صفر (أو متعادلين) كانوا ياخذوا
+// نفس الترتيب (مثلاً الكل "المركز 2")، لأن RANK() يعطي نفس الرقم للمتعادلين بالضبط.
+// الحل: عند تعادل النقاط، الفيصل يكون توقيت الدخول (created_at) — الأقدم انضمامًا ياخذ الترتيب الأفضل،
+// فيصير كل مستخدم له رقم ترتيب فريد ومتسلسل بدون أي تكرار.
+async function getLeaderboard(limit = 20) {
+  return await sql(
+    `SELECT telegram_id, first_name, photo_url, contest_score,
+            ROW_NUMBER() OVER (ORDER BY contest_score DESC, created_at ASC) AS rank
+     FROM users WHERE banned = FALSE AND shadow_banned = FALSE
+     ORDER BY contest_score DESC, created_at ASC LIMIT $1`,
+    [limit]
+  );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  🏆 توزيع جوائز المسابقة — تُستدعى مع كل طلب
-//
-//  لو انتهى وقت الموسم النشط (end_at <= NOW) ولم تُوزَّع جوائزه بعد:
-//   1. كل مستخدم يأخذ حصته من الجوائز في balance_usd حسب ترتيبه النهائي
-//      (المركز 1/2/3 → PODIUM_PRIZES، المراكز 4-11 → $1 لكل واحد، نفس
-//      الترتيب المعروض في الـ leaderboard/podium).
-//   2. تصفير نقاط الجميع (pts = 0) وبدء موسم جديد تلقائياً لمدة 20 يوم.
-//
-//  🛡️ آمنة عند التشغيل المتزامن (Vercel serverless = عدة invocations بنفس
-//  اللحظة): الـ UPDATE الأول بالأسفل يعمل "claim" ذرّي — فقط الـ invocation
-//  اللي يرجّع صف هو المسؤول عن التوزيع، والباقي يرجعوا فوراً بدون أي تأثير.
-// ══════════════════════════════════════════════════════════════════════════════
-async function distributeSeasonPrizes() {
-  const claimed = await sql(`
-    UPDATE competition
-    SET active = FALSE, prize_distributed = TRUE
-    WHERE active = TRUE AND prize_distributed = FALSE AND end_at <= NOW()
-    RETURNING id, name
-  `);
-  if (claimed.length === 0) return; // لا يوجد موسم منتهٍ بانتظار التوزيع
+async function getUserRank(userId) {
+  const rows = await sql(
+    `SELECT rnk FROM (
+       SELECT id, ROW_NUMBER() OVER (ORDER BY contest_score DESC, created_at ASC) AS rnk FROM users
+       WHERE banned = FALSE AND shadow_banned = FALSE
+     ) t WHERE id = $1`,
+    [userId]
+  );
+  return rows[0]?.rnk ?? null;
+}
 
-  const endedComp = claimed[0];
-  const { first, second, third } = APP_CFG.PODIUM_PRIZES;
-  const OTHERS_PRIZE = 1; // "Each $1" — المراكز 4 إلى 11 (نفس LB_PRIZE_LABEL)
+// 🏆 عند انتهاء الأسبوع: يوزّع الجوائز، يصفّر النقاط، ويبدأ موسماً جديداً — best-effort، بدون قفل صريح
+async function distributeContestPrizesIfNeeded() {
+  const active = await getActiveContest();
+  if (!active) return;
+  if (new Date(active.end_at).getTime() > Date.now()) return;
+  if (active.prize_distributed) return;
 
-  // 🏆 منح الجوائز دفعة واحدة على balance_usd حسب نفس ترتيب getLeaderboard
-  // (pts DESC, telegram_id ASC) — pts > 0 فقط، لمنع منح جوائز لحسابات لم تشارك
-  const winners = await sql(`
-    WITH ranked AS (
-      SELECT id, telegram_id,
-             ROW_NUMBER() OVER (ORDER BY pts DESC, telegram_id ASC) AS rnk
-      FROM users
-      WHERE pts > 0
-    ),
-    prized AS (
-      SELECT id, telegram_id, rnk,
-        CASE
-          WHEN rnk = 1 THEN $1::NUMERIC
-          WHEN rnk = 2 THEN $2::NUMERIC
-          WHEN rnk = 3 THEN $3::NUMERIC
-          WHEN rnk BETWEEN 4 AND 11 THEN $4::NUMERIC
-          ELSE 0
-        END AS prize
-      FROM ranked
-      WHERE rnk <= 11
-    )
-    UPDATE users u
-    SET balance_usd = balance_usd + p.prize
-    FROM prized p
-    WHERE u.id = p.id AND p.prize > 0
-    RETURNING u.telegram_id, p.rnk, p.prize
-  `, [first, second, third, OTHERS_PRIZE]);
+  const claimed = await sql(
+    `UPDATE contest_season SET active = FALSE, prize_distributed = TRUE
+     WHERE id = $1 AND prize_distributed = FALSE RETURNING id`,
+    [active.id]
+  );
+  if (!claimed.length) return; // سباق — سيرفرلس آخر سبقنا بالتوزيع
 
-  // 🔄 تصفير نقاط الجميع — موسم جديد يبدأ بترتيب نظيف للكل
-  await sql(`UPDATE users SET pts = 0`);
+  const top = await sql(
+    `SELECT id, telegram_id, first_name, contest_score,
+            ROW_NUMBER() OVER (ORDER BY contest_score DESC, created_at ASC) AS rnk
+     FROM users WHERE contest_score > 0
+     ORDER BY contest_score DESC, created_at ASC LIMIT 3`
+  );
 
-  // ▶️ إنشاء الموسم التالي (الاسم: "Season N" → "Season N+1")
-  const m       = /(\d+)\s*$/.exec(endedComp.name || '');
-  const nextNum = m ? (parseInt(m[1], 10) + 1) : 2;
-  const nextName = m
-    ? endedComp.name.replace(/\d+\s*$/, String(nextNum))
-    : `${endedComp.name || 'Season'} ${nextNum}`;
-
-  await sql(`
-    INSERT INTO competition (name, start_at, end_at, active, prize_distributed)
-    VALUES ($1, NOW(), NOW() + INTERVAL '20 days', TRUE, FALSE)
-  `, [nextName]);
-
-  console.log(`[competition] "${endedComp.name}" ended — ${winners.length} prizes paid, started "${nextName}"`);
-
-  // ✅ إشعار بوت للفائزين (best-effort — لا يوقف التنفيذ)
-  for (const w of winners) {
-    const prizeAmount = parseFloat(w.prize);
+  for (const w of top) {
+    const prize = APP_CFG.CONTEST_PRIZES_USD[w.rnk];
+    if (!prize) continue;
+    await sql(`UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2`, [prize, w.id]);
+    await logTx(w.id, 'earn', `جائزة المسابقة — المركز ${w.rnk}`, prize, 'tx.contestPrize', { rank: w.rnk });
     sendTelegramMessage(
       Number(w.telegram_id),
-      `🏆 *${endedComp.name} Has Ended!*\n\nYou finished *#${w.rnk}* on the leaderboard and won *+$${prizeAmount.toFixed(2)}* 🎉\n\nIt's already credited to your balance — withdraw anytime!\n\nA new season just started. Good luck! 🚀`
-    ).catch(e => console.error('[prize bot notify]', e.message));
+      `🏆 *انتهت المسابقة الأسبوعية!*\n\nحصلت على المركز *#${w.rnk}* وربحت *${prize.toFixed(2)}$* 🎉\nتمت إضافتها لرصيدك — بالتوفيق بالأسبوع الجديد!`
+    ).catch(e => console.error('[contest notify]', e.message));
   }
+
+  await sql(`UPDATE users SET contest_score = 0`);
+
+  const m = /(\d+)\s*$/.exec(active.name || '');
+  const nextNum = m ? (parseInt(m[1], 10) + 1) : 2;
+  const nextName = m ? active.name.replace(/\d+\s*$/, String(nextNum)) : `الأسبوع ${nextNum}`;
+  await sql(
+    `INSERT INTO contest_season (name, start_at, end_at, active)
+     VALUES ($1, NOW(), NOW() + INTERVAL '${APP_CFG.CONTEST_DURATION_DAYS} days', TRUE)`,
+    [nextName]
+  );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -914,22 +680,79 @@ async function sendTelegramMessage(chatId, text) {
   return await res.json();
 }
 
+async function isChannelMember(telegramId) {
+  if (!CHANNEL_USERNAME) return true; // المهمة/الشرط معطّل أصلاً لو ما فيه قناة مضبوطة
+  if (!BOT_TOKEN) return true;
+  try {
+    const r = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${telegramId}`
+    );
+    const j = await r.json();
+    if (!j.ok) return false;
+    return ['creator', 'administrator', 'member'].includes(j.result?.status);
+  } catch (e) {
+    console.error('[channel check]', e.message);
+    return false;
+  }
+}
+
+// 📢 عقوبة مغادرة القناة — لأي مستخدم أنجز مهمة "انضمام لقناة" وطلع منها بعدين:
+// - تحقق فوري بكل تسجيل دخول (init)، طالما المهمة معلّمة "منجزة" عنده حالياً — مش مرة وحدة بالعمر.
+// - كل مرة يطلع من القناة: يتخصم رصيد المكافأة، وترجع مهمة القناة لحالتها الأصلية (غير منجزة) عشان يقدر يعيد تنفيذها.
+// - إشعار تيليجرام فوري للمستخدم يوضح سبب الخصم.
+// ترجع dbUser محدّث إذا صار خصم، وإلا نفس dbUser الأصلي بدون تغيير.
+async function applyChannelLeavePenalty(dbUser) {
+  if (!CHANNEL_USERNAME || !BOT_TOKEN) return dbUser;
+
+  const doneJoin = await sql(
+    `SELECT 1 FROM user_tasks WHERE user_id = $1 AND task_id = 'join_channel'`, [dbUser.id]
+  );
+  if (!doneJoin.length) return dbUser; // المهمة مو معلّمة منجزة حالياً — لا شي للتحقق منه
+
+  const isMember = await isChannelMember(dbUser.telegram_id);
+  if (isMember) return dbUser;
+
+  const penaltyUsd    = Math.min(parseFloat(dbUser.balance_usd), APP_CFG.JOIN_CHANNEL_REWARD_USD);
+  const penaltyPoints = Math.min(Number(dbUser.points), APP_CFG.JOIN_CHANNEL_REWARD_POINTS);
+
+  const rows = await sql(
+    `UPDATE users SET
+       balance_usd       = GREATEST(balance_usd - $1, 0),
+       points             = GREATEST(points - $2, 0),
+       channel_penalized  = TRUE
+     WHERE id = $3
+     RETURNING *`,
+    [penaltyUsd, penaltyPoints, dbUser.id]
+  );
+
+  // 🔄 المهمة ترجع كأنها ما انصارت — تمسح من user_tasks فترجع تنعرض "غير منجزة" بالواجهة، وتصير قابلة لإعادة التنفيذ
+  await sql(`DELETE FROM user_tasks WHERE user_id = $1 AND task_id = 'join_channel'`, [dbUser.id]);
+
+  if (penaltyUsd > 0) {
+    await logTx(dbUser.id, 'penalty', 'خصم: غادرت القناة بعد الانضمام', -penaltyUsd, 'tx.channelLeftPenalty');
+  }
+
+  sendTelegramMessage(
+    Number(dbUser.telegram_id),
+    `⚠️ *لاحظنا إنك غادرت القناة*\n\nتم خصم مكافأة مهمة الانضمام (${penaltyUsd.toFixed(3)}$) من رصيدك، وترجعت المهمة لحالتها الأصلية.\nانضم للقناة من جديد لو حابب تنجز المهمة وتاخد المكافأة.`
+  ).catch(e => console.error('[channel penalty notify]', e.message));
+
+  return rows[0] || dbUser;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  Main Export
 // ══════════════════════════════════════════════════════════════════════════════
 module.exports = async function handler(req, res) {
-  // ── CORS محدود — مش wildcard ────────────────────────────────────────────────
-  const allowedOrigins = ['https://web.telegram.org','https://webk.telegram.org','https://webz.telegram.org'];
+  // ── CORS — محدود لدومين Telegram WebApp ─────────────────────────────────────
+  const allowedOrigins = ['https://web.telegram.org', 'https://webk.telegram.org', 'https://webz.telegram.org'];
   const origin = req.headers['origin'] || '';
-  res.setHeader('Access-Control-Allow-Origin',  allowedOrigins.includes(origin) ? origin : allowedOrigins[0]);
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : allowedOrigins[0]);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Telegram-Init-Data');
   res.setHeader('Vary', 'Origin');
   if (req.method === 'OPTIONS') return res.status(204).end();
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
 
   try {
     await ensureSchema();
@@ -938,831 +761,767 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, error: 'DB schema error: ' + err.message });
   }
 
-  // 🏆 توزيع جوائز المسابقة فور انتهائها وبدء موسم جديد — best-effort،
-  // لا يوقف الطلب الحالي حتى لو فشل (سيُعاد المحاولة في الطلب التالي)
   try {
-    await distributeSeasonPrizes();
+    await distributeContestPrizesIfNeeded();
   } catch (err) {
-    console.error('[Prize distribution error]', err.message);
+    console.error('[Contest prize error]', err.message);
   }
 
-  // 🛡️ IP rate limit عام
   const clientIP = getClientIP(req);
   try {
-    const ipOk = await checkIPLimit(clientIP, 'min');
+    const ipOk = await checkIPLimit(clientIP);
     if (!ipOk) return res.status(429).json({ ok: false, error: 'Too many requests' });
   } catch (err) {
     console.error('[IP limit error]', err.message);
   }
 
-  const body              = req.body || {};
+  const body               = req.body || {};
   const { type, data = {} } = body;
-  const rawInitData       = body.initData || req.headers['x-telegram-init-data'] || '';
+  const rawInitData        = body.initData || req.headers['x-telegram-init-data'] || '';
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   let tgUser = null;
   let dbUser = null;
 
-  if (type !== 'sendBotMsg') {
+  if (type !== 'admin.sendBotMsg') {
     tgUser = verifyInitData(rawInitData);
+    if (!tgUser) return res.status(401).json({ ok: false, error: 'Unauthorized' });
 
-    if (!tgUser) {
-      return res.status(401).json({ ok: false, error: 'Unauthorized' });
-    }
-
-    // 🛡️ فحص timestamp العميل — يمنع replay متأخر
     if (data.ts) {
       const drift = Math.abs(Date.now() / 1000 - parseInt(data.ts, 10));
-      if (drift > CFG.TS_DRIFT_SEC) {
-        return res.status(400).json({ ok: false, error: 'Request expired' });
-      }
+      if (drift > CFG.TS_DRIFT_SEC) return res.status(400).json({ ok: false, error: 'Request expired' });
     }
 
     try {
-      dbUser = await upsertUser(tgUser, data.startParam || null, body.fp || null);
+      dbUser = await upsertUser(tgUser, data.startParam || null);
     } catch (err) {
       console.error('[upsertUser error]', err.message);
       return res.status(500).json({ ok: false, error: 'DB error: ' + err.message });
     }
 
-    // 🟢 نبضة أونلاين — best-effort وغير محجوبة (fire-and-forget) عشان ما تبطئش الرد على المستخدم
+    if (dbUser.banned) {
+      return res.status(403).json({ ok: false, error: 'banned' });
+    }
+
     sql(`UPDATE users SET last_seen_at = NOW() WHERE id = $1`, [dbUser.id])
       .catch(err => console.error('[last_seen_at update]', err.message));
-
-    // 🛡️ تلاشي تدريجي لـ risk_score مع الوقت + رفع شادو-بان تلقائي لو رجع الـ score صفر
-    if (dbUser.risk_score > 0 || dbUser.shadow_banned) {
-      try {
-        const decayed = await decayRisk(dbUser.id);
-        if (decayed) {
-          dbUser.risk_score    = decayed.risk_score;
-          dbUser.shadow_banned = decayed.shadow_banned;
-        }
-      } catch (err) {
-        console.error('[decayRisk error]', err.message);
-      }
-    }
-    // ملاحظة: شيلنا الرد العام الموحّد لـ shadow ban (كان يكسر صفحات مثل init
-    // لكل المحظورين). صار التعامل معه داخل كل case على حدة (watchAd / withdraw)
-    // فقط — أي الأماكن اللي فيها مكسب فعلي (نقاط / فلوس).
   }
 
-  // ── Router ─────────────────────────────────────────────────────────────────
+  // ── Router ───────────────────────────────────────────────────────────────
   try {
     switch (type) {
 
+      // ═══════════ الرئيسية ═══════════
       case 'init': {
-        const [userRank, leaderboard, refStats, competition] = await Promise.all([
+        // 📢 فحص دوري (بدون إبطاء محسوس) لمين أنجز مهمة الانضمام للقناة وطلع منها بعدين — خصم لمرة وحدة
+        try {
+          dbUser = await applyChannelLeavePenalty(dbUser);
+        } catch (err) {
+          console.error('[channel penalty check]', err.message);
+        }
+
+        const [rank, leaderboard, refStats, refList, contest, todayRows, tasksDone] = await Promise.all([
           getUserRank(dbUser.id),
-          getLeaderboard(11),
-          sql(`SELECT
-                COUNT(*)::INT                                        AS ref_count,
-                COUNT(*) FILTER (WHERE referral_activated = TRUE)::INT  AS active_count,
-                COUNT(*) FILTER (WHERE referral_activated = FALSE)::INT AS pending_count,
-                (COUNT(*) FILTER (WHERE referral_activated = TRUE) * $2)::INT AS ref_earned
-               FROM users WHERE referred_by = $1`, [dbUser.telegram_id, APP_CFG.REF_TICKET_REWARD]),
-          getActiveCompetition()
+          getLeaderboard(20),
+          sql(
+            `SELECT COUNT(*)::INT AS ref_count,
+                    COUNT(*) FILTER (WHERE referral_activated = TRUE)::INT AS active_count,
+                    COUNT(*) FILTER (WHERE referral_activated = FALSE)::INT AS pending_count
+             FROM users WHERE referred_by = $1`, [dbUser.telegram_id]),
+          sql(
+            `SELECT first_name, username, photo_url, referral_activated, total_ads_watched, created_at
+             FROM users WHERE referred_by = $1 ORDER BY created_at DESC LIMIT 4`, [dbUser.telegram_id]),
+          getActiveContest(),
+          sql(
+            `SELECT COALESCE(SUM(amount_usd),0)::FLOAT AS today_earn
+             FROM transactions WHERE user_id = $1 AND amount_usd > 0 AND created_at >= CURRENT_DATE`,
+            [dbUser.id]),
+          sql(`SELECT task_id FROM user_tasks WHERE user_id = $1`, [dbUser.id]),
         ]);
 
-        // دمج توقيت المسابقة من DB في الـ config
-        const configWithCompetition = {
-          ...APP_CFG,
-          COMPETITION_END_MS:   competition ? new Date(competition.end_at).getTime()   : APP_CFG.COMPETITION_END_MS,
-          COMPETITION_START_MS: competition ? new Date(competition.start_at).getTime() : Date.now(),
-          COMPETITION_NAME:     competition?.name ?? 'Season 1',
-        };
+        const today = new Date().toISOString().slice(0, 10);
+        const doneTaskIds = tasksDone.map(r => r.task_id);
+        const watchAdsDoneToday = toDateStr(dbUser.last_ad_date) === today ? dbUser.daily_ads : 0;
+        const inviteProgressToday = toDateStr(dbUser.last_invite_date) === today ? dbUser.daily_invites : 0;
+
+        const watchDone = watchAdsDoneToday >= APP_CFG.AD_BATCH_REQUIRED;
+        const joinDone = doneTaskIds.includes('join_channel');
+        const dailyLoginDone = toDateStr(dbUser.last_daily_login) === today;
+        const inviteDone = inviteProgressToday >= APP_CFG.REFERRAL_MILESTONE_FRIENDS;
+        const taskAdsDoneToday = toDateStr(dbUser.last_task_ad_date) === today ? dbUser.daily_task_ads : 0;
+        const taskAdDone = taskAdsDoneToday >= APP_CFG.TASK_AD_DAILY_MAX;
+        const browseProgressToday = toDateStr(dbUser.last_surf_completed_date) === today ? dbUser.daily_surf_completed : 0;
+        const browseDone = toDateStr(dbUser.last_browse_reward_date) === today;
+
         return res.json({
           ok: true,
           user: {
-            id:            dbUser.id,
-            telegram_id:   Number(dbUser.telegram_id),
-            name:          dbUser.first_name || dbUser.username || 'You',
-            photo_url:     dbUser.photo_url || null,
-            pts:           Number(dbUser.pts),
-            balance_usd:   parseFloat(dbUser.balance_usd),
+            telegram_id:  Number(dbUser.telegram_id),
+            name:         dbUser.first_name || dbUser.username || 'مستخدم',
+            photo_url:    dbUser.photo_url || null,
+            balance_usd:  parseFloat(dbUser.balance_usd),
+            points:       Number(dbUser.points),
             referral_code: dbUser.referral_code,
-            rank:          userRank,
-            banned:        dbUser.banned || false,
-            onboarding_seen: dbUser.onboarding_seen || false
+            wallet_address: dbUser.wallet_address || null,
+            rank,
+            contest_score: Number(dbUser.contest_score),
+            is_elite:      dbUser.is_elite,
+            double_earn_active: !!(dbUser.double_earn_until && new Date(dbUser.double_earn_until) > new Date()),
+            notify_tasks:    dbUser.notify_tasks,
+            notify_earnings: dbUser.notify_earnings,
+            notify_contest:  dbUser.notify_contest,
+          },
+          stats: {
+            today_earn_usd: todayRows[0]?.today_earn ?? 0,
+            referrals_count: refStats[0]?.ref_count ?? 0,
+            tasks_done_today: [watchDone, joinDone, dailyLoginDone, inviteDone].filter(Boolean).length,
+            tasks_total: 4,
+          },
+          tasks: {
+            watch_ads_5: { progress: watchAdsDoneToday, required: APP_CFG.AD_BATCH_REQUIRED, done: watchDone },
+            join_channel: { done: joinDone, enabled: !!CHANNEL_USERNAME },
+            invite_3_friends: { progress: inviteProgressToday, required: APP_CFG.REFERRAL_MILESTONE_FRIENDS, done: inviteDone },
+            daily_login: { streak: dbUser.daily_login_streak, required: APP_CFG.DAILY_LOGIN_STREAK_DAYS, done: toDateStr(dbUser.last_daily_login) === today },
+            task_ad: { progress: taskAdsDoneToday, required: APP_CFG.TASK_AD_DAILY_MAX, done: taskAdDone, enabled: !!ADSGRAM_REWARD_SECRET },
+            browse_100: { progress: browseProgressToday, required: APP_CFG.BROWSE_TASK_TARGET, done: browseDone },
+            daily_bonus: {
+              progress: (!dbUser.daily_bonus_window_start ||
+                (Date.now() - new Date(dbUser.daily_bonus_window_start).getTime()) >= APP_CFG.DAILY_BONUS_WINDOW_HOURS * 3600 * 1000)
+                ? 0 : dbUser.daily_bonus_count,
+              required: APP_CFG.DAILY_BONUS_MAX_PER_WINDOW,
+            },
           },
           leaderboard: leaderboard.map(r => ({
-            telegram_id: Number(r.telegram_id),
-            name: r.name,
-            photo_url: r.photo_url || null,
-            pts:  Number(r.pts),
-            rank: r.rank
+            telegram_id: Number(r.telegram_id), name: r.first_name || 'مستخدم', photo_url: r.photo_url || null,
+            score: Number(r.contest_score), rank: r.rank,
           })),
           referral: {
-            count:   refStats[0]?.ref_count    ?? 0,
-            active:  refStats[0]?.active_count  ?? 0,
-            pending: refStats[0]?.pending_count ?? 0,
-            earned:  refStats[0]?.ref_earned    ?? 0
+            count: refStats[0]?.ref_count ?? 0, active: refStats[0]?.active_count ?? 0, pending: refStats[0]?.pending_count ?? 0,
+            list: refList.map(r => ({
+              name: r.first_name || r.username || 'مستخدم',
+              photo_url: r.photo_url || null,
+              activated: r.referral_activated,
+              ads_watched: r.total_ads_watched,
+              activation_required: APP_CFG.REFERRAL_ACTIVATION_ADS,
+              joined_at: r.created_at,
+            })),
           },
-          config: configWithCompetition
+          contest: contest ? { name: contest.name, end_at: contest.end_at, start_at: contest.start_at } : null,
+          config: {
+            ad_reward_usd: APP_CFG.AD_REWARD_USD, ad_daily_max: APP_CFG.AD_DAILY_MAX,
+            ad_batch_bonus_usd: APP_CFG.AD_BATCH_BONUS_USD,
+            task_ad_reward_usd: APP_CFG.TASK_AD_REWARD_USD, task_ad_daily_max: APP_CFG.TASK_AD_DAILY_MAX,
+            daily_login_reward_usd: APP_CFG.DAILY_LOGIN_REWARD_USD,
+            join_channel_reward_usd: APP_CFG.JOIN_CHANNEL_REWARD_USD,
+            invite_milestone_reward_usd: APP_CFG.REFERRAL_MILESTONE_REWARD_USD,
+            contest_prizes_usd: APP_CFG.CONTEST_PRIZES_USD,
+            withdraw_min_usd: APP_CFG.WITHDRAW_MIN_USD, rewards_catalog: APP_CFG.REWARDS_CATALOG,
+            channel_username: CHANNEL_USERNAME || null,
+            taddy_reward_points: APP_CFG.TADDY_REWARD_POINTS,
+            browse_task_reward_usd: APP_CFG.BROWSE_TASK_REWARD_USD,
+            browse_task_target: APP_CFG.BROWSE_TASK_TARGET,
+            daily_bonus_reward_usd: APP_CFG.DAILY_BONUS_REWARD_USD,
+            daily_bonus_max: APP_CFG.DAILY_BONUS_MAX_PER_WINDOW,
+          },
         });
       }
 
-      // ✅ markOnboardingSeen — يُسجَّل في DB بدل localStorage (يضمن مشاهدة واحدة فقط حتى بعد مسح الكاش)
-      case 'markOnboardingSeen': {
-        await sql(`UPDATE users SET onboarding_seen = TRUE WHERE id = $1`, [dbUser.id]);
-        return res.json({ ok: true });
-      }
-
-      // 🛡️ startAd — الخطوة الأولى: احجز token موقّع قبل تشغيل الإعلان
-      case 'startAd': {
-        // 📢 اشتراك إجباري بالقناة قبل مشاهدة أي إعلان — نفس البوابة المستخدمة عند السحب
-        const isMemberForAd = await isChannelMember(dbUser.telegram_id);
-        if (!isMemberForAd) {
-          return res.status(403).json({ ok: false, error: 'channel_required', channel: CHANNEL_USERNAME });
-        }
-
+      // ═══════════ المهام: إعلانات (شبكة إعلانات حقيقية — Adsgram) ═══════════
+      case 'tasks.startAd': {
         const today = new Date().toISOString().slice(0, 10);
-        const uRows = await sql(`SELECT last_ad_watch, daily_ads, last_ad_date FROM users WHERE id = $1`, [dbUser.id]);
-        const u = uRows[0];
-        const sameDay = u.last_ad_date && String(u.last_ad_date).slice(0, 10) === today;
-        const dailyCount = sameDay ? u.daily_ads : 0;
-
-        if (dailyCount >= CFG.AD_DAILY_MAX) {
-          return res.status(429).json({ ok: false, error: 'Daily ad limit reached' });
+        const dailyCount = toDateStr(dbUser.last_ad_date) === today ? dbUser.daily_ads : 0;
+        if (dailyCount >= APP_CFG.AD_DAILY_MAX) {
+          return res.status(429).json({ ok: false, error: 'daily_limit_reached' });
         }
-        if (u.last_ad_watch) {
-          const secSince = (Date.now() - new Date(u.last_ad_watch).getTime()) / 1000;
-          if (secSince < CFG.AD_COOLDOWN_SEC) {
-            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CFG.AD_COOLDOWN_SEC - secSince) });
+        if (dbUser.last_ad_watch) {
+          const secsSince = (Date.now() - new Date(dbUser.last_ad_watch).getTime()) / 1000;
+          if (secsSince < APP_CFG.AD_COOLDOWN_SEC) {
+            return res.status(429).json({ ok: false, error: 'cooldown', retryAfterSec: Math.ceil(APP_CFG.AD_COOLDOWN_SEC - secsSince) });
           }
         }
 
         // 🛡️ احذف أي token قديم غير مستخدم — يمنع تجميع tokens
         await sql(`DELETE FROM ad_sessions WHERE user_id = $1 AND used = FALSE`, [dbUser.id]);
 
-        // 🛡️ مدة المشاهدة تُحدَّد من السيرفر حسب نوع الإعلان — لا توجد قيمة ثابتة 30s
+        // 🛡️ مدة المشاهدة تُحدَّد من السيرفر حسب الشبكة — العميل لا يتحكم بها إطلاقاً
         const adType = (typeof data.adType === 'string' ? data.adType.toLowerCase() : 'default');
-        const dur    = AD_DURATIONS[adType] || AD_DURATIONS.default;
+        const dur    = APP_CFG.AD_DURATIONS[adType] || APP_CFG.AD_DURATIONS.default;
 
-        // 🔒 Payload موقّع HMAC — لا يمكن للعميل تعديل uid/adType/iat/dur ولا إنشاء token بدون السر
+        // 🔒 Payload موقّع HMAC — لا يمكن للعميل تعديل uid/adType/dur/iat ولا إنشاء token بدون السر
         const token = signAdToken({ uid: dbUser.id, adType, dur, iat: Date.now() });
-
         await sql(`INSERT INTO ad_sessions (token, user_id, ad_type) VALUES ($1, $2, $3)`, [token, dbUser.id, adType]);
-        return res.json({ ok: true, token });
+        return res.json({ ok: true, token, watchSeconds: dur });
       }
 
-      case 'watchAd': {
-        const { token } = data;
-
-        // 🛡️ تحقق التوقيع أولاً — أي تلاعب أو تزوير يُرفض فوراً قبل أي وصول لقاعدة البيانات
-        const payload = verifyAdToken(token);
-        if (!payload || typeof payload.uid !== 'number' || typeof payload.iat !== 'number') {
-          await addRisk(dbUser.id, 30, 'no_token');
-          return res.status(400).json({ ok: false, error: 'Invalid session' });
+      case 'tasks.claimAd': {
+        const payload = verifyAdToken(data.token);
+        if (!payload || payload.uid !== dbUser.id) {
+          return res.status(400).json({ ok: false, error: 'invalid_token' });
         }
 
-        // 🛡️ التحقق إن الـ token صادر لهذا المستخدم بالضبط
-        if (payload.uid !== dbUser.id) {
-          await addRisk(dbUser.id, 80, 'token_stolen');
-          return res.status(403).json({ ok: false, error: 'Session mismatch' });
+        const sessions = await sql(`SELECT * FROM ad_sessions WHERE token = $1`, [data.token]);
+        if (!sessions.length || sessions[0].user_id !== dbUser.id) {
+          return res.status(400).json({ ok: false, error: 'invalid_token' });
+        }
+        if (sessions[0].used) {
+          return res.status(400).json({ ok: false, error: 'token_already_used' });
         }
 
-        // 🛡️ IP limit للإعلانات
-        const ipAdOk = await checkIPLimit(clientIP, 'hr');
-        if (!ipAdOk) return res.status(429).json({ ok: false, error: 'Too many ads from this network' });
+        // 🛡️ مدة المشاهدة المطلوبة محسوبة من التوكن الموقّع نفسه — لا يتحكم بها العميل
+        // لـ adType المذكور بـ AD_MIN_INTERACTION_EXEMPT_TYPES (adsgram): في مسارين مقبولين لوحدهم، بالظبط بدون أي هامش شبكة —
+        //   1) نطاق قصير: من AD_DURATIONS[adType] (17) وحتى AD_SHORT_INTERACTION_MAX_SEC (20) — 17/18/19/20 كلها مقبولة
+        //   2) أو مسار الجلسات الطويلة: 35 ثانية أو أكثر (AD_MIN_INTERACTION_SEC) بالظبط، بدون هامش
+        // أي مدة بينهم (21 لـ34) تعتبر جلسة غير مكتملة ومرفوضة، وأقل من 17 كمان مرفوضة.
+        // أي adType تاني (زي monetag أو شبكة جديدة) بيتحاسب على الأكبر بينها وبين عتبة AD_MIN_INTERACTION_SEC العامة فقط (بهامش AD_TIMING_TOLERANCE_SEC العادي).
+        const networkDur = APP_CFG.AD_DURATIONS[payload.adType] || APP_CFG.AD_DURATIONS.default;
+        const isExempt   = APP_CFG.AD_MIN_INTERACTION_EXEMPT_TYPES.includes(payload.adType);
+        const elapsedSec = (Date.now() - payload.iat) / 1000;
 
-        // جلب الجلسة (one-time use — حماية إضافية حتى لو التوقيع صحيح)
-        const sessions = await sql(`SELECT * FROM ad_sessions WHERE token = $1`, [token]);
-        if (sessions.length === 0) {
-          await addRisk(dbUser.id, 40, 'fake_token');
-          return res.status(400).json({ ok: false, error: 'Invalid session' });
-        }
-        const session = sessions[0];
+        const meetsShortRange = isExempt &&
+          elapsedSec >= networkDur && elapsedSec <= APP_CFG.AD_SHORT_INTERACTION_MAX_SEC;
+        const meetsGeneralLongSession = elapsedSec >= APP_CFG.AD_MIN_INTERACTION_SEC;
 
-        if (session.user_id !== dbUser.id) {
-          await addRisk(dbUser.id, 80, 'token_stolen');
-          return res.status(403).json({ ok: false, error: 'Session mismatch' });
-        }
-
-        if (session.used) {
-          await addRisk(dbUser.id, 60, 'used_token');
-          return res.status(400).json({ ok: false, error: 'Session already used' });
-        }
-
-        // 🛡️ مدة المشاهدة المطلوبة محسوبة من التوكن نفسه (موقّعة من السيرفر، لا يتحكم بها العميل)
-        const requiredDur = AD_DURATIONS[payload.adType] || AD_DURATIONS.default;
-        const sessionAge  = (Date.now() - payload.iat) / 1000;
-
-        // 🛡️ لازم مضى وقت كافٍ — إثبات المشاهدة الفعلية
-        // (مع هامش صغير لفروقات الشبكة/الجهاز — تحميل SDK وعرض الإعلان
-        // عادة بياخذوا أطول من requiredDur أصلاً)
-        if (sessionAge < requiredDur - CFG.AD_TIMING_TOLERANCE_SEC) {
-          await addRisk(dbUser.id, 70, `too_fast_${Math.round(sessionAge)}s`);
-          return res.status(400).json({ ok: false, error: 'Ad not fully watched' });
-        }
-
-        // 🛡️ نافذة صلاحية ضيقة (مدة الإعلان + هامش صغير) بدل صلاحية ثابتة 5 دقائق
-        if (sessionAge > requiredDur + AD_GRACE_SEC) {
-          await sql(`DELETE FROM ad_sessions WHERE token = $1`, [token]);
-          await addRisk(dbUser.id, 20, `token_expired_${Math.round(sessionAge)}s`);
-          return res.status(400).json({ ok: false, error: 'Session expired' });
-        }
-
-        // فحص الـ daily limit مرة ثانية (atomic)
-        const today = new Date().toISOString().slice(0, 10);
-        const uRows = await sql(`SELECT daily_ads, last_ad_date, last_ad_watch FROM users WHERE id = $1`, [dbUser.id]);
-        const u2 = uRows[0];
-        const sameDay = u2.last_ad_date && String(u2.last_ad_date).slice(0, 10) === today;
-        if ((sameDay ? u2.daily_ads : 0) >= CFG.AD_DAILY_MAX) {
-          return res.status(429).json({ ok: false, error: 'Daily ad limit reached' });
-        }
-
-        // 🛡️ فحص cooldown داخل watchAd أيضاً — لو تجاوز startAd بطريقة ما
-        if (u2.last_ad_watch) {
-          const secSince = (Date.now() - new Date(u2.last_ad_watch).getTime()) / 1000;
-          if (secSince < CFG.AD_COOLDOWN_SEC) {
-            await addRisk(dbUser.id, 40, `cooldown_bypass_${Math.round(secSince)}s`);
-            return res.status(429).json({ ok: false, error: 'Please wait between ads' });
+        if (!isExempt) {
+          // شبكات غير مستثناة: نفس القاعدة العامة القديمة (أكبر بين مدة الشبكة وAD_MIN_INTERACTION_SEC، بهامش بسيط)
+          const requiredDur = Math.max(networkDur, APP_CFG.AD_MIN_INTERACTION_SEC);
+          if (elapsedSec < requiredDur - APP_CFG.AD_TIMING_TOLERANCE_SEC) {
+            return res.status(400).json({ ok: false, error: 'ad_incomplete' });
           }
+        } else if (!meetsShortRange && !meetsGeneralLongSession) {
+          return res.status(400).json({ ok: false, error: 'ad_incomplete' });
         }
 
-        // 🛡️ بوابة Adsgram Reward URL — تمنع السكربتات من تزوير "المشاهدة" بمجرد الانتظار
-        // مفعّلة فقط لـ adType === 'adsgram' وفقط بعد ضبط ADSGRAM_REWARD_SECRET في env
-        // لازم وصل تأكيد server-to-server حقيقي من Adsgram لهذا المستخدم قبل منح النقاط
-        if (payload.adType === 'adsgram' && process.env.ADSGRAM_REWARD_SECRET) {
+        // 🛡️ صلاحية التوكن (تنظيف/انتهاء) — نحسبها على أطول مسار مقبول (مسار الـ35) حتى ما نقفل الجلسات الطويلة قبل وقتها
+        const expiryBaseline = Math.max(networkDur, APP_CFG.AD_MIN_INTERACTION_SEC);
+        if (elapsedSec > expiryBaseline + APP_CFG.AD_TOKEN_GRACE_SEC) {
+          await sql(`DELETE FROM ad_sessions WHERE token = $1`, [data.token]);
+          return res.status(400).json({ ok: false, error: 'token_expired' });
+        }
+
+        // 🛡️ بوابة Adsgram Reward URL — تمنع أي سكربت من تزوير "المشاهدة" بمجرد الانتظار.
+        // مفعّلة فقط لـ adType === 'adsgram' وفقط بعد ضبط ADSGRAM_REWARD_SECRET في env.
+        // لازم يصل تأكيد server-to-server حقيقي من Adsgram لهذا المستخدم قبل منح أي مكافأة.
+        if (payload.adType === 'adsgram' && ADSGRAM_REWARD_SECRET) {
           const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id);
           if (!confirmed) {
-            // قد يكون تأكيد Adsgram لم يصل بعد (تأخير شبكة) — اطلب من العميل إعادة المحاولة بعد قليل
+            // قد يكون تأكيد Adsgram لم يصل بعد (تأخير شبكة) — اطلب من العميل إعادة المحاولة بهدوء
             return res.status(202).json({ ok: false, error: 'pending_confirmation', retryAfterMs: 1500 });
           }
         }
 
-        // 🛡️ منع replay — يُسجَّل هنا فقط بعد تأكيد Adsgram حتى تنجح إعادة المحاولة عند pending_confirmation
-        const hashOk = await checkAndMarkInitHash(rawInitData, token);
-        if (!hashOk) {
-          await addRisk(dbUser.id, 50, 'replay_initData');
-          return res.status(400).json({ ok: false, error: 'Duplicate request' });
+        // 🛡️ استهلاك ذري — يمنع استخدام نفس التوكن مرتين حتى مع طلبات متزامنة
+        // (يحدث فقط هنا، بعد تأكيد Adsgram، حتى تنجح إعادة المحاولة عند pending_confirmation)
+        const claimed = await sql(
+          `UPDATE ad_sessions SET used = TRUE WHERE token = $1 AND used = FALSE RETURNING token`,
+          [data.token]
+        );
+        if (!claimed.length) return res.status(400).json({ ok: false, error: 'token_already_used' });
+
+        const today = new Date().toISOString().slice(0, 10);
+        const isNewDay = toDateStr(dbUser.last_ad_date) !== today;
+        const doubleActive = dbUser.double_earn_until && new Date(dbUser.double_earn_until) > new Date();
+        const reward = APP_CFG.AD_REWARD_USD * (doubleActive ? 2 : 1);
+
+        await sql(
+          `UPDATE users SET
+             balance_usd = balance_usd + $1,
+             points = points + $2,
+             contest_score = contest_score + 1,
+             total_ads_watched = total_ads_watched + 1,
+             daily_ads = CASE WHEN last_ad_date = $3 THEN daily_ads + 1 ELSE 1 END,
+             last_ad_date = $3,
+             last_ad_watch = NOW()
+           WHERE id = $4`,
+          [reward, APP_CFG.AD_REWARD_POINTS, today, dbUser.id]
+        );
+        if (reward > 0) await logTx(dbUser.id, 'earn', 'مشاهدة إعلان', reward, 'tx.watchAd');
+
+        const newDailyCount = isNewDay ? 1 : dbUser.daily_ads + 1;
+        let batchBonus = 0;
+        if (newDailyCount === APP_CFG.AD_BATCH_REQUIRED) {
+          batchBonus = APP_CFG.AD_BATCH_BONUS_USD;
+          await sql(`UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2`, [batchBonus, dbUser.id]);
+          await logTx(dbUser.id, 'task', 'مكافأة: إكمال 5 إعلانات', batchBonus, 'tx.adBatchBonus');
         }
 
-        const AD_REWARD = APP_CFG.AD_USD_REWARD;
-
-        // 🎯 تحديد المكافأة: أقل من AD_FULL_REWARD_MIN_SEC → 50% فقط
-        const isPartialWatch = sessionAge < AD_FULL_REWARD_MIN_SEC;
-        const actualReward   = isPartialWatch ? +(AD_REWARD * 0.5).toFixed(6) : AD_REWARD;
-
-        // 🛡️ Shadow ban — كل الفحوصات أعلاه نجحت بشكل طبيعي (نفس تجربة مستخدم حقيقي)،
-        // بس ما رايح نمنح نقاط فعلية. الرد يبدو ناجح عشان المخترق ما يلاحظ شي،
-        // وما عاد بيؤثر على باقي الصفحات (init وغيرها) كما كان سابقاً.
-        if (dbUser.shadow_banned) {
-          await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
-          const fakeRank = await getUserRank(dbUser.id);
-          return res.json({
-            ok:        true,
-            reward:    actualReward,
-            partial:   isPartialWatch,
-            rankUp:    false,
-            newRank:   fakeRank,
-            rankDelta: 0,
-            chatId:    null
-          });
-        }
-
-        const rankBefore = await getUserRank(dbUser.id);
-
-        // 🔒 Atomic update
-        await sql(`
-          UPDATE users SET
-            balance_usd       = balance_usd + $1,
-            last_ad_watch     = NOW(),
-            daily_ads         = CASE WHEN last_ad_date = CURRENT_DATE THEN daily_ads + 1 ELSE 1 END,
-            last_ad_date      = CURRENT_DATE,
-            total_ads_watched = total_ads_watched + 1
-          WHERE id = $2
-        `, [actualReward, dbUser.id]);
-
-        // وسّم الـ token كمستخدم
-        await sql(`UPDATE ad_sessions SET used = TRUE WHERE token = $1`, [token]);
-        await sql('INSERT INTO ad_watches (user_id, reward) VALUES ($1, $2)', [dbUser.id, actualReward]);
-        await bumpAdDailyStat(); // 📊 إجمالي إعلانات اليوم لكل المستخدمين
-
-        // 🎁 فحص تفعيل الإحالة — await لضمان إرسال الإشعار قبل انتهاء الدالة
-        await checkReferralActivation(dbUser.id);
-
-        const rankAfter  = await getUserRank(dbUser.id);
-        const rankUp     = rankAfter < rankBefore;
-
-        // ✅ إشعار rank-up مباشر من الباكند
-        if (rankUp) {
-          sendTelegramMessage(
-            Number(dbUser.telegram_id),
-            `🏆 *Rank Up!*\n\n` +
-            `You just climbed to *#${rankAfter}* on the leaderboard!\n\n` +
-            `📈 *Current Rank:* #${rankAfter}\n` +
-            `🎯 Keep watching ads to hold your spot!\n\n` +
-            `Stay on top and secure your prize! 🔥`
-          ).catch(e => console.error('[rankup bot notify]', e.message));
-        }
+        const refreshed = (await sql(`SELECT * FROM users WHERE id = $1`, [dbUser.id]))[0];
+        await maybeActivateReferral(refreshed);
+        await creditReferralCommission(refreshed, reward + batchBonus);
 
         return res.json({
-          ok:        true,
-          reward:    actualReward,
-          partial:   isPartialWatch,
-          rankUp,
-          newRank:   rankAfter,
-          rankDelta: rankUp ? rankBefore - rankAfter : 0
+          ok: true, reward, batchBonus, newBalance: parseFloat(refreshed.balance_usd),
+          newPoints: Number(refreshed.points), dailyAdsProgress: newDailyCount,
+          batchRequired: APP_CFG.AD_BATCH_REQUIRED,
         });
       }
 
-      // ══════════════════════════════════════════════════════════════════
-      // 🎮 gameRoundStart — ينشئ جلسة جولة على السيرفر ويعيد UUID معتم
-      //    العميل لا يرسل أي نقاط — السيرفر يحدد المكافأة داخلياً
-      // ══════════════════════════════════════════════════════════════════
-      case 'gameRoundStart': {
-        // كولداون: يمنع إنشاء جلسات أسرع من مدة الجولة الفعلية
-        const gRows = await sql(`SELECT last_game_round FROM users WHERE id = $1`, [dbUser.id]);
-        const lastRound = gRows[0]?.last_game_round;
-        if (lastRound) {
-          const secSince = (Date.now() - new Date(lastRound).getTime()) / 1000;
-          if (secSince < CFG.GAME_ROUND_DURATION_SEC - 5) {
-            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CFG.GAME_ROUND_DURATION_SEC - 5 - secSince) });
+      // ═══════════ المهام: Task Ads (Adsgram Block من نوع Task) — حصة مستقلة عن إعلانات الفيديو ═══════════
+      case 'tasks.claimTaskAd': {
+        // 🛡️ إعلانات Task تُنجَز عبر عنصر واجهة من Adsgram (وليس token بتوقيت ثابت مثل الفيديو)،
+        // فالتأكيد server-to-server هو الحماية الوحيدة الممكنة هنا — fail-closed بدونه
+        if (!ADSGRAM_REWARD_SECRET) {
+          return res.status(503).json({ ok: false, error: 'not_configured' });
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const dailyCount = toDateStr(dbUser.last_task_ad_date) === today ? dbUser.daily_task_ads : 0;
+        if (dailyCount >= APP_CFG.TASK_AD_DAILY_MAX) {
+          return res.status(429).json({ ok: false, error: 'daily_limit_reached' });
+        }
+        if (dbUser.last_task_ad_watch) {
+          const secsSince = (Date.now() - new Date(dbUser.last_task_ad_watch).getTime()) / 1000;
+          if (secsSince < APP_CFG.TASK_AD_COOLDOWN_SEC) {
+            return res.status(429).json({ ok: false, error: 'cooldown', retryAfterSec: Math.ceil(APP_CFG.TASK_AD_COOLDOWN_SEC - secsSince) });
           }
         }
-        // تنظيف جلسات قديمة غير مُستخدَمة لهذا المستخدم
-        await sql(`DELETE FROM game_sessions WHERE user_id = $1 AND used = FALSE AND created_at < NOW() - INTERVAL '6 minutes'`, [dbUser.id]);
-        // إنشاء seed + تسلسل عناصر محدد مسبقاً (السيرفر يعرف كل عنصر سيظهر)
-        const seed     = (Math.random() * 2 ** 31) >>> 0;
-        const sequence = generateGameSequence(seed);
-        const sRows    = await sql(
-          `INSERT INTO game_sessions (user_id, seed, sequence_json) VALUES ($1, $2, $3) RETURNING id`,
-          [dbUser.id, seed, JSON.stringify(sequence)]
+
+        const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id, 'task');
+        if (!confirmed) {
+          // قد يكون تأكيد Adsgram لم يصل بعد (تأخير شبكة) — اطلب من العميل إعادة المحاولة بهدوء
+          return res.status(202).json({ ok: false, error: 'pending_confirmation', retryAfterMs: 1500 });
+        }
+
+        const isNewDay = toDateStr(dbUser.last_task_ad_date) !== today;
+        const doubleActive = dbUser.double_earn_until && new Date(dbUser.double_earn_until) > new Date();
+        const reward = APP_CFG.TASK_AD_REWARD_USD * (doubleActive ? 2 : 1);
+
+        await sql(
+          `UPDATE users SET
+             balance_usd = balance_usd + $1,
+             total_task_ads = total_task_ads + 1,
+             daily_task_ads = CASE WHEN last_task_ad_date = $2 THEN daily_task_ads + 1 ELSE 1 END,
+             last_task_ad_date = $2,
+             last_task_ad_watch = NOW()
+           WHERE id = $3`,
+          [reward, today, dbUser.id]
         );
-        // _t = token معتم، seed للـ PRNG على العميل — لا يوجد "sessionId" في الـ JSON
-        return res.json({ ok: true, _t: sRows[0].id, seed });
+        await logTx(dbUser.id, 'task', 'مهمة إعلان (Task Ad)', reward, 'tx.taskAd');
+
+        const refreshed = (await sql(`SELECT * FROM users WHERE id = $1`, [dbUser.id]))[0];
+        await creditReferralCommission(refreshed, reward);
+
+        const newDailyCount = isNewDay ? 1 : dbUser.daily_task_ads + 1;
+        return res.json({
+          ok: true, reward, newBalance: parseFloat(refreshed.balance_usd),
+          dailyTaskAdsProgress: newDailyCount, dailyTaskAdsMax: APP_CFG.TASK_AD_DAILY_MAX,
+        });
       }
 
-      // ══════════════════════════════════════════════════════════════════
-      // 🎮 gameAdVerify — يتحقق من تأكيد Adsgram S2S ويُفعّل المضاعفة
-      //    على الجلسة داخلياً بدون إرسال أي قيمة من العميل
-      // ══════════════════════════════════════════════════════════════════
-      case 'gameAdVerify': {
-        const { _t: gAvSid } = data;
-        if (!gAvSid) return res.status(400).json({ ok: false, error: 'Missing token' });
+      // ═══════════ مهمة: الانضمام للقناة ═══════════
+      case 'tasks.checkChannel': {
+        if (!CHANNEL_USERNAME) return res.status(400).json({ ok: false, error: 'channel_not_configured' });
 
-        const gAvRows = await sql(
-          `SELECT id, user_id, used, double_approved FROM game_sessions WHERE id = $1`,
-          [gAvSid]
+        const already = await sql(`SELECT 1 FROM user_tasks WHERE user_id = $1 AND task_id = 'join_channel'`, [dbUser.id]);
+        if (already.length) return res.json({ ok: true, alreadyDone: true });
+
+        const isMember = await isChannelMember(dbUser.telegram_id);
+        if (!isMember) return res.json({ ok: false, error: 'not_member', channel: CHANNEL_USERNAME });
+
+        await sql(`INSERT INTO user_tasks (user_id, task_id) VALUES ($1, 'join_channel') ON CONFLICT DO NOTHING`, [dbUser.id]);
+        await sql(`UPDATE users SET balance_usd = balance_usd + $1, points = points + $2 WHERE id = $3`,
+          [APP_CFG.JOIN_CHANNEL_REWARD_USD, APP_CFG.JOIN_CHANNEL_REWARD_POINTS, dbUser.id]);
+        await logTx(dbUser.id, 'task', 'انضمام لقناة تيليجرام', APP_CFG.JOIN_CHANNEL_REWARD_USD, 'tx.joinChannel');
+
+        // 🛡️ عمولة المُحيل من هذه المهمة تُصرف مرة واحدة فقط مدى الحياة — حتى لو المستخدم
+        // خرج من القناة ورجع عدة مرات (كل رجعة تعيد صرف مكافأة الانضمام نفسها للمستخدم،
+        // لكن عمولة المُحيل يجب ألا تتكرر معها)
+        if (!dbUser.join_channel_commission_paid) {
+          await sql(`UPDATE users SET join_channel_commission_paid = TRUE WHERE id = $1`, [dbUser.id]);
+          await creditReferralCommission(dbUser, APP_CFG.JOIN_CHANNEL_REWARD_USD);
+        }
+
+        const refreshed = (await sql(`SELECT balance_usd, points FROM users WHERE id = $1`, [dbUser.id]))[0];
+        return res.json({ ok: true, reward: APP_CFG.JOIN_CHANNEL_REWARD_USD, newBalance: parseFloat(refreshed.balance_usd), newPoints: Number(refreshed.points) });
+      }
+
+      // ═══════════ مهمة: تسجيل الدخول اليومي ═══════════
+      case 'tasks.dailyLogin': {
+        const today = new Date().toISOString().slice(0, 10);
+        if (toDateStr(dbUser.last_daily_login) === today) {
+          return res.json({ ok: true, alreadyDone: true, streak: dbUser.daily_login_streak });
+        }
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        const continuesStreak = toDateStr(dbUser.last_daily_login) === yesterday;
+        const newStreak = continuesStreak ? dbUser.daily_login_streak + 1 : 1;
+        const hitMilestone = newStreak % APP_CFG.DAILY_LOGIN_STREAK_DAYS === 0;
+        const reward = APP_CFG.DAILY_LOGIN_REWARD_USD + (hitMilestone ? APP_CFG.DAILY_LOGIN_STREAK_BONUS_USD : 0);
+
+        await sql(
+          `UPDATE users SET daily_login_streak = $1, last_daily_login = $2,
+                             balance_usd = balance_usd + $3, points = points + $4
+           WHERE id = $5 AND last_daily_login IS DISTINCT FROM $2`,
+          [newStreak, today, reward, APP_CFG.DAILY_LOGIN_REWARD_POINTS, dbUser.id]
         );
-        if (!gAvRows.length || gAvRows[0].user_id !== dbUser.id)
-          return res.status(403).json({ ok: false, error: 'Invalid token' });
-        if (gAvRows[0].used)
-          return res.status(400).json({ ok: false, error: 'Session already used' });
-        if (gAvRows[0].double_approved)
-          return res.status(400).json({ ok: false, error: 'Double already applied' });
+        await logTx(dbUser.id, 'task', hitMilestone ? `مكافأة تسجيل الدخول — ${newStreak} أيام متتالية 🎉` : 'تسجيل دخول يومي', reward, hitMilestone ? 'tx.dailyLoginMilestone' : 'tx.dailyLogin', hitMilestone ? { streak: newStreak } : null);
+        await creditReferralCommission(dbUser, reward);
 
-        // 🛡️ تأكيد Adsgram S2S — نفس آلية الإعلانات الرئيسية
-        if (process.env.ADSGRAM_REWARD_SECRET) {
-          const confirmed = await consumeAdsgramConfirmation(dbUser.telegram_id);
-          if (!confirmed) {
-            return res.status(202).json({ ok: false, error: 'pending_confirmation', retryAfterMs: 1500 });
+        const refreshed = (await sql(`SELECT balance_usd, points FROM users WHERE id = $1`, [dbUser.id]))[0];
+        return res.json({ ok: true, reward, streak: newStreak, milestone: hitMilestone, newBalance: parseFloat(refreshed.balance_usd), newPoints: Number(refreshed.points) });
+      }
+
+      // ═══════════ المكافآت (استبدال نقاط) ═══════════
+      case 'rewards.redeem': {
+        const rewardId = data.rewardId;
+        const reward = APP_CFG.REWARDS_CATALOG[rewardId];
+        if (!reward) return res.status(400).json({ ok: false, error: 'invalid_reward' });
+        if (Number(dbUser.points) < reward.cost) return res.status(400).json({ ok: false, error: 'insufficient_points' });
+
+        // 🛡️ خصم ذري — يمنع الاستبدال المزدوج عبر طلبات متزامنة
+        const claimed = await sql(
+          `UPDATE users SET points = points - $1 WHERE id = $2 AND points >= $1 RETURNING points`,
+          [reward.cost, dbUser.id]
+        );
+        if (!claimed.length) return res.status(400).json({ ok: false, error: 'insufficient_points' });
+
+        await sql(`INSERT INTO reward_redemptions (user_id, reward_id, cost) VALUES ($1,$2,$3)`, [dbUser.id, rewardId, reward.cost]);
+
+        if (reward.type === 'balance') {
+          await sql(`UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2`, [reward.amountUsd, dbUser.id]);
+          await logTx(dbUser.id, 'reward', `استبدال: ${reward.title}`, reward.amountUsd, 'tx.redeem', { title: reward.title });
+        } else if (reward.type === 'badge') {
+          await sql(`UPDATE users SET is_elite = TRUE WHERE id = $1`, [dbUser.id]);
+        } else if (reward.type === 'boost') {
+          await sql(`UPDATE users SET double_earn_until = NOW() + INTERVAL '${reward.hours} hours' WHERE id = $1`, [dbUser.id]);
+        }
+
+        const refreshed = (await sql(`SELECT points, balance_usd FROM users WHERE id = $1`, [dbUser.id]))[0];
+        return res.json({ ok: true, newPointsBalance: Number(refreshed.points), newBalance: parseFloat(refreshed.balance_usd) });
+      }
+
+      // ═══════════ كرت Taddy في صفحة المكافآت (إعلانين ورا بعض → نقاط) ═══════════
+      case 'tasks.taddyReward': {
+        const today = new Date().toISOString().slice(0, 10);
+        const dailyCount = toDateStr(dbUser.last_taddy_date) === today ? dbUser.daily_taddy : 0;
+        if (dailyCount >= APP_CFG.TADDY_DAILY_MAX) {
+          return res.status(429).json({ ok: false, error: 'daily_limit_reached' });
+        }
+
+        const claimed = await sql(
+          `UPDATE users SET
+             points = points + $1,
+             daily_taddy = CASE WHEN last_taddy_date = $2 THEN daily_taddy + 1 ELSE 1 END,
+             last_taddy_date = $2
+           WHERE id = $3
+           RETURNING points, daily_taddy`,
+          [APP_CFG.TADDY_REWARD_POINTS, today, dbUser.id]
+        );
+        return res.json({
+          ok: true,
+          reward: APP_CFG.TADDY_REWARD_POINTS,
+          newPointsBalance: Number(claimed[0].points),
+          dailyTaddyProgress: Number(claimed[0].daily_taddy),
+          dailyTaddyMax: APP_CFG.TADDY_DAILY_MAX,
+        });
+      }
+
+      // ═══════════ كرت المكافأة اليومية — بدء (فتح الرابط + 10 ثواني انتظار) ═══════════
+      case 'tasks.dailyBonusStart': {
+        const windowStart = dbUser.daily_bonus_window_start ? new Date(dbUser.daily_bonus_window_start) : null;
+        const windowExpired = !windowStart ||
+          (Date.now() - windowStart.getTime()) >= APP_CFG.DAILY_BONUS_WINDOW_HOURS * 3600 * 1000;
+        const currentCount = windowExpired ? 0 : dbUser.daily_bonus_count;
+        if (currentCount >= APP_CFG.DAILY_BONUS_MAX_PER_WINDOW) {
+          const retryAfterSec = Math.ceil(
+            APP_CFG.DAILY_BONUS_WINDOW_HOURS * 3600 - (Date.now() - windowStart.getTime()) / 1000
+          );
+          return res.status(429).json({ ok: false, error: 'daily_limit_reached', retryAfterSec });
+        }
+
+        // بدء المهمة يُحتسب من حصة النافذة فوراً — يمنع تكرار بدء/هجر لاستغلال أي ثغرة
+        await sql(
+          `UPDATE users SET
+             daily_bonus_count = $1,
+             daily_bonus_window_start = CASE WHEN $2 THEN NOW() ELSE daily_bonus_window_start END
+           WHERE id = $3`,
+          [currentCount + 1, windowExpired, dbUser.id]
+        );
+
+        const nonce = crypto.randomBytes(24).toString('hex');
+        await sql(`INSERT INTO ad_daily_bonus_sessions (user_id, nonce) VALUES ($1, $2)`, [dbUser.id, nonce]);
+
+        return res.json({ ok: true, nonce, waitSeconds: APP_CFG.DAILY_BONUS_WAIT_SECONDS, url: APP_CFG.DAILY_BONUS_URL });
+      }
+
+      // ═══════════ كرت المكافأة اليومية — استلام المكافأة ═══════════
+      case 'tasks.dailyBonusClaim': {
+        const nonce = String(data.nonce || '');
+        if (!nonce) return res.status(400).json({ ok: false, error: 'invalid_request' });
+
+        const rows = await sql(
+          `SELECT id, claimed, EXTRACT(EPOCH FROM (NOW() - started_at)) AS elapsed_sec
+           FROM ad_daily_bonus_sessions
+           WHERE nonce = $1 AND user_id = $2
+             AND started_at > NOW() - INTERVAL '${APP_CFG.DAILY_BONUS_SESSION_EXPIRE_MIN} minutes'`,
+          [nonce, dbUser.id]
+        );
+        if (!rows.length) return res.status(400).json({ ok: false, error: 'invalid_session' });
+        const session = rows[0];
+        if (session.claimed) return res.status(400).json({ ok: false, error: 'session_completed' });
+
+        // 🛡️ التحقق الحقيقي من الوقت من السيرفر (started_at) — هامش ثانية واحدة بس لتأخير الشبكة
+        if (Number(session.elapsed_sec) < APP_CFG.DAILY_BONUS_WAIT_SECONDS - 1) {
+          return res.status(400).json({ ok: false, error: 'too_early' });
+        }
+
+        await sql(`UPDATE ad_daily_bonus_sessions SET claimed = TRUE WHERE id = $1`, [session.id]);
+        const reward = APP_CFG.DAILY_BONUS_REWARD_USD;
+        const claimed = await sql(
+          `UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2 RETURNING balance_usd, daily_bonus_count`,
+          [reward, dbUser.id]
+        );
+
+        return res.json({
+          ok: true,
+          reward,
+          newBalance: parseFloat(claimed[0].balance_usd),
+          progress: Number(claimed[0].daily_bonus_count),
+          required: APP_CFG.DAILY_BONUS_MAX_PER_WINDOW,
+        });
+      }
+
+      // ═══════════ "تصفح واربح" — بدء جلسة (60 ثانية، 12 دفعة كل 5 ثواني) ═══════════
+      case 'ads.surfStart': {
+        const today = new Date().toISOString().slice(0, 10);
+        const dailyCount = toDateStr(dbUser.last_surf_date) === today ? dbUser.daily_surf : 0;
+        if (dailyCount >= APP_CFG.SURF_DAILY_MAX_SESSIONS) {
+          return res.status(429).json({ ok: false, error: 'daily_limit_reached' });
+        }
+
+        // بدء الجلسة يُحتسب من حصة اليوم فوراً (مش بس عند الاكتمال) — عشان يمنع
+        // حد يبدأ ويهجر الجلسة بشكل متكرر لاستغلال مكافأة أول دفعة فقط بلا حدود
+        await sql(
+          `UPDATE users SET
+             daily_surf = CASE WHEN last_surf_date = $1 THEN daily_surf + 1 ELSE 1 END,
+             last_surf_date = $1
+           WHERE id = $2`,
+          [today, dbUser.id]
+        );
+
+        const nonce = crypto.randomBytes(24).toString('hex');
+        await sql(`INSERT INTO ad_surf_sessions (user_id, nonce) VALUES ($1, $2)`, [dbUser.id, nonce]);
+
+        return res.json({
+          ok: true,
+          nonce,
+          tickSeconds: APP_CFG.SURF_TICK_SECONDS,
+          totalTicks: APP_CFG.SURF_TOTAL_TICKS,
+          rewardPerTick: APP_CFG.SURF_REWARD_PER_TICK_USD,
+        });
+      }
+
+      // ═══════════ "تصفح واربح" — تأكيد دفعة (كل 5 ثواني) ═══════════
+      case 'ads.surfClaim': {
+        const nonce = String(data.nonce || '');
+        const tick = parseInt(data.tick, 10);
+        if (!nonce || !Number.isInteger(tick) || tick < 1 || tick > APP_CFG.SURF_TOTAL_TICKS) {
+          return res.status(400).json({ ok: false, error: 'invalid_request' });
+        }
+
+        const rows = await sql(
+          `SELECT id, claimed_ticks, completed,
+                  EXTRACT(EPOCH FROM (NOW() - started_at)) AS elapsed_sec
+           FROM ad_surf_sessions
+           WHERE nonce = $1 AND user_id = $2
+             AND started_at > NOW() - INTERVAL '${APP_CFG.SURF_SESSION_EXPIRE_MIN} minutes'`,
+          [nonce, dbUser.id]
+        );
+        if (!rows.length) return res.status(400).json({ ok: false, error: 'invalid_session' });
+        const session = rows[0];
+        if (session.completed) return res.status(400).json({ ok: false, error: 'session_completed' });
+
+        // 🛡️ لازم تكون الدفعة التالية بالتسلسل بالظبط (يمنع تكرار/تخطي دفعات)
+        if (tick !== session.claimed_ticks + 1) {
+          return res.status(400).json({ ok: false, error: 'invalid_tick' });
+        }
+
+        // 🛡️ التحقق الحقيقي من الوقت: لازم يكون فعلاً مرّ الوقت المطلوب حسب started_at
+        // بالسيرفر (مو حسب عداد الواجهة) — هامش ثانية واحدة بس لتأخير الشبكة
+        const requiredSec = tick * APP_CFG.SURF_TICK_SECONDS;
+        if (Number(session.elapsed_sec) < requiredSec - 1) {
+          return res.status(400).json({ ok: false, error: 'too_early' });
+        }
+
+        const isLastTick = tick >= APP_CFG.SURF_TOTAL_TICKS;
+        const reward = APP_CFG.SURF_REWARD_PER_TICK_USD;
+
+        const updatedUser = await sql(
+          `UPDATE users SET balance_usd = balance_usd + $1 WHERE id = $2 RETURNING balance_usd`,
+          [reward, dbUser.id]
+        );
+        await sql(
+          `UPDATE ad_surf_sessions SET claimed_ticks = $1, completed = $2 WHERE id = $3`,
+          [tick, isLastTick, session.id]
+        );
+
+        let browseTaskReward = null;
+        if (isLastTick) {
+          const totalUsd = reward * APP_CFG.SURF_TOTAL_TICKS;
+          await logTx(dbUser.id, 'ads', 'تصفح وربح — جلسة إعلانات', totalUsd, 'tx.surfSession');
+          await creditReferralCommission(dbUser, totalUsd);
+
+          // 🎯 مهمة "تصفح 100 مرة" — عدّ هذه الجلسة كواحدة من العدد المطلوب (جلسة مكتملة فعلياً فقط)
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const wasNewDay = toDateStr(dbUser.last_surf_completed_date) !== todayStr;
+          const browseRows = await sql(
+            `UPDATE users SET
+               daily_surf_completed = CASE WHEN last_surf_completed_date = $1 THEN daily_surf_completed + 1 ELSE 1 END,
+               last_surf_completed_date = $1
+             WHERE id = $2
+             RETURNING daily_surf_completed, last_browse_reward_date`,
+            [todayStr, dbUser.id]
+          );
+          const browseProgress = browseRows[0]?.daily_surf_completed ?? (wasNewDay ? 1 : dbUser.daily_surf_completed + 1);
+          const alreadyRewardedToday = toDateStr(browseRows[0]?.last_browse_reward_date) === todayStr;
+
+          if (browseProgress >= APP_CFG.BROWSE_TASK_TARGET && !alreadyRewardedToday) {
+            await sql(
+              `UPDATE users SET balance_usd = balance_usd + $1, last_browse_reward_date = $2 WHERE id = $3`,
+              [APP_CFG.BROWSE_TASK_REWARD_USD, todayStr, dbUser.id]
+            );
+            await logTx(dbUser.id, 'task', 'مكافأة: تصفح 100 مرة', APP_CFG.BROWSE_TASK_REWARD_USD, 'tx.browseTask');
+            await creditReferralCommission(dbUser, APP_CFG.BROWSE_TASK_REWARD_USD);
+            browseTaskReward = APP_CFG.BROWSE_TASK_REWARD_USD;
           }
         }
 
-        await sql(`UPDATE game_sessions SET double_approved = TRUE WHERE id = $1`, [gAvSid]);
+        const finalBalance = browseTaskReward
+          ? await sql(`SELECT balance_usd FROM users WHERE id = $1`, [dbUser.id])
+          : null;
 
-        // 📊 تتبّع عدد فقط — جدول مستقل خاص بإعلانات مضاعفة اللعبة، لا علاقة له
-        // بـ daily_ads ولا بحد AD_DAILY_MAX إطلاقاً (لا يُقرأ ولا يُكتب هنا)
-        await bumpGameDoubleAdStat();
+        return res.json({
+          ok: true,
+          tick,
+          completed: isLastTick,
+          reward,
+          newBalance: finalBalance ? parseFloat(finalBalance[0].balance_usd) : parseFloat(updatedUser[0].balance_usd),
+          browseTaskReward,
+        });
+      }
 
+      // ═══════════ المحفظة: TON Connect ═══════════
+      case 'wallet.connect': {
+        const address = String(data.walletAddress || '').trim();
+        if (!address) return res.status(400).json({ ok: false, error: 'walletAddress required' });
+        await sql(`UPDATE users SET wallet_address = $1 WHERE id = $2`, [address, dbUser.id]);
         return res.json({ ok: true });
       }
 
-      // ══════════════════════════════════════════════════════════════════
-      // 🎮 gameRoundEnd — يستهلك الجلسة ويمنح مكافأة ثابتة من السيرفر
-      //    لا يقبل أي نقاط أو score من العميل
-      // ══════════════════════════════════════════════════════════════════
-      case 'gameRoundEnd': {
-        // c = caught indices (مؤشرات العناصر التي صادها اللاعب)
-        // n = totalSpawned  (كم عنصر ظهر فعلاً في هذه الجولة)
-        // _t = token معتم (يُستخدم داخلياً فقط — لا يُعرض في UI)
-        const { _t: gReSid, c: rawCaught, n: totalSpawned } = data;
-        if (!gReSid) return res.status(400).json({ ok: false, error: 'Missing token' });
-
-        const gReRows = await sql(
-          `SELECT id, user_id, used, double_approved, created_at, sequence_json FROM game_sessions WHERE id = $1`,
-          [gReSid]
-        );
-        if (!gReRows.length || gReRows[0].user_id !== dbUser.id) {
-          await addRisk(dbUser.id, 40, 'game_invalid_token');
-          return res.status(403).json({ ok: false, error: 'Invalid token' });
-        }
-        const gs = gReRows[0];
-        if (gs.used) {
-          await addRisk(dbUser.id, 30, 'game_replay');
-          return res.status(400).json({ ok: false, error: 'Session already used' });
-        }
-
-        // 🛡️ تحقق من التوقيت
-        const elapsed = (Date.now() - new Date(gs.created_at).getTime()) / 1000;
-        if (elapsed < CFG.GAME_ROUND_DURATION_SEC - 5) {
-          await addRisk(dbUser.id, 60, `game_too_fast_${Math.round(elapsed)}s`);
-          return res.status(400).json({ ok: false, error: 'Round not complete' });
-        }
-        if (elapsed > CFG.GAME_ROUND_SESSION_TTL_SEC) {
-          await sql(`UPDATE game_sessions SET used = TRUE WHERE id = $1`, [gReSid]);
-          return res.status(400).json({ ok: false, error: 'Session expired' });
-        }
-
-        // 🛡️ تحقق من بيانات الصيد
-        const sequence    = gs.sequence_json ? JSON.parse(gs.sequence_json) : null;
-        const spawnedCount = Math.min(Math.max(0, parseInt(totalSpawned) || 0), _GAME_SEQ_LEN);
-        const caughtIds   = Array.isArray(rawCaught) ? rawCaught : [];
-
-        // 🛡️ التحقق من سجل موقع السلة (bLog)
-        // العميل يرسل مصفوفة x مُعيَّر (0-1) كل 500ms طوال الجولة
-        const rawBLog = data.bLog;
-        const bLog = Array.isArray(rawBLog)
-          ? rawBLog.filter(v => typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1).slice(0, 200)
-          : [];
-
-        if (bLog.length < 8) {
-          // سجل مفقود أو شحيح جداً — شك في التلاعب عبر API مباشرة
-          await addRisk(dbUser.id, 30, `game_missing_basket_log_n${bLog.length}`);
-        } else {
-          // تحقق من حركة السلة: سلة ثابتة = بوت
-          const mean   = bLog.reduce((a, b) => a + b, 0) / bLog.length;
-          const stdDev = Math.sqrt(bLog.reduce((a, x) => a + (x - mean) ** 2, 0) / bLog.length);
-          if (stdDev < 0.02) {
-            await addRisk(dbUser.id, 55, `game_static_basket_std${stdDev.toFixed(4)}`);
-          }
-        }
-
-        let score = 0;
-        let dollarCount = 0;
-        if (sequence) {
-          const seen = new Set();
-          for (const idx of caughtIds) {
-            const i = parseInt(idx);
-            if (!Number.isInteger(i) || i < 0 || i >= spawnedCount || seen.has(i)) continue;
-            seen.add(i);
-            const entry = sequence[i];
-            score += (typeof entry === 'object' ? entry?.val : entry) ?? 0;
-            if (entry && typeof entry === 'object' && entry.d) dollarCount++;
-          }
-          score = Math.max(0, score);
-          dollarCount = Math.min(dollarCount, GAME_USDT);
-
-          // 🛡️ نسبة صيد مشبوهة (> 95% من كل العناصر)
-          if (spawnedCount > 10 && seen.size / spawnedCount > 0.95) {
-            await addRisk(dbUser.id, 25, `game_catch_rate_${Math.round(seen.size / spawnedCount * 100)}pct`);
-          }
-
-          // 🛡️ تحقق مكاني: تذكرة في منطقة بعيدة يجب أن يكون السلة قريبة منها
-          if (bLog.length >= 8) {
-            for (const idx of seen) {
-              const entry = sequence[idx];
-              if (!entry || typeof entry !== 'object' || entry.val <= 0) continue;
-              const itemX = entry.x; // 0-1 normalized
-              // منطقة حافة (< 18% أو > 82% من عرض الشاشة)
-              if (itemX < 0.18 || itemX > 0.82) {
-                const basketReached = bLog.some(bx => Math.abs(bx - itemX) < 0.20);
-                if (!basketReached) {
-                  await addRisk(dbUser.id, 50, `game_impossible_catch_x${itemX.toFixed(2)}_idx${idx}`);
-                  break; // نقطة واحدة تكفي للتنبيه
-                }
-              }
-            }
-          }
-        } else {
-          // جلسة قديمة بدون sequence — مكافأة ثابتة fallback
-          score = CFG.GAME_ROUND_TICKETS;
-        }
-
-        // استهلاك الجلسة atomic
-        const consumed = await sql(
-          `UPDATE game_sessions SET used = TRUE WHERE id = $1 AND used = FALSE RETURNING id`,
-          [gReSid]
-        );
-        if (!consumed.length) return res.status(400).json({ ok: false, error: 'Session already used' });
-
-        const doubled     = gs.double_approved;
-        const awarded     = doubled ? score * 2 : score;
-        const usdAwarded  = +((doubled ? dollarCount * 2 : dollarCount) * GAME_DOLLAR_VALUE).toFixed(6); // 🎮 USDT من عملات الدولار (تُضاعَف كالتذاكر)
-
-        await sql(`UPDATE users SET last_game_round = NOW() WHERE id = $1`, [dbUser.id]);
-
-        // 🛡️ Shadow ban
-        if (dbUser.shadow_banned) return res.json({ ok: true, awarded, doubled, usdAwarded });
-
-        await sql(`UPDATE users SET pts = pts + $1, balance_usd = balance_usd + $2 WHERE id = $3`, [awarded, usdAwarded, dbUser.id]);
-        await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'game_round', $2)`,
-          [dbUser.id, JSON.stringify({ score, awarded, doubled, usdAwarded, dollarCount, spawned: spawnedCount, caught: caughtIds.length })]);
-
-        // 🎁 فحص تفعيل الإحالة — await لضمان إرسال الإشعار قبل انتهاء الدالة
-        await checkReferralActivation(dbUser.id);
-
-        return res.json({ ok: true, awarded, doubled, usdAwarded });
+      case 'wallet.disconnect': {
+        await sql(`UPDATE users SET wallet_address = NULL WHERE id = $1`, [dbUser.id]);
+        return res.json({ ok: true });
       }
 
-      case 'withdraw': {
-        const { address, memo, amount, fee } = data;
-        if (!address?.trim()) return res.status(400).json({ ok: false, error: 'Wallet address required' });
-        const amt    = parseFloat(amount);           // الإجمالي — يُخصم من رصيد المستخدم
-        const feeAmt = 0;                             // 🚫 لا رسوم على السحب إطلاقاً — يُتجاهل أي fee قادم من العميل
-        const netAmt = Math.max(0, Math.round((amt - feeAmt) * 1000) / 1000); // الصافي — يُسجَّل كمبلغ السحب المستحق فعلياً
-        if (isNaN(amt) || amt < APP_CFG.WITHDRAW_MIN) return res.status(400).json({ ok: false, error: `Minimum withdrawal is $${APP_CFG.WITHDRAW_MIN.toFixed(2)}` });
-        if (parseFloat(dbUser.balance_usd) < amt) return res.status(400).json({ ok: false, error: 'Insufficient balance' });
-
-        // 🎯 شرط السحب: لازم عدد إحالات مفعّلة كافٍ
-        const activeRefRows = await sql(
-          'SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = TRUE',
-          [dbUser.telegram_id]
-        );
-        const activeReferralsCount = activeRefRows[0]?.cnt ?? 0;
-        if (activeReferralsCount < APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS) {
-          return res.status(403).json({
-            ok:              false,
-            error:           'referrals_required',
-            required:        APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS,
-            current:         activeReferralsCount,
-          });
+      case 'wallet.withdraw': {
+        if (!dbUser.wallet_address) return res.status(400).json({ ok: false, error: 'wallet_not_connected' });
+        const amount = parseFloat(data.amount);
+        if (isNaN(amount) || amount < APP_CFG.WITHDRAW_MIN_USD) {
+          return res.status(400).json({ ok: false, error: 'min_withdraw', min: APP_CFG.WITHDRAW_MIN_USD });
+        }
+        if (parseFloat(dbUser.balance_usd) < amount) {
+          return res.status(400).json({ ok: false, error: 'insufficient_balance' });
         }
 
-        // 📢 اشتراك إجباري بالقناة قبل أي سحب — تحقق فوري عبر Telegram Bot API
-        const isMember = await isChannelMember(dbUser.telegram_id);
-        if (!isMember) {
-          return res.status(403).json({ ok: false, error: 'channel_required', channel: CHANNEL_USERNAME });
+        if (APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS > 0) {
+          const activeRefRows = await sql(
+            `SELECT COUNT(*)::INT AS cnt FROM users WHERE referred_by = $1 AND referral_activated = TRUE`,
+            [dbUser.telegram_id]
+          );
+          if ((activeRefRows[0]?.cnt ?? 0) < APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS) {
+            return res.status(403).json({ ok: false, error: 'referrals_required', required: APP_CFG.WITHDRAW_MIN_ACTIVE_REFERRALS });
+          }
         }
-
-        // 🛡️ Shadow ban — رد ناجح وهمي بدون خصم رصيد فعلي أو تسجيل سحب حقيقي
+        if (APP_CFG.WITHDRAW_REQUIRE_CHANNEL && CHANNEL_USERNAME) {
+          const isMember = await isChannelMember(dbUser.telegram_id);
+          if (!isMember) return res.status(403).json({ ok: false, error: 'channel_required', channel: CHANNEL_USERNAME });
+        }
         if (dbUser.shadow_banned) {
-          return res.json({ ok: true });
+          return res.json({ ok: true, newBalance: parseFloat(dbUser.balance_usd) }); // رد وهمي بدون خصم فعلي
         }
 
-        const feeMemo  = feeAmt > 0 ? `Fee: $${feeAmt.toFixed(3).replace(/0$/, '')} (gross $${amt.toFixed(2)})` : null;
-        const fullMemo = [memo?.trim(), feeMemo].filter(Boolean).join(' | ') || null;
+        // 🛡️ خصم ذري يمنع السحب المزدوج
+        const claimed = await sql(
+          `UPDATE users SET balance_usd = balance_usd - $1 WHERE id = $2 AND balance_usd >= $1 RETURNING balance_usd`,
+          [amount, dbUser.id]
+        );
+        if (!claimed.length) return res.status(400).json({ ok: false, error: 'insufficient_balance' });
 
-        await sql('UPDATE users SET balance_usd = balance_usd - $1 WHERE id = $2', [amt, dbUser.id]);
-        await sql('INSERT INTO withdrawals (user_id, address, memo, amount) VALUES ($1,$2,$3,$4)',
-          [dbUser.id, address.trim(), fullMemo, netAmt]);
+        await sql(`INSERT INTO withdrawals (user_id, address, amount) VALUES ($1,$2,$3)`, [dbUser.id, dbUser.wallet_address, amount]);
+        await logTx(dbUser.id, 'withdraw', 'سحب TON', -amount, 'tx.withdrawTon');
 
-        // ✅ إشعار بوت مباشر من الباكند
         sendTelegramMessage(
           Number(dbUser.telegram_id),
-          `✅ *Withdrawal Request Submitted*\n\n` +
-          `Your request has been received and is being processed.\n\n` +
-          `💎 *Amount:* $${netAmt.toFixed(2)} USDT\n` +
-          `👛 *Wallet:* \`${address.trim()}\`\n\n` +
-          `🕒 *Processing...* We'll notify you once it's confirmed.`
-        ).catch(e => console.error('[withdraw bot notify]', e.message));
+          `✅ *تم استلام طلب السحب*\n\n💎 *المبلغ:* ${amount.toFixed(2)}$\n👛 *المحفظة:* \`${dbUser.wallet_address}\`\n\n🕒 جاري المعالجة...`
+        ).catch(e => console.error('[withdraw notify]', e.message));
 
+        return res.json({ ok: true, newBalance: parseFloat(claimed[0].balance_usd) });
+      }
+
+      // ═══════════ الإعدادات ═══════════
+      case 'settings.update': {
+        const allowedKeys = { notify_tasks: true, notify_earnings: true, notify_contest: true };
+        const key = data.key;
+        if (!allowedKeys[key]) return res.status(400).json({ ok: false, error: 'invalid_key' });
+        const value = !!data.value;
+        await sql(`UPDATE users SET ${key} = $1 WHERE id = $2`, [value, dbUser.id]);
         return res.json({ ok: true });
       }
 
-      // 📢 فحص عضوية القناة فقط — يُستخدم من زر "I Joined - Verify" بعد السحب المرفوض
-      case 'checkChannel': {
-        const isMember = await isChannelMember(dbUser.telegram_id);
-        return res.json({ ok: isMember, channel: CHANNEL_USERNAME });
+      // ═══════════ السجل ═══════════
+      case 'history.list': {
+        const filter = ['earn', 'withdraw', 'referral', 'task', 'reward'].includes(data.filter) ? data.filter : null;
+        const limit = Math.min(parseInt(data.limit, 10) || 30, 100);
+        const rows = filter
+          ? await sql(`SELECT category, title, title_key, title_params, amount_usd, created_at FROM transactions WHERE user_id = $1 AND category = $2 ORDER BY created_at DESC LIMIT $3`, [dbUser.id, filter, limit])
+          : await sql(`SELECT category, title, title_key, title_params, amount_usd, created_at FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`, [dbUser.id, limit]);
+        return res.json({ ok: true, transactions: rows.map(r => ({ ...r, amount_usd: parseFloat(r.amount_usd) })) });
       }
 
-      // 💎 depositInit — يحجز صف "pending" قبل ما نرسل المستخدم يوقّع بمحفظته
-      case 'depositInit': {
-        const { packageId, walletAddress } = data;
-        const pkg = APP_CFG.TICKET_PACKAGES.find(p => p.id === packageId);
-        if (!pkg) return res.status(400).json({ ok: false, error: 'Invalid package' });
-        if (!walletAddress?.trim()) return res.status(400).json({ ok: false, error: 'Wallet not connected' });
-        if (!TREASURY_WALLET_ADDRESS) return res.status(500).json({ ok: false, error: 'Deposits are temporarily unavailable' });
-
-        if (dbUser.shadow_banned) {
-          // 🛡️ نفس منطق الـ shadow ban بالسحب — نرجّع depositId وهمي بدون تسجيل حقيقي
-          return res.json({ ok: true, depositId: 0 });
-        }
-
-        const rows = await sql(
-          `INSERT INTO deposits (user_id, package_id, tickets, ton_amount, wallet_address, status)
-           VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id`,
-          [dbUser.id, pkg.id, pkg.tickets, pkg.ton, walletAddress.trim()]
-        );
-
-        return res.json({ ok: true, depositId: rows[0].id, treasury: TREASURY_WALLET_ADDRESS });
+      // ═══════════ الإحالات: تتبع النسخ/المشاركة ═══════════
+      case 'referral.logCopy': {
+        await sql(`INSERT INTO activity_logs (user_id, action) VALUES ($1, 'ref_copy')`, [dbUser.id]);
+        return res.json({ ok: true });
+      }
+      case 'referral.logShare': {
+        await sql(`INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'share', $2)`,
+          [dbUser.id, JSON.stringify({ platform: data.platform || 'unknown' })]);
+        return res.json({ ok: true });
       }
 
-      // 💎 depositStatus — يتحقق فعلياً من TonCenter قبل ما يسلّم أي تذكرة
-      case 'depositStatus': {
-        const depositId = parseInt(data.depositId, 10);
-        if (!depositId) return res.json({ ok: true, status: 'pending' });
+      // 👑 عمولة مدى الحياة للمُحيل — تُستدعى داخلياً كل مرة يربح فيها مستخدم من إعلان
+      // (مدمجة أعلاه ضمن tasks.claimAd منطقياً عبر maybeActivateReferral + حساب النسبة هنا لو أردت تفعيلها لاحقاً)
 
-        const rows = await sql(
-          `SELECT * FROM deposits WHERE id = $1 AND user_id = $2`,
-          [depositId, dbUser.id]
-        );
-        const dep = rows[0];
-        if (!dep) return res.status(404).json({ ok: false, error: 'Deposit not found' });
-
-        if (dep.status !== 'pending') {
-          return res.json({ ok: true, status: dep.status });
-        }
-
-        // ⏱️ بعد 15 دقيقة بدون العثور على المعاملة → فشل نهائي
-        const ageMs = Date.now() - new Date(dep.created_at).getTime();
-        if (ageMs > 15 * 60 * 1000) {
-          await sql(`UPDATE deposits SET status = 'failed' WHERE id = $1`, [dep.id]);
-          return res.json({ ok: true, status: 'failed' });
-        }
-
-        try {
-          const nanotons = Math.round(parseFloat(dep.ton_amount) * 1e9);
-          const found = await findConfirmingTonTransaction({
-            treasury:  TREASURY_WALLET_ADDRESS,
-            senderRaw: dep.wallet_address,
-            nanotons,
-            memo:      dbUser.telegram_id,
-            sinceMs:   new Date(dep.created_at).getTime(),
-            depositId: dep.id
-          });
-
-          if (!found) return res.json({ ok: true, status: 'pending' });
-
-          // ✅ المعاملة موجودة فعلياً على السلسلة — نحاول نحجزها ذرياً لهذا الصف فقط
-          const txHashHex = found.hash ? Buffer.from(found.hash, 'base64').toString('hex') : null;
-          const finalHash = txHashHex || found.hash;
-
-          let claimed;
-          try {
-            claimed = await sql(
-              `UPDATE deposits SET status = 'confirmed', tx_hash = $1, confirmed_at = NOW()
-               WHERE id = $2 AND status = 'pending' RETURNING id`,
-              [finalHash, dep.id]
-            );
-          } catch (e) {
-            // 🛡️ 23505 = unique_violation → نفس tx_hash اتاستخدم بالفعل لتأكيد صف تاني
-            // (محاولة تلاعب عبر عدة depositInit لنفس الدفعة، أو سباق race بين طلبين)
-            if (e?.code === '23505' || /duplicate key/i.test(String(e?.message))) {
-              await sql(`UPDATE deposits SET status = 'failed' WHERE id = $1 AND status = 'pending'`, [dep.id]);
-              console.error(`[deposit#${dep.id}] BLOCKED — tx already claimed by another deposit row`);
-              return res.json({ ok: true, status: 'failed', error: 'This transaction was already used for another deposit' });
-            }
-            throw e;
-          }
-
-          if (!claimed || !claimed.length) {
-            // سباق: طلب متزامن آخر لنفس الصف أكّده أول منا — منرجعش نضيف نقاط تاني
-            return res.json({ ok: true, status: 'confirmed' });
-          }
-
-          // ✅ نجحنا فعلاً في حجز هذه المعاملة لهذا الصف فقط — الآن فقط نسلّم التذاكر
-          await sql(`UPDATE users SET pts = pts + $1 WHERE id = $2`, [dep.tickets, dbUser.id]);
-
-          const explorerLine = txHashHex
-            ? `🔗 *TX:* [tonviewer.com/transaction/${txHashHex.slice(0, 10)}…](https://tonviewer.com/transaction/${txHashHex})\n\n`
-            : '';
-
-          sendTelegramMessage(
-            Number(dbUser.telegram_id),
-            `💎 *Deposit Confirmed!*\n\n` +
-            `✅ *${dep.tickets.toLocaleString()} Tickets* added to your balance\n` +
-            `💰 *Amount:* ${parseFloat(dep.ton_amount)} TON\n` +
-            explorerLine +
-            `Good luck in the competition! 🏆`
-          ).catch(e => console.error('[deposit bot notify]', e.message));
-
-          return res.json({ ok: true, status: 'confirmed', txHash: txHashHex });
-        } catch (e) {
-          console.error('[depositStatus] TonCenter check failed:', e.message);
-          return res.json({ ok: true, status: 'pending' }); // نحاول تاني بالبوّلينغ الجاي
-        }
-      }
-
-      case 'banUser': {
-        // 🛡️ أدمن فقط — محمي بـ INTERNAL_SECRET
+      // ═══════════ أدمن (محمي بـ INTERNAL_SECRET) ═══════════
+      case 'admin.banUser': {
         const providedSecret = req.headers['x-internal-secret'] || data.secret || '';
-        if (!INTERNAL_SECRET || providedSecret !== INTERNAL_SECRET) {
-          return res.status(403).json({ ok: false, error: 'Forbidden' });
-        }
+        if (providedSecret !== INTERNAL_SECRET) return res.status(403).json({ ok: false, error: 'Forbidden' });
         const targetId = data.telegram_id;
-        const unban    = data.unban === true;
+        const unban = data.unban === true;
         if (!targetId) return res.status(400).json({ ok: false, error: 'telegram_id required' });
-        const rows = await sql(
-          `UPDATE users SET banned = $1 WHERE telegram_id = $2 RETURNING id, telegram_id`,
-          [!unban, targetId]
-        );
-        if (rows.length === 0) return res.status(404).json({ ok: false, error: 'User not found' });
-        console.log(`[ban] telegram_id=${targetId} banned=${!unban}`);
+        const rows = await sql(`UPDATE users SET banned = $1 WHERE telegram_id = $2 RETURNING id`, [!unban, targetId]);
+        if (!rows.length) return res.status(404).json({ ok: false, error: 'User not found' });
         return res.json({ ok: true, banned: !unban });
       }
 
-      case 'sendBotMsg': {
-        // 🛡️ محمي بـ INTERNAL_SECRET — منع أي شخص خارجي
+      case 'admin.sendBotMsg': {
         const providedSecret = req.headers['x-internal-secret'] || data.secret || '';
-        if (!INTERNAL_SECRET || providedSecret !== INTERNAL_SECRET) {
-          return res.status(403).json({ ok: false, error: 'Forbidden' });
-        }
+        if (providedSecret !== INTERNAL_SECRET) return res.status(403).json({ ok: false, error: 'Forbidden' });
         const { chatId, text } = data;
         if (!chatId || !text) return res.status(400).json({ ok: false, error: 'chatId and text required' });
         const result = await sendTelegramMessage(chatId, text);
         return res.json({ ok: !!result.ok });
       }
 
-      // ══════════════════════════════════════════════════════════════════
-      // 💬 Chat — غرفة عامة واحدة لكل المستخدمين
-      // ══════════════════════════════════════════════════════════════════
-      case 'getChatMessages': {
-        const afterId = parseInt(data.afterId, 10) || 0;
-
-        let rows;
-        if (afterId > 0) {
-          // 📡 Polling — بس الرسائل الجديدة بعد آخر id شافه العميل
-          rows = await sql(`
-            SELECT cm.id, cm.user_id, cm.message, cm.created_at,
-                   u.telegram_id, COALESCE(u.first_name, u.username, 'Player') AS name, u.photo_url
-            FROM chat_messages cm
-            JOIN users u ON u.id = cm.user_id
-            WHERE cm.id > $1
-            ORDER BY cm.id ASC
-            LIMIT $2
-          `, [afterId, CHAT_CFG.POLL_LIMIT]);
-        } else {
-          // 🕐 التحميل الأول — آخر HISTORY_LIMIT رسالة (نعكس الترتيب لعرضها تصاعدي)
-          const recent = await sql(`
-            SELECT cm.id, cm.user_id, cm.message, cm.created_at,
-                   u.telegram_id, COALESCE(u.first_name, u.username, 'Player') AS name, u.photo_url
-            FROM chat_messages cm
-            JOIN users u ON u.id = cm.user_id
-            ORDER BY cm.id DESC
-            LIMIT $1
-          `, [CHAT_CFG.HISTORY_LIMIT]);
-          rows = recent.reverse();
-        }
-
-        return res.json({
-          ok: true,
-          messages: rows.map(r => ({
-            id:          Number(r.id),
-            user_id:     r.user_id,
-            telegram_id: Number(r.telegram_id),
-            name:        r.name,
-            photo_url:   r.photo_url || null,
-            message:     r.message,
-            created_at:  r.created_at,
-            is_me:       r.user_id === dbUser.id
-          }))
-        });
-      }
-
-      case 'sendChatMessage': {
-        if (dbUser.banned) return res.status(403).json({ ok: false, error: 'Forbidden' });
-
-        const text = String(data.text || '').trim();
-        if (!text) return res.status(400).json({ ok: false, error: 'Message is empty' });
-        if (text.length > CHAT_CFG.MSG_MAX_LEN) {
-          return res.status(400).json({ ok: false, error: `Message too long (max ${CHAT_CFG.MSG_MAX_LEN})` });
-        }
-
-        // 🛡️ تبريد بسيط لمنع السبام
-        const rows = await sql(`SELECT last_chat_msg_at FROM users WHERE id = $1`, [dbUser.id]);
-        const lastAt = rows[0]?.last_chat_msg_at;
-        if (lastAt) {
-          const secSince = (Date.now() - new Date(lastAt).getTime()) / 1000;
-          if (secSince < CHAT_CFG.COOLDOWN_SEC) {
-            return res.status(429).json({ ok: false, error: 'Please wait', waitSec: Math.ceil(CHAT_CFG.COOLDOWN_SEC - secSince) });
-          }
-        }
-
-        const inserted = await sql(`
-          INSERT INTO chat_messages (user_id, message) VALUES ($1, $2)
-          RETURNING id, created_at
-        `, [dbUser.id, text]);
-
-        await sql(`UPDATE users SET last_chat_msg_at = NOW() WHERE id = $1`, [dbUser.id]);
-
-        return res.json({
-          ok: true,
-          message: {
-            id:          Number(inserted[0].id),
-            user_id:     dbUser.id,
-            telegram_id: Number(dbUser.telegram_id),
-            name:        dbUser.first_name || dbUser.username || 'Player',
-            photo_url:   dbUser.photo_url || null,
-            message:     text,
-            created_at:  inserted[0].created_at,
-            is_me:       true
-          }
-        });
-      }
-
-      case 'logRefCopy': {
-        await sql("INSERT INTO activity_logs (user_id, action) VALUES ($1, 'ref_copy')", [dbUser.id]);
-        return res.json({ ok: true });
-      }
-
-      case 'logShare': {
-        await sql("INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'share', $2)",
-          [dbUser.id, JSON.stringify({ platform: data.platform || 'unknown' })]);
-        return res.json({ ok: true });
-      }
-
-      case 'logSecEvent': {
-        const event  = String(data.event  || 'unknown').slice(0, 64);
-        const detail = data.detail ? JSON.stringify(data.detail).slice(0, 256) : null;
-        await sql(
-          `INSERT INTO activity_logs (user_id, action, meta) VALUES ($1, 'sec_event', $2)`,
-          [dbUser.id, JSON.stringify({ event, detail })]
+      case 'admin.listUsers': {
+        const providedSecret = req.headers['x-internal-secret'] || data.secret || '';
+        if (providedSecret !== INTERNAL_SECRET) return res.status(403).json({ ok: false, error: 'Forbidden' });
+        const page = Math.max(parseInt(data.page, 10) || 1, 1);
+        const perPage = 100;
+        const rows = await sql(
+          `SELECT id, telegram_id, username, first_name, balance_usd, points, banned, created_at
+           FROM users ORDER BY id DESC LIMIT $1 OFFSET $2`,
+          [perPage, (page - 1) * perPage]
         );
-        console.warn(`[sec_event] user=${dbUser.id} event=${event}`);
-        return res.json({ ok: true });
+        return res.json({ ok: true, users: rows.map(r => ({ ...r, balance_usd: parseFloat(r.balance_usd), points: Number(r.points) })), page });
       }
 
       default:
