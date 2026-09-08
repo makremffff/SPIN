@@ -2,222 +2,300 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>تصفح واربح — نسخة ثابتة (بدون اتصال سيرفر)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mnd-ver" content="zhlytqvl715un2kphqebw" />
+<title>لوج | تصفح إعلانات</title>
 <style>
-  * { box-sizing: border-box; }
   :root{
-    --bg-0:#08090D;
-    --bg-1:#0D0F16;
-    --glass:rgba(255,255,255,0.045);
-    --glass-strong:rgba(255,255,255,0.075);
-    --border:rgba(255,255,255,0.09);
-    --border-soft:rgba(255,255,255,0.055);
-    --text-1:#F2F3F7;
-    --text-3:#6B6E80;
-    --violet:#7C5CFF;
-    --violet-soft:rgba(124,92,255,0.16);
-  }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg-0);
-    color: var(--text-1);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Arial, sans-serif;
-    min-height: 100vh;
-  }
-  .page { max-width: 480px; margin: 0 auto; padding: 18px 14px 60px; position: relative; min-height: 100vh; }
-  .topbar { display: flex; justify-content: center; padding: 10px 0 4px; }
-  .brand-mini { font-size: 15px; font-weight: 700; color: var(--text-1); }
-
-  #surfExitBtn {
-    position: fixed; top: 64px; right: 14px; z-index: 99999;
-    width: 40px; height: 40px; border-radius: 50%;
-    background: var(--glass-strong); backdrop-filter: blur(10px);
-    border: 1px solid var(--border); color: var(--text-1);
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    --bg: #0a0a0d;
+    --bg-soft: #101014;
+    --gold: #c6a15b;
+    --gold-light: #e8d48b;
+    --gold-dim: rgba(198,161,91,0.25);
+    --text: #ece7da;
+    --muted: #8b8578;
+    --glass: rgba(255,255,255,0.035);
+    --glass-border: rgba(198,161,91,0.18);
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Inter', sans-serif;
   }
 
-  .ad-slot { margin: 10px 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .ad-container {
-    background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.15);
-    border-radius: 14px; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; padding: 6px; width: 100%;
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background: radial-gradient(ellipse at top, #131318 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height:100vh;
+    line-height:1.6;
   }
 
-  .countdown-wrap { text-align: center; margin-top: 18px; }
-  #surfCountdownDisplay { font-size: 40px; font-weight: 800; color: var(--text-1); line-height: 1; letter-spacing: 1px; }
-  .seconds-left { color: var(--text-3); font-size: 12px; margin-top: 4px; }
+  a{ color:inherit; text-decoration:none; }
 
-  .surf-progress-wrap {
-    background: var(--glass); border-radius: 20px; height: 10px;
-    overflow: hidden; margin: 18px 0 8px;
+  /* ===== Header ===== */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 22px 6vw;
+    border-bottom: 1px solid rgba(198,161,91,0.1);
   }
-  #surfProgressBar { height: 100%; width: 0%; background: var(--violet); transition: width .4s ease; }
-  .eyebrow { text-align: center; color: var(--text-1); font-weight: 700; font-size: 14px; }
 
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    display: flex; align-items: flex-end; justify-content: center; z-index: 100000;
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight:600;
+    letter-spacing:0.5px;
+    color: var(--gold-light);
   }
-  .modal-sheet {
-    background: var(--bg-1); border: 1px solid var(--border);
-    border-radius: 20px 20px 0 0; padding: 20px 18px 26px; width: 100%; max-width: 480px;
+
+  .brand svg{ width:26px; height:26px; }
+
+  nav a{
+    color: var(--muted);
+    font-size:0.92rem;
+    margin-inline-start: 28px;
+    transition: color .2s ease;
   }
-  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 14px; }
-  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
-  .modal-sub { font-size: 13px; color: var(--text-3); line-height: 1.7; margin-bottom: 20px; }
-  .modal-actions { display: flex; gap: 10px; }
-  .btn-ghost, .btn-primary {
-    border: none; border-radius: 12px; padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer;
+  nav a:hover{ color: var(--gold-light); }
+
+  /* ===== Hero ===== */
+  .hero{
+    padding: 8vh 6vw 6vh;
+    text-align:center;
+    max-width: 720px;
+    margin: 0 auto;
   }
-  .btn-ghost { flex: 1; background: var(--glass); color: var(--text-1); border: 1px solid var(--border-soft); }
-  .btn-primary { flex: 2; background: linear-gradient(135deg,var(--violet),#6247D9); color: #fff; }
+
+  .hero .eyebrow{
+    color: var(--gold);
+    font-size:0.85rem;
+    margin-bottom: 18px;
+    opacity:0.85;
+  }
+
+  .hero h1{
+    font-family: var(--font-display);
+    font-weight:700;
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    line-height:1.25;
+    color: var(--text);
+  }
+
+  .hero h1 span{
+    color: var(--gold-light);
+  }
+
+  .hero p{
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 1.05rem;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
+  /* ===== Ad Section ===== */
+  .ads-section{
+    padding: 2vh 6vw 10vh;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(198,161,91,0.12);
+    padding-bottom: 14px;
+  }
+
+  .section-head h2{
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight:600;
+    color: var(--gold-light);
+  }
+
+  .section-head span{
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .ad-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
+  }
+
+  .ad-slot{
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 20px;
+    min-height: 180px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    transition: border-color .25s ease, transform .25s ease;
+  }
+
+  .ad-slot:hover{
+    border-color: var(--gold-dim);
+    transform: translateY(-3px);
+  }
+
+  .ad-slot .tag{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+
+  .ad-slot .tag svg{ width:15px; height:15px; stroke: var(--gold); }
+
+  .ad-slot .placeholder{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: rgba(198,161,91,0.35);
+    font-size: 0.85rem;
+    border: 1px dashed rgba(198,161,91,0.2);
+    border-radius: 10px;
+    margin: 14px 0;
+  }
+
+  .ad-slot .open-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: #14120a;
+    font-weight:600;
+    font-size:0.88rem;
+    padding: 10px;
+    border-radius: 8px;
+    cursor:pointer;
+    border:none;
+    transition: filter .2s ease;
+  }
+  .ad-slot .open-btn:hover{ filter: brightness(1.08); }
+  .ad-slot .open-btn svg{ width:14px; height:14px; }
+
+  /* Wide native banner slot */
+  .ad-native{
+    grid-column: 1 / -1;
+    min-height: 120px;
+  }
+
+  /* ===== Footer ===== */
+  footer{
+    text-align:center;
+    padding: 30px 6vw 40px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    border-top: 1px solid rgba(198,161,91,0.1);
+  }
+
+  footer .footer-gold{ color: var(--gold); }
+
+  @media (max-width:560px){
+    header{ padding: 18px 5vw; }
+    nav a{ margin-inline-start: 16px; font-size:0.82rem; }
+  }
 </style>
 </head>
 <body>
 
-<div class="page" id="page-surf">
-  <button id="surfExitBtn" aria-label="خروج" onclick="alert('نسخة ثابتة للعرض فقط — بدون تنقل فعلي')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M12 8L12 16M8 10L16 14M16 10L8 14" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    لوج
+  </div>
+  <nav>
+    <a href="#ads">تصفح الإعلانات</a>
+  </nav>
+</header>
 
-  <div class="topbar"><div class="brand-mini">تصفح واربح</div></div>
+<section class="hero">
+  <div class="eyebrow">منصة تصفح إعلانات</div>
+  <h1>تصفح إعلانات <span>مختارة بعناية</span></h1>
+  <p>مساحة هادئة لعرض الإعلانات، بتصميم مرتب وبسيط، بدون تسجيل دخول أو تعقيد.</p>
+</section>
 
-  <div class="ad-slot" id="surfAdContainerTop"></div>
-
-  <div class="countdown-wrap">
-    <div id="surfCountdownDisplay">20:00:00</div>
-    <div class="seconds-left">ثانية متبقية</div>
+<section class="ads-section" id="ads">
+  <div class="section-head">
+    <h2>الإعلانات</h2>
+    <span>يتم تحديثها تلقائياً</span>
   </div>
 
-  <div class="surf-progress-wrap">
-    <div id="surfProgressBar"></div>
-  </div>
-  <div class="eyebrow"><span id="surfEarnedSoFar">+0.0000$</span></div>
+  <div class="ad-grid">
 
-  <div class="ad-slot" id="surfAdContainerBottom"></div>
-</div>
-
-<div class="modal-overlay" id="surfConsentOverlay">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">⚠️ تنبيه هام قبل المتابعة</div>
-    <div class="modal-sub">قد تظهر خلال هذه الجلسة إعلانات غير لائقة. نحن لا نعرض هذه الإعلانات ولا نتحكم بمحتواها — هي من طرف شبكات إعلانية خارجية بالكامل. بالمتابعة، أنت تقر بأنك مسؤول بشكل كامل عن قرارك بالتصفح، وأنك غير مُجبر على مشاهدة أي محتوى لست مقتنعاً به، ويمكنك الخروج من الصفحة في أي لحظة.</div>
-    <div class="modal-actions">
-      <button class="btn-ghost" onclick="document.getElementById('surfConsentOverlay').style.display='none'">إلغاء</button>
-      <button class="btn-primary" onclick="agreeSurfConsent()">أوافق وابدأ</button>
+    <div class="ad-slot ad-native">
+      <div class="tag">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 9H21" stroke="currentColor" stroke-width="1.4"/></svg>
+        بانر عريض
+      </div>
+      <div class="placeholder">ضع هنا كود الإعلان (Native / Banner)</div>
     </div>
+
+    <div class="ad-slot">
+      <div class="tag">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
+        إعلان مربع
+      </div>
+      <div class="placeholder">300×250</div>
+      <button class="open-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        فتح الإعلان
+      </button>
+    </div>
+
+    <div class="ad-slot">
+      <div class="tag">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
+        إعلان مربع
+      </div>
+      <div class="placeholder">300×250</div>
+      <button class="open-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        فتح الإعلان
+      </button>
+    </div>
+
+    <div class="ad-slot">
+      <div class="tag">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
+        إعلان مربع
+      </div>
+      <div class="placeholder">300×250</div>
+      <button class="open-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        فتح الإعلان
+      </button>
+    </div>
+
   </div>
-</div>
+</section>
 
-<script>
-  // ⚠️ نسخة ثابتة للعرض/التصميم فقط — بدون أي اتصال حقيقي بالسيرفر، بدون مكافآت فعلية،
-  // بدون فحص AdBlock/VPN. العداد والمكافأة هون بيتحسبوا محلياً بالمتصفح فقط لغرض المعاينة.
-
-  const ADSTERRA_NATIVE_HTML = '<html><body style="margin:0;padding:0;background:transparent;">' +
-    '<div id="container-30e20b615096518ccd4af02a8de2c86e"></div>' +
-    '<script async data-cfasync="false" src="https://interventioncopiedloitering.com/30e20b615096518ccd4af02a8de2c86e/invoke.js"><\/script>' +
-    '</body></html>';
-
-  const ADSTERRA_BANNER_MOBILE_HTML = '<html><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;">' +
-    '<script>atOptions={key:"04bcf6532017b6790ab2ddac95a5621d",format:"iframe",height:50,width:320,params:{}};<\/script>' +
-    '<script src="https://interventioncopiedloitering.com/04bcf6532017b6790ab2ddac95a5621d/invoke.js"><\/script>' +
-    '</body></html>';
-
-  const ADSTERRA_LEADERBOARD_HTML = '<html><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;">' +
-    '<script>atOptions={key:"6591d8cb13042eb0d24df990ae424042",format:"iframe",height:90,width:728,params:{}};<\/script>' +
-    '<script src="https://interventioncopiedloitering.com/6591d8cb13042eb0d24df990ae424042/invoke.js"><\/script>' +
-    '</body></html>';
-
-  const ADSTERRA_BANNER_HTML = '<html><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;">' +
-    '<script>atOptions={key:"832c2ab019ed7e5b767d47265f24fd72",format:"iframe",height:600,width:160,params:{}};<\/script>' +
-    '<script src="https://interventioncopiedloitering.com/832c2ab019ed7e5b767d47265f24fd72/invoke.js"><\/script>' +
-    '</body></html>';
-
-  const ADSTERRA_SOCIALBAR_HTML = '<html><body style="margin:0;padding:0;background:transparent;">' +
-    '<script src="https://interventioncopiedloitering.com/d0/f6/b3/d0f6b318f29b5787025697029ae72f23.js"><\/script>' +
-    '</body></html>';
-
-  const SURF_AD_REFRESH_MS = 4000;
-  const TOTAL_SECONDS = 20 * 60 * 60; // 20 ساعة
-  const TICK_SECONDS = 5;
-  const SCROLL_STEP_MS = 400; // مدة كل خطوة سكرول (فوق/تحت) قبل كل تحديث إعلانات
-  const REWARD_PER_TICK = 0.0004; // قيمة عرض توضيحية فقط — بدون علاقة بأي مكافأة فعلية
-
-  let adRefreshTimer = null;
-  let countdownTimer = null;
-  let remainingSeconds = TOTAL_SECONDS;
-  let earned = 0;
-
-  function makeAdIframe(srcdocHtml, width, height){
-    const f = document.createElement('iframe');
-    f.srcdoc = srcdocHtml;
-    f.style.border = '0';
-    f.style.width = width;
-    f.style.height = height;
-    f.style.maxWidth = '100%';
-    f.scrolling = 'no';
-    return f;
-  }
-
-  function renderAdsterraAds(){
-    const topContainer = document.getElementById('surfAdContainerTop');
-    const bottomContainer = document.getElementById('surfAdContainerBottom');
-    if (!topContainer || !bottomContainer) return;
-
-    topContainer.innerHTML = '';
-    topContainer.appendChild(makeAdIframe(ADSTERRA_NATIVE_HTML, '100%', '300px'));
-    topContainer.appendChild(makeAdIframe(ADSTERRA_BANNER_MOBILE_HTML, '320px', '50px'));
-
-    bottomContainer.innerHTML = '';
-    bottomContainer.appendChild(makeAdIframe(ADSTERRA_LEADERBOARD_HTML, '728px', '90px'));
-    bottomContainer.appendChild(makeAdIframe(ADSTERRA_BANNER_HTML, '160px', '600px'));
-  }
-
-  function scrollThenRefresh(){
-    // ⬇️ سكرول لتحت لكامل الشاشة
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    setTimeout(() => {
-      // ⬆️ سكرول لفوق لكامل الشاشة
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        renderAdsterraAds();
-      }, SCROLL_STEP_MS);
-    }, SCROLL_STEP_MS);
-  }
-
-  function formatHMS(totalSeconds){
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  }
-
-  function agreeSurfConsent(){
-    document.getElementById('surfConsentOverlay').style.display = 'none';
-    renderAdsterraAds();
-    adRefreshTimer = setInterval(scrollThenRefresh, SURF_AD_REFRESH_MS);
-    document.getElementById('surfCountdownDisplay').textContent = formatHMS(remainingSeconds);
-    countdownTimer = setInterval(tick, 1000);
-  }
-
-  function tick(){
-    remainingSeconds = Math.max(0, remainingSeconds - 1);
-    document.getElementById('surfCountdownDisplay').textContent = formatHMS(remainingSeconds);
-
-    const elapsedTicks = Math.floor((TOTAL_SECONDS - remainingSeconds) / TICK_SECONDS);
-    earned = elapsedTicks * REWARD_PER_TICK;
-    document.getElementById('surfEarnedSoFar').textContent = '+' + earned.toFixed(4) + '$';
-
-    const pct = Math.round(((TOTAL_SECONDS - remainingSeconds) / TOTAL_SECONDS) * 100);
-    document.getElementById('surfProgressBar').style.width = pct + '%';
-
-    if (remainingSeconds <= 0){
-      clearInterval(countdownTimer);
-      clearInterval(adRefreshTimer);
-    }
-  }
-</script>
+<footer>
+  <span class="footer-gold">لوج</span> — صفحة تصفح إعلانات بسيطة
+</footer>
 
 </body>
 </html>
