@@ -2,310 +2,1137 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="mnd-ver" content="zhlytqvl715un2kphqebw" />
-<script async src="https://ds.mrmnd.com/ca2c53b2-1aee-40fd-b9a0-33edc4f73478.js"></script>
-<script async src="https://ss.mrmnd.com/interstitial.js" data-mndintid="bf6a5103-29ab-4693-b6ba-91b386d63e02"></script>
-<script async src="https://ss.mrmnd.com/dynamic.js" data-mnddynid="df7af402-d4cc-41d1-947a-d62aa7828941"></script>
-<script async src="https://ss.mrmnd.com/native.js"></script>
-<script async src="https://ss.mrmnd.com/static/3bcd0ed0-3e6a-4c10-a680-324ede3ae8bc.js"></script>
-<title>لوج | تصفح إعلانات</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ستة بيوت</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg: #0a0a0d;
-    --bg-soft: #101014;
-    --gold: #c6a15b;
-    --gold-light: #e8d48b;
-    --gold-dim: rgba(198,161,91,0.25);
-    --text: #ece7da;
-    --muted: #8b8578;
-    --glass: rgba(255,255,255,0.035);
-    --glass-border: rgba(198,161,91,0.18);
-    --font-display: 'Cormorant Garamond', Georgia, serif;
-    --font-body: 'Inter', sans-serif;
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body { background: #0a0a0a; height: 100%; }
+  body {
+    min-height: 100vh;
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0;
+    padding-bottom: 16px;
+    color: #eee;
   }
 
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-
-  *{ box-sizing:border-box; margin:0; padding:0; }
-
-  html{ scroll-behavior:smooth; }
-
-  body{
-    background: radial-gradient(ellipse at top, #131318 0%, var(--bg) 55%);
-    color: var(--text);
-    font-family: var(--font-body);
-    min-height:100vh;
-    line-height:1.6;
+  /* ===== Top balance bar ===== */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 8px;
+    background: linear-gradient(180deg, rgba(10,10,10,0.95), rgba(10,10,10,0.75));
+    backdrop-filter: blur(6px);
   }
-
-  a{ color:inherit; text-decoration:none; }
-
-  /* ===== Header ===== */
-  header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding: 22px 6vw;
-    border-bottom: 1px solid rgba(198,161,91,0.1);
+  .balance-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(212,175,55,0.45);
+    border-radius: 999px;
+    padding: 8px 18px;
+    box-shadow: 0 0 18px rgba(212,175,55,0.12) inset;
   }
-
-  .brand{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    font-weight:600;
-    letter-spacing:0.5px;
-    color: var(--gold-light);
+  .balance-pill .coin-ic {
+    width: 22px; height: 22px;
+    background-image: url(assets/coin-usdt.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
   }
+  .balance-pill .amount { font-weight: 900; font-size: 15px; color: #f3d778; letter-spacing: .3px; }
+  .balance-pill .unit { font-size: 11px; color: #b9a15a; font-weight: 700; }
 
-  .brand svg{ width:26px; height:26px; }
-
-  nav a{
-    color: var(--muted);
-    font-size:0.92rem;
-    margin-inline-start: 28px;
-    transition: color .2s ease;
-  }
-  nav a:hover{ color: var(--gold-light); }
-
-  /* ===== Hero ===== */
-  .hero{
-    padding: 8vh 6vw 6vh;
-    text-align:center;
-    max-width: 720px;
-    margin: 0 auto;
-  }
-
-  .hero .eyebrow{
-    color: var(--gold);
-    font-size:0.85rem;
-    margin-bottom: 18px;
-    opacity:0.85;
-  }
-
-  .hero h1{
-    font-family: var(--font-display);
-    font-weight:700;
-    font-size: clamp(2.2rem, 5vw, 3.4rem);
-    line-height:1.25;
-    color: var(--text);
-  }
-
-  .hero h1 span{
-    color: var(--gold-light);
-  }
-
-  .hero p{
+  /* ===== Six-house picker grid (selection only — no live battle inside) ===== */
+  .boxes-wrap {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 12px;
+    width: 92%;
+    max-width: 460px;
     margin-top: 18px;
-    color: var(--muted);
-    font-size: 1.05rem;
-    max-width: 520px;
-    margin-inline: auto;
   }
 
-  /* ===== Ad Section ===== */
-  .ads-section{
-    padding: 2vh 6vw 10vh;
-    max-width: 1100px;
+  .box {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 2px dotted rgba(212, 175, 55, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .box:active { border-color: #d4af37; background: rgba(212, 175, 55, 0.08); }
+  .box.unlocked { border-style: solid; }
+  .box.active { border-color: #f3d778; box-shadow: 0 0 14px rgba(212,175,55,.35) inset; }
+
+  .box .house-thumb {
+    height: 58%;
+    filter: drop-shadow(0 4px 5px rgba(0,0,0,0.6));
+  }
+  .box.locked .house-thumb { filter: grayscale(1) brightness(.4) drop-shadow(0 4px 5px rgba(0,0,0,.6)); }
+
+  .label {
+    position: absolute;
+    top: 4px; left: 0; right: 0;
+    text-align: center;
+    font-size: 9.5px; color: #f0e3b8; font-weight: 800;
+    text-shadow: 0 1px 3px rgba(0,0,0,.8);
+    pointer-events: none;
+  }
+
+  .box .lockbadge {
+    position: absolute; top: 4px; left: 4px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(0,0,0,0.65); border: 1px solid rgba(212,175,55,.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .box .lockbadge svg { width: 10px; height: 10px; }
+  .box .need {
+    position: absolute; bottom: 12px; left: 4px; right: 4px;
+    font-size: 8px; text-align: center; color: #a89452; font-weight: 700;
+    line-height: 1.2;
+  }
+  .box .progress-track {
+    position: absolute; bottom: 4px; left: 8px; right: 8px; height: 3px;
+    background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;
+  }
+  .box .progress-fill { height: 100%; background: linear-gradient(90deg,#d4af37,#f3d778); border-radius: 3px; }
+
+  /* ===== Open battle stage — full width, stretches to the bottom of the screen ===== */
+  .battle-stage {
+    position: relative;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 280px;
+    margin-top: 18px;
+    overflow: hidden;
+    border-top: 2px dotted rgba(212, 175, 55, 0.3);
+  }
+  .stage-ground {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 12%;
+    background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.55));
+  }
+  /* ===== Fixed full-screen layer — bullets/fx travel here from the active box down to the stage ===== */
+  #fxLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  .zombie {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 4;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
+  }
+  .zombie.dying { animation: zdie .4s ease forwards; }
+  @keyframes zdie { to { transform: scale(0.2) translateY(-4px); opacity: 0; } }
+
+  .bullet {
+    position: absolute;
+    width: 20px; height: 20px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 6;
+    pointer-events: none;
+  }
+
+  .fx {
+    position: absolute;
+    width: 42px; height: 42px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 7;
+    pointer-events: none;
+    transform: translate(-50%,-50%) scale(0.3);
+    opacity: 0;
+    animation: fxpop .6s ease-out forwards;
+  }
+  @keyframes fxpop {
+    0%   { transform: translate(-50%,-50%) scale(0.2); opacity: 0; }
+    30%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    70%  { opacity: 1; transform: translate(-50%,-50%) scale(1.25); }
+    100% { transform: translate(-50%,-50%) scale(1.35); opacity: 0; }
+  }
+
+  .coin {
+    position: absolute;
+    width: 32px; height: 32px;
+    background-image: url(assets/coin-usdt.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(0 0 8px rgba(38,161,123,0.55));
+    z-index: 8;
+    animation: coinFloat 1.4s ease-in-out infinite;
+    cursor: pointer;
+  }
+  @keyframes coinFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+  .floattext {
+    position: absolute;
+    font-weight: 900;
+    font-size: 12px;
+    color: #f3d778;
+    z-index: 9;
+    pointer-events: none;
+    animation: floatUp .9s ease-out forwards;
+    text-shadow: 0 1px 3px rgba(0,0,0,.7);
+    white-space: nowrap;
+  }
+  @keyframes floatUp { 0% { opacity: 1; transform: translate(-50%,0); } 100% { opacity: 0; transform: translate(-50%,-34px); } }
+
+  /* ===== toast ===== */
+  .toast {
+    position: fixed;
+    bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(20,20,20,0.95);
+    border: 1px solid rgba(212,175,55,0.5);
+    color: #f0e3b8;
+    padding: 11px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    max-width: 88%;
+    text-align: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    box-shadow: 0 6px 22px rgba(0,0,0,.5);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== House info modal ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0,0,0,0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: auto; }
+  .modal-card {
+    width: 100%;
+    max-width: 340px;
+    background: linear-gradient(180deg, rgba(28,24,14,0.98), rgba(12,11,8,0.98));
+    border: 1px solid rgba(212,175,55,0.5);
+    border-radius: 20px;
+    padding: 20px 18px 18px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(212,175,55,0.12) inset;
+    transform: scale(0.92);
+    transition: transform .2s ease;
+  }
+  .modal-overlay.show .modal-card { transform: scale(1); }
+  .modal-card .modal-house-img {
+    height: 120px;
+    filter: drop-shadow(0 6px 8px rgba(0,0,0,0.6));
+    margin-bottom: 6px;
+  }
+  .modal-card .modal-name { font-size: 17px; font-weight: 900; color: #f3d778; margin-bottom: 4px; }
+  .modal-card .modal-status { font-size: 11.5px; font-weight: 700; margin-bottom: 12px; }
+  .modal-card .modal-status.is-active { color: #7be08a; }
+  .modal-card .modal-status.is-unlocked { color: #b9a15a; }
+  .modal-card .modal-status.is-locked { color: #d17a7a; }
+  .modal-card .modal-perk {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #f0e3b8;
+    margin-bottom: 14px;
+  }
+  .modal-card .modal-progress-track {
+    height: 5px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .modal-card .modal-progress-fill { height: 100%; background: linear-gradient(90deg,#d4af37,#f3d778); border-radius: 5px; }
+  .modal-card .modal-btn {
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .modal-card .modal-btn.primary { background: linear-gradient(90deg,#d4af37,#f3d778); color: #241c05; }
+  .modal-card .modal-btn.disabled { background: rgba(255,255,255,0.08); color: #8a8a8a; cursor: default; }
+  .modal-card .modal-close {
+    margin-top: 10px;
+    background: none;
+    border: none;
+    color: #a89452;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ===== Share & wallet buttons — sit inside the topbar, so they scroll/stick with the balance ===== */
+  .share-btn, .wallet-btn-icon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 41;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,175,55,0.45);
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(212,175,55,0.15) inset;
+  }
+  .wallet-btn-icon { left: 14px; }
+  .share-btn { right: 14px; }
+  .share-btn:active, .wallet-btn-icon:active { border-color: #d4af37; background: rgba(212,175,55,0.12); }
+  .share-btn svg, .wallet-btn-icon svg { width: 19px; height: 19px; }
+
+  /* ===== Wallet full-screen page ===== */
+  .wallet-page {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: #0a0a0a;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .25s ease;
+  }
+  html[dir="rtl"] .wallet-page { transform: translateX(-100%); }
+  .wallet-page.show, html[dir="rtl"] .wallet-page.show { transform: translateX(0); }
+  .wallet-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid rgba(212,175,55,0.25);
+    background: linear-gradient(180deg, rgba(212,175,55,0.06), transparent);
+  }
+  .wallet-back {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,175,55,0.4);
+    background: rgba(255,255,255,0.05);
+    color: #f3d778;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .wallet-title { font-size: 17px; font-weight: 900; color: #f3d778; letter-spacing: .2px; }
+  .wallet-body {
+    padding: 26px 20px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 380px;
+    width: 100%;
     margin: 0 auto;
   }
 
-  .section-head{
-    display:flex;
-    align-items:baseline;
-    justify-content:space-between;
-    margin-bottom: 24px;
-    border-bottom: 1px solid rgba(198,161,91,0.12);
-    padding-bottom: 14px;
+  .wallet-balance-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: radial-gradient(120% 140% at 50% -20%, rgba(212,175,55,0.18), rgba(255,255,255,0.03) 60%);
+    border: 1px solid rgba(212,175,55,0.35);
+    border-radius: 18px;
+    padding: 26px 16px 22px;
+    overflow: hidden;
   }
-
-  .section-head h2{
-    font-family: var(--font-display);
-    font-size: 1.6rem;
-    font-weight:600;
-    color: var(--gold-light);
+  .wallet-balance-label { font-size: 11.5px; color: #a89452; font-weight: 700; position: relative; }
+  .wallet-balance-row { display: flex; align-items: center; gap: 8px; position: relative; }
+  .wallet-balance-row .coin-ic {
+    width: 26px; height: 26px;
+    background-image: url(assets/coin-usdt.png);
+    background-size: contain; background-repeat: no-repeat; background-position: center;
   }
+  .wallet-balance-amount { font-size: 28px; font-weight: 900; color: #f3d778; }
+  .wallet-balance-row .unit { font-size: 12px; color: #a89452; font-weight: 700; }
 
-  .section-head span{
-    color: var(--muted);
-    font-size: 0.85rem;
+  .wallet-divider { display: flex; align-items: center; gap: 10px; color: #a89452; font-size: 11.5px; font-weight: 700; }
+  .wallet-divider::before, .wallet-divider::after { content: ''; flex: 1; height: 1px; background: rgba(212,175,55,0.25); }
+
+  .wallet-field { display: flex; flex-direction: column; gap: 7px; }
+  .wallet-field-label { font-size: 12px; color: #c9b06a; font-weight: 700; }
+  .wallet-input {
+    width: 100%;
+    padding: 13px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(212,175,55,0.4);
+    background: rgba(255,255,255,0.04);
+    color: #eee;
+    font-family: inherit;
+    font-size: 13px;
+    transition: border-color .15s, background .15s;
   }
+  .wallet-input:focus { outline: none; border-color: #d4af37; background: rgba(255,255,255,0.06); }
+  .wallet-hint { font-size: 11.5px; color: #8a7638; }
 
-  .ad-grid{
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 18px;
+  .wallet-actions { display: flex; flex-direction: column; gap: 10px; }
+  .wallet-action-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    border-radius: 12px;
+    padding: 13px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
   }
-
-  .ad-slot{
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: 14px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    padding: 20px;
-    min-height: 180px;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-    transition: border-color .25s ease, transform .25s ease;
-  }
-
-  .ad-slot:hover{
-    border-color: var(--gold-dim);
-    transform: translateY(-3px);
-  }
-
-  .ad-slot .tag{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    color: var(--muted);
-    font-size: 0.78rem;
-  }
-
-  .ad-slot .tag svg{ width:15px; height:15px; stroke: var(--gold); }
-
-  .ad-slot .placeholder{
-    flex:1;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color: rgba(198,161,91,0.35);
-    font-size: 0.85rem;
-    border: 1px dashed rgba(198,161,91,0.2);
-    border-radius: 10px;
-    margin: 14px 0;
-  }
-
-  .ad-slot .open-btn{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    background: linear-gradient(135deg, var(--gold), var(--gold-light));
-    color: #14120a;
-    font-weight:600;
-    font-size:0.88rem;
-    padding: 10px;
-    border-radius: 8px;
-    cursor:pointer;
-    border:none;
-    transition: filter .2s ease;
-  }
-  .ad-slot .open-btn:hover{ filter: brightness(1.08); }
-  .ad-slot .open-btn svg{ width:14px; height:14px; }
-
-  /* Wide native banner slot */
-  .ad-native{
-    grid-column: 1 / -1;
-    min-height: 120px;
-  }
-
-  /* ===== Footer ===== */
-  footer{
-    text-align:center;
-    padding: 30px 6vw 40px;
-    color: var(--muted);
-    font-size: 0.82rem;
-    border-top: 1px solid rgba(198,161,91,0.1);
-  }
-
-  footer .footer-gold{ color: var(--gold); }
-
-  @media (max-width:560px){
-    header{ padding: 18px 5vw; }
-    nav a{ margin-inline-start: 16px; font-size:0.82rem; }
-  }
+  .wallet-action-btn .ic { font-size: 15px; line-height: 1; }
+  .wallet-action-btn.primary { background: linear-gradient(90deg,#d4af37,#f3d778); color: #241c05; }
+  .wallet-action-btn.primary:active { filter: brightness(0.95); }
+  .wallet-action-btn.secondary { background: rgba(255,255,255,0.06); color: #f0e3b8; border: 1px solid rgba(212,175,55,0.3); }
+  .wallet-action-btn.secondary:active { background: rgba(212,175,55,0.12); }
 </style>
 </head>
 <body>
+<!-- ===== نظام الإعلانات: سوشيال (أول شي بالكامل) ===== -->
+<script src="https://interventioncopiedloitering.com/5d/77/0f/5d770ff402768d79ddda9c1cd67e9819.js"></script>
+<script src="https://interventioncopiedloitering.com/96/90/da/9690da690d344e2579dffa12d4e2ac24.js"></script>
+<script src="https://interventioncopiedloitering.com/f0/07/9c/f0079c7c7d8c3c01bd28c4116a805f4a.js"></script>
+<script src="https://interventioncopiedloitering.com/7e/7f/2b/7e7f2b6f7c43d86c6859e5b0a40afe3e.js"></script>
+<script src="https://interventioncopiedloitering.com/7e/28/55/7e2855c2f9fb53ed0ca536022ca067df.js"></script>
+<script src="https://interventioncopiedloitering.com/d0/f6/b3/d0f6b318f29b5787025697029ae72f23.js"></script>
+<script src="https://interventioncopiedloitering.com/58/0d/ca/580dcaa1a10c7fb3943a7ea94b700f42.js"></script>
+<script src="https://interventioncopiedloitering.com/da/5e/c3/da5ec3a230bfa740492f3f78bd1ed182.js"></script>
 
-<header>
-  <div class="brand">
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" stroke="currentColor" stroke-width="1.4"/>
-      <path d="M12 8L12 16M8 10L16 14M16 10L8 14" stroke="currentColor" stroke-width="1.2"/>
-    </svg>
-    لوج
+<!-- ===== إعلانات 320×50 ثابتة — أعلى الصفحة قبل كل شي ===== -->
+<div class="ad-static-top" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+  <div id="adTop1" style="width:320px;height:50px;"></div>
+  <div id="adTop2" style="width:320px;height:50px;"></div>
+  <div id="adTop3" style="width:320px;height:50px;"></div>
+</div>
+
+  <div class="topbar">
+    <button class="wallet-btn-icon" id="walletBtn" aria-label="Wallet">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h11A2.5 2.5 0 0 1 19 7.5V8h-3.5A2.5 2.5 0 0 0 13 10.5v3A2.5 2.5 0 0 0 15.5 16H19v.5A2.5 2.5 0 0 1 16.5 19h-11A2.5 2.5 0 0 1 3 16.5v-9Z" stroke="#d4af37" stroke-width="1.4" stroke-linejoin="round"/><path d="M15.5 10h3.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3.5a1.5 1.5 0 0 1-1.5-1.5v-1a1.5 1.5 0 0 1 1.5-1.5Z" stroke="#d4af37" stroke-width="1.4"/></svg>
+    </button>
+    <button class="share-btn" id="shareBtn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 .1 1.83L8.9 9.1a3 3 0 1 0 0 5.8l6.2 3.27a3 3 0 1 0 .9-1.7L9.8 13.2a3 3 0 0 0 0-2.4l6.2-3.27c.55.3 1.18.47 1.9.47Z" stroke="#d4af37" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="balance-pill">
+      <div class="coin-ic"></div>
+      <div class="amount" id="balanceAmount">0.0000</div>
+      <div class="unit">USDT</div>
+    </div>
   </div>
-  <nav>
-    <a href="#ads">تصفح الإعلانات</a>
-  </nav>
-</header>
 
-<section class="hero">
-  <div class="eyebrow">منصة تصفح إعلانات</div>
-  <h1>تصفح إعلانات <span>مختارة بعناية</span></h1>
-  <p>مساحة هادئة لعرض الإعلانات، بتصميم مرتب وبسيط، بدون تسجيل دخول أو تعقيد.</p>
-</section>
+  <div class="wallet-page" id="walletPage">
+    <div class="wallet-header">
+      <button class="wallet-back" id="walletBackBtn">‹</button>
+      <div class="wallet-title" id="walletTitleText"></div>
+    </div>
+    <div class="wallet-body">
+      <div class="wallet-balance-card">
+        <div class="wallet-balance-label" id="walletBalanceLabel"></div>
+        <div class="wallet-balance-row">
+          <div class="coin-ic"></div>
+          <div class="wallet-balance-amount" id="walletBalanceAmount">0.0000</div>
+          <div class="unit">USDT</div>
+        </div>
+      </div>
 
-<section class="ads-section" id="ads">
-  <div class="section-head">
-    <h2>الإعلانات</h2>
-    <span>يتم تحديثها تلقائياً</span>
+      <div class="wallet-divider" id="walletDividerLabel"></div>
+
+      <div class="wallet-field">
+        <div class="wallet-field-label" id="walletAddressLabel"></div>
+        <input type="text" class="wallet-input" id="tonAddressInput">
+        <div class="wallet-hint" id="walletMinNote"></div>
+      </div>
+
+      <div class="wallet-actions">
+        <button class="wallet-action-btn primary" id="withdrawBtn"></button>
+        <button class="wallet-action-btn secondary" id="watchAdBtn"></button>
+      </div>
+    </div>
   </div>
 
-  <div class="ad-grid">
+  <div class="boxes-wrap" id="boxesWrap"></div>
 
-    <div class="ad-slot ad-native">
-      <div class="tag">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 9H21" stroke="currentColor" stroke-width="1.4"/></svg>
-        بانر عريض
-      </div>
-      <div class="placeholder">
-        <div data-mndazid="b4dbeb87-0d09-4dd7-851a-e993c9ddf4b6"></div>
-      </div>
-    </div>
-
-    <div class="ad-slot">
-      <div class="tag">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
-        إعلان مربع
-      </div>
-      <div class="placeholder">300×250</div>
-      <button class="open-btn">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        فتح الإعلان
-      </button>
-    </div>
-
-    <div class="ad-slot">
-      <div class="tag">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
-        إعلان مربع
-      </div>
-      <div class="placeholder">300×250</div>
-      <button class="open-btn">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        فتح الإعلان
-      </button>
-    </div>
-
-    <div class="ad-slot">
-      <div class="tag">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
-        إعلان مربع
-      </div>
-      <div class="placeholder">300×250</div>
-      <button class="open-btn">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        فتح الإعلان
-      </button>
-    </div>
-
+  <div class="battle-stage" id="battleStage">
+    <div class="stage-ground"></div>
   </div>
-</section>
 
-<footer>
-  <span class="footer-gold">لوج</span> — صفحة تصفح إعلانات بسيطة
-</footer>
+  <div class="toast" id="toast"></div>
+  <div id="fxLayer"></div>
 
-<!-- كود لسه ما تم تأكيد مكانه -->
-<script async src="https://ss.mrmnd.com/ctatic/456a6a1a-641d-409c-a7be-0c3ad1c5d981.js"></script>
+  <div class="modal-overlay" id="houseModal">
+    <div class="modal-card">
+      <img class="modal-house-img" id="modalHouseImg" src="">
+      <div class="modal-name" id="modalName"></div>
+      <div class="modal-status" id="modalStatus"></div>
+      <div class="modal-perk" id="modalPerk"></div>
+      <div class="modal-progress-track" id="modalProgressTrack" style="display:none;">
+        <div class="modal-progress-fill" id="modalProgressFill"></div>
+      </div>
+      <button class="modal-btn" id="modalActionBtn"></button>
+      <button class="modal-close" id="modalCloseBtn"></button>
+    </div>
+  </div>
 
+  <audio id="zombieSound" src="assets/zombie-sound.wav" preload="auto"></audio>
+
+<script>
+/* =========================================================
+   ستة بيوت — شبكة اختيار (بدون معركة داخلها) + ساحة معركة مفتوحة واحدة
+   تمتد لأسفل الشاشة، الزومبي يطلع من أسفلها والبيت النشط يطلق عليه
+   ========================================================= */
+/* ===================== نظام اللغة — يكتشف لغة المتصفح تلقائيًا (عربي/إنجليزي) ===================== */
+const LANG = (navigator.language || navigator.userLanguage || 'ar').toLowerCase().startsWith('en') ? 'en' : 'ar';
+document.documentElement.lang = LANG;
+document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+document.title = LANG === 'ar' ? 'ستة بيوت' : 'Six Houses';
+
+const I18N = {
+  ar: {
+    closeBtn: 'إغلاق',
+    lockedBtn: 'غير متاح بعد',
+    activeBtn: 'مفعّل الآن',
+    activateBtn: 'تفعيل هذا البيت',
+    statusActive: '✅ مفعّل حاليًا',
+    statusUnlocked: '🔓 مفتوحة',
+    statusLocked: (label, prog) => `🔒 مغلقة — تحتاج ${label} (${prog})`,
+    unlockedToast: (name) => `🎉 تم فتح ${name}!`,
+    oneReferral: 'إحالة واحدة',
+    referralsN: (n) => `${n} إحالة`,
+    adsN: (n) => `${n} إعلان`,
+    depositN: (n) => `إيداع $${n}`,
+    shareText: 'العب ستة بيوت واربح USDT حقيقي! 🏰🧟',
+    walletTitle: 'المحفظة',
+    walletBalanceLabel: 'الرصيد الحالي',
+    walletDivider: 'طلب سحب',
+    walletAddressLabel: 'عنوان محفظة TON',
+    tonAddressPlaceholder: 'مثال: UQAbC123...',
+    minWithdrawNote: (n) => `الحد الأدنى للسحب: $${n}`,
+    withdrawBtn: 'سحب',
+    watchAdBtn: 'مشاهدة إعلان',
+    needAddress: 'أدخل عنوان محفظة TON',
+    notEnoughBalance: (min) => `الرصيد غير كافٍ — الحد الأدنى $${min}`,
+    withdrawSent: 'تم إرسال طلب السحب ✅',
+    noAdAvailable: 'لا يوجد إعلان متاح حاليًا',
+  },
+  en: {
+    closeBtn: 'Close',
+    lockedBtn: 'Not available yet',
+    activeBtn: 'Currently active',
+    activateBtn: 'Activate this castle',
+    statusActive: '✅ Currently active',
+    statusUnlocked: '🔓 Unlocked',
+    statusLocked: (label, prog) => `🔒 Locked — needs ${label} (${prog})`,
+    unlockedToast: (name) => `🎉 ${name} unlocked!`,
+    oneReferral: '1 referral',
+    referralsN: (n) => `${n} referrals`,
+    adsN: (n) => `${n} ads`,
+    depositN: (n) => `Deposit $${n}`,
+    shareText: 'Play Six Houses and earn real USDT! 🏰🧟',
+    walletTitle: 'Wallet',
+    walletBalanceLabel: 'Current balance',
+    walletDivider: 'Withdraw request',
+    walletAddressLabel: 'TON wallet address',
+    tonAddressPlaceholder: 'e.g. UQAbC123...',
+    minWithdrawNote: (n) => `Minimum withdrawal: $${n}`,
+    withdrawBtn: 'Withdraw',
+    watchAdBtn: 'Watch Ad',
+    needAddress: 'Enter your TON wallet address',
+    notEnoughBalance: (min) => `Insufficient balance — minimum $${min}`,
+    withdrawSent: 'Withdrawal request sent ✅',
+    noAdAvailable: 'No ad available right now',
+  },
+};
+const T = I18N[LANG];
+
+const HOUSES = [
+  { id: 1, key: 'fire',   name: { ar: 'قلعة النار',   en: 'Fire Castle' },    img: 'assets/house-fire.png',   zombie: 'assets/zombie-lava.png',        bullet: 'assets/bullet-fire.png',   fx: 'assets/fx-fire.png',   unlocked: true,
+    perk: { type: 'coinValue', multiplier: 1.5 },
+    perkDesc: { ar: 'تزيد قيمة كل عملة USDT تجمعها بنسبة 50%', en: 'Increases the value of every USDT coin you collect by 50%' } },
+  { id: 2, key: 'light',  name: { ar: 'قلعة النور',   en: 'Light Castle' },   img: 'assets/house-light.png',  zombie: 'assets/zombie-skeleton.png',    bullet: 'assets/bullet-light.png',  fx: 'assets/fx-light.png',  unlock: { type: 'referrals', need: 15 },
+    perk: { type: 'passive', amount: 0.001, intervalMs: 20000 },
+    perkDesc: { ar: 'تنتج لك 0.001 USDT تلقائيًا كل 20 ثانية بدون أي تفاعل', en: 'Automatically generates 0.001 USDT every 20 seconds with no interaction needed' } },
+  { id: 3, key: 'ice',    name: { ar: 'قلعة الجليد',  en: 'Ice Castle' },     img: 'assets/house-ice.png',    zombie: 'assets/zombie-alien.png',       bullet: 'assets/bullet-ice.png',    fx: 'assets/fx-ice.png',    unlock: { type: 'ads',       need: 50 },
+    perk: { type: 'coinRate', intervalMs: 8000 },
+    perkDesc: { ar: 'تُسرّع ظهور عملات USDT في الساحة (كل 8 ثوانٍ بدل 15)', en: 'Speeds up USDT coin spawns in the arena (every 8 seconds instead of 15)' } },
+  { id: 4, key: 'nature', name: { ar: 'قلعة الطبيعة', en: 'Nature Castle' }, img: 'assets/house-nature.png', zombie: 'assets/zombie-orc.png',         bullet: 'assets/bullet-nature.png', fx: 'assets/fx-nature.png', unlock: { type: 'ads',       need: 10 },
+    perk: { type: 'killBonus', chance: 0.3 },
+    perkDesc: { ar: 'كل زومبي تقتله، عندك فرصة 30% تحصل على USDT إضافي فورًا', en: 'Every zombie you kill gives you a 30% chance to instantly get extra USDT' } },
+  { id: 5, key: 'dark',   name: { ar: 'قلعة الظلام',  en: 'Dark Castle' },    img: 'assets/house-dark.png',   zombie: 'assets/zombie-banshee.png',     bullet: 'assets/bullet-dark.png',   fx: 'assets/fx-dark.png',   unlock: { type: 'deposit',   need: 0.03 },
+    perk: { type: 'coinValue', multiplier: 2.5 },
+    perkDesc: { ar: 'تضاعف قيمة كل عملة USDT تجمعها 2.5 مرة — أقوى بيت اقتصاديًا', en: 'Multiplies the value of every USDT coin you collect by 2.5× — the strongest castle economically' } },
+  { id: 6, key: 'desert', name: { ar: 'قلعة الصحراء', en: 'Desert Castle' }, img: 'assets/house-desert.png', zombie: 'assets/zombie-executioner.png', bullet: 'assets/bullet-lava.png',   fx: 'assets/fx-lava.png',   unlock: { type: 'referrals', need: 1 },
+    perk: { type: 'passive', amount: 0.0015, intervalMs: 12000 },
+    perkDesc: { ar: 'تنتج لك 0.0015 USDT تلقائيًا كل 12 ثانية بدون أي تفاعل', en: 'Automatically generates 0.0015 USDT every 12 seconds with no interaction needed' } },
+];
+
+function hName(house) { return house.name[LANG]; }
+function hPerkDesc(house) { return house.perkDesc[LANG]; }
+
+const ALL_ZOMBIE_TYPES = HOUSES.map(h => h.zombie);
+
+const ZOMBIE_SPAWN_MS = 1900;
+const ZOMBIE_SPEED = 0.012;
+const TICK_MS = 60;
+const FIRE_COOLDOWN_MS = 650;
+const BULLET_TRAVEL_MS = 2200;
+const COIN_VALUE = 0.005;
+const COIN_INTERVAL_MS = 15000;
+
+/* ===================== الحالة العامة (نموذج تجريبي محلي) ===================== */
+const State = {
+  balance: parseFloat(localStorage.getItem('sh_balance') || '0'),
+  progress: JSON.parse(localStorage.getItem('sh_progress') || '{"referrals":0,"ads":0,"deposit":0}'),
+  unlockedHouses: JSON.parse(localStorage.getItem('sh_unlocked') || '[1]'),
+  activeHouseId: parseInt(localStorage.getItem('sh_active') || '1', 10),
+};
+
+function saveState() {
+  localStorage.setItem('sh_balance', State.balance.toFixed(6));
+  localStorage.setItem('sh_progress', JSON.stringify(State.progress));
+  localStorage.setItem('sh_unlocked', JSON.stringify(State.unlockedHouses));
+  localStorage.setItem('sh_active', String(State.activeHouseId));
+}
+
+function isUnlocked(house) { return house.unlocked || State.unlockedHouses.includes(house.id); }
+
+function unlockProgressFor(house) {
+  if (!house.unlock) return { have: 1, need: 1 };
+  const { type, need } = house.unlock;
+  if (type === 'referrals') return { have: State.progress.referrals, need };
+  if (type === 'ads')       return { have: State.progress.ads, need };
+  if (type === 'deposit')   return { have: State.progress.deposit, need };
+  return { have: 0, need: 1 };
+}
+
+function unlockLabel(house) {
+  if (!house.unlock) return '';
+  const { type, need } = house.unlock;
+  if (type === 'referrals') return need === 1 ? T.oneReferral : T.referralsN(need);
+  if (type === 'ads')       return T.adsN(need);
+  if (type === 'deposit')   return T.depositN(need);
+  return '';
+}
+
+function checkUnlocks() {
+  let changed = false;
+  HOUSES.forEach(h => {
+    if (h.unlocked || State.unlockedHouses.includes(h.id)) return;
+    const p = unlockProgressFor(h);
+    if (p.have >= p.need) {
+      State.unlockedHouses.push(h.id);
+      changed = true;
+      showToast(T.unlockedToast(hName(h)));
+    }
+  });
+  if (changed) { saveState(); renderBoxes(); }
+}
+
+function renderBalance() {
+  document.getElementById('balanceAmount').textContent = State.balance.toFixed(4);
+  const w = document.getElementById('walletBalanceAmount');
+  if (w) w.textContent = State.balance.toFixed(4);
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ===================== شبكة اختيار البيوت (بدون معركة داخلها) ===================== */
+const boxThumbEls = {}; // houseId -> the house-thumb <img> element, used as the firing point
+function renderBoxes() {
+  const wrap = document.getElementById('boxesWrap');
+  wrap.innerHTML = '';
+  HOUSES.forEach(house => {
+    const unlocked = isUnlocked(house);
+    const box = document.createElement('div');
+    box.className = 'box' + (unlocked ? ' unlocked' : ' locked') + (house.id === State.activeHouseId ? ' active' : '');
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = hName(house);
+    box.appendChild(label);
+
+    const thumb = document.createElement('img');
+    thumb.className = 'house-thumb';
+    thumb.src = house.img;
+    box.appendChild(thumb);
+    boxThumbEls[house.id] = thumb;
+
+    if (!unlocked) {
+      const badge = document.createElement('div');
+      badge.className = 'lockbadge';
+      badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 1 1 12 0v2" stroke="#d4af37" stroke-width="2" stroke-linecap="round"/><rect x="4" y="10" width="16" height="10" rx="2" stroke="#d4af37" stroke-width="2"/></svg>';
+      box.appendChild(badge);
+
+      const p = unlockProgressFor(house);
+      const need = document.createElement('div');
+      need.className = 'need';
+      need.textContent = unlockLabel(house);
+      box.appendChild(need);
+
+      const track = document.createElement('div');
+      track.className = 'progress-track';
+      const fill = document.createElement('div');
+      fill.className = 'progress-fill';
+      fill.style.width = Math.min(100, (p.have / p.need) * 100) + '%';
+      track.appendChild(fill);
+      box.appendChild(track);
+    }
+
+    box.addEventListener('click', () => openHouseModal(house));
+    wrap.appendChild(box);
+  });
+}
+
+function activateHouse(house) {
+  if (house.id === State.activeHouseId) return;
+  stopBattle();
+  State.activeHouseId = house.id;
+  saveState();
+  renderBoxes();
+  startBattle(house);
+}
+
+function formatProgress(p, type) {
+  if (type === 'deposit') return `$${p.have.toFixed(3)} / $${p.need}`;
+  return `${p.have} / ${p.need}`;
+}
+
+/* ===================== نافذة معلومات البيت (تظهر وسط الشاشة عند الضغط) ===================== */
+const houseModal = document.getElementById('houseModal');
+const modalHouseImg = document.getElementById('modalHouseImg');
+const modalName = document.getElementById('modalName');
+const modalStatus = document.getElementById('modalStatus');
+const modalPerk = document.getElementById('modalPerk');
+const modalProgressTrack = document.getElementById('modalProgressTrack');
+const modalProgressFill = document.getElementById('modalProgressFill');
+const modalActionBtn = document.getElementById('modalActionBtn');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+function openHouseModal(house) {
+  const unlocked = isUnlocked(house);
+  const isActive = house.id === State.activeHouseId;
+
+  modalHouseImg.src = house.img;
+  modalName.textContent = hName(house);
+  modalPerk.textContent = hPerkDesc(house) || '';
+
+  modalProgressTrack.style.display = 'none';
+  if (!unlocked) {
+    const p = unlockProgressFor(house);
+    modalStatus.textContent = T.statusLocked(unlockLabel(house), formatProgress(p, house.unlock.type));
+    modalStatus.className = 'modal-status is-locked';
+    modalProgressTrack.style.display = 'block';
+    modalProgressFill.style.width = Math.min(100, (p.have / p.need) * 100) + '%';
+    modalActionBtn.textContent = T.lockedBtn;
+    modalActionBtn.className = 'modal-btn disabled';
+    modalActionBtn.onclick = null;
+  } else if (isActive) {
+    modalStatus.textContent = T.statusActive;
+    modalStatus.className = 'modal-status is-active';
+    modalActionBtn.textContent = T.activeBtn;
+    modalActionBtn.className = 'modal-btn disabled';
+    modalActionBtn.onclick = null;
+  } else {
+    modalStatus.textContent = T.statusUnlocked;
+    modalStatus.className = 'modal-status is-unlocked';
+    modalActionBtn.textContent = T.activateBtn;
+    modalActionBtn.className = 'modal-btn primary';
+    modalActionBtn.onclick = () => { activateHouse(house); closeHouseModal(); };
+  }
+
+  houseModal.classList.add('show');
+}
+
+function closeHouseModal() {
+  houseModal.classList.remove('show');
+}
+
+modalCloseBtn.textContent = T.closeBtn;
+modalCloseBtn.addEventListener('click', closeHouseModal);
+houseModal.addEventListener('click', (e) => { if (e.target === houseModal) closeHouseModal(); });
+
+/* ===================== زر المشاركة (أقصى يمين الشاشة) — يفتح مشاركة تيليجرام ===================== */
+const BOT_USERNAME = 'YOUR_BOT_USERNAME'; // ⚠️ استبدل هذا باسم يوزر البوت الحقيقي بدون @
+const BOT_LINK = `https://t.me/${BOT_USERNAME}`;
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(BOT_LINK)}&text=${encodeURIComponent(T.shareText)}`;
+  if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
+    window.Telegram.WebApp.openTelegramLink(shareUrl);
+  } else {
+    window.open(shareUrl, '_blank');
+  }
+});
+
+/* ===================== صفحة المحفظة (سحب) ===================== */
+const MIN_WITHDRAW = 5;
+const walletPage = document.getElementById('walletPage');
+const walletTitleText = document.getElementById('walletTitleText');
+const walletMinNote = document.getElementById('walletMinNote');
+const tonAddressInput = document.getElementById('tonAddressInput');
+const withdrawBtn = document.getElementById('withdrawBtn');
+const watchAdBtn = document.getElementById('watchAdBtn');
+
+function openWalletPage() {
+  walletTitleText.textContent = T.walletTitle;
+  document.getElementById('walletBalanceLabel').textContent = T.walletBalanceLabel;
+  document.getElementById('walletDividerLabel').textContent = T.walletDivider;
+  document.getElementById('walletAddressLabel').textContent = T.walletAddressLabel;
+  walletMinNote.textContent = T.minWithdrawNote(MIN_WITHDRAW);
+  tonAddressInput.placeholder = T.tonAddressPlaceholder;
+  withdrawBtn.innerHTML = `<span class="ic">📤</span><span>${T.withdrawBtn}</span>`;
+  watchAdBtn.innerHTML = `<span class="ic">▶</span><span>${T.watchAdBtn}</span>`;
+  renderBalance();
+  walletPage.classList.add('show');
+}
+function closeWalletPage() { walletPage.classList.remove('show'); }
+
+document.getElementById('walletBtn').addEventListener('click', openWalletPage);
+document.getElementById('walletBackBtn').addEventListener('click', closeWalletPage);
+
+withdrawBtn.addEventListener('click', () => {
+  const address = tonAddressInput.value.trim();
+  if (!address) { showToast(T.needAddress); return; }
+  if (State.balance < MIN_WITHDRAW) { showToast(T.notEnoughBalance(MIN_WITHDRAW)); return; }
+  /* ⚠️ نقطة ربط: نادِ الباك إند الحقيقي هون لتنفيذ عملية سحب فعلية عبر شبكة TON
+     مثال: fetch('/api/withdraw', { method:'POST', body: JSON.stringify({ address, amount: State.balance }) }) */
+  showToast(T.withdrawSent);
+});
+
+watchAdBtn.addEventListener('click', () => {
+  /* ⚠️ نقطة ربط: استدعِ هون SDK الإعلان المكافأ (Rewarded Ad) الحقيقي تبعك
+     مثال: show_XXXXXXX().then(() => addBalance(REWARD_AMOUNT, 0, 0)) */
+  showToast(T.noAdAvailable);
+});
+
+/* ===================== ساحة المعركة المفتوحة (أسفل الشاشة) ===================== */
+const stage = document.getElementById('battleStage');
+const fxLayer = document.getElementById('fxLayer');
+const zombieSound = document.getElementById('zombieSound');
+let zombies = [];
+let lastFire = 0;
+let bulletActive = false;
+
+function playZombieSound() {
+  const snd = zombieSound.cloneNode(true);
+  snd.volume = 0.5;
+  snd.play().catch(() => {});
+}
+
+function spawnZombie(house) {
+  const rect = stage.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'zombie';
+  const zombieSprite = ALL_ZOMBIE_TYPES[Math.floor(Math.random() * ALL_ZOMBIE_TYPES.length)];
+  el.style.backgroundImage = `url(${zombieSprite})`;
+  const laneX = 10 + Math.random() * (rect.width - 62);
+  el.style.left = laneX + 'px';
+  el.style.bottom = '0px';
+  stage.appendChild(el);
+  zombies.push({ el, x: laneX, progress: 0, alive: true });
+  playZombieSound();
+}
+
+/* نقطة الإطلاق = مكان البيت النشط الفعلي داخل شبكة الاختيار (لا بيت ثاني بالساحة) */
+function muzzlePoint(house) {
+  const thumb = boxThumbEls[house.id];
+  const r = thumb.getBoundingClientRect();
+  return {
+    x: r.left + r.width / 2,
+    y: r.top + r.height * 0.2,
+  };
+}
+
+function fireAt(house, zombie) {
+  bulletActive = true;
+  const muzzle = muzzlePoint(house);
+  let x = muzzle.x, y = muzzle.y;
+
+  const zRect0 = zombie.el.getBoundingClientRect();
+  const initDist = Math.hypot(
+    (zRect0.left + zRect0.width / 2) - x,
+    (zRect0.top + zRect0.height * 0.3) - y
+  ) || 1;
+  const speed = initDist / BULLET_TRAVEL_MS; // px/ms — كل الطلقات تاخذ نفس المدة تقريبًا بغض النظر عن المسافة
+
+  const bullet = document.createElement('div');
+  bullet.className = 'bullet';
+  bullet.style.backgroundImage = `url(${house.bullet})`;
+  bullet.style.left = x + 'px';
+  bullet.style.top = y + 'px';
+  fxLayer.appendChild(bullet);
+
+  let last = performance.now();
+  function step(now) {
+    if (!zombie.alive) { bullet.remove(); bulletActive = false; return; }
+    const dt = now - last;
+    last = now;
+    const zRect = zombie.el.getBoundingClientRect();
+    const tx = zRect.left + zRect.width / 2;
+    const ty = zRect.top + zRect.height * 0.3;
+    const dx = tx - x, dy = ty - y;
+    const dist = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    bullet.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+
+    if (dist < 16) {
+      bullet.remove();
+      explodeAt(house, tx, ty);
+      killZombie(zombie, house);
+      bulletActive = false;
+      return;
+    }
+    const move = Math.min(dist, speed * dt);
+    x += (dx / dist) * move;
+    y += (dy / dist) * move;
+    bullet.style.left = x + 'px';
+    bullet.style.top = y + 'px';
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function explodeAt(house, x, y) {
+  const fx = document.createElement('div');
+  fx.className = 'fx';
+  fx.style.backgroundImage = `url(${house.fx})`;
+  fx.style.left = x + 'px';
+  fx.style.top = y + 'px';
+  fxLayer.appendChild(fx);
+  setTimeout(() => fx.remove(), 620);
+}
+
+function killZombie(zombie, house) {
+  if (!zombie.alive) return;
+  zombie.alive = false;
+  zombie.el.classList.add('dying');
+  if (house && house.perk && house.perk.type === 'killBonus' && Math.random() < house.perk.chance) {
+    const sRect = stage.getBoundingClientRect();
+    const zRect = zombie.el.getBoundingClientRect();
+    const relX = zRect.left - sRect.left + zRect.width / 2;
+    const relY = zRect.top - sRect.top;
+    addBalance(currentCoinValue(), relX, relY);
+  }
+  setTimeout(() => zombie.el.remove(), 400);
+  zombies = zombies.filter(z => z !== zombie);
+}
+
+/* ===================== عملات الرصيد داخل الساحة ===================== */
+let currentCoinEl = null;
+
+function currentCoinValue() {
+  const h = HOUSES.find(x => x.id === State.activeHouseId);
+  if (h && h.perk && h.perk.type === 'coinValue') return COIN_VALUE * h.perk.multiplier;
+  return COIN_VALUE;
+}
+
+function spawnCoin() {
+  if (currentCoinEl) { currentCoinEl.remove(); currentCoinEl = null; }
+  const rect = stage.getBoundingClientRect();
+  const coin = document.createElement('div');
+  coin.className = 'coin';
+  const cx = 12 + Math.random() * (rect.width - 40);
+  const cy = 14 + Math.random() * (rect.height * 0.4);
+  coin.style.left = cx + 'px';
+  coin.style.top = cy + 'px';
+  coin.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addBalance(currentCoinValue(), cx + 14, cy);
+    coin.remove();
+    if (currentCoinEl === coin) currentCoinEl = null;
+  });
+  stage.appendChild(coin);
+  currentCoinEl = coin;
+}
+
+function addBalance(amount, x, y) {
+  State.balance += amount;
+  saveState();
+  renderBalance();
+  spawnFloatText(x, y, `+${amount.toFixed(3)}$`);
+}
+
+function spawnFloatText(x, y, text) {
+  const t = document.createElement('div');
+  t.className = 'floattext';
+  t.textContent = text;
+  t.style.left = x + 'px';
+  t.style.top = y + 'px';
+  stage.appendChild(t);
+  setTimeout(() => t.remove(), 900);
+}
+
+function gameTick(house) {
+  const rect = stage.getBoundingClientRect();
+  zombies.forEach(z => {
+    if (!z.alive) return;
+    z.progress = Math.min(1, z.progress + ZOMBIE_SPEED);
+    const bottom = z.progress * (rect.height * 0.78);
+    z.el.style.bottom = bottom + 'px';
+    if (z.progress >= 1) killZombie(z, house);
+  });
+
+  const now = performance.now();
+  if (!bulletActive && zombies.length && now - lastFire > FIRE_COOLDOWN_MS) {
+    const target = zombies.reduce((a, b) => (a.progress > b.progress ? a : b));
+    fireAt(house, target);
+    lastFire = now;
+  }
+}
+
+let battleTimers = [];
+function startBattle(house) {
+  stopBattle();
+  const spawnT = setInterval(() => spawnZombie(house), ZOMBIE_SPAWN_MS);
+  const tickT = setInterval(() => gameTick(house), TICK_MS);
+  const coinInterval = (house.perk && house.perk.type === 'coinRate') ? house.perk.intervalMs : COIN_INTERVAL_MS;
+  const coinT = setInterval(spawnCoin, coinInterval);
+  const firstCoin = setTimeout(spawnCoin, 2000);
+  battleTimers = [spawnT, tickT, coinT, firstCoin];
+
+  if (house.perk && house.perk.type === 'passive') {
+    const passiveT = setInterval(() => {
+      const rect = stage.getBoundingClientRect();
+      addBalance(house.perk.amount, rect.width / 2, 26);
+    }, house.perk.intervalMs);
+    battleTimers.push(passiveT);
+  }
+}
+
+function stopBattle() {
+  battleTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
+  battleTimers = [];
+  zombies.forEach(z => { z.alive = false; z.el.remove(); });
+  zombies = [];
+  bulletActive = false;
+  if (currentCoinEl) { currentCoinEl.remove(); currentCoinEl = null; }
+}
+
+/* ===================== تشغيل اللعبة ===================== */
+renderBalance();
+renderBoxes();
+checkUnlocks();
+const activeHouse = HOUSES.find(h => h.id === State.activeHouseId) || HOUSES[0];
+startBattle(activeHouse);
+
+/* =========================================================
+   نقاط ربط لاحقة بالباك إند الحقيقي:
+   - State.progress.referrals / ads / deposit ← تحدَّث من السيرفر الحقيقي
+   - State.balance ← يُزامن مع رصيد المستخدم في قاعدة البيانات
+   بعد أي تحديث حقيقي: نادِ checkUnlocks() و saveState() و renderBalance()
+   ========================================================= */
+</script>
+
+<!-- ===== إعلانات 320×50 ثابتة — أسفل الصفحة بعد كل شي ===== -->
+<div class="ad-static-bottom" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+  <div id="adBottom1" style="width:320px;height:50px;"></div>
+  <div id="adBottom2" style="width:320px;height:50px;"></div>
+  <div id="adBottom3" style="width:320px;height:50px;"></div>
+</div>
+
+<script>
+/* ===================== محرّك تشغيل إعلانات 320×50 ===================== */
+function renderAdSlot(containerId, key) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const iframe = document.createElement('iframe');
+  iframe.style.width = '320px';
+  iframe.style.height = '50px';
+  iframe.style.border = '0';
+  iframe.style.overflow = 'hidden';
+  iframe.scrolling = 'no';
+  container.appendChild(iframe);
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(
+    '<script>atOptions = {"key":"' + key + '","format":"iframe","height":50,"width":320,"params":{}};<\/script>' +
+    '<script src="https://interventioncopiedloitering.com/' + key + '/invoke.js"><\/script>'
+  );
+  doc.close();
+}
+
+/* الأكواد الثابتة (أعلى + أسفل) */
+const AD_TOP_KEYS = [
+  'b895987c82805b8778a34f54911e8de0',
+  'ab4615d3d759a81e9b876abbcebaf690',
+  '3b49398bb9242d548c0464f244b621fa'
+];
+const AD_BOTTOM_INITIAL_KEYS = [
+  'b3570e82f7fb6c462dfdfded816f1576',
+  'de29a44d70992e967ae5d20275e77fab',
+  '280eab7c354ed87595a376b2f5e270cb'
+];
+/* الأكواد المتبقية — تُستخدم في تحديث الثلاثة النشطين أسفل الصفحة كل 5 ثواني عشوائيًا */
+const AD_ROTATE_POOL = [
+  'd47f719464108005a03a03e6d49fba1a',
+  '04bcf6532017b6790ab2ddac95a5621d',
+  '8c0574e870e5a3843e89d947bd38aaff',
+  '9f6fe4084cb3d8a8eb4d8246ee57ed25'
+];
+
+const AD_TOP_IDS = ['adTop1', 'adTop2', 'adTop3'];
+const AD_BOTTOM_IDS = ['adBottom1', 'adBottom2', 'adBottom3'];
+const AD_ACTIVE_IDS = AD_TOP_IDS.concat(AD_BOTTOM_IDS);
+
+function randomAdKey() {
+  return AD_ROTATE_POOL[Math.floor(Math.random() * AD_ROTATE_POOL.length)];
+}
+
+/* تحميل أولي */
+AD_TOP_IDS.forEach((id, i) => renderAdSlot(id, AD_TOP_KEYS[i]));
+AD_BOTTOM_IDS.forEach((id, i) => renderAdSlot(id, AD_BOTTOM_INITIAL_KEYS[i]));
+
+/* تحديث الستة (فوق وتحت) كل 5 ثواني بشكل عشوائي */
+setInterval(() => {
+  AD_ACTIVE_IDS.forEach(id => renderAdSlot(id, randomAdKey()));
+}, 5000);
+</script>
 </body>
 </html>
