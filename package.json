@@ -1,9 +1,0 @@
-{
-  "name": "rebh-arabi-api",
-  "version": "1.0.0",
-  "main": "index.js",
-  "engines": { "node": ">=18.x" },
-  "dependencies": {
-    "@neondatabase/serverless": "^0.9.5"
-  }
-}
